@@ -640,6 +640,8 @@ async function api(action, data={}) {
   try {
     const res = await fetch(GAS_URL, {
       method: 'POST',
+      mode: 'cors',
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action, ...data }),
     });
     return await res.json();
