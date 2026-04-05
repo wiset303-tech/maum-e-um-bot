@@ -511,6 +511,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   </div>
   <div class="nfc-msg gaegu" id="nfcMsg">카드를 대주세요</div>
   <button class="nfc-bypass" onclick="openLoginModal()">카드가 없어요 (아이디로 로그인)</button>
+  <button class="nfc-bypass" style="margin-top:8px;color:var(--mint2)" onclick="testWebNFC()">📡 NFC 기능 테스트</button>
   <!-- ACR122U HID 입력 수신용 숨김 인풋 -->
   <input id="nfc-input" type="text" autocomplete="off" readonly>
 </div>
@@ -537,9 +538,9 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <div class="modal-title">🔐 로그인</div>
     <button class="modal-close" onclick="closeModal('modal-login')">✕</button>
     <div class="inp-label">아이디</div>
-    <input class="inp inp-wrap" id="login-id" placeholder="아이디를 입력하세요" autocomplete="off" onkeydown="if(event.key==='Enter')loginByPw()">
+    <input class="inp inp-wrap" id="login-id" placeholder="아이디를 입력하세요" autocomplete="off" onkeydown="if(event.key===&quot;Enter&quot;)loginByPw()">
     <div class="inp-label" style="margin-top:8px">비밀번호</div>
-    <input class="inp" id="login-pw" type="password" placeholder="비밀번호를 입력하세요" onkeydown="if(event.key==='Enter')loginByPw()">
+    <input class="inp" id="login-pw" type="password" placeholder="비밀번호를 입력하세요" onkeydown="if(event.key===&quot;Enter&quot;)loginByPw()">
     <button class="btn btn-primary" style="margin-top:16px" onclick="loginByPw()">로그인하기</button>
   </div>
 </div>
@@ -657,12 +658,12 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 // ════════════════════════════════════════
 // 설정
 // ════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxef53CsHzTsfsd1LQV5hyZWcrDmamy0jcRRmJYDd8b-PGk4duvvaouFNEuPH1hcHQ2Yw/exec';
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbxef53CsHzTsfsd1LQV5hyZWcrDmamy0jcRRmJYDd8b-PGk4duvvaouFNEuPH1hcHQ2Yw/exec';
 
 // ════════════════════════════════════════
 // 오디오 시스템
 // ════════════════════════════════════════
-const AUDIO = {
+var AUDIO = {
   bgm     : null,
   enabled : { bgm: false, sfx: true },
 
@@ -676,7 +677,10 @@ const AUDIO = {
 
   playBgm: function() {
     this.initBgm();
-    if (this.enabled.bgm) this.bgm.play().catch(function(){});
+    if (this.enabled.bgm && this.bgm) {
+      var p = this.bgm.play();
+      if (p) p.catch(function(e){ console.log('BGM:', e.message); });
+    }
   },
 
   stopBgm: function() {
@@ -713,7 +717,7 @@ const AUDIO = {
 // ════════════════════════════════════════
 // 상태
 // ════════════════════════════════════════
-let STATE = {
+var STATE = {
   role: null,          // admin / teacher / student
   user: null,          // 로그인 정보
   emotions: [],        // 감정 마스터 데이터
@@ -756,7 +760,7 @@ async function api(action, data) {
 // 토스트
 // ════════════════════════════════════════
 function toast(msg, dur=2500) {
-  const t = document.getElementById('toast');
+  var t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), dur);
@@ -775,16 +779,16 @@ function openSettings()  { openModal('modal-settings'); }
 // 로딩 화면
 // ════════════════════════════════════════
 async function startLoading() {
-  const bar    = document.getElementById('loadingBar');
-  const status = document.getElementById('loadingStatus');
-  const title  = document.getElementById('loadingTitle');
-  const sub    = document.getElementById('loadingSub');
-  const heart  = document.getElementById('loadingHeart');
+  var bar    = document.getElementById('loadingBar');
+  var status = document.getElementById('loadingStatus');
+  var title  = document.getElementById('loadingTitle');
+  var sub    = document.getElementById('loadingSub');
+  var heart  = document.getElementById('loadingHeart');
 
   function setProgress(pct) {
     // 글자색: 30% → 100% opacity로 점점 진하게
-    const opacity = 0.3 + (pct / 100) * 0.7;
-    const color   = `rgba(20,70,50,${opacity.toFixed(2)})`;
+    var opacity = 0.3 + (pct / 100) * 0.7;
+    var color = 'rgba(20,70,50,' + opacity.toFixed(2) + ')';
     if(title)  title.style.color  = color;
     if(sub)    sub.style.color    = color;
     if(status) status.style.color = color;
@@ -797,14 +801,14 @@ async function startLoading() {
     }
   }
 
-  const steps = [
+  var steps = [
     { msg:'감정 데이터 불러오는 중...', pct:30,  fn: async()=>{ try{ await loadEmotionMaster(); }catch(e){} } },
     { msg:'학생 정보 준비 중...',        pct:60,  fn: async()=>{ await sleep(200); } },
     { msg:'봇 연결 확인 중...',          pct:85,  fn: async()=>{ await sleep(200); } },
     { msg:'준비 완료! 🌱',              pct:100, fn: async()=>{ await sleep(100); } },
   ];
 
-  for (const s of steps) {
+  for (var s of steps) {
     if(status) status.textContent = s.msg;
     setProgress(s.pct);
     await s.fn();
@@ -820,23 +824,23 @@ async function startLoading() {
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function loadEmotionMaster() {
-  const res = await api('get_emotion_master', {});
+  var res = await api('get_emotion_master', {});
   if (res.status === 'ok') STATE.emotions = res.data.emotions;
 }
 
 // ════════════════════════════════════════
 // NFC 처리 (ACR122U HID 방식)
 // ════════════════════════════════════════
-let nfcBuffer = '';
-let nfcTimer  = null;
+var nfcBuffer = '';
+var nfcTimer  = null;
 
 function focusNfcInput() {
-  const inp = document.getElementById('nfc-input');
+  var inp = document.getElementById('nfc-input');
   if (inp) { inp.value = ''; inp.focus(); }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const nfcInp = document.getElementById('nfc-input');
+  var nfcInp = document.getElementById('nfc-input');
   nfcInp.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       handleNfcUid(nfcBuffer.trim());
@@ -866,10 +870,10 @@ async function handleNfcUid(uid) {
   }
 
   // 일반 로그인 처리
-  const msg = document.getElementById('nfcMsg');
+  var msg = document.getElementById('nfcMsg');
   if(msg) msg.textContent = '확인 중...';
 
-  const res = await api('login_nfc', { nfc_uid: uid });
+  var res = await api('login_nfc', { nfc_uid: uid });
   if (res.status === 'ok') {
     AUDIO.sfx('nfc');
     onLoginSuccess(res.data);
@@ -884,11 +888,11 @@ async function handleNfcUid(uid) {
 // 로그인
 // ════════════════════════════════════════
 async function loginByPw() {
-  const id = document.getElementById('login-id').value.trim();
-  const pw = document.getElementById('login-pw').value;
+  var id = document.getElementById('login-id').value.trim();
+  var pw = document.getElementById('login-pw').value;
   if (!id || !pw) { toast('아이디와 비밀번호를 입력하세요'); return; }
 
-  const res = await api('login_pw', { id: id, pw: pw });
+  var res = await api('login_pw', { id: id, pw: pw });
   if (res.status === 'ok') {
     AUDIO.sfx('login');
     closeModal('modal-login');
@@ -943,19 +947,19 @@ function logout() {
 // 탭 시스템
 // ════════════════════════════════════════
 function buildTabs(tabs) {
-  const bar    = document.getElementById('tabBar');
-  const panels = document.getElementById('tabPanels');
+  var bar    = document.getElementById('tabBar');
+  var panels = document.getElementById('tabPanels');
   bar.innerHTML = '';
   panels.innerHTML = '';
 
   tabs.forEach((t, i) => {
-    const btn = document.createElement('button');
+    var btn = document.createElement('button');
     btn.className = 'tab-btn' + (i===0?' active':'');
     btn.textContent = t.label;
     btn.onclick = () => switchTab(i);
     bar.appendChild(btn);
 
-    const panel = document.createElement('div');
+    var panel = document.createElement('div');
     panel.className = 'tab-panel' + (i===0?' active':'');
     panel.id = 'panel-' + i;
     panel.innerHTML = t.html || '';
@@ -997,41 +1001,37 @@ function openTeacherForm() {
 }
 
 function dashboardHTML() {
-  return `
-    <div class="weather-box" id="weatherBox">
-      <span class="weather-emoji" id="weatherEmoji">🌤</span>
-      <div class="weather-label gaegu" id="weatherLabel">데이터 불러오는 중...</div>
-      <div class="weather-sub" id="weatherSub"></div>
-    </div>
-    <div class="stat-row">
-      <div class="stat-card"><div class="num gaegu" id="statTotal">-</div><div class="lbl">전체</div></div>
-      <div class="stat-card"><div class="num gaegu" id="statSubmit">-</div><div class="lbl">제출</div></div>
-      <div class="stat-card"><div class="num gaegu" id="statMiss">-</div><div class="lbl">미제출</div></div>
-    </div>
-    <div class="warmth-bar">
-      <div class="warmth-title gaegu">💧 훈훈습도계</div>
-      <div class="warmth-dots" id="warmthDots">
-        ${[1,2,3,4,5].map(i=>`<div class="warmth-dot" id="wd${i}">💧</div>`).join('')}
-      </div>
-    </div>
-    <div class="card card-mint">
-      <div class="card-label">오늘의 감정 분포</div>
-      <div class="emotion-list" id="emotionDist"></div>
-    </div>
-    <div class="card card-peach" id="notSubmitCard">
-      <div class="card-label">⚠️ 미제출 학생</div>
-      <div id="notSubmitList"></div>
-    </div>
-  `;
+  var warmthDots = '';
+  for (var wi=1; wi<=5; wi++) {
+    warmthDots += '<div class="warmth-dot" id="wd'+wi+'">💧</div>';
+  }
+  return '<div class="weather-box" id="weatherBox">' +
+    '<span class="weather-emoji" id="weatherEmoji">🌤</span>' +
+    '<div class="weather-label gaegu" id="weatherLabel">데이터 불러오는 중...</div>' +
+    '<div class="weather-sub" id="weatherSub"></div>' +
+    '</div>' +
+    '<div class="stat-row">' +
+      '<div class="stat-card"><div class="num gaegu" id="statTotal">-</div><div class="lbl">전체</div></div>' +
+      '<div class="stat-card"><div class="num gaegu" id="statSubmit">-</div><div class="lbl">제출</div></div>' +
+      '<div class="stat-card"><div class="num gaegu" id="statMiss">-</div><div class="lbl">미제출</div></div>' +
+    '</div>' +
+    '<div class="warmth-bar">' +
+      '<div class="warmth-title gaegu">💧 훈훈습도계</div>' +
+      '<div class="warmth-dots" id="warmthDots">' + warmthDots + '</div>' +
+    '</div>' +
+    '<div class="card card-mint">' +
+      '<div class="card-label">오늘의 감정 분포</div>' +
+      '<div class="emotion-list" id="emotionDist"></div>' +
+    '</div>' +
+    '<div class="card card-peach" id="notSubmitCard">' +
+      '<div class="card-label">⚠️ 미제출 학생</div>' +
+      '<div id="notSubmitList"></div>' +
+    '</div>';
 }
 
 function studentMgmtHTML() {
-  return `
-    <button class="btn btn-primary" style="margin-bottom:14px" onclick="openNfcRegister()">
-      🪪 + 학생 NFC 카드 등록
-    </button>
-    <div id="studentList"></div>
-  `;
+  return '<button class="btn btn-primary" style="margin-bottom:14px" onclick="openNfcRegister()">🪪 + 학생 NFC 카드 등록</button>' +
+    '<div id="studentList"></div>';
 }
 
 function recordsHTML() {
@@ -1087,7 +1087,7 @@ function renderCal() {
     var isSat   = (new Date(y,m,d).getDay()===6);
     var dayColor = isSun?'#e05050':isSat?'#4080e0':'var(--navy)';
 
-    cells += '<div onclick="selectCalDay('' + dateStr + '')" style="' +
+    cells += '<div onclick="selectCalDay(\'' + dateStr + '\')" style="' +
       'cursor:pointer;border-radius:10px;padding:4px 2px;text-align:center;' +
       'background:' + (isToday ? 'var(--mint3)' : 'transparent') + ';' +
       'transition:background .2s">' +
@@ -1120,35 +1120,12 @@ async function initCal() {
   renderCal();
 }
 
-function settingsHTML() {
-  return `
-    <div class="card">
-      <div class="card-label">알림 설정</div>
-      <div class="settings-item">
-        <div><div class="settings-label">🔔 등교 태깅 알림</div></div>
-        <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
-      </div>
-      <div class="settings-item">
-        <div><div class="settings-label">⚠️ 위기 학생 알림</div></div>
-        <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
-      </div>
-      <div class="settings-item">
-        <div><div class="settings-label">🎵 배경음악</div></div>
-        <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
-      </div>
-    </div>
-    <div class="card card-peach" style="margin-top:8px">
-      <div class="card-label">계정 정보</div>
-      <div style="font-size:13px;color:var(--gray)" id="teacherInfoBox"></div>
-    </div>
-    <button class="btn btn-secondary" style="margin-top:8px" onclick="logout()">로그아웃</button>
-  `;
-}
+
 
 // ════════════════════════════════════════
 // 대시보드 로드
 // ════════════════════════════════════════
-const WEATHER_MAP = {
+var WEATHER_MAP = {
   sunny:         { emoji:'☀️', label:'맑음', sub:'학급 전체가 밝고 긍정적이에요!' },
   partly_cloudy: { emoji:'🌤', label:'구름 조금', sub:'전반적으로 안정적인 하루예요' },
   cloudy:        { emoji:'☁️', label:'구름 많음', sub:'가벼운 환기가 필요할 수 있어요' },
@@ -1158,20 +1135,20 @@ const WEATHER_MAP = {
 };
 
 async function loadDashboard() {
-  const teacher_uid = STATE.user?.teacher_uid || '';
-  const res = await api('get_dashboard', { teacher_uid });
+  var teacher_uid = STATE.user?.teacher_uid || '';
+  var res = await api('get_dashboard', { teacher_uid });
   if (res.status !== 'ok') return;
 
-  const d = res.data;
+  var d = res.data;
   STATE.dashboard = d;
 
   // 날씨
-  const w = WEATHER_MAP[d.weather] || WEATHER_MAP.none;
-  const box = document.getElementById('weatherBox');
+  var w = WEATHER_MAP[d.weather] || WEATHER_MAP.none;
+  var box = document.getElementById('weatherBox');
   if(box) {
-    const submitted = d.submitted || 0;
-    const total     = d.total_students || 1;
-    const ratio     = submitted / total;
+    var submitted = d.submitted || 0;
+    var total     = d.total_students || 1;
+    var ratio     = submitted / total;
     box.style.minHeight = Math.max(120, 120 + ratio * 80) + 'px';
   }
   setText('weatherEmoji', w.emoji);
@@ -1184,28 +1161,27 @@ async function loadDashboard() {
   setText('statMiss',   d.total_students - d.submitted);
 
   // 훈훈습도계
-  for(let i=1;i<=5;i++){
-    const dot = document.getElementById('wd'+i);
+  for(var i=1;i<=5;i++){
+    var dot = document.getElementById('wd'+i);
     if(dot) dot.classList.toggle('filled', i <= (d.warmth_count||0));
   }
 
   // 감정 분포
-  const dist = document.getElementById('emotionDist');
-  if(dist) dist.innerHTML = `
-    <span class="emotion-chip chip-pos">☀️ 긍정 ${d.positive_count}</span>
-    <span class="emotion-chip chip-neu">☁️ 중립 ${d.neutral_count}</span>
-    <span class="emotion-chip chip-neg">☔ 부정 ${d.negative_count}</span>
-  `;
+  var dist = document.getElementById('emotionDist');
+  if(dist) dist.innerHTML =
+    '<span class="emotion-chip chip-pos">☀️ 긍정 ' + d.positive_count + '</span>' +
+    '<span class="emotion-chip chip-neu">☁️ 중립 ' + d.neutral_count + '</span>' +
+    '<span class="emotion-chip chip-neg">☔ 부정 ' + d.negative_count + '</span>';
 
   // 미제출
-  const list = document.getElementById('notSubmitList');
+  var list = document.getElementById('notSubmitList');
   if(list) {
     if(!d.not_submitted?.length) {
       list.innerHTML = '<div style="font-size:13px;color:var(--gray)">모두 제출했어요 🎉</div>';
     } else {
-      list.innerHTML = d.not_submitted.map(s=>
-        `<div style="font-size:13px;padding:4px 0">${s.num}번 ${s.name}</div>`
-      ).join('');
+      list.innerHTML = d.not_submitted.map(function(s){
+        return '<div style="font-size:13px;padding:4px 0">'+s.num+'번 '+s.name+'</div>';
+      }).join('');
     }
   }
 }
@@ -1214,34 +1190,33 @@ async function loadDashboard() {
 // 학생 목록
 // ════════════════════════════════════════
 async function loadStudents() {
-  const res = await api('get_students', { teacher_uid: STATE.user?.teacher_uid });
+  var res = await api('get_students', { teacher_uid: STATE.user?.teacher_uid });
   if(res.status!=='ok') return;
   STATE.students = res.data.students;
   renderStudentList();
 }
 
 function renderStudentList() {
-  const el = document.getElementById('studentList');
+  var el = document.getElementById('studentList');
   if(!el) return;
   if(!STATE.students.length) { el.innerHTML='<div style="text-align:center;color:var(--gray);padding:20px" class="gaegu">등록된 학생이 없어요</div>'; return; }
 
-  el.innerHTML = STATE.students.map(s => `
-    <div class="student-item ${s.active==='Y'?'':'inactive'}">
-      <div class="student-avatar">${s.num}</div>
-      <div class="student-info">
-        <div class="student-name">${s.name}</div>
-        <div class="student-id">ID: ${s.student_id}</div>
-        <div class="student-nfc">${s.nfc_uid ? '🪪 NFC 등록됨' : '🔲 NFC 없음'}</div>
-      </div>
-      <div class="student-actions">
-        ${s.active==='Y'
-          ? `<button class="btn btn-sm btn-secondary" onclick="replaceCard('${s.student_uid}','${s.name}')">카드교체</button>
-             <button class="btn btn-sm" style="background:var(--rose2);color:#a03030" onclick="deactivate('${s.student_uid}','${s.name}')">비활성</button>`
-          : `<span style="font-size:11px;color:var(--gray)">비활성</span>`
-        }
-      </div>
-    </div>
-  `).join('');
+  el.innerHTML = STATE.students.map(function(s) {
+    var uid2 = s.student_uid, nm2 = s.name;
+    var actions = s.active==='Y'
+      ? '<button class="btn btn-sm btn-secondary" onclick="replaceCard(this)" data-uid="'+uid2+'" data-name="'+nm2+'">카드교체</button>' +
+        '<button class="btn btn-sm" style="background:var(--rose2);color:#a03030" onclick="deactivateBtn(this)" data-uid="'+uid2+'" data-name="'+nm2+'">비활성</button>'
+      : '<span style="font-size:11px;color:var(--gray)">비활성</span>';
+    return '<div class="student-item '+(s.active==='Y'?'':'inactive')+'">' +
+      '<div class="student-avatar">'+s.num+'</div>' +
+      '<div class="student-info">' +
+        '<div class="student-name">'+s.name+'</div>' +
+        '<div class="student-id">ID: '+s.student_id+'</div>' +
+        '<div class="student-nfc">'+(s.nfc_uid?'🪪 NFC 등록됨':'🔲 NFC 없음')+'</div>' +
+      '</div>' +
+      '<div class="student-actions">'+actions+'</div>' +
+    '</div>';
+  }).join('');
 }
 
 // ════════════════════════════════════════
@@ -1257,16 +1232,16 @@ function openNfcRegister() {
 }
 
 async function handleRegisterNfc(uid) {
-  const statusEl = document.getElementById('nfcRegisterStatus');
-  const uidEl    = document.getElementById('nfcRegisterUid');
-  const animEl   = document.getElementById('nfcRegisterAnim');
+  var statusEl = document.getElementById('nfcRegisterStatus');
+  var uidEl    = document.getElementById('nfcRegisterUid');
+  var animEl   = document.getElementById('nfcRegisterAnim');
 
   // 중복 확인
-  const dup = await api('check_duplicate_nfc', { nfc_uid: uid });
+  var dup = await api('check_duplicate_nfc', { nfc_uid: uid });
   if(dup.status==='ok' && dup.data.duplicate) {
-    statusEl.textContent = `이미 등록된 카드예요 (${dup.data.name})`;
+    statusEl.textContent = '이미 등록된 카드예요 (' + dup.data.name + ')';
     animEl.textContent = '❌';
-    toast(`이미 ${dup.data.name}의 카드입니다`);
+    toast('이미 ' + dup.data.name + '의 카드입니다');
     await sleep(1500);
     statusEl.textContent = '다른 카드를 대주세요';
     animEl.textContent = '🪪';
@@ -1293,11 +1268,12 @@ async function handleRegisterNfc(uid) {
 }
 
 function generateId() {
-  const u = STATE.user;
-  const num = document.getElementById('sf-num').value;
+  var u = STATE.user;
+  var num = document.getElementById('sf-num').value;
   if(!num) { toast('번호를 먼저 입력하세요'); return; }
   // 간이 생성 (서버 로직과 동일)
-  const id = `${u.school_name?.slice(0,2)||'xx'}e${String(u.year||2026).slice(-2)}${u.grade||''}${u.class||''}${String(num).padStart(2,'0')}`;
+  var sn = (u.school_name||'xx').slice(0,2);
+  var id = sn+'e'+String(u.year||2026).slice(-2)+(u.grade||'')+(u.class||'')+('0'+num).slice(-2);
   document.getElementById('sf-id').value = id;
 }
 
@@ -1329,16 +1305,16 @@ async function submitTeacherForm() {
 }
 
 async function submitStudentForm() {
-  const u    = STATE.user;
-  const name = document.getElementById('sf-name').value.trim();
-  const num  = document.getElementById('sf-num').value.trim();
-  const id   = document.getElementById('sf-id').value.trim();
-  const pw   = document.getElementById('sf-pw').value.trim();
-  const nfc  = document.getElementById('sf-nfc-uid').value;
+  var u    = STATE.user;
+  var name = document.getElementById('sf-name').value.trim();
+  var num  = document.getElementById('sf-num').value.trim();
+  var id   = document.getElementById('sf-id').value.trim();
+  var pw   = document.getElementById('sf-pw').value.trim();
+  var nfc  = document.getElementById('sf-nfc-uid').value;
 
   if(!name||!num) { toast('이름과 번호는 필수예요'); return; }
 
-  const res = await api('register_student', {
+  var res = await api('register_student', {
     nfc_uid: nfc, name, num: parseInt(num),
     teacher_uid: u.teacher_uid,
     school_name: u.school_name, school_type: u.school_type||'e',
@@ -1356,16 +1332,28 @@ async function submitStudentForm() {
   }
 }
 
+function deactivateBtn(btn) {
+  var uid = btn.getAttribute('data-uid');
+  var name = btn.getAttribute('data-name');
+  deactivate(uid, name);
+}
 async function deactivate(uid, name) {
-  if(!confirm(`${name} 학생을 비활성화할까요?`)) return;
-  const res = await api('deactivate_student', { student_uid: uid });
+  if(!confirm(name+' 학생을 비활성화할까요?')) return;
+  var res = await api('deactivate_student', { student_uid: uid });
   if(res.status==='ok') { toast('비활성화 완료'); loadStudents(); }
   else toast(res.message);
 }
 
-function replaceCard(uid, name) {
+function replaceCard(btn) {
+  var uid = btn.getAttribute('data-uid');
+  var name = btn.getAttribute('data-name');
+  if (!uid) return;
+  // 기존 로직
+  replaceCardById(uid, name);
+}
+function replaceCardById(uid, name) {
   STATE.nfcPending = { mode:'replace', student_uid: uid, name };
-  document.getElementById('nfcRegisterStatus').textContent = `${name}의 새 카드를 대주세요`;
+  document.getElementById('nfcRegisterStatus').textContent = name+'의 새 카드를 대주세요';
   document.getElementById('nfcRegisterUid').textContent = '';
   document.getElementById('nfcRegisterAnim').textContent = '🔄';
   openModal('modal-nfc-register');
@@ -1378,7 +1366,7 @@ function replaceCard(uid, name) {
 async function loadRecords(dateStr) {
   var date = dateStr || new Date().toISOString().slice(0,10);
   var res  = await api('get_emotions', { teacher_uid: STATE.user ? STATE.user.teacher_uid : '', date: date });
-  const el   = document.getElementById('recordList');
+  var el   = document.getElementById('recordList');
   if(!el||res.status!=='ok') return;
 
   if(!res.data.emotions.length) {
@@ -1386,17 +1374,17 @@ async function loadRecords(dateStr) {
     return;
   }
 
-  const macroLabel = { positive:'☀️', neutral:'☁️', negative:'☔' };
-  el.innerHTML = res.data.emotions.map(e=>`
-    <div class="card" style="margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <b>${e.student_name}</b>
-        <span>${macroLabel[e.macro_emotion]||''} ${e.micro_emotion||''}</span>
-      </div>
-      ${e.custom_text?`<div style="font-size:12px;color:var(--gray);margin-top:4px">"${e.custom_text}"</div>`:''}
-      <div style="font-size:11px;color:var(--gray);margin-top:4px">${String(e.timestamp).slice(0,16)}</div>
-    </div>
-  `).join('');
+  var macroLabel = { positive:'☀️', neutral:'☁️', negative:'☔' };
+  el.innerHTML = res.data.emotions.map(function(e){
+    return '<div class="card" style="margin-bottom:10px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center">' +
+        '<b>'+e.student_name+'</b>' +
+        '<span>'+(macroLabel[e.macro_emotion]||'')+' '+(e.micro_emotion||'')+'</span>' +
+      '</div>' +
+      (e.custom_text?'<div style="font-size:12px;color:var(--gray);margin-top:4px">"'+e.custom_text+'"</div>':'') +
+      '<div style="font-size:11px;color:var(--gray);margin-top:4px">'+String(e.timestamp).slice(0,16)+'</div>' +
+    '</div>';
+  }).join('');
 }
 
 // ════════════════════════════════════════
@@ -1414,28 +1402,20 @@ function buildStudentUI() {
 
 // ── 감정 입력 ──
 function emotionInputHTML() {
-  return `
-    <div class="welcome-banner">
-      <h2 class="gaegu">${STATE.user?.name}아, 안녕! 👋</h2>
-      <p>오늘 마음 날씨는 어떤가요?</p>
-    </div>
-    <div class="macro-btns">
-      <div class="macro-btn neg" onclick="selectMacro('negative',this)">
-        <span class="emoji">☔</span><span class="lbl">힘들어요</span>
-      </div>
-      <div class="macro-btn neu" onclick="selectMacro('neutral',this)">
-        <span class="emoji">☁️</span><span class="lbl">그냥 그래요</span>
-      </div>
-      <div class="macro-btn pos" onclick="selectMacro('positive',this)">
-        <span class="emoji">☀️</span><span class="lbl">좋아요!</span>
-      </div>
-    </div>
-    <div id="microSection" class="hidden">
-      <div class="card-label" style="margin-bottom:8px">어떤 감정인지 골라봐요</div>
-      <div class="micro-grid" id="microGrid"></div>
-      <button class="btn btn-primary" onclick="submitEmotion()" style="margin-top:8px">오늘의 감정 저장하기 💛</button>
-    </div>
-  `;
+  var uname = STATE.user ? STATE.user.name : '';
+  return '<div class="welcome-banner">' +
+    '<h2 class="gaegu">'+uname+'아, 안녕! 👋</h2>' +
+    '<p>오늘 마음 날씨는 어떤가요?</p></div>' +
+    '<div class="macro-btns">' +
+      '<div class="macro-btn neg" onclick="selectMacro(&quot;negative&quot;,this)"><span class="emoji">☔</span><span class="lbl">힘들어요</span></div>' +
+      '<div class="macro-btn neu" onclick="selectMacro(&quot;neutral&quot;,this)"><span class="emoji">☁️</span><span class="lbl">그냥 그래요</span></div>' +
+      '<div class="macro-btn pos" onclick="selectMacro(&quot;positive&quot;,this)"><span class="emoji">☀️</span><span class="lbl">좋아요!</span></div>' +
+    '</div>' +
+    '<div id="microSection" class="hidden">' +
+      '<div class="card-label" style="margin-bottom:8px">어떤 감정인지 골라봐요</div>' +
+      '<div class="micro-grid" id="microGrid"></div>' +
+      '<button class="btn btn-primary" onclick="submitEmotion()" style="margin-top:8px">오늘의 감정 저장하기 💛</button>' +
+    '</div>';
 }
 
 function selectMacro(cat, el) {
@@ -1448,26 +1428,28 @@ function selectMacro(cat, el) {
 }
 
 function renderEmotionGrid(cat) {
-  const grid = document.getElementById('microGrid');
+  var grid = document.getElementById('microGrid');
   if(!grid) return;
 
-  const pool = STATE.emotions.filter(e => !cat || e.category === cat);
+  var pool = STATE.emotions.filter(e => !cat || e.category === cat);
   // 랜덤 7개 (긍정3 중립1 부정3 비율 유지)
-  const pos = shuffle(pool.filter(e=>e.category==='positive')).slice(0,3);
-  const neu = shuffle(pool.filter(e=>e.category==='neutral')).slice(0,1);
-  const neg = shuffle(pool.filter(e=>e.category==='negative')).slice(0,3);
-  const selected = shuffle([...pos,...neu,...neg]).slice(0,7);
+  var pos = shuffle(pool.filter(e=>e.category==='positive')).slice(0,3);
+  var neu = shuffle(pool.filter(e=>e.category==='neutral')).slice(0,1);
+  var neg = shuffle(pool.filter(e=>e.category==='negative')).slice(0,3);
+  var selected = shuffle([...pos,...neu,...neg]).slice(0,7);
 
-  grid.innerHTML = selected.map(e=>`
-    <div class="micro-btn" onclick="selectMicro('${e.emotion_id}','${e.word}',this)">
-      ${e.word}
-    </div>
-  `).join('') + `
-    <div class="micro-btn custom-btn" onclick="openCustomEmotion()">✏️ 직접 쓰기</div>
-    <div class="micro-btn more-btn" onclick="openMoreEmotions('${cat||''}')">➕ 더보기</div>
-  `;
+  grid.innerHTML = selected.map(function(e){
+    return '<div class="micro-btn" onclick="selectMicroBtn(this)" data-id="'+e.emotion_id+'" data-word="'+e.word+'">'+e.word+'</div>';
+  }).join('') +
+    '<div class="micro-btn custom-btn" onclick="openCustomEmotion()">✏️ 직접 쓰기</div>' +
+    '<div class="micro-btn more-btn" onclick="openMoreEmotions(this.dataset.cat)" data-cat="'+(cat||'')+'">➕ 더보기</div>';
 }
 
+function selectMicroBtn(el) {
+  var id   = el.getAttribute('data-id');
+  var word = el.getAttribute('data-word');
+  selectMicro(id, word, el);
+}
 function selectMicro(id, word, el) {
   STATE.selectedMicro = { id, word };
   document.querySelectorAll('.micro-btn').forEach(b=>b.classList.remove('selected'));
@@ -1475,29 +1457,27 @@ function selectMicro(id, word, el) {
 }
 
 function openCustomEmotion() {
-  const word = prompt('어떤 감정인지 직접 써봐요 ✏️');
+  var word = prompt('어떤 감정인지 직접 써봐요 ✏️');
   if(!word) return;
   STATE.selectedMicro = { id:'custom', word };
-  toast(`"${word}" 감정으로 저장할게요`);
+  toast('"'+word+'" 감정으로 저장할게요');
 }
 
 function openMoreEmotions(cat) {
-  const pool = STATE.emotions.filter(e=>!cat||e.category===cat);
-  const el   = document.getElementById('more-emotions-list');
-  el.innerHTML = pool.map(e=>`
-    <div class="micro-btn" onclick="selectMicro('${e.emotion_id}','${e.word}',this);closeModal('modal-more-emotions')" style="margin:0">
-      ${e.word}
-    </div>
-  `).join('');
+  var pool = STATE.emotions.filter(e=>!cat||e.category===cat);
+  var el   = document.getElementById('more-emotions-list');
+  el.innerHTML = pool.map(function(e){
+    return '<div class="micro-btn" onclick="selectMicroBtn(this);closeModal(&quot;modal-more-emotions&quot;)" data-id="'+e.emotion_id+'" data-word="'+e.word+'" style="margin:0">'+e.word+'</div>';
+  }).join('');
   openModal('modal-more-emotions');
 }
 
 async function submitEmotion() {
   if(!STATE.selectedMacro) { toast('감정을 먼저 골라요'); return; }
-  const micro = STATE.selectedMicro;
-  const scoreMap = {'positive':2,'neutral':0,'negative':-2};
+  var micro = STATE.selectedMicro;
+  var scoreMap = {'positive':2,'neutral':0,'negative':-2};
 
-  const res = await api('save_emotion', {
+  var res = await api('save_emotion', {
     student_uid  : STATE.user.student_uid,
     student_name : STATE.user.name,
     teacher_uid  : STATE.user.teacher_uid,
@@ -1523,53 +1503,43 @@ async function submitEmotion() {
 
 // ── 봇 대화 ──
 function chatHTML() {
-  return `
-    <div class="chat-wrap">
-      <div class="chat-messages" id="chatMessages"></div>
-      <div class="chat-input-row">
-        <input class="chat-input" id="chatInput" placeholder="마음이음봇에게 말해봐요..." onkeydown="if(event.key==='Enter')sendChat()">
-        <button class="chat-send" onclick="sendChat()">➤</button>
-      </div>
-    </div>
-  `;
+  return '<div class="chat-wrap">' +
+    '<div class="chat-messages" id="chatMessages"></div>' +
+    '<div class="chat-input-row">' +
+      '<input class="chat-input" id="chatInput" placeholder="마음이음봇에게 말해봐요..." onkeydown="if(event.key===&quot;Enter&quot;)sendChat()">' +
+      '<button class="chat-send" onclick="sendChat()">➤</button>' +
+    '</div></div>';
 }
 
 function addBotMsg(text) {
-  const wrap = document.getElementById('chatMessages');
+  var wrap = document.getElementById('chatMessages');
   if(!wrap) return;
-  wrap.innerHTML += `
-    <div class="chat-msg bot">
-      <div class="chat-avatar">🤖</div>
-      <div class="chat-bubble">${text}</div>
-    </div>`;
+  wrap.innerHTML += '<div class="chat-msg bot"><div class="chat-avatar">🤖</div><div class="chat-bubble">'+text+'</div></div>';
   wrap.scrollTop = wrap.scrollHeight;
   STATE.chatHistory.push({ role:'model', text });
 }
 
 function addUserMsg(text) {
-  const wrap = document.getElementById('chatMessages');
+  var wrap = document.getElementById('chatMessages');
   if(!wrap) return;
-  wrap.innerHTML += `
-    <div class="chat-msg user">
-      <div class="chat-bubble">${text}</div>
-    </div>`;
+  wrap.innerHTML += '<div class="chat-msg user"><div class="chat-bubble">'+text+'</div></div>';
   wrap.scrollTop = wrap.scrollHeight;
   STATE.chatHistory.push({ role:'user', text });
 }
 
 async function startBotGreeting() {
-  const micro = STATE.selectedMicro?.word || '';
-  addBotMsg(`${STATE.user.name}아, 오늘 <b>${micro}</b> 감정이구나 💙<br>더 이야기하고 싶은 게 있으면 말해봐!`);
+  var micro = STATE.selectedMicro?.word || '';
+  addBotMsg(STATE.user.name+'아, 오늘 <b>'+micro+'</b> 감정이구나 💙<br>더 이야기하고 싶은 게 있으면 말해봐!');
 }
 
 async function sendChat() {
-  const inp = document.getElementById('chatInput');
-  const msg = inp?.value.trim();
+  var inp = document.getElementById('chatInput');
+  var msg = inp?.value.trim();
   if(!msg) return;
   inp.value = '';
   addUserMsg(msg);
 
-  const res = await api('chat_bot', {
+  var res = await api('chat_bot', {
     message      : msg,
     student_name : STATE.user.name,
     macro_emotion: STATE.selectedMacro || 'neutral',
@@ -1583,29 +1553,22 @@ async function sendChat() {
 
 // ── 마음토큰 ──
 function tokenHTML() {
-  return `
-    <div class="token-balance">
-      <div class="lbl">내 마음토큰</div>
-      <div class="amount" id="tokenAmount">...</div>
-      <div class="lbl">개</div>
-    </div>
-    <div class="token-actions">
-      <button class="btn btn-peach" onclick="saveToken()">🪙 저축하기</button>
-      <button class="btn btn-lav" onclick="openGiftSelect()">💌 선물하기</button>
-    </div>
-    <div class="card card-lemon" style="margin-top:8px">
-      <div class="card-label gaegu">마음토큰이란?</div>
-      <div style="font-size:13px;line-height:1.7;color:var(--gray)">
-        매일 로그인하면 토큰 1개를 받아요.<br>
-        토큰을 저축하거나 힘든 친구에게 선물할 수 있어요.<br>
-        선물받으면 한 번에 2개를 저축할 수 있어요 💛
-      </div>
-    </div>
-  `;
+  return '<div class="token-balance">' +
+    '<div class="lbl">내 마음토큰</div>' +
+    '<div class="amount" id="tokenAmount">...</div>' +
+    '<div class="lbl">개</div></div>' +
+    '<div class="token-actions">' +
+      '<button class="btn btn-peach" onclick="saveToken()">🪙 저축하기</button>' +
+      '<button class="btn btn-lav" onclick="openGiftSelect()">💌 선물하기</button>' +
+    '</div>' +
+    '<div class="card card-lemon" style="margin-top:8px">' +
+      '<div class="card-label gaegu">마음토큰이란?</div>' +
+      '<div style="font-size:13px;line-height:1.7;color:var(--gray)">매일 로그인하면 토큰 1개를 받아요.<br>토큰을 저축하거나 힘든 친구에게 선물할 수 있어요.<br>선물받으면 한 번에 2개를 저축할 수 있어요 💛</div>' +
+    '</div>';
 }
 
 async function loadTokenBalance() {
-  const res = await api('get_token_balance', { student_uid: STATE.user.student_uid });
+  var res = await api('get_token_balance', { student_uid: STATE.user.student_uid });
   if(res.status==='ok') {
     STATE.tokenBalance = res.data;
     setText('tokenAmount', res.data.current_balance);
@@ -1613,7 +1576,7 @@ async function loadTokenBalance() {
 }
 
 async function saveToken() {
-  const res = await api('save_token', {
+  var res = await api('save_token', {
     student_uid : STATE.user.student_uid,
     student_name: STATE.user.name,
     teacher_uid : STATE.user.teacher_uid,
@@ -1623,16 +1586,16 @@ async function saveToken() {
 }
 
 function openGiftSelect() {
-  const s = STATE.students.filter(s=>s.student_uid!==STATE.user.student_uid&&s.active==='Y');
+  var s = STATE.students.filter(s=>s.student_uid!==STATE.user.student_uid&&s.active==='Y');
   if(!s.length) { toast('선물할 친구가 없어요'); return; }
-  const name = prompt('선물할 친구 이름을 입력하세요:\n' + s.map(x=>x.name).join(', '));
-  const friend = s.find(x=>x.name===name);
+  var name = prompt('선물할 친구 이름을 입력하세요:\n' + s.map(x=>x.name).join(', '));
+  var friend = s.find(x=>x.name===name);
   if(!friend) { toast('찾을 수 없어요'); return; }
   giftToken(friend);
 }
 
 async function giftToken(friend) {
-  const res = await api('gift_token', {
+  var res = await api('gift_token', {
     from_uid : STATE.user.student_uid,
     from_name: STATE.user.name,
     to_uid   : friend.student_uid,
@@ -1645,28 +1608,20 @@ async function giftToken(friend) {
 
 // ── 마음앨범 ──
 function albumHTML() {
-  return `
-    <button class="btn btn-primary" style="margin-bottom:14px" onclick="uploadAlbum()">
-      📸 오늘 사진 올리기
-    </button>
-    <div id="albumGrid" class="album-grid"></div>
-  `;
+  return '<button class="btn btn-primary" style="margin-bottom:14px" onclick="uploadAlbum()">📸 오늘 사진 올리기</button><div id="albumGrid" class="album-grid"></div>';
 }
 
 async function loadAlbum() {
-  const res = await api('get_album', { student_uid: STATE.user.student_uid });
-  const el  = document.getElementById('albumGrid');
+  var res = await api('get_album', { student_uid: STATE.user.student_uid });
+  var el  = document.getElementById('albumGrid');
   if(!el||res.status!=='ok') return;
   if(!res.data.album.length) {
     el.innerHTML='<div class="album-empty">아직 사진이 없어요 📷</div>';
     return;
   }
-  el.innerHTML = res.data.album.map(a=>`
-    <div class="album-item">
-      <img src="${a.image_url}" alt="마음앨범" onerror="this.src=''">
-      <div class="album-date">${a.date}<br>${a.caption||''}</div>
-    </div>
-  `).join('');
+  el.innerHTML = res.data.album.map(function(a){
+    return '<div class="album-item"><img src="'+a.image_url+'" alt="마음앨범" onerror="this.src=&quot;&quot;"><div class="album-date">'+a.date+'<br>'+(a.caption||'')+'</div></div>';
+  }).join('');
 }
 
 async function uploadAlbum() {
@@ -1678,16 +1633,54 @@ async function uploadAlbum() {
 // 유틸
 // ════════════════════════════════════════
 function setText(id, val) {
-  const el = document.getElementById(id);
+  var el = document.getElementById(id);
   if(el) el.textContent = val ?? '';
 }
 
 function shuffle(arr) {
-  for(let i=arr.length-1;i>0;i--) {
-    const j = Math.floor(Math.random()*(i+1));
+  for(var i=arr.length-1;i>0;i--) {
+    var j = Math.floor(Math.random()*(i+1));
     [arr[i],arr[j]]=[arr[j],arr[i]];
   }
   return arr;
+}
+
+// ════════════════════════════════════════
+// WebNFC 테스트
+// ════════════════════════════════════════
+async function testWebNFC() {
+  // WebNFC 지원 여부 먼저 확인
+  if (!('NDEFReader' in window)) {
+    toast('❌ 이 브라우저는 WebNFC를 지원하지 않아요');
+    var msg = '웨일/크롬 안드로이드에서만 WebNFC가 작동해요.\n\n' +
+              '대신 ACR122U USB 리더기를 사용하면\nPC/태블릿에서도 NFC 태깅이 가능해요.';
+    setTimeout(function(){ alert(msg); }, 500);
+    return;
+  }
+
+  toast('📡 NFC 리더 시작 중...');
+  try {
+    var ndef = new NDEFReader();
+    await ndef.scan();
+    toast('✅ NFC 준비됐어요! 카드를 대주세요');
+
+    ndef.onreadingerror = function() {
+      toast('❌ 카드 읽기 오류');
+    };
+
+    ndef.onreading = function(event) {
+      var uid = event.serialNumber || 'UID없음';
+      toast('✅ NFC 작동! UID: ' + uid);
+      alert('NFC 태깅 성공!\nUID: ' + uid + '\n\nWebNFC가 정상 작동해요 🎉');
+    };
+  } catch(err) {
+    if (err.name === 'NotAllowedError') {
+      toast('❌ NFC 권한이 거부됐어요');
+      alert('NFC 권한을 허용해주세요.\n브라우저 설정에서 NFC 권한을 허용하거나\nHTTPS 환경인지 확인해주세요.');
+    } else {
+      toast('❌ NFC 오류: ' + err.message);
+    }
+  }
 }
 
 // ════════════════════════════════════════
