@@ -68,6 +68,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   animation:popIn .25s ease;
 }
 @keyframes popIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+@keyframes spin{to{transform:rotate(360deg)}}
 .modal-title{font-family:'Black Han Sans',sans-serif;font-size:20px;color:var(--mint2);margin-bottom:16px;text-align:center}
 .modal-close{
   position:absolute;top:14px;right:16px;
@@ -677,6 +678,36 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   </div>
 </div>
 
+<!-- ══ 로딩 오버레이 ══ -->
+<div id="loading-overlay" class="hidden" style="
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.45);
+  backdrop-filter:blur(3px);
+  z-index:9500;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:16px;
+">
+  <div style="
+    background:#fff;border-radius:24px;padding:32px 40px;
+    display:flex;flex-direction:column;align-items:center;gap:16px;
+    box-shadow:0 20px 60px rgba(0,0,0,.25);
+  ">
+    <div style="
+      width:56px;height:56px;border-radius:50%;
+      border:5px solid var(--mint3);
+      border-top-color:var(--mint2);
+      animation:spin .8s linear infinite;
+    "></div>
+    <div id="loading-overlay-msg" style="
+      font-family:'Black Han Sans',sans-serif;
+      font-size:17px;color:var(--mint2);
+      text-align:center;line-height:1.6;
+    ">등록하는 중이에요 💚</div>
+    <div style="font-size:13px;color:var(--gray)">잠깐만 기다려 주세요...</div>
+  </div>
+</div>
+
 <!-- 토스트 -->
 <div id="toast"></div>
 
@@ -827,6 +858,22 @@ async function api(action, data) {
 // ════════════════════════════════════════
 // 토스트
 // ════════════════════════════════════════
+function showLoading(msg) {
+  var overlay = document.getElementById('loading-overlay');
+  var msgEl   = document.getElementById('loading-overlay-msg');
+  if (!overlay) return;
+  if (msgEl) msgEl.textContent = msg || '등록하는 중이에요 💚';
+  overlay.classList.remove('hidden');
+  overlay.style.display = 'flex';
+}
+
+function hideLoading() {
+  var overlay = document.getElementById('loading-overlay');
+  if (!overlay) return;
+  overlay.classList.add('hidden');
+  overlay.style.display = 'none';
+}
+
 function toast(msg, dur=2500) {
   var t = document.getElementById('toast');
   t.textContent = msg;
@@ -890,17 +937,21 @@ async function startLoading() {
   await sleep(600);
   // 오디오 미리 로드
   AUDIO.preloadAll();
-  // BGM 자동 시작 (사용자 제스처 없이는 안될 수 있어서 첫 클릭 시 시작)
-  // 첫 화면 클릭/터치 시 BGM 시작 — NFC 버튼 제외하고 싶지만
-  // 브라우저 정책상 어떤 클릭이든 허용되므로 일단 첫 클릭에 시작
+  // 💚 마음잇기 버튼 표시
+  var btnMaumIt = document.getElementById('btnMaumIt');
+  if (btnMaumIt) btnMaumIt.classList.remove('hidden');
+
+  // BGM 자동 시작 (첫 클릭 시)
   document.addEventListener('click', function startBgmOnce() {
     AUDIO.startOnGesture();
   }, { once: true });
+}
 
+function onMaumIt() {
   document.getElementById('screen-loading').classList.add('hidden');
   document.getElementById('screen-nfc').classList.remove('hidden');
   focusNfcInput();
-  // WebNFC 자동 초기화 시도 (권한 팝업은 사용자 제스처 필요하므로 조용히 시도)
+  // WebNFC 자동 초기화
   setTimeout(initWebNFC, 500);
 }
 
@@ -1518,6 +1569,9 @@ async function submitTeacherForm() {
 
   if (!name||!id||!pw||!school) { toast('이름, 아이디, 비밀번호, 학교명은 필수예요'); return; }
 
+  // 팝업은 닫지 않고 로딩 오버레이만 띄우기
+  showLoading(name + ' 선생님 계정을 만드는 중이에요 💚');
+
   var nfcUid = document.getElementById('tf-nfc-uid').value || '';
   var res = await api('register_teacher', {
     teacher_id: id, pw: pw, name: name,
@@ -1526,11 +1580,14 @@ async function submitTeacherForm() {
     nfc_uid: nfcUid
   });
 
+  hideLoading();
   if (res.status==='ok') {
+    AUDIO.sfx('save');
     toast('교사 계정이 만들어졌어요 ✅');
     closeModal('modal-teacher-form');
   } else {
     toast(res.message);
+    // 실패 시 팝업 유지
   }
 }
 
@@ -1545,6 +1602,9 @@ async function submitStudentForm() {
   if(!name) { toast('이름을 입력해주세요 ✏️'); return; }
   if(!num)  { toast('번호를 입력해주세요 ✏️'); return; }
 
+  // 팝업은 닫지 않고, 뒤에 로딩 오버레이만 띄우기 (z-index: 9000 > modal z-index: 500)
+  showLoading(name + ' 학생을 등록하는 중이에요 💚');
+
   var res = await api('register_student', {
     nfc_uid: nfc, name, num: parseInt(num),
     teacher_uid: u.teacher_uid,
@@ -1554,12 +1614,14 @@ async function submitStudentForm() {
     pw: pw || undefined,
   });
 
+  hideLoading();
   if(res.status==='ok') {
     toast(res.data.message);
     closeModal('modal-student-form');
     loadStudents();
   } else {
-    toast(res.message);
+    // 실패 시 팝업은 그대로 유지, 오류 메시지만 표시
+    toast(res.message || '등록에 실패했어요. 다시 시도해주세요 🙏');
   }
 }
 
