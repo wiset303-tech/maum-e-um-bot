@@ -537,9 +537,9 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <div class="modal-title">🔐 로그인</div>
     <button class="modal-close" onclick="closeModal('modal-login')">✕</button>
     <div class="inp-label">아이디</div>
-    <input class="inp inp-wrap" id="login-id" placeholder="아이디를 입력하세요" autocomplete="off">
+    <input class="inp inp-wrap" id="login-id" placeholder="아이디를 입력하세요" autocomplete="off" onkeydown="if(event.key==='Enter')loginByPw()">
     <div class="inp-label" style="margin-top:8px">비밀번호</div>
-    <input class="inp" id="login-pw" type="password" placeholder="비밀번호를 입력하세요">
+    <input class="inp" id="login-pw" type="password" placeholder="비밀번호를 입력하세요" onkeydown="if(event.key==='Enter')loginByPw()">
     <button class="btn btn-primary" style="margin-top:16px" onclick="loginByPw()">로그인하기</button>
   </div>
 </div>
@@ -645,32 +645,24 @@ const AUDIO = {
     on ? this.playBgm() : this.stopBgm();
   },
 
-  // 효과음 — Web Audio API로 생성 (파일 없어도 작동)
+  // 효과음 파일 목록 (GitHub에 아래 파일명으로 업로드하면 자동 연결)
+  // sfx_login.mp3   → 로그인 성공 시
+  // sfx_error.mp3   → 오류 발생 시
+  // sfx_nfc.mp3     → NFC 카드 태깅 시
+  // sfx_save.mp3    → 감정/토큰 저장 시
+  // sfx_gift.mp3    → 토큰 선물 시
+  // sfx_tap.mp3     → 버튼 탭 시
+  sfxCache: {},
   sfx: function(type) {
     if (!this.enabled.sfx) return;
     try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      var osc = ctx.createOscillator();
-      var gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      var sounds = {
-        login   : { freq:523, dur:0.15, type:'sine' },    // 도
-        success : { freq:659, dur:0.2,  type:'sine' },    // 미
-        error   : { freq:220, dur:0.3,  type:'sawtooth' },
-        tap     : { freq:880, dur:0.08, type:'sine' },
-        nfc     : { freq:1046,dur:0.25, type:'sine' },    // 높은 도
-        save    : { freq:784, dur:0.2,  type:'sine' },    // 솔
-      };
-
-      var s = sounds[type] || sounds.tap;
-      osc.type = s.type;
-      osc.frequency.setValueAtTime(s.freq, ctx.currentTime);
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + s.dur);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + s.dur);
+      var fileName = './sfx_' + type + '.mp3';
+      if (!this.sfxCache[type]) {
+        this.sfxCache[type] = new Audio(fileName);
+      }
+      var a = this.sfxCache[type];
+      a.currentTime = 0;
+      a.play().catch(function(){});
     } catch(e) {}
   }
 };
@@ -853,7 +845,7 @@ async function loginByPw() {
   const pw = document.getElementById('login-pw').value;
   if (!id || !pw) { toast('아이디와 비밀번호를 입력하세요'); return; }
 
-  const res = await api('login_pw', { id, pw });
+  const res = await api('login_pw', { id: id, pw: pw });
   if (res.status === 'ok') {
     AUDIO.sfx('login');
     closeModal('modal-login');
