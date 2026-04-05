@@ -617,6 +617,65 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxef53CsHzTsfsd1LQV5hyZWcrDmamy0jcRRmJYDd8b-PGk4duvvaouFNEuPH1hcHQ2Yw/exec';
 
 // ════════════════════════════════════════
+// 오디오 시스템
+// ════════════════════════════════════════
+const AUDIO = {
+  bgm     : null,
+  enabled : { bgm: false, sfx: true },
+
+  // 배경음악 — GitHub에 bgm.mp3 파일 업로드 후 경로 지정
+  initBgm: function() {
+    if (this.bgm) return;
+    this.bgm = new Audio('./bgm.mp3');
+    this.bgm.loop = true;
+    this.bgm.volume = 0.35;
+  },
+
+  playBgm: function() {
+    this.initBgm();
+    if (this.enabled.bgm) this.bgm.play().catch(function(){});
+  },
+
+  stopBgm: function() {
+    if (this.bgm) this.bgm.pause();
+  },
+
+  toggleBgm: function(on) {
+    this.enabled.bgm = on;
+    on ? this.playBgm() : this.stopBgm();
+  },
+
+  // 효과음 — Web Audio API로 생성 (파일 없어도 작동)
+  sfx: function(type) {
+    if (!this.enabled.sfx) return;
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      var sounds = {
+        login   : { freq:523, dur:0.15, type:'sine' },    // 도
+        success : { freq:659, dur:0.2,  type:'sine' },    // 미
+        error   : { freq:220, dur:0.3,  type:'sawtooth' },
+        tap     : { freq:880, dur:0.08, type:'sine' },
+        nfc     : { freq:1046,dur:0.25, type:'sine' },    // 높은 도
+        save    : { freq:784, dur:0.2,  type:'sine' },    // 솔
+      };
+
+      var s = sounds[type] || sounds.tap;
+      osc.type = s.type;
+      osc.frequency.setValueAtTime(s.freq, ctx.currentTime);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + s.dur);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + s.dur);
+    } catch(e) {}
+  }
+};
+
+// ════════════════════════════════════════
 // 상태
 // ════════════════════════════════════════
 let STATE = {
@@ -637,18 +696,25 @@ let STATE = {
 // ════════════════════════════════════════
 async function api(action, data) {
   data = data || {};
-  try {
-    const res = await fetch(GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(Object.assign({ action: action }, data)),
-    });
-    const text = await res.text();
-    try { return JSON.parse(text); }
-    catch(e) { return { status:'error', message:'응답 파싱 오류: '+text.slice(0,100) }; }
-  } catch(e) {
-    return { status: 'error', message: '네트워크 오류: ' + e.message };
-  }
+  return new Promise(function(resolve) {
+    // GAS CORS 우회: 폼 POST 방식
+    var payload = JSON.stringify(Object.assign({ action: action }, data));
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', GAS_URL, true);
+    xhr.setRequestHeader('Content-Type', 'text/plain;charset=utf-8');
+    xhr.onload = function() {
+      try { resolve(JSON.parse(xhr.responseText)); }
+      catch(e) { resolve({ status:'error', message:'파싱오류:'+xhr.responseText.slice(0,80) }); }
+    };
+    xhr.onerror = function() {
+      resolve({ status:'error', message:'네트워크 오류' });
+    };
+    xhr.ontimeout = function() {
+      resolve({ status:'error', message:'요청 시간 초과' });
+    };
+    xhr.timeout = 15000;
+    xhr.send(payload);
+  });
 }
 
 // ════════════════════════════════════════
@@ -770,6 +836,7 @@ async function handleNfcUid(uid) {
 
   const res = await api('login_nfc', { nfc_uid: uid });
   if (res.status === 'ok') {
+    AUDIO.sfx('nfc');
     onLoginSuccess(res.data);
   } else {
     toast(res.message || '등록되지 않은 카드입니다');
@@ -788,9 +855,11 @@ async function loginByPw() {
 
   const res = await api('login_pw', { id, pw });
   if (res.status === 'ok') {
+    AUDIO.sfx('login');
     closeModal('modal-login');
     onLoginSuccess(res.data);
   } else {
+    AUDIO.sfx('error');
     toast(res.message);
   }
 }
@@ -1275,8 +1344,8 @@ async function submitEmotion() {
   });
 
   if(res.status==='ok') {
+    AUDIO.sfx('save');
     toast('감정을 저장했어요 💛');
-    // 봇 탭으로 이동해서 대화 시작
     switchTab(1);
     startBotGreeting();
   } else if(res.message?.includes('이미')) {
