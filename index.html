@@ -665,7 +665,7 @@ var GAS_URL = 'https://script.google.com/macros/s/AKfycbxef53CsHzTsfsd1LQV5hyZWc
 // ════════════════════════════════════════
 var AUDIO = {
   bgm     : null,
-  enabled : { bgm: false, sfx: true },
+  enabled : { bgm: true, sfx: true },
 
   // 배경음악 — GitHub에 bgm.mp3 파일 업로드 후 경로 지정
   initBgm: function() {
@@ -700,6 +700,23 @@ var AUDIO = {
   // sfx_gift.mp3    → 토큰 선물 시
   // sfx_tap.mp3     → 버튼 탭 시
   sfxCache: {},
+
+  preloadAll: function() {
+    var types = ['login','error','nfc','save','gift','tap'];
+    var self = this;
+    types.forEach(function(t) {
+      try {
+        var a = new Audio('./sfx_' + t + '.mp3');
+        a.preload = 'auto';
+        a.load();
+        self.sfxCache[t] = a;
+      } catch(e) {}
+    });
+    // BGM도 미리 로드
+    self.initBgm();
+    if (self.bgm) { self.bgm.preload = 'auto'; self.bgm.load(); }
+  },
+
   sfx: function(type) {
     if (!this.enabled.sfx) return;
     try {
@@ -816,9 +833,19 @@ async function startLoading() {
   }
 
   await sleep(600);
+  // 오디오 미리 로드
+  AUDIO.preloadAll();
+  // BGM 자동 시작 (사용자 제스처 없이는 안될 수 있어서 첫 클릭 시 시작)
+  document.addEventListener('click', function startBgmOnce() {
+    AUDIO.playBgm();
+    document.removeEventListener('click', startBgmOnce);
+  }, { once: true });
+
   document.getElementById('screen-loading').classList.add('hidden');
   document.getElementById('screen-nfc').classList.remove('hidden');
   focusNfcInput();
+  // WebNFC 자동 초기화 시도 (권한 팝업은 사용자 제스처 필요하므로 조용히 시도)
+  setTimeout(initWebNFC, 500);
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -1648,37 +1675,90 @@ function shuffle(arr) {
 // ════════════════════════════════════════
 // WebNFC 테스트
 // ════════════════════════════════════════
-async function testWebNFC() {
-  // WebNFC 지원 여부 먼저 확인
+// WebNFC 전역 인스턴스
+var NDEF_READER = null;
+var NFC_READY   = false;
+
+// WebNFC 초기화 — 버튼 누르기 전에 자동 준비
+async function initWebNFC() {
   if (!('NDEFReader' in window)) {
-    toast('❌ 이 브라우저는 WebNFC를 지원하지 않아요');
-    var msg = '웨일/크롬 안드로이드에서만 WebNFC가 작동해요.\n\n' +
-              '대신 ACR122U USB 리더기를 사용하면\nPC/태블릿에서도 NFC 태깅이 가능해요.';
-    setTimeout(function(){ alert(msg); }, 500);
+    console.log('WebNFC 미지원 브라우저');
+    return;
+  }
+  try {
+    NDEF_READER = new NDEFReader();
+    await NDEF_READER.scan();
+    NFC_READY = true;
+    console.log('WebNFC 준비 완료');
+
+    NDEF_READER.onreadingerror = function() {
+      toast('카드 읽기 오류');
+    };
+
+    NDEF_READER.onreading = function(event) {
+      var uid = event.serialNumber || '';
+      if (!uid) return;
+      // NFC 등록 모달 열려있으면 등록 처리
+      if (!document.getElementById('modal-nfc-register').classList.contains('hidden')) {
+        handleRegisterNfc(uid);
+        return;
+      }
+      // 로그인 화면이면 로그인 처리
+      if (!document.getElementById('screen-nfc').classList.contains('hidden')) {
+        AUDIO.sfx('nfc');
+        handleNfcUid(uid);
+      }
+    };
+  } catch(err) {
+    console.log('WebNFC 초기화 실패:', err.message);
+  }
+}
+
+async function testWebNFC() {
+  if (!('NDEFReader' in window)) {
+    toast('❌ 이 기기는 WebNFC를 지원하지 않아요');
+    setTimeout(function(){
+      alert('WebNFC 미지원\n\n대신 ACR122U USB 리더기를 연결하면\nPC에서도 NFC 태깅이 가능해요.');
+    }, 300);
     return;
   }
 
-  toast('📡 NFC 리더 시작 중...');
-  try {
-    var ndef = new NDEFReader();
-    await ndef.scan();
-    toast('✅ NFC 준비됐어요! 카드를 대주세요');
+  if (NFC_READY) {
+    toast('✅ NFC 이미 준비됐어요! 카드를 대주세요');
+    return;
+  }
 
-    ndef.onreadingerror = function() {
+  toast('📡 NFC 권한 요청 중...');
+  try {
+    NDEF_READER = new NDEFReader();
+    await NDEF_READER.scan();
+    NFC_READY = true;
+    toast('✅ NFC 준비됐어요! 지금 카드를 대보세요');
+
+    NDEF_READER.onreadingerror = function() {
       toast('❌ 카드 읽기 오류');
     };
 
-    ndef.onreading = function(event) {
-      var uid = event.serialNumber || 'UID없음';
-      toast('✅ NFC 작동! UID: ' + uid);
-      alert('NFC 태깅 성공!\nUID: ' + uid + '\n\nWebNFC가 정상 작동해요 🎉');
+    NDEF_READER.onreading = function(event) {
+      var uid = event.serialNumber || '';
+      if (!uid) return;
+      AUDIO.sfx('nfc');
+      // 어느 화면에서든 UID 표시
+      toast('🎉 NFC 인식! UID: ' + uid.toUpperCase());
+      setTimeout(function(){
+        alert('NFC 태깅 성공! 🎉\nUID: ' + uid.toUpperCase() + '\n\n이제 카드를 등록하거나 로그인에 사용할 수 있어요!');
+      }, 300);
+      // 로그인 화면이면 로그인 처리
+      if (!document.getElementById('screen-nfc').classList.contains('hidden')) {
+        handleNfcUid(uid);
+      }
     };
   } catch(err) {
     if (err.name === 'NotAllowedError') {
       toast('❌ NFC 권한이 거부됐어요');
-      alert('NFC 권한을 허용해주세요.\n브라우저 설정에서 NFC 권한을 허용하거나\nHTTPS 환경인지 확인해주세요.');
+      alert('설정에서 NFC 권한을 허용해주세요.');
     } else {
-      toast('❌ NFC 오류: ' + err.message);
+      toast('❌ ' + err.message);
     }
   }
 }
