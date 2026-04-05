@@ -676,12 +676,21 @@ var AUDIO = {
   enabled : { bgm: true, sfx: true },
   bgmStarted: false,  // 실제 재생 시작 여부
 
-  initBgm: function() {
-    if (this.bgm) return;
-    this.bgm = new Audio('./bgm.mp3');
+  initBgm: function(src) {
+    var file = src || './bgm.mp3';
+    if (this.bgm && this.bgm.src.endsWith(file.replace('./',''))) return;
+    if (this.bgm) { this.bgm.pause(); this.bgm = null; }
+    this.bgm = new Audio(file);
     this.bgm.loop = true;
     this.bgm.volume = 0.35;
     this.bgm.preload = 'auto';
+  },
+
+  // NFC 대기 화면용 BGM (bgm_nfc.mp3 업로드하면 자동 전환)
+  switchBgm: function(src) {
+    var wasPlaying = this.bgmStarted;
+    this.initBgm(src);
+    if (wasPlaying) this.playBgm();
   },
 
   playBgm: function() {
@@ -814,7 +823,11 @@ function openModal(id) { document.getElementById(id).classList.remove('hidden');
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 function closeModalOutside(e, id) { if(e.target.id===id) closeModal(id); }
 function openLoginModal() { openModal('modal-login'); }
-function openSettings()  { openModal('modal-settings'); }
+function openSettings() {
+  openModal('modal-settings');
+  var m = document.getElementById('set-bgm-modal');
+  if (m) m.checked = AUDIO.enabled.bgm;
+}
 
 // ════════════════════════════════════════
 // 로딩 화면
@@ -1020,8 +1033,11 @@ function buildTabs(tabs) {
 }
 
 function switchTab(idx) {
-  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', i===idx));
-  document.querySelectorAll('.tab-panel').forEach((p,i) => p.classList.toggle('active', i===idx));
+  document.querySelectorAll('.tab-btn').forEach(function(b,i){ b.classList.toggle('active', i===idx); });
+  document.querySelectorAll('.tab-panel').forEach(function(p,i){ p.classList.toggle('active', i===idx); });
+  // 설정 탭 열릴 때 BGM 토글 상태 동기화
+  var bgmToggle = document.getElementById('set-bgm');
+  if (bgmToggle) bgmToggle.checked = AUDIO.enabled.bgm;
 }
 
 // ════════════════════════════════════════
@@ -1727,27 +1743,25 @@ function nfcLog(msg) {
   if (!box) return;
   box.style.display = 'block';
   var line = document.createElement('div');
-  var t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  line.textContent = t + ' ' + msg;
+  line.textContent = msg;
   box.appendChild(line);
-  // 최대 8줄
-  while (box.children.length > 8) box.removeChild(box.firstChild);
+  while (box.children.length > 6) box.removeChild(box.firstChild);
 }
 
 // WebNFC 초기화 — 버튼 누르기 전에 자동 준비
 async function initWebNFC() {
-  nfcLog('🔍 WebNFC 지원 확인...');
+  nfcLog('🔍 NFC 카드 기능을 확인하고 있어요...');
   if (!('NDEFReader' in window)) {
-    nfcLog('❌ WebNFC 미지원 브라우저');
+    nfcLog('😢 이 기기는 NFC 카드를 읽을 수 없어요');
     return;
   }
-  nfcLog('✅ NDEFReader 존재함');
+  nfcLog('👍 NFC 기능이 있어요!');
   try {
     NDEF_READER = new NDEFReader();
-    nfcLog('📡 scan() 시도중...');
+    nfcLog('📡 카드 읽기를 준비하고 있어요...');
     await NDEF_READER.scan();
     NFC_READY = true;
-    nfcLog('✅ NFC 스캔 시작됨! 카드를 대주세요');
+    nfcLog('✅ 준비됐어요! 카드를 가까이 대주세요 🪪');
 
     NDEF_READER.onreadingerror = function(e) {
       nfcLog('❌ 읽기 오류: ' + (e.message || '알수없음'));
@@ -1755,7 +1769,7 @@ async function initWebNFC() {
 
     NDEF_READER.onreading = function(event) {
       var uid = event.serialNumber || '';
-      nfcLog('🎉 카드 감지! UID=' + uid);
+      nfcLog('🎉 카드를 읽었어요! (' + uid + ')');
       if (!uid) return;
       if (!document.getElementById('modal-nfc-register').classList.contains('hidden')) {
         handleRegisterNfc(uid);
@@ -1767,7 +1781,7 @@ async function initWebNFC() {
       }
     };
   } catch(err) {
-    nfcLog('❌ 오류: ' + err.name + ' - ' + err.message);
+    nfcLog('❌ 오류가 생겼어요: ' + err.message);
   }
 }
 
@@ -1785,14 +1799,14 @@ async function testWebNFC() {
     return;
   }
 
-  nfcLog('📡 권한 요청 시작...');
+  nfcLog('📡 NFC 사용 허락을 요청하고 있어요...');
   toast('📡 NFC 권한 요청 중...');
   try {
     NDEF_READER = new NDEFReader();
-    nfcLog('📡 scan() 재시도...');
+    nfcLog('📡 다시 카드 읽기를 준비하고 있어요...');
     await NDEF_READER.scan();
     NFC_READY = true;
-    nfcLog('✅ 스캔 시작! 카드를 대주세요');
+    nfcLog('✅ 이제 카드를 가까이 대주세요 🪪');
     toast('✅ NFC 준비됐어요! 지금 카드를 대보세요');
 
     NDEF_READER.onreadingerror = function() {
