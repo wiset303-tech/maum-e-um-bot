@@ -1068,18 +1068,107 @@ function buildTeacherUI() {
     { label:'📖 기록보기',  html: recordsHTML() },
     { label:'⚙️ 설정',     html: settingsHTML() },
   ];
-  if (STATE.role === 'admin') {
+  // admin role 체크 — STATE.role 또는 STATE.user.role 둘 다 확인
+  var isAdmin = (STATE.role === 'admin') || (STATE.user && STATE.user.role === 'admin');
+  if (isAdmin) {
     tabs.push({ label:'🔑 관리자', html: adminHTML() });
   }
   buildTabs(tabs);
+  // 관리자이고 관리자 탭이 마지막이면 강조
+  if (isAdmin) {
+    var btns = document.querySelectorAll('.tab-btn');
+    var last = btns[btns.length - 1];
+    if (last) last.style.color = 'var(--lav)';
+  }
 }
 
 function adminHTML() {
   return '<div class="card card-lav" style="margin-bottom:14px">' +
-    '<div class="card-label gaegu">👩‍🏫 교사 계정 관리</div>' +
+    '<div class="card-label gaegu">👩‍🏫 교사 계정 등록</div>' +
     '<button class="btn btn-primary" style="margin-bottom:12px" onclick="openTeacherForm()">+ 교사 계정 만들기</button>' +
     '<div id="teacherList"><div style="color:var(--gray);font-size:13px;text-align:center;padding:10px">아직 등록된 교사가 없어요</div></div>' +
+    '</div>' +
+    '<div class="card card-sky" style="margin-bottom:14px">' +
+    '<div class="card-label gaegu">👀 화면 미리보기</div>' +
+    '<div style="font-size:12px;color:var(--gray);margin-bottom:10px">더미 데이터로 교사·학생 화면을 미리 볼 수 있어요</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
+      '<button class="btn btn-peach" onclick="previewTeacher()">👩‍🏫 교사 화면</button>' +
+      '<button class="btn btn-lav" onclick="previewStudent()">👧 학생 화면</button>' +
+    '</div>' +
     '</div>';
+}
+
+// 교사 미리보기 — 더미 데이터로 교사 화면 실행
+function previewTeacher() {
+  STATE.role = 'teacher';
+  STATE.user = {
+    role        : 'teacher',
+    teacher_uid : 'PREVIEW_TEACHER',
+    name        : '미리보기 선생님',
+    school_name : '마음초등학교',
+    school_type : 'e',
+    year        : 2026,
+    grade       : 4,
+    class       : 1,
+  };
+  document.getElementById('headerUser').textContent = '미리보기 선생님 (교사 미리보기)';
+  buildTeacherUI();
+  // 더미 대시보드 데이터
+  setTimeout(function() {
+    setText('statTotal', 28);
+    setText('statSubmit', 20);
+    setText('statMiss', 8);
+    setText('weatherEmoji', '🌤');
+    setText('weatherLabel', '구름 조금');
+    setText('weatherSub', '전반적으로 안정적인 하루예요');
+    var dist = document.getElementById('emotionDist');
+    if (dist) dist.innerHTML =
+      '<span class="emotion-chip chip-pos">☀️ 긍정 12</span>' +
+      '<span class="emotion-chip chip-neu">☁️ 중립 5</span>' +
+      '<span class="emotion-chip chip-neg">☔ 부정 3</span>';
+    var warmth = document.getElementById('warmthDots');
+    if (warmth) {
+      for (var i=1; i<=5; i++) {
+        var d = document.getElementById('wd'+i);
+        if (d) d.classList.toggle('filled', i<=3);
+      }
+    }
+    var miss = document.getElementById('notSubmitList');
+    if (miss) miss.innerHTML =
+      '<div style="font-size:13px;padding:3px 0">5번 김서연</div>' +
+      '<div style="font-size:13px;padding:3px 0">12번 박민준</div>' +
+      '<div style="font-size:13px;padding:3px 0">19번 이수아</div>';
+    // 더미 학생 목록
+    STATE.students = [
+      {student_uid:'s1',student_id:'mee264101',name:'김민준',num:1,grade:4,class:1,nfc_uid:'04:AA:BB:CC',active:'Y'},
+      {student_uid:'s2',student_id:'mee264102',name:'이서연',num:2,grade:4,class:1,nfc_uid:'04:DD:EE:FF',active:'Y'},
+      {student_uid:'s3',student_id:'mee264103',name:'박지호',num:3,grade:4,class:1,nfc_uid:'',active:'Y'},
+      {student_uid:'s4',student_id:'mee264104',name:'최유나',num:4,grade:4,class:1,nfc_uid:'04:11:22:33',active:'Y'},
+      {student_uid:'s5',student_id:'mee264105',name:'정태양',num:5,grade:4,class:1,nfc_uid:'',active:'N'},
+    ];
+    renderStudentList();
+  }, 200);
+}
+
+// 학생 미리보기 — 더미 데이터로 학생 화면 실행
+function previewStudent() {
+  STATE.role = 'student';
+  STATE.user = {
+    role        : 'student',
+    student_uid : 'PREVIEW_STUDENT',
+    student_id  : 'mee264101',
+    name        : '김민준',
+    teacher_uid : 'PREVIEW_TEACHER',
+    grade       : 4,
+    class       : 1,
+    num         : 1,
+  };
+  document.getElementById('headerUser').textContent = '김민준 (학생 미리보기)';
+  buildStudentUI();
+  STATE.tokenBalance = { current_balance: 5, total_earned: 12, total_saved: 7, can_save_double: false };
+  setTimeout(function() {
+    setText('tokenAmount', 5);
+  }, 200);
 }
 
 function openTeacherForm() {
