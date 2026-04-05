@@ -204,7 +204,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   z-index:1;position:relative;
 }
 .nfc-msg{font-family:'Black Han Sans',sans-serif;font-size:18px;color:var(--navy);margin-bottom:24px}
-.nfc-bypass{font-size:13px;color:var(--gray);text-decoration:underline;cursor:pointer;background:none;border:none}
+.nfc-bypass{font-size:13px;color:var(--gray);text-decoration:none;cursor:pointer;background:none;border:none}
 .nfc-settings{position:absolute;top:20px;right:20px;font-size:26px;cursor:pointer;background:none;border:none}
 
 /* ── NFC 입력 숨김 필드 (ACR122U HID 입력용) ── */
@@ -511,7 +511,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   </div>
   <div class="nfc-msg gaegu" id="nfcMsg">카드를 대주세요</div>
   <button class="nfc-bypass" onclick="openLoginModal()">카드가 없어요 (아이디로 로그인)</button>
-  <button class="nfc-bypass" style="margin-top:8px;color:var(--mint2)" onclick="testWebNFC()">📡 NFC 기능 테스트</button>
+  <button class="nfc-bypass" style="margin-top:8px;color:var(--mint2);text-decoration:none" onclick="testWebNFC()">📡 NFC 기능 테스트</button>
+  <div id="nfcDebugLog" style="
+    margin-top:12px;padding:10px 16px;
+    background:rgba(255,255,255,0.7);border-radius:12px;
+    font-size:11px;color:var(--gray);
+    max-width:300px;text-align:left;
+    min-height:20px;line-height:1.8;
+    display:none;
+  "></div>
   <!-- ACR122U HID 입력 수신용 숨김 인풋 -->
   <input id="nfc-input" type="text" autocomplete="off" readonly>
 </div>
@@ -1714,38 +1722,52 @@ function shuffle(arr) {
 var NDEF_READER = null;
 var NFC_READY   = false;
 
+function nfcLog(msg) {
+  var box = document.getElementById('nfcDebugLog');
+  if (!box) return;
+  box.style.display = 'block';
+  var line = document.createElement('div');
+  var t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  line.textContent = t + ' ' + msg;
+  box.appendChild(line);
+  // 최대 8줄
+  while (box.children.length > 8) box.removeChild(box.firstChild);
+}
+
 // WebNFC 초기화 — 버튼 누르기 전에 자동 준비
 async function initWebNFC() {
+  nfcLog('🔍 WebNFC 지원 확인...');
   if (!('NDEFReader' in window)) {
-    console.log('WebNFC 미지원 브라우저');
+    nfcLog('❌ WebNFC 미지원 브라우저');
     return;
   }
+  nfcLog('✅ NDEFReader 존재함');
   try {
     NDEF_READER = new NDEFReader();
+    nfcLog('📡 scan() 시도중...');
     await NDEF_READER.scan();
     NFC_READY = true;
-    console.log('WebNFC 준비 완료');
+    nfcLog('✅ NFC 스캔 시작됨! 카드를 대주세요');
 
-    NDEF_READER.onreadingerror = function() {
-      toast('카드 읽기 오류');
+    NDEF_READER.onreadingerror = function(e) {
+      nfcLog('❌ 읽기 오류: ' + (e.message || '알수없음'));
     };
 
     NDEF_READER.onreading = function(event) {
       var uid = event.serialNumber || '';
+      nfcLog('🎉 카드 감지! UID=' + uid);
       if (!uid) return;
-      // NFC 등록 모달 열려있으면 등록 처리
       if (!document.getElementById('modal-nfc-register').classList.contains('hidden')) {
         handleRegisterNfc(uid);
         return;
       }
-      // 로그인 화면이면 로그인 처리
       if (!document.getElementById('screen-nfc').classList.contains('hidden')) {
         AUDIO.sfx('nfc');
         handleNfcUid(uid);
       }
     };
   } catch(err) {
-    console.log('WebNFC 초기화 실패:', err.message);
+    nfcLog('❌ 오류: ' + err.name + ' - ' + err.message);
   }
 }
 
@@ -1763,11 +1785,14 @@ async function testWebNFC() {
     return;
   }
 
+  nfcLog('📡 권한 요청 시작...');
   toast('📡 NFC 권한 요청 중...');
   try {
     NDEF_READER = new NDEFReader();
+    nfcLog('📡 scan() 재시도...');
     await NDEF_READER.scan();
     NFC_READY = true;
+    nfcLog('✅ 스캔 시작! 카드를 대주세요');
     toast('✅ NFC 준비됐어요! 지금 카드를 대보세요');
 
     NDEF_READER.onreadingerror = function() {
