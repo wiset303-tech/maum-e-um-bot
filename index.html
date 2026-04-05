@@ -488,6 +488,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <div class="loading-sub" id="loadingSub">삐빅— 마음이 연결됩니다 <span id="loadingHeart">♡</span></div>
     <div class="loading-bar-wrap"><div class="loading-bar" id="loadingBar"></div></div>
     <div class="loading-status" id="loadingStatus">준비 중...</div>
+    <button id="btnMaumIt" class="hidden" onclick="onMaumIt()" style="
+      margin-top:20px;
+      background:linear-gradient(135deg,#4ecdb4,#2aab90);
+      color:#fff;border:none;border-radius:30px;
+      padding:14px 36px;font-size:18px;font-weight:700;
+      font-family:'Black Han Sans',sans-serif;
+      cursor:pointer;box-shadow:0 6px 20px rgba(78,205,180,.45);
+      animation:pulse 1.4s ease-in-out infinite;
+    ">💚 마음잇기</button>
   </div>
   <div class="loading-title gaegu">마음e음 봇 🌱</div>
   <div class="loading-sub">삐빅— 마음이 연결됩니다 ♡</div>
@@ -598,17 +607,21 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <div class="modal-title">👤 학생 등록</div>
     <button class="modal-close" onclick="closeModal('modal-student-form')">✕</button>
     <input type="hidden" id="sf-nfc-uid">
-    <div class="inp-label">이름</div>
+    <div id="sf-nfc-display" style="background:var(--mint4);border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--mint2)">
+      🔲 NFC 카드 없음 (선택사항)
+    </div>
+    <div class="inp-label">이름 <span style="color:#e05050">*</span></div>
     <input class="inp" id="sf-name" placeholder="학생 이름" style="margin-bottom:10px">
-    <div class="inp-label">번호</div>
-    <input class="inp" id="sf-num" type="number" placeholder="출석번호" style="margin-bottom:10px">
-    <div class="inp-label">자동 생성 아이디</div>
+    <div class="inp-label">번호 <span style="color:#e05050">*</span></div>
+    <input class="inp" id="sf-num" type="number" placeholder="출석번호" style="margin-bottom:10px" oninput="onNumInput(this.value)">
+    <div class="inp-label">아이디 <span style="color:#e05050">*</span></div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
-      <input class="inp" id="sf-id" placeholder="아이디" style="margin-bottom:0;flex:1">
+      <input class="inp" id="sf-id" placeholder="번호 입력 시 자동생성" style="margin-bottom:0;flex:1">
       <button class="btn btn-secondary btn-sm" style="width:auto;flex-shrink:0" onclick="generateId()">재생성</button>
     </div>
     <div class="inp-label">비밀번호</div>
-    <input class="inp" id="sf-pw" placeholder="기본: maum1234" style="margin-bottom:16px">
+    <input class="inp" id="sf-pw" placeholder="기본: maum1234" style="margin-bottom:4px">
+    <div style="font-size:11px;color:var(--gray);margin-bottom:12px">비워두면 maum1234로 자동 설정</div>
     <button class="btn btn-primary" onclick="submitStudentForm()">등록 완료</button>
   </div>
 </div>
@@ -627,13 +640,18 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   <div class="modal-box" style="position:relative;max-height:90vh;overflow-y:auto">
     <div class="modal-title">👩‍🏫 교사 등록</div>
     <button class="modal-close" onclick="closeModal('modal-teacher-form')">✕</button>
-    <div class="inp-label">이름</div>
+    <input type="hidden" id="tf-nfc-uid">
+    <div style="background:var(--mint4);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">
+      <span id="tf-nfc-status" style="font-size:13px;color:var(--mint2)">🔲 NFC 카드 없음</span>
+      <button class="btn btn-sm btn-secondary" style="width:auto" onclick="retapTeacherNfc()">카드 다시 태깅</button>
+    </div>
+    <div class="inp-label">이름 <span style="color:#e05050">*</span></div>
     <input class="inp" id="tf-name" placeholder="교사 이름" style="margin-bottom:10px">
-    <div class="inp-label">아이디</div>
+    <div class="inp-label">아이디 <span style="color:#e05050">*</span></div>
     <input class="inp" id="tf-id" placeholder="로그인 아이디" style="margin-bottom:10px">
-    <div class="inp-label">비밀번호</div>
+    <div class="inp-label">비밀번호 <span style="color:#e05050">*</span></div>
     <input class="inp" id="tf-pw" type="password" placeholder="비밀번호" style="margin-bottom:10px">
-    <div class="inp-label">학교명</div>
+    <div class="inp-label">학교명 <span style="color:#e05050">*</span></div>
     <input class="inp" id="tf-school" placeholder="예: 마음초등학교" style="margin-bottom:10px">
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
       <div>
@@ -991,12 +1009,16 @@ function onLoginSuccess(data) {
 // NFC 없이 직접 등록
 function skipNfcRegister() {
   closeModal('modal-nfc-register');
-  document.getElementById('sf-nfc-uid').value = '';
-  document.getElementById('sf-name').value = '';
-  document.getElementById('sf-num').value = '';
-  document.getElementById('sf-id').value = '';
-  document.getElementById('sf-pw').value = '';
-  openModal('modal-student-form');
+  if (STATE.nfcPending && STATE.nfcPending.mode === 'teacher') {
+    openTeacherFormDirect();
+  } else {
+    document.getElementById('sf-nfc-uid').value = '';
+    document.getElementById('sf-name').value = '';
+    document.getElementById('sf-num').value = '';
+    document.getElementById('sf-id').value = '';
+    document.getElementById('sf-pw').value = '';
+    openModal('modal-student-form');
+  }
 }
 
 function logout() {
@@ -1062,19 +1084,20 @@ function settingsHTML() {
 }
 
 function buildTeacherUI() {
-  var tabs = [
-    { label:'🌤 대시보드',  html: dashboardHTML() },
-    { label:'👥 학생관리',  html: studentMgmtHTML() },
-    { label:'📖 기록보기',  html: recordsHTML() },
-    { label:'⚙️ 설정',     html: settingsHTML() },
-  ];
-  // admin role 체크 — STATE.role 또는 STATE.user.role 둘 다 확인
   var isAdmin = (STATE.role === 'admin') || (STATE.user && STATE.user.role === 'admin');
-  if (isAdmin) {
+  var tabs = [
+    { label:'🌤 대시보드', html: dashboardHTML() },
+    { label:'👥 학생관리', html: studentMgmtHTML() },
+    { label:'📖 기록보기', html: recordsHTML() },
+  ];
+  if (!isAdmin) {
+    // 교사만 설정 탭
+    tabs.push({ label:'⚙️ 설정', html: settingsHTML() });
+  } else {
+    // 관리자는 관리자 탭
     tabs.push({ label:'🔑 관리자', html: adminHTML() });
   }
   buildTabs(tabs);
-  // 관리자이고 관리자 탭이 마지막이면 강조
   if (isAdmin) {
     var btns = document.querySelectorAll('.tab-btn');
     var last = btns[btns.length - 1];
@@ -1172,7 +1195,19 @@ function previewStudent() {
 }
 
 function openTeacherForm() {
+  // NFC 먼저 등록
+  STATE.nfcPending = { mode: 'teacher' };
+  document.getElementById('nfcRegisterStatus').textContent = '선생님 카드를 가까이 대주세요';
+  document.getElementById('nfcRegisterUid').textContent = '';
+  document.getElementById('nfcRegisterAnim').textContent = '🪪';
+  openModal('modal-nfc-register');
+  focusNfcInput();
+}
+
+function openTeacherFormDirect() {
   openModal('modal-teacher-form');
+  document.getElementById('tf-nfc-uid').value = '';
+  document.getElementById('tf-nfc-status').textContent = '🔲 NFC 카드 없음';
 }
 
 function dashboardHTML() {
@@ -1411,7 +1446,6 @@ async function handleRegisterNfc(uid) {
   var uidEl    = document.getElementById('nfcRegisterUid');
   var animEl   = document.getElementById('nfcRegisterAnim');
 
-  // 중복 확인
   var dup = await api('check_duplicate_nfc', { nfc_uid: uid });
   if(dup.status==='ok' && dup.data.duplicate) {
     statusEl.textContent = '이미 등록된 카드예요 (' + dup.data.name + ')';
@@ -1424,21 +1458,31 @@ async function handleRegisterNfc(uid) {
     return;
   }
 
-  // 성공 — 학생 폼으로
-  STATE.nfcPending = uid;
   animEl.textContent = '✅';
   statusEl.textContent = 'UID 인식 완료!';
   uidEl.textContent = 'UID: ' + uid;
-
-  await sleep(800);
+  AUDIO.sfx('nfc');
+  await sleep(700);
   closeModal('modal-nfc-register');
 
-  // 학생 폼 채우기
+  // 교사 등록 모드
+  if (STATE.nfcPending && STATE.nfcPending.mode === 'teacher') {
+    STATE.nfcPending.nfc_uid = uid;
+    openModal('modal-teacher-form');
+    document.getElementById('tf-nfc-uid').value = uid;
+    document.getElementById('tf-nfc-status').textContent = '🪪 카드 등록됨 (' + uid + ')';
+    return;
+  }
+
+  // 학생 등록 모드
+  var u = STATE.user;
   document.getElementById('sf-nfc-uid').value = uid;
   document.getElementById('sf-name').value = '';
   document.getElementById('sf-num').value = '';
-  document.getElementById('sf-id').value = '';
   document.getElementById('sf-pw').value = '';
+  document.getElementById('sf-id').value = '';
+  var nfcDisp = document.getElementById('sf-nfc-display');
+  if (nfcDisp) nfcDisp.textContent = '🪪 NFC 카드 등록됨 (' + uid + ')';
   openModal('modal-student-form');
 }
 
@@ -1450,6 +1494,16 @@ function generateId() {
   var sn = (u.school_name||'xx').slice(0,2);
   var id = sn+'e'+String(u.year||2026).slice(-2)+(u.grade||'')+(u.class||'')+('0'+num).slice(-2);
   document.getElementById('sf-id').value = id;
+}
+
+function retapTeacherNfc() {
+  closeModal('modal-teacher-form');
+  STATE.nfcPending = { mode: 'teacher' };
+  document.getElementById('nfcRegisterStatus').textContent = '선생님 카드를 가까이 대주세요';
+  document.getElementById('nfcRegisterUid').textContent = '';
+  document.getElementById('nfcRegisterAnim').textContent = '🪪';
+  openModal('modal-nfc-register');
+  focusNfcInput();
 }
 
 async function submitTeacherForm() {
@@ -1464,11 +1518,12 @@ async function submitTeacherForm() {
 
   if (!name||!id||!pw||!school) { toast('이름, 아이디, 비밀번호, 학교명은 필수예요'); return; }
 
+  var nfcUid = document.getElementById('tf-nfc-uid').value || '';
   var res = await api('register_teacher', {
     teacher_id: id, pw: pw, name: name,
     school_name: school, school_type: type,
     year: parseInt(year), grade: parseInt(grade)||1, class: parseInt(cls)||1,
-    nfc_uid: ''
+    nfc_uid: nfcUid
   });
 
   if (res.status==='ok') {
@@ -1487,7 +1542,8 @@ async function submitStudentForm() {
   var pw   = document.getElementById('sf-pw').value.trim();
   var nfc  = document.getElementById('sf-nfc-uid').value;
 
-  if(!name||!num) { toast('이름과 번호는 필수예요'); return; }
+  if(!name) { toast('이름을 입력해주세요 ✏️'); return; }
+  if(!num)  { toast('번호를 입력해주세요 ✏️'); return; }
 
   var res = await api('register_student', {
     nfc_uid: nfc, name, num: parseInt(num),
