@@ -560,7 +560,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     </div>
     <div class="settings-item">
       <div><div class="settings-label">🎵 배경음악</div></div>
-      <label class="toggle"><input type="checkbox" id="set-bgm"><span class="toggle-slider"></span></label>
+      <label class="toggle"><input type="checkbox" id="set-bgm-modal" onchange="AUDIO.toggleBgm(this.checked)"><span class="toggle-slider"></span></label>
     </div>
   </div>
 </div>
@@ -666,30 +666,46 @@ var GAS_URL = 'https://script.google.com/macros/s/AKfycbxef53CsHzTsfsd1LQV5hyZWc
 var AUDIO = {
   bgm     : null,
   enabled : { bgm: true, sfx: true },
+  bgmStarted: false,  // 실제 재생 시작 여부
 
-  // 배경음악 — GitHub에 bgm.mp3 파일 업로드 후 경로 지정
   initBgm: function() {
     if (this.bgm) return;
     this.bgm = new Audio('./bgm.mp3');
     this.bgm.loop = true;
     this.bgm.volume = 0.35;
+    this.bgm.preload = 'auto';
   },
 
   playBgm: function() {
     this.initBgm();
-    if (this.enabled.bgm && this.bgm) {
-      var p = this.bgm.play();
-      if (p) p.catch(function(e){ console.log('BGM:', e.message); });
+    if (!this.enabled.bgm || !this.bgm) return;
+    var p = this.bgm.play();
+    if (p) {
+      var self = this;
+      p.then(function(){ self.bgmStarted = true; })
+       .catch(function(e){ console.log('BGM 재생 대기중:', e.message); });
     }
   },
 
   stopBgm: function() {
-    if (this.bgm) this.bgm.pause();
+    if (this.bgm) {
+      this.bgm.pause();
+      this.bgmStarted = false;
+    }
   },
 
   toggleBgm: function(on) {
     this.enabled.bgm = on;
+    // 토글 UI 동기화
+    var tog = document.getElementById('set-bgm');
+    if (tog) tog.checked = on;
     on ? this.playBgm() : this.stopBgm();
+  },
+
+  // 첫 사용자 제스처 시 BGM 시작 (버튼 클릭 등)
+  startOnGesture: function() {
+    if (!this.enabled.bgm || this.bgmStarted) return;
+    this.playBgm();
   },
 
   // 효과음 파일 목록 (GitHub에 아래 파일명으로 업로드하면 자동 연결)
@@ -836,9 +852,10 @@ async function startLoading() {
   // 오디오 미리 로드
   AUDIO.preloadAll();
   // BGM 자동 시작 (사용자 제스처 없이는 안될 수 있어서 첫 클릭 시 시작)
+  // 첫 화면 클릭/터치 시 BGM 시작 — NFC 버튼 제외하고 싶지만
+  // 브라우저 정책상 어떤 클릭이든 허용되므로 일단 첫 클릭에 시작
   document.addEventListener('click', function startBgmOnce() {
-    AUDIO.playBgm();
-    document.removeEventListener('click', startBgmOnce);
+    AUDIO.startOnGesture();
   }, { once: true });
 
   document.getElementById('screen-loading').classList.add('hidden');
@@ -1002,6 +1019,24 @@ function switchTab(idx) {
 // ════════════════════════════════════════
 // 교사 UI
 // ════════════════════════════════════════
+function settingsHTML() {
+  var bgmChecked = AUDIO.enabled.bgm ? 'checked' : '';
+  return '<div class="card">' +
+    '<div class="card-label">알림 설정</div>' +
+    '<div class="settings-item"><div><div class="settings-label">🔔 등교 태깅 알림</div></div>' +
+      '<label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></div>' +
+    '<div class="settings-item"><div><div class="settings-label">⚠️ 위기 학생 알림</div></div>' +
+      '<label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></div>' +
+    '<div class="settings-item"><div><div class="settings-label">🎵 배경음악</div></div>' +
+      '<label class="toggle"><input type="checkbox" id="set-bgm" ' + bgmChecked + ' onchange="AUDIO.toggleBgm(this.checked)"><span class="toggle-slider"></span></label></div>' +
+    '</div>' +
+    '<div class="card card-peach" style="margin-top:8px">' +
+      '<div class="card-label">계정 정보</div>' +
+      '<div style="font-size:13px;color:var(--gray)" id="teacherInfoBox"></div>' +
+    '</div>' +
+    '<button class="btn btn-secondary" style="margin-top:8px" onclick="logout()">로그아웃</button>';
+}
+
 function buildTeacherUI() {
   var tabs = [
     { label:'🌤 대시보드',  html: dashboardHTML() },
