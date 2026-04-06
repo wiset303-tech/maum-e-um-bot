@@ -268,17 +268,118 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 /* ════════════════════════════════════════
    대시보드
 ════════════════════════════════════════ */
+/* ════════════════════════════════════════
+   대시보드 — 날씨 워드클라우드
+════════════════════════════════════════ */
 .weather-box{
-  background:linear-gradient(135deg,var(--mint3),var(--lav2));
-  border-radius:var(--r);padding:20px;margin-bottom:14px;
-  text-align:center;position:relative;overflow:hidden;
-  transition:min-height .5s ease;
-  min-height:120px;
+  border-radius:var(--r);margin-bottom:14px;
+  position:relative;overflow:hidden;
+  height:220px;
+  transition:background 1.2s ease;
+  background:linear-gradient(180deg,#b8eaf5 0%,#d4f5ee 100%);
 }
-.weather-emoji{font-size:64px;display:block;margin-bottom:8px;animation:float 3s ease-in-out infinite}
-@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-.weather-label{font-family:'Black Han Sans',sans-serif;font-size:18px;color:var(--navy)}
-.weather-sub{font-size:12px;color:var(--gray);margin-top:4px}
+/* 날씨 상태별 배경 */
+.weather-box.ws-sunny    { background:linear-gradient(180deg,#ffe082 0%,#fff9c4 40%,#e0f7fa 100%); }
+.weather-box.ws-partly   { background:linear-gradient(180deg,#90caf9 0%,#b3e5fc 50%,#e0f7fa 100%); }
+.weather-box.ws-cloudy   { background:linear-gradient(180deg,#b0bec5 0%,#cfd8dc 50%,#eceff1 100%); }
+.weather-box.ws-rain     { background:linear-gradient(180deg,#546e7a 0%,#78909c 40%,#b0bec5 100%); }
+.weather-box.ws-rainbow  { background:linear-gradient(180deg,#80deea 0%,#b2ebf2 50%,#f8bbd0 100%); }
+.weather-box.ws-none     { background:linear-gradient(180deg,#b8eaf5 0%,#d4f5ee 100%); }
+
+/* 날씨 레이어들 */
+.wx-layer{ position:absolute;inset:0;pointer-events:none; }
+
+/* ☀️ 태양 */
+.wx-sun{
+  position:absolute;top:-20px;right:-20px;
+  width:100px;height:100px;border-radius:50%;
+  background:radial-gradient(circle,#ffe57a 30%,rgba(255,229,122,0) 70%);
+  opacity:0;transition:opacity 1s ease;
+  animation:sun-pulse 3s ease-in-out infinite;
+}
+@keyframes sun-pulse{ 0%,100%{transform:scale(1)}50%{transform:scale(1.08)} }
+.ws-sunny .wx-sun,.ws-partly .wx-sun{ opacity:1; }
+
+/* ☁️ 구름 */
+.wx-cloud{
+  position:absolute;top:12px;
+  background:#fff;border-radius:30px;opacity:0;
+  transition:opacity 1s ease;
+  animation:cloud-drift linear infinite;
+}
+.wx-cloud::before,.wx-cloud::after{
+  content:'';position:absolute;background:#fff;border-radius:50%;
+}
+.wx-cloud-1{ width:70px;height:24px;left:-80px;animation-duration:18s;animation-delay:0s; }
+.wx-cloud-1::before{ width:34px;height:34px;top:-16px;left:10px; }
+.wx-cloud-1::after{  width:24px;height:24px;top:-10px;left:36px; }
+.wx-cloud-2{ width:50px;height:18px;top:30px;left:-60px;animation-duration:24s;animation-delay:-8s; }
+.wx-cloud-2::before{ width:26px;height:26px;top:-12px;left:8px; }
+.wx-cloud-2::after{  width:18px;height:18px;top:-8px;left:28px; }
+.wx-cloud-3{ width:60px;height:20px;top:50px;left:-70px;animation-duration:30s;animation-delay:-15s; }
+.wx-cloud-3::before{ width:30px;height:30px;top:-14px;left:8px; }
+.wx-cloud-3::after{  width:22px;height:22px;top:-9px;left:32px; }
+@keyframes cloud-drift{ from{left:-90px} to{left:110%} }
+
+.ws-partly .wx-cloud,.ws-cloudy .wx-cloud,.ws-rain .wx-cloud,.ws-rainbow .wx-cloud{ opacity:1; }
+.ws-cloudy .wx-cloud{ background:#b0bec5; }
+.ws-cloudy .wx-cloud::before,.ws-cloudy .wx-cloud::after{ background:#b0bec5; }
+.ws-rain .wx-cloud{ background:#78909c; }
+.ws-rain .wx-cloud::before,.ws-rain .wx-cloud::after{ background:#78909c; }
+
+/* 🌧 빗줄기 */
+.wx-rain-layer{
+  position:absolute;inset:0;opacity:0;
+  transition:opacity 1.5s ease;
+  background-image:
+    repeating-linear-gradient(
+      175deg,
+      transparent 0px, transparent 8px,
+      rgba(150,200,255,0.35) 8px, rgba(150,200,255,0.35) 9px
+    );
+  background-size:12px 100%;
+  animation:rain-fall 0.4s linear infinite;
+}
+@keyframes rain-fall{ from{background-position:0 -20px} to{background-position:0 20px} }
+.ws-rain .wx-rain-layer{ opacity:1; }
+
+/* 🌈 무지개 */
+.wx-rainbow{
+  position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
+  width:180px;height:90px;
+  border-radius:90px 90px 0 0;
+  background:conic-gradient(
+    from 0deg at 50% 100%,
+    #e53935 0deg 20deg,
+    #fb8c00 20deg 40deg,
+    #fdd835 40deg 60deg,
+    #43a047 60deg 80deg,
+    #1e88e5 80deg 100deg,
+    #8e24aa 100deg 120deg,
+    transparent 120deg
+  );
+  opacity:0;transition:opacity 1.5s ease;
+  filter:blur(3px);
+}
+.ws-rainbow .wx-rainbow{ opacity:0.7; }
+
+/* 워드클라우드 영역 */
+.wx-wordcloud{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+}
+.wx-wordcloud svg{ width:100%;height:100%; }
+.wx-label{
+  position:absolute;bottom:8px;right:12px;
+  font-size:11px;color:rgba(44,74,90,0.5);font-weight:600;
+  letter-spacing:-0.2px;
+}
+.wx-empty{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:6px;
+  font-size:13px;color:rgba(44,74,90,0.5);
+}
+
 
 .stat-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}
 .stat-card{
@@ -287,6 +388,21 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 }
 .stat-card .num{font-family:'Black Han Sans',sans-serif;font-size:28px;color:var(--mint2)}
 .stat-card .lbl{font-size:11px;color:var(--gray);margin-top:2px}
+
+.dashboard-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:10px;
+}
+.dashboard-updated{font-size:11px;color:var(--gray);letter-spacing:-0.2px}
+.btn-refresh{
+  background:none;border:1.5px solid var(--mint2);border-radius:20px;
+  color:var(--mint2);font-size:12px;font-weight:600;
+  padding:4px 12px;cursor:pointer;display:flex;align-items:center;gap:4px;
+  transition:all .2s;
+}
+.btn-refresh:hover{background:var(--mint4)}
+.btn-refresh.spinning .refresh-icon{animation:spin .6s linear infinite}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
 .warmth-bar{
   background:#fff;border-radius:var(--r2);padding:14px 16px;
@@ -495,6 +611,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   #screen-nfc,#screen-loading{max-width:480px;left:50%;transform:translateX(-50%)}
 }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-cloud/1.2.5/d3.layout.cloud.min.js"></script>
 </head>
 <body>
 
@@ -1075,6 +1193,7 @@ function onLoginSuccess(data) {
   if (data.role === 'admin' || data.role === 'teacher') {
     buildTeacherUI();
     loadDashboard();
+    startDashboardPoll();
     if (data.teacher_uid) loadStudents();
     setTimeout(initCal, 300);
   } else {
@@ -1105,6 +1224,9 @@ function skipNfcRegister() {
 }
 
 function logout() {
+  stopDashboardPoll();
+  _lastSubmitCount = -1;
+  if (STATE.role === 'student') saveChatLogIfNeeded();
   STATE = { role:null, user:null, emotions:[...STATE.emotions], students:[], dashboard:null,
             nfcPending:null, selectedMacro:null, selectedMicro:null, chatHistory:[], tokenBalance:null };
   document.getElementById('app').classList.add('hidden');
@@ -1143,9 +1265,14 @@ function buildTabs(tabs) {
 }
 
 function switchTab(idx) {
+  // 마음봇 탭(index 1)에서 벗어날 때 채팅 로그 저장
+  var prevBtn = document.querySelector('.tab-btn.active');
+  var prevIdx = prevBtn ? Array.from(document.querySelectorAll('.tab-btn')).indexOf(prevBtn) : -1;
+  if (prevIdx === 1 && idx !== 1 && STATE.role === 'student') {
+    saveChatLogIfNeeded();
+  }
   document.querySelectorAll('.tab-btn').forEach(function(b,i){ b.classList.toggle('active', i===idx); });
   document.querySelectorAll('.tab-panel').forEach(function(p,i){ p.classList.toggle('active', i===idx); });
-  // 설정 탭 열릴 때 BGM 토글 상태 동기화
   var bgmToggle = document.getElementById('set-bgm');
   if (bgmToggle) bgmToggle.checked = AUDIO.enabled.bgm;
 }
@@ -1257,9 +1384,10 @@ function previewTeacher() {
     setText('statTotal', 28);
     setText('statSubmit', 20);
     setText('statMiss', 8);
-    setText('weatherEmoji', '🌤');
-    setText('weatherLabel', '구름 조금');
-    setText('weatherSub', '전반적으로 안정적인 하루예요');
+    // 날씨 클래스
+    var box = document.getElementById('weatherBox');
+    if (box) box.className = 'weather-box ws-partly';
+    setText('weatherLabel', '구름 조금 🌤');
     var dist = document.getElementById('emotionDist');
     if (dist) dist.innerHTML =
       '<span class="emotion-chip chip-pos">☀️ 긍정 12</span>' +
@@ -1268,8 +1396,8 @@ function previewTeacher() {
     var warmth = document.getElementById('warmthDots');
     if (warmth) {
       for (var i=1; i<=5; i++) {
-        var d = document.getElementById('wd'+i);
-        if (d) d.classList.toggle('filled', i<=3);
+        var dot = document.getElementById('wd'+i);
+        if (dot) dot.classList.toggle('filled', i<=3);
       }
     }
     var miss = document.getElementById('notSubmitList');
@@ -1277,6 +1405,18 @@ function previewTeacher() {
       '<div style="font-size:13px;padding:3px 0">5번 김서연</div>' +
       '<div style="font-size:13px;padding:3px 0">12번 박민준</div>' +
       '<div style="font-size:13px;padding:3px 0">19번 이수아</div>';
+    // 워드클라우드 더미
+    renderWordCloud([
+      {word:'설레는', type:'positive', count:4},
+      {word:'기쁜',   type:'positive', count:3},
+      {word:'신나',   type:'positive', count:3},
+      {word:'행복해', type:'positive', count:2},
+      {word:'그냥그래', type:'neutral', count:3},
+      {word:'피곤해', type:'neutral',  count:2},
+      {word:'심심해', type:'neutral',  count:1},
+      {word:'슬퍼요', type:'negative', count:2},
+      {word:'걱정돼', type:'negative', count:1},
+    ]);
     // 더미 학생 목록
     STATE.students = [
       {student_uid:'s1',student_id:'mee264101',name:'김민준',num:1,grade:4,class:1,nfc_uid:'04:AA:BB:CC',active:'Y'},
@@ -1286,7 +1426,7 @@ function previewTeacher() {
       {student_uid:'s5',student_id:'mee264105',name:'정태양',num:5,grade:4,class:1,nfc_uid:'',active:'N'},
     ];
     renderStudentList();
-  }, 200);
+  }, 300);
 }
 
 // 학생 미리보기 — 더미 데이터로 학생 화면 실행
@@ -1332,28 +1472,46 @@ function dashboardHTML() {
   for (var wi=1; wi<=5; wi++) {
     warmthDots += '<div class="warmth-dot" id="wd'+wi+'">💧</div>';
   }
-  return '<div class="weather-box" id="weatherBox">' +
-    '<span class="weather-emoji" id="weatherEmoji">🌤</span>' +
-    '<div class="weather-label gaegu" id="weatherLabel">데이터 불러오는 중...</div>' +
-    '<div class="weather-sub" id="weatherSub"></div>' +
+  return '<div class="dashboard-header">' +
+    '<div class="dashboard-updated" id="dashUpdatedAt">불러오는 중...</div>' +
+    '<button class="btn-refresh" id="btnRefresh" onclick="refreshDashboard()">' +
+      '<span class="refresh-icon">🔄</span> 새로고침' +
+    '</button>' +
+  '</div>' +
+  '<div class="weather-box ws-none" id="weatherBox">' +
+    // 날씨 레이어들
+    '<div class="wx-layer"><div class="wx-sun"></div></div>' +
+    '<div class="wx-layer">' +
+      '<div class="wx-cloud wx-cloud-1"></div>' +
+      '<div class="wx-cloud wx-cloud-2"></div>' +
+      '<div class="wx-cloud wx-cloud-3"></div>' +
     '</div>' +
-    '<div class="stat-row">' +
-      '<div class="stat-card"><div class="num gaegu" id="statTotal">-</div><div class="lbl">전체</div></div>' +
-      '<div class="stat-card"><div class="num gaegu" id="statSubmit">-</div><div class="lbl">제출</div></div>' +
-      '<div class="stat-card"><div class="num gaegu" id="statMiss">-</div><div class="lbl">미제출</div></div>' +
+    '<div class="wx-layer"><div class="wx-rain-layer"></div></div>' +
+    '<div class="wx-layer"><div class="wx-rainbow"></div></div>' +
+    // 워드클라우드
+    '<div class="wx-wordcloud" id="wordcloudWrap">' +
+      '<div class="wx-empty" id="wordcloudEmpty"><span style="font-size:28px">🌥</span><span>아직 감정 기록이 없어요</span></div>' +
+      '<svg id="wordcloudSvg" style="display:none"></svg>' +
     '</div>' +
-    '<div class="warmth-bar">' +
-      '<div class="warmth-title gaegu">💧 훈훈습도계</div>' +
-      '<div class="warmth-dots" id="warmthDots">' + warmthDots + '</div>' +
-    '</div>' +
-    '<div class="card card-mint">' +
-      '<div class="card-label">오늘의 감정 분포</div>' +
-      '<div class="emotion-list" id="emotionDist"></div>' +
-    '</div>' +
-    '<div class="card card-peach" id="notSubmitCard">' +
-      '<div class="card-label">⚠️ 미제출 학생</div>' +
-      '<div id="notSubmitList"></div>' +
-    '</div>';
+    '<div class="wx-label" id="weatherLabel"></div>' +
+  '</div>' +
+  '<div class="stat-row">' +
+    '<div class="stat-card"><div class="num gaegu" id="statTotal">-</div><div class="lbl">전체</div></div>' +
+    '<div class="stat-card"><div class="num gaegu" id="statSubmit">-</div><div class="lbl">제출</div></div>' +
+    '<div class="stat-card"><div class="num gaegu" id="statMiss">-</div><div class="lbl">미제출</div></div>' +
+  '</div>' +
+  '<div class="warmth-bar">' +
+    '<div class="warmth-title gaegu">💧 훈훈습도계</div>' +
+    '<div class="warmth-dots" id="warmthDots">' + warmthDots + '</div>' +
+  '</div>' +
+  '<div class="card card-mint">' +
+    '<div class="card-label">오늘의 감정 분포</div>' +
+    '<div class="emotion-list" id="emotionDist"></div>' +
+  '</div>' +
+  '<div class="card card-peach" id="notSubmitCard">' +
+    '<div class="card-label">⚠️ 미제출 학생</div>' +
+    '<div id="notSubmitList"></div>' +
+  '</div>';
 }
 
 function studentMgmtHTML() {
@@ -1463,24 +1621,35 @@ var WEATHER_MAP = {
 
 async function loadDashboard() {
   var teacher_uid = STATE.user?.teacher_uid || '';
+
+  // 새로고침 버튼 스피너
+  var btnRef = document.getElementById('btnRefresh');
+  if (btnRef) btnRef.classList.add('spinning');
+
   var res = await api('get_dashboard', { teacher_uid });
+
+  if (btnRef) btnRef.classList.remove('spinning');
   if (res.status !== 'ok') return;
 
   var d = res.data;
   STATE.dashboard = d;
 
-  // 날씨
-  var w = WEATHER_MAP[d.weather] || WEATHER_MAP.none;
+  // 갱신 시각
+  var now = new Date();
+  var hh = ('0'+now.getHours()).slice(-2);
+  var mm = ('0'+now.getMinutes()).slice(-2);
+  setText('dashUpdatedAt', hh+':'+mm+' 기준');
+
+  // 날씨 클래스 전환
   var box = document.getElementById('weatherBox');
-  if(box) {
-    var submitted = d.submitted || 0;
-    var total     = d.total_students || 1;
-    var ratio     = submitted / total;
-    box.style.minHeight = Math.max(120, 120 + ratio * 80) + 'px';
+  if (box) {
+    var wsMap = { sunny:'ws-sunny', partly_cloudy:'ws-partly', cloudy:'ws-cloudy',
+                  rain:'ws-rain', rainbow:'ws-rainbow', none:'ws-none' };
+    box.className = 'weather-box ' + (wsMap[d.weather] || 'ws-none');
   }
-  setText('weatherEmoji', w.emoji);
-  setText('weatherLabel', w.label);
-  setText('weatherSub',   w.sub);
+  // 날씨 라벨
+  var w = WEATHER_MAP[d.weather] || WEATHER_MAP.none;
+  setText('weatherLabel', w.label + ' ' + w.emoji);
 
   // 통계
   setText('statTotal',  d.total_students);
@@ -1488,22 +1657,22 @@ async function loadDashboard() {
   setText('statMiss',   d.total_students - d.submitted);
 
   // 훈훈습도계
-  for(var i=1;i<=5;i++){
+  for (var i=1; i<=5; i++) {
     var dot = document.getElementById('wd'+i);
-    if(dot) dot.classList.toggle('filled', i <= (d.warmth_count||0));
+    if (dot) dot.classList.toggle('filled', i <= (d.warmth_count||0));
   }
 
-  // 감정 분포
+  // 감정 분포 칩
   var dist = document.getElementById('emotionDist');
-  if(dist) dist.innerHTML =
+  if (dist) dist.innerHTML =
     '<span class="emotion-chip chip-pos">☀️ 긍정 ' + d.positive_count + '</span>' +
     '<span class="emotion-chip chip-neu">☁️ 중립 ' + d.neutral_count + '</span>' +
     '<span class="emotion-chip chip-neg">☔ 부정 ' + d.negative_count + '</span>';
 
   // 미제출
   var list = document.getElementById('notSubmitList');
-  if(list) {
-    if(!d.not_submitted?.length) {
+  if (list) {
+    if (!d.not_submitted?.length) {
       list.innerHTML = '<div style="font-size:13px;color:var(--gray)">모두 제출했어요 🎉</div>';
     } else {
       list.innerHTML = d.not_submitted.map(function(s){
@@ -1511,6 +1680,122 @@ async function loadDashboard() {
       }).join('');
     }
   }
+
+  // 워드클라우드
+  renderWordCloud(d.emotion_words || []);
+}
+
+function renderWordCloud(words) {
+  var svg    = document.getElementById('wordcloudSvg');
+  var empty  = document.getElementById('wordcloudEmpty');
+  var wrap   = document.getElementById('wordcloudWrap');
+  if (!svg || !empty || !wrap) return;
+
+  if (!words.length) {
+    svg.style.display = 'none';
+    empty.style.display = 'flex';
+    return;
+  }
+  svg.style.display = 'block';
+  empty.style.display = 'none';
+
+  // 색상 매핑
+  var colorMap = {
+    positive: ['#2aab90','#4ecdb4','#00897b','#26c6da','#43a047'],
+    neutral:  ['#f9a825','#fb8c00','#8d6e63','#78909c','#546e7a'],
+    negative: ['#c4b0f5','#9575cd','#7986cb','#8e24aa','#d81b60'],
+  };
+
+  var W = wrap.offsetWidth  || 340;
+  var H = wrap.offsetHeight || 220;
+
+  // 빈도 기반 폰트 크기 계산
+  var maxCount = d3.max(words, function(d){ return d.count; }) || 1;
+  var fontScale = d3.scaleLinear().domain([1, maxCount]).range([13, 36]);
+
+  // D3 Cloud 레이아웃
+  d3.layout.cloud()
+    .size([W, H])
+    .words(words.map(function(w){
+      return { text: w.word, size: fontScale(w.count), type: w.type, count: w.count };
+    }))
+    .padding(5)
+    .rotate(function(){ return (Math.random() > 0.8) ? 90 : 0; })
+    .font('Noto Sans KR')
+    .fontSize(function(d){ return d.size; })
+    .on('end', function(computed){
+      // SVG 초기화
+      d3.select('#wordcloudSvg').selectAll('*').remove();
+      d3.select('#wordcloudSvg')
+        .attr('width', W)
+        .attr('height', H)
+        .append('g')
+        .attr('transform', 'translate('+W/2+','+H/2+')')
+        .selectAll('text')
+        .data(computed)
+        .enter().append('text')
+          .style('font-family', 'Noto Sans KR, sans-serif')
+          .style('font-weight', '700')
+          .style('fill', function(d){
+            var palette = colorMap[d.type] || colorMap.neutral;
+            return palette[Math.floor(Math.random() * palette.length)];
+          })
+          .style('opacity', 0)
+          .attr('text-anchor', 'middle')
+          .attr('transform', function(d){
+            return 'translate('+[d.x,d.y]+') rotate('+d.rotate+')';
+          })
+          .attr('font-size', function(d){ return d.size+'px'; })
+          .text(function(d){ return d.text; })
+          // 단어 하나씩 떠오르는 애니메이션
+          .transition()
+          .delay(function(_, i){ return i * 80; })
+          .duration(500)
+          .style('opacity', 1)
+          .attr('transform', function(d){
+            return 'translate('+[d.x, d.y-8]+') rotate('+d.rotate+')';
+          })
+          .transition()
+          .duration(200)
+          .attr('transform', function(d){
+            return 'translate('+[d.x, d.y]+') rotate('+d.rotate+')';
+          });
+    })
+    .start();
+}
+
+// 수동 새로고침
+async function refreshDashboard() {
+  await loadDashboard();
+}
+
+// 경량 변경 감지 폴링 — 제출 건수만 확인, 변화 시에만 풀 새로고침
+var _lastSubmitCount = -1;
+var _pollTimer = null;
+
+function startDashboardPoll() {
+  stopDashboardPoll();
+  _pollTimer = setInterval(async function() {
+    var panel = document.getElementById('panel-0');
+    if (!panel || !panel.classList.contains('active')) return;
+    if (!STATE.user?.teacher_uid) return;
+    try {
+      var res = await api('get_dashboard', { teacher_uid: STATE.user.teacher_uid });
+      if (res.status !== 'ok') return;
+      var submitted = res.data.submitted || 0;
+      if (_lastSubmitCount === -1) { _lastSubmitCount = submitted; return; }
+      if (submitted !== _lastSubmitCount) {
+        var diff = submitted - _lastSubmitCount;
+        _lastSubmitCount = submitted;
+        await loadDashboard();
+        if (diff > 0) toast('새 감정이 ' + diff + '개 제출됐어요 💛');
+      }
+    } catch(e) {}
+  }, 60000);
+}
+
+function stopDashboardPoll() {
+  if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
 }
 
 // ════════════════════════════════════════
@@ -2015,6 +2300,65 @@ async function sendChat() {
 
   if(res.status==='ok') addBotMsg(res.data.reply);
   else addBotMsg('잠시 후 다시 말해봐 💙');
+}
+
+
+// Chat log analysis
+function analyzeChatStyle(history) {
+  var userMsgs = history.filter(function(h){ return h.role === 'user'; });
+  if (!userMsgs.length) return null;
+  var texts = userMsgs.map(function(h){ return h.text || ''; });
+  var allText = texts.join(' ');
+  var wordArr = allText.replace(/[^\uAC00-\uD7A3a-zA-Z0-9 ]/g,' ').split(/ +/);
+  var freq = {};
+  wordArr.forEach(function(w){ if(w.length>=2) freq[w]=(freq[w]||0)+1; });
+  var keywords = Object.keys(freq).sort(function(a,b){ return freq[b]-freq[a]; }).slice(0,5);
+  var jamo = (allText.match(/[\u3131-\u314E]+/g)||[]);
+  var emojiFreq = jamo.length===0?'none':jamo.length<3?'some':'many';
+  var uniqueEmojis = jamo.filter(function(v,i,a){ return a.indexOf(v)===i; }).slice(0,5);
+  var avgLen = Math.round(texts.reduce(function(s,t){ return s+t.length; },0)/texts.length);
+  var lenLabel = avgLen<=10?'short':avgLen<=25?'medium':'long';
+  var hamCount = (allText.match(/[\uD568\uC784]/g)||[]).length;
+  var yoCount  = (allText.match(/\uC694/g)||[]).length;
+  var yaCount  = (allText.match(/[\uC57C\uC5B4]/g)||[]).length;
+  var ending   = hamCount>=yoCount&&hamCount>=yaCount?'ham-im':yoCount>=yaCount?'yo':'ya-eo';
+  var punctCount  = (allText.match(/\./g)||[]).length;
+  var punctuation = punctCount >= Math.floor(texts.length/2);
+  var qCount      = (allText.match(/\?/g)||[]).length;
+  var commPattern = qCount>=2?'question':hamCount>yoCount?'direct':'empathy';
+  var sample = texts.slice().sort(function(a,b){ return a.length-b.length; })[0]||'';
+  if(sample.length>30) sample=sample.slice(0,30)+'...';
+  return { turn_count:userMsgs.length, keywords:keywords, emoji_used:uniqueEmojis,
+           avg_length:lenLabel, ending:ending, punctuation:punctuation,
+           comm_pattern:commPattern, raw_sample:sample };
+}
+
+async function saveChatLogIfNeeded() {
+  var u = STATE.user;
+  if (!u || !u.student_uid) return;
+  var history   = STATE.chatHistory || [];
+  var userTurns = history.filter(function(h){ return h.role==='user'; });
+  if (userTurns.length < 2) return;
+  var analysis = analyzeChatStyle(history);
+  if (!analysis) return;
+  try {
+    await api('save_chat_log', {
+      student_uid  : u.student_uid,
+      student_name : u.name,
+      teacher_uid  : u.teacher_uid,
+      date         : new Date().toISOString().slice(0,10),
+      turn_count   : analysis.turn_count,
+      macro_emotion: STATE.selectedMacro || '',
+      micro_emotion: (STATE.selectedMicro && STATE.selectedMicro.word) || '',
+      keywords     : analysis.keywords,
+      emoji_used   : analysis.emoji_used,
+      avg_length   : analysis.avg_length,
+      ending       : analysis.ending,
+      punctuation  : analysis.punctuation,
+      comm_pattern : analysis.comm_pattern,
+      raw_sample   : analysis.raw_sample,
+    });
+  } catch(e) {}
 }
 
 // ── 마음토큰 ──
