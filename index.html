@@ -959,17 +959,23 @@ async function startLoading() {
   await sleep(600);
   // 오디오 미리 로드
   AUDIO.preloadAll();
-  // BGM 자동 시작 (사용자 제스처 없이는 안될 수 있어서 첫 클릭 시 시작)
-  // 첫 화면 클릭/터치 시 BGM 시작 — NFC 버튼 제외하고 싶지만
-  // 브라우저 정책상 어떤 클릭이든 허용되므로 일단 첫 클릭에 시작
-  document.addEventListener('click', function startBgmOnce() {
-    AUDIO.startOnGesture();
-  }, { once: true });
 
+  // 로딩 완료 → 마음잇기 버튼 표시 (버튼 클릭으로 BGM 시작)
+  var btn = document.getElementById('btnMaumIt');
+  if (btn) btn.classList.remove('hidden');
+}
+
+function onMaumIt() {
+  // 버튼 숨기기
+  var btn = document.getElementById('btnMaumIt');
+  if (btn) btn.classList.add('hidden');
+  // BGM + 효과음 시작 (사용자 제스처 안에서 실행해야 브라우저 허용)
+  AUDIO.startOnGesture();
+  AUDIO.sfx('nfc');
+  // NFC 화면으로 전환
   document.getElementById('screen-loading').classList.add('hidden');
   document.getElementById('screen-nfc').classList.remove('hidden');
   focusNfcInput();
-  // WebNFC 자동 초기화 시도 (권한 팝업은 사용자 제스처 필요하므로 조용히 시도)
   setTimeout(initWebNFC, 500);
 }
 
