@@ -549,6 +549,25 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   border:none;cursor:pointer;font-size:18px;color:#fff;flex-shrink:0;
 }
 
+/* 페르소나 대화 모드 */
+.persona-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 12px;background:linear-gradient(135deg,var(--lav2),#f0ecff);
+  border-radius:12px;margin-bottom:10px;flex-shrink:0;
+}
+.persona-bar-label{font-size:12px;font-weight:600;color:var(--lav);letter-spacing:-0.2px}
+.persona-bar-btn{
+  font-size:11px;font-weight:600;color:#fff;
+  background:var(--lav);border:none;border-radius:10px;
+  padding:4px 10px;cursor:pointer;
+}
+.chat-avatar.persona{
+  background:linear-gradient(135deg,var(--lav),#9575cd);
+}
+.chat-msg.bot.persona .chat-bubble{
+  background:var(--lav2);border-radius:4px 16px 16px 16px;
+}
+
 /* ════════════════════════════════════════
    마음토큰
 ════════════════════════════════════════ */
@@ -969,6 +988,13 @@ var STATE = {
   chatHistory: [],     // 봇 대화 기록
   tokenBalance: null,
   selectedGender: null, // 학생 등록 성별 선택
+  settings: {          // 교사 설정
+    alarm_checkin: true,
+    alarm_crisis: true,
+    bgm: true,
+    persona_mode_enabled: false,
+    persona_mode_until: '',
+  },
 };
 
 // ════════════════════════════════════════
@@ -1265,7 +1291,6 @@ function buildTabs(tabs) {
 }
 
 function switchTab(idx) {
-  // 마음봇 탭(index 1)에서 벗어날 때 채팅 로그 저장
   var prevBtn = document.querySelector('.tab-btn.active');
   var prevIdx = prevBtn ? Array.from(document.querySelectorAll('.tab-btn')).indexOf(prevBtn) : -1;
   if (prevIdx === 1 && idx !== 1 && STATE.role === 'student') {
@@ -1275,27 +1300,113 @@ function switchTab(idx) {
   document.querySelectorAll('.tab-panel').forEach(function(p,i){ p.classList.toggle('active', i===idx); });
   var bgmToggle = document.getElementById('set-bgm');
   if (bgmToggle) bgmToggle.checked = AUDIO.enabled.bgm;
+  // 마음봇 탭 진입 시 페르소나 모드 가능 여부 확인
+  if (idx === 1 && STATE.role === 'student') {
+    checkPersonaModeForStudent();
+  }
 }
-
 // ════════════════════════════════════════
 // 교사 UI
 // ════════════════════════════════════════
 function settingsHTML() {
-  var bgmChecked = AUDIO.enabled.bgm ? 'checked' : '';
+  var bgmChecked    = AUDIO.enabled.bgm ? 'checked' : '';
+  var s = STATE.settings;
+  var alarmCI  = s.alarm_checkin  ? 'checked' : '';
+  var alarmCR  = s.alarm_crisis   ? 'checked' : '';
   return '<div class="card">' +
     '<div class="card-label">알림 설정</div>' +
-    '<div class="settings-item"><div><div class="settings-label">🔔 등교 태깅 알림</div></div>' +
-      '<label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></div>' +
-    '<div class="settings-item"><div><div class="settings-label">⚠️ 위기 학생 알림</div></div>' +
-      '<label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></div>' +
+    '<div class="settings-item"><div><div class="settings-label">🔔 등교 태깅 알림</div><div class="settings-sub">학생이 NFC 태깅할 때 알림</div></div>' +
+      '<label class="toggle"><input type="checkbox" id="set-alarm-checkin" '+alarmCI+' onchange="saveSettingField(&apos;alarm_checkin&apos;,this.checked)"><span class="toggle-slider"></span></label></div>' +
+    '<div class="settings-item"><div><div class="settings-label">⚠️ 위기 학생 알림</div><div class="settings-sub">부정 감정 연속 3일 이상</div></div>' +
+      '<label class="toggle"><input type="checkbox" id="set-alarm-crisis" '+alarmCR+' onchange="saveSettingField(&apos;alarm_crisis&apos;,this.checked)"><span class="toggle-slider"></span></label></div>' +
     '<div class="settings-item"><div><div class="settings-label">🎵 배경음악</div></div>' +
-      '<label class="toggle"><input type="checkbox" id="set-bgm" ' + bgmChecked + ' onchange="AUDIO.toggleBgm(this.checked)"><span class="toggle-slider"></span></label></div>' +
+      '<label class="toggle"><input type="checkbox" id="set-bgm" '+bgmChecked+' onchange="AUDIO.toggleBgm(this.checked);saveSettingField(&apos;bgm&apos;,this.checked)"><span class="toggle-slider"></span></label></div>' +
+    '</div>' +
+    '<div class="card card-lav" style="margin-top:8px">' +
+      '<div class="card-label">🤝 페르소나 대화 허용</div>' +
+      '<div style="font-size:12px;color:var(--gray);margin-bottom:10px">학생들이 서로의 AI 페르소나와 대화할 수 있어요</div>' +
+      '<div id="personaModeStatus" style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--gray)">현재: OFF</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+        '<button class="btn btn-lav" onclick="setPersonaMode(10)">⏱ 10분 허용</button>' +
+        '<button class="btn btn-lav" onclick="setPersonaMode(30)">⏱ 30분 허용</button>' +
+      '</div>' +
+      '<button class="btn btn-secondary" style="margin-top:8px;width:100%" onclick="setPersonaMode(0)">🚫 즉시 종료</button>' +
     '</div>' +
     '<div class="card card-peach" style="margin-top:8px">' +
       '<div class="card-label">계정 정보</div>' +
-      '<div style="font-size:13px;color:var(--gray)" id="teacherInfoBox"></div>' +
+      '<div style="font-size:13px;color:var(--gray);line-height:1.8" id="teacherInfoBox"></div>' +
     '</div>' +
     '<button class="btn btn-secondary" style="margin-top:8px" onclick="logout()">로그아웃</button>';
+}
+
+async function loadSettings() {
+  var u = STATE.user;
+  if (!u || !u.teacher_uid) return;
+  var res = await api('get_settings', { teacher_uid: u.teacher_uid });
+  if (res.status !== 'ok') return;
+  var s = res.data;
+  STATE.settings = s;
+  var ci  = document.getElementById('set-alarm-checkin');
+  var cr  = document.getElementById('set-alarm-crisis');
+  var bgm = document.getElementById('set-bgm');
+  if (ci)  ci.checked  = !!s.alarm_checkin;
+  if (cr)  cr.checked  = !!s.alarm_crisis;
+  if (bgm) { bgm.checked = !!s.bgm; AUDIO.enabled.bgm = !!s.bgm; }
+  updatePersonaModeStatus(s.persona_mode_enabled, s.persona_mode_until);
+  renderTeacherInfo();
+}
+
+async function saveSettingField(field, value) {
+  STATE.settings[field] = value;
+  var u = STATE.user;
+  if (!u || !u.teacher_uid) return;
+  var payload = Object.assign({ teacher_uid: u.teacher_uid }, STATE.settings);
+  await api('save_settings', payload);
+}
+
+async function setPersonaMode(minutes) {
+  var u = STATE.user;
+  if (!u || !u.teacher_uid) return;
+  var enabled = minutes > 0;
+  showLoading(enabled ? '페르소나 대화를 ' + minutes + '분간 허용합니다 🤝' : '페르소나 대화를 종료합니다');
+  var res = await api('set_persona_mode', {
+    teacher_uid: u.teacher_uid,
+    enabled: enabled,
+    minutes: minutes,
+  });
+  hideLoading();
+  if (res.status === 'ok') {
+    STATE.settings.persona_mode_enabled = res.data.enabled;
+    STATE.settings.persona_mode_until   = res.data.until;
+    updatePersonaModeStatus(res.data.enabled, res.data.until);
+    toast(enabled ? minutes + '분간 페르소나 대화가 열렸어요 🤝' : '페르소나 대화가 종료됐어요');
+  }
+}
+
+function updatePersonaModeStatus(enabled, until) {
+  var el = document.getElementById('personaModeStatus');
+  if (!el) return;
+  if (!enabled) { el.textContent = '현재: OFF'; el.style.color = 'var(--gray)'; return; }
+  var msg = '현재: ON';
+  if (until) {
+    var untilDate = new Date(until);
+    var hh = ('0'+untilDate.getHours()).slice(-2);
+    var mm = ('0'+untilDate.getMinutes()).slice(-2);
+    msg += ' (' + hh + ':' + mm + ' 까지)';
+  }
+  el.textContent = msg;
+  el.style.color = 'var(--lav)';
+}
+
+function renderTeacherInfo() {
+  var u   = STATE.user;
+  var box = document.getElementById('teacherInfoBox');
+  if (!u || !box) return;
+  box.innerHTML =
+    '이름: <b>' + u.name + '</b> 선생님<br>' +
+    '학교: ' + (u.school_name || '-') + '<br>' +
+    '학급: ' + (u.grade||'-') + '학년 ' + (u.class||'-') + '반<br>' +
+    '아이디: ' + (u.teacher_id || u.id || '-');
 }
 
 function buildTeacherUI() {
@@ -1306,10 +1417,8 @@ function buildTeacherUI() {
     { label:'📖 기록보기', html: recordsHTML() },
   ];
   if (!isAdmin) {
-    // 교사만 설정 탭
     tabs.push({ label:'⚙️ 설정', html: settingsHTML() });
   } else {
-    // 관리자는 관리자 탭
     tabs.push({ label:'🔑 관리자', html: adminHTML() });
   }
   buildTabs(tabs);
@@ -1318,6 +1427,9 @@ function buildTeacherUI() {
     var last = btns[btns.length - 1];
     if (last) last.style.color = 'var(--lav)';
     loadTeacherList();
+  } else {
+    // 교사 설정 로드
+    loadSettings();
   }
 }
 
@@ -2205,10 +2317,18 @@ async function submitEmotion() {
 // ── 봇 대화 ──
 function chatHTML() {
   return '<div class="chat-wrap">' +
+    '<div id="personaBar" class="persona-bar" style="display:none">' +
+      '<span class="persona-bar-label" id="personaBarLabel">🤝 페르소나 대화 중</span>' +
+      '<button class="persona-bar-btn" onclick="exitPersonaMode()">✕ 마음봇으로</button>' +
+    '</div>' +
     '<div class="chat-messages" id="chatMessages"></div>' +
+    '<div style="display:flex;gap:6px;padding-top:6px;flex-shrink:0">' +
+      '<button class="btn btn-lav" style="font-size:12px;padding:8px 12px;flex:1;display:none" id="btnPersonaFriend" onclick="openPersonaSelect(false)">🤝 친구랑 대화</button>' +
+      '<button class="btn btn-lav" style="font-size:12px;padding:8px 12px;flex:1;display:none" id="btnPersonaSelf" onclick="openPersonaSelect(true)">🪞 나랑 대화</button>' +
+    '</div>' +
     '<div class="chat-input-row">' +
       '<input class="chat-input" id="chatInput" placeholder="마음이음봇에게 말해봐요..." onkeydown="if(event.key===&quot;Enter&quot;)sendChat()">' +
-      '<button class="chat-send" onclick="sendChat()">➤</button>' +
+      '<button class="chat-send" id="chatSendBtn" onclick="sendChat()">➤</button>' +
     '</div></div>';
 }
 
@@ -2226,6 +2346,135 @@ function addUserMsg(text) {
   wrap.innerHTML += '<div class="chat-msg user"><div class="chat-bubble">'+text+'</div></div>';
   wrap.scrollTop = wrap.scrollHeight;
   STATE.chatHistory.push({ role:'user', text });
+}
+
+// 페르소나 모드 전역 상태
+var PERSONA_MODE = {
+  active    : false,
+  isSelf    : false,
+  targetUid : '',
+  targetName: '',
+  history   : [],
+};
+
+// 마음봇 탭 진입 시 페르소나 모드 가능 여부 확인
+async function checkPersonaModeForStudent() {
+  var u = STATE.user;
+  if (!u || !u.teacher_uid) return;
+  var res = await api('check_persona_mode', { teacher_uid: u.teacher_uid });
+  if (res.status !== 'ok') return;
+  var enabled = res.data.enabled;
+  var bf = document.getElementById('btnPersonaFriend');
+  var bs = document.getElementById('btnPersonaSelf');
+  if (bf) bf.style.display = enabled ? 'block' : 'none';
+  if (bs) bs.style.display = enabled ? 'block' : 'none';
+}
+
+// 친구 또는 나 자신 선택
+async function openPersonaSelect(isSelf) {
+  if (isSelf) {
+    // 나 자신 — 바로 시작
+    startPersonaChat(STATE.user.student_uid, STATE.user.name, true);
+    return;
+  }
+  // 친구 선택 — 같은 반 목록
+  var peers = STATE.students.filter(function(s){
+    return s.student_uid !== STATE.user.student_uid && s.active === 'Y';
+  });
+  if (!peers.length) { toast('대화할 수 있는 친구가 없어요'); return; }
+
+  // 이름 목록으로 선택 (추후 모달로 개선 가능)
+  var names = peers.map(function(s){ return s.name; }).join(', ');
+  var input = prompt('누구와 대화할까요?\n' + names);
+  if (!input) return;
+  var found = peers.find(function(s){ return s.name === input.trim(); });
+  if (!found) { toast('찾을 수 없는 이름이에요'); return; }
+  startPersonaChat(found.student_uid, found.name, false);
+}
+
+function startPersonaChat(targetUid, targetName, isSelf) {
+  PERSONA_MODE.active     = true;
+  PERSONA_MODE.isSelf     = isSelf;
+  PERSONA_MODE.targetUid  = targetUid;
+  PERSONA_MODE.targetName = targetName;
+  PERSONA_MODE.history    = [];
+
+  // 채팅창 초기화
+  var wrap = document.getElementById('chatMessages');
+  if (wrap) wrap.innerHTML = '';
+
+  // 페르소나 바 표시
+  var bar = document.getElementById('personaBar');
+  var lbl = document.getElementById('personaBarLabel');
+  if (bar) bar.style.display = 'flex';
+  if (lbl) lbl.textContent = isSelf
+    ? '🪞 과거의 나와 대화 중'
+    : '🤝 ' + targetName + '(이)의 페르소나와 대화 중';
+
+  // 입력창 placeholder 변경
+  var inp = document.getElementById('chatInput');
+  if (inp) inp.placeholder = (isSelf ? '과거의 나에게' : targetName + '에게') + ' 말해봐요...';
+
+  // 첫 인사
+  var greeting = isSelf
+    ? '안녕, 나야. 오늘 어떤 이야기 하고 싶어?'
+    : targetName + '이야. 안녕! 무슨 얘기 하고 싶어?';
+  addPersonaBotMsg(greeting, targetName, isSelf);
+}
+
+function exitPersonaMode() {
+  PERSONA_MODE.active = false;
+  PERSONA_MODE.history = [];
+  var bar = document.getElementById('personaBar');
+  if (bar) bar.style.display = 'none';
+  var inp = document.getElementById('chatInput');
+  if (inp) inp.placeholder = '마음이음봇에게 말해봐요...';
+  var wrap = document.getElementById('chatMessages');
+  if (wrap) wrap.innerHTML = '';
+  // 마음봇 인사 재시작
+  startBotGreeting();
+}
+
+function addPersonaBotMsg(text, name, isSelf) {
+  var wrap = document.getElementById('chatMessages');
+  if (!wrap) return;
+  var avatar = isSelf ? '🪞' : '🙂';
+  wrap.innerHTML += '<div class="chat-msg bot persona">' +
+    '<div class="chat-avatar persona">' + avatar + '</div>' +
+    '<div class="chat-bubble">' + text + '</div></div>';
+  wrap.scrollTop = wrap.scrollHeight;
+  PERSONA_MODE.history.push({ role:'model', text: text });
+}
+
+async function sendPersonaChat(msg) {
+  var u = STATE.user;
+  addUserMsg(msg);
+
+  // 타이핑 인디케이터
+  var wrap = document.getElementById('chatMessages');
+  var tmpId = 'ptmp-' + Date.now();
+  if (wrap) {
+    wrap.innerHTML += '<div class="chat-msg bot persona" id="'+tmpId+'">' +
+      '<div class="chat-avatar persona">' + (PERSONA_MODE.isSelf ? '🪞' : '🙂') + '</div>' +
+      '<div class="chat-bubble" style="opacity:.6">응답 중 💜</div></div>';
+    wrap.scrollTop = wrap.scrollHeight;
+  }
+
+  var res = await api('persona_chat', {
+    message     : msg,
+    my_name     : u.name,
+    target_uid  : PERSONA_MODE.targetUid,
+    target_name : PERSONA_MODE.targetName,
+    teacher_uid : u.teacher_uid,
+    history     : PERSONA_MODE.history.slice(-8),
+    is_self     : PERSONA_MODE.isSelf,
+  });
+
+  var el = document.getElementById(tmpId);
+  if (el) el.remove();
+
+  var reply = res.status === 'ok' ? res.data.reply : '잠깐 생각 중이야...';
+  addPersonaBotMsg(reply, PERSONA_MODE.targetName, PERSONA_MODE.isSelf);
 }
 
 async function startBotGreeting() {
@@ -2276,6 +2525,8 @@ async function sendChat() {
   var msg = inp?.value.trim();
   if(!msg) return;
   inp.value = '';
+  // 페르소나 모드면 분기
+  if (PERSONA_MODE.active) { sendPersonaChat(msg); return; }
   addUserMsg(msg);
 
   // 타이핑 인디케이터 추가
