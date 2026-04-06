@@ -1183,6 +1183,7 @@ function buildTeacherUI() {
     var btns = document.querySelectorAll('.tab-btn');
     var last = btns[btns.length - 1];
     if (last) last.style.color = 'var(--lav)';
+    loadTeacherList();
   }
 }
 
@@ -1200,6 +1201,33 @@ function adminHTML() {
       '<button class="btn btn-lav" onclick="previewStudent()">👧 학생 화면</button>' +
     '</div>' +
     '</div>';
+}
+
+async function loadTeacherList() {
+  var el = document.getElementById('teacherList');
+  if (!el) return;
+  el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:10px">불러오는 중...</div>';
+  var res = await api('get_teachers', {});
+  if (res.status !== 'ok') { el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:10px">불러오기 실패</div>'; return; }
+  renderTeacherList(res.data.teachers);
+}
+
+function renderTeacherList(teachers) {
+  var el = document.getElementById('teacherList');
+  if (!el) return;
+  var active = teachers.filter(function(t){ return t.active === 'Y'; });
+  if (!active.length) {
+    el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:10px">아직 등록된 교사가 없어요</div>';
+    return;
+  }
+  el.innerHTML = active.map(function(t) {
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--lgray)">' +
+      '<div>' +
+        '<div style="font-weight:700;font-size:14px">'+t.name+' 선생님 <span style="font-size:11px;color:var(--gray)">'+t.teacher_id+'</span></div>' +
+        '<div style="font-size:12px;color:var(--gray);margin-top:2px">'+t.school_name+' '+t.grade+'학년 '+t.class+'반 · '+(t.nfc_uid?'🪪 NFC':'🔲 NFC없음')+'</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
 }
 
 // 교사 미리보기 — 더미 데이터로 교사 화면 실행
@@ -1593,6 +1621,15 @@ function selectGender(g) {
   sel.style.borderColor = 'var(--mint2)';
 }
 
+function onNumInput(val) {
+  if (!val) return;
+  var u = STATE.user;
+  if (!u) return;
+  var sn = (u.school_name||'xx').slice(0,2);
+  var id = sn+'e'+String(u.year||2026).slice(-2)+(u.grade||'')+(u.class||'')+('0'+val).slice(-2);
+  document.getElementById('sf-id').value = id;
+}
+
 function generateId() {
   var u = STATE.user;
   var num = document.getElementById('sf-num').value;
@@ -1645,6 +1682,7 @@ async function submitTeacherForm() {
   if (res.status==='ok') {
     AUDIO.sfx('save');
     toast('교사 계정이 만들어졌어요 ✅');
+    loadTeacherList();
   } else {
     toast(res.message);
     openModal('modal-teacher-form');
@@ -1678,11 +1716,14 @@ async function submitStudentForm() {
   });
 
   if(res.status==='ok') {
+    hideLoading();
     toast(res.data.message);
     closeModal('modal-student-form');
     loadStudents();
   } else {
+    hideLoading();
     toast(res.message);
+    openModal('modal-student-form');
   }
 }
 
@@ -1842,6 +1883,8 @@ async function submitEmotion() {
   var micro = STATE.selectedMicro;
   var scoreMap = {'positive':2,'neutral':0,'negative':-2};
 
+  showLoading('오늘 감정을 기록하는 중이에요 💛');
+
   var res = await api('save_emotion', {
     student_uid  : STATE.user.student_uid,
     student_name : STATE.user.name,
@@ -1854,6 +1897,7 @@ async function submitEmotion() {
     type         : 'checkin',
   });
 
+  hideLoading();
   if(res.status==='ok') {
     AUDIO.sfx('save');
     toast('감정을 저장했어요 💛');
@@ -1904,6 +1948,14 @@ async function sendChat() {
   inp.value = '';
   addUserMsg(msg);
 
+  // 타이핑 인디케이터 추가
+  var wrap = document.getElementById('chatMessages');
+  var typingId = 'typing-' + Date.now();
+  if(wrap) {
+    wrap.innerHTML += '<div class="chat-msg bot" id="'+typingId+'"><div class="chat-avatar">🤖</div><div class="chat-bubble" style="opacity:.6">마음봇 응답 중 💛</div></div>';
+    wrap.scrollTop = wrap.scrollHeight;
+  }
+
   var res = await api('chat_bot', {
     message      : msg,
     student_name : STATE.user.name,
@@ -1911,6 +1963,10 @@ async function sendChat() {
     micro_emotion: STATE.selectedMicro?.word || '',
     history      : STATE.chatHistory.slice(-10),
   });
+
+  // 타이핑 인디케이터 제거
+  var typingEl = document.getElementById(typingId);
+  if(typingEl) typingEl.remove();
 
   if(res.status==='ok') addBotMsg(res.data.reply);
   else addBotMsg('잠시 후 다시 말해봐 💙');
@@ -1941,11 +1997,13 @@ async function loadTokenBalance() {
 }
 
 async function saveToken() {
+  showLoading('마음토큰을 저축하는 중이에요 🪙');
   var res = await api('save_token', {
     student_uid : STATE.user.student_uid,
     student_name: STATE.user.name,
     teacher_uid : STATE.user.teacher_uid,
   });
+  hideLoading();
   if(res.status==='ok') { toast(res.data.message); loadTokenBalance(); }
   else toast(res.message);
 }
@@ -1960,6 +2018,7 @@ function openGiftSelect() {
 }
 
 async function giftToken(friend) {
+  showLoading(friend.name+'에게 토큰을 선물하는 중이에요 💌');
   var res = await api('gift_token', {
     from_uid : STATE.user.student_uid,
     from_name: STATE.user.name,
@@ -1967,6 +2026,7 @@ async function giftToken(friend) {
     to_name  : friend.name,
     teacher_uid: STATE.user.teacher_uid,
   });
+  hideLoading();
   if(res.status==='ok') { toast(res.data.message); loadTokenBalance(); }
   else toast(res.message);
 }
