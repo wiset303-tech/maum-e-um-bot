@@ -400,7 +400,9 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
    봇 대화
 ════════════════════════════════════════ */
 .chat-wrap{
-  display:flex;flex-direction:column;height:calc(100vh - 180px);
+  display:flex;flex-direction:column;
+  height:100%;
+  position:absolute;inset:0;padding:12px 16px;box-sizing:border-box;
 }
 .chat-messages{
   flex:1;overflow-y:auto;padding:8px 0;display:flex;flex-direction:column;gap:10px;
@@ -1131,6 +1133,11 @@ function buildTabs(tabs) {
     panel.className = 'tab-panel' + (i===0?' active':'');
     panel.id = 'panel-' + i;
     panel.innerHTML = t.html || '';
+    // 채팅 탭은 내부 스크롤 처리를 위해 overflow:hidden
+    if (t.html && t.html.indexOf('chat-wrap') !== -1) {
+      panel.style.overflow = 'hidden';
+      panel.style.padding = '0';
+    }
     panels.appendChild(panel);
   });
 }
@@ -1937,8 +1944,46 @@ function addUserMsg(text) {
 }
 
 async function startBotGreeting() {
-  var micro = STATE.selectedMicro?.word || '';
-  addBotMsg(STATE.user.name+'아, 오늘 <b>'+micro+'</b> 감정이구나 💙<br>더 이야기하고 싶은 게 있으면 말해봐!');
+  var u = STATE.user;
+  var micro = STATE.selectedMicro?.word || STATE.selectedMacro || '';
+  var today = new Date().toISOString().slice(0, 10);
+  var greetKey = 'bot_greeted_' + (u.student_uid || '') + '_' + today;
+
+  // 오늘 이미 스몰토크 했으면 간단 인사만
+  if (sessionStorage.getItem(greetKey)) {
+    addBotMsg('또 왔구나 😊 오늘 더 하고 싶은 말 있어?');
+    return;
+  }
+
+  // 처음 진입 — Gemini 스몰토크 (하루 1회)
+  sessionStorage.setItem(greetKey, '1');
+
+  // 로딩 메시지 먼저 표시
+  var wrap = document.getElementById('chatMessages');
+  var tmpId = 'greet-tmp-' + Date.now();
+  if (wrap) {
+    wrap.innerHTML += '<div class="chat-msg bot" id="'+tmpId+'"><div class="chat-avatar">🤖</div><div class="chat-bubble" style="opacity:.6">마음봇 응답 중 💛</div></div>';
+    wrap.scrollTop = wrap.scrollHeight;
+  }
+
+  var prompt = u.name + '(이)가 오늘 감정 체크인을 했어. 선택한 감정은 "' + micro + '"이야. ' +
+    '짧고 따뜻하게 오늘 감정에 공감해주고, 자연스럽게 한 가지만 물어봐. ' +
+    '2~3문장, 초등학생 눈높이, 이모지 1~2개만 써줘.';
+
+  var res = await api('chat_bot', {
+    message      : prompt,
+    student_name : u.name,
+    macro_emotion: STATE.selectedMacro || 'neutral',
+    micro_emotion: micro,
+    history      : [],
+  });
+
+  // 로딩 메시지 제거
+  var tmpEl = document.getElementById(tmpId);
+  if (tmpEl) tmpEl.remove();
+
+  if (res.status === 'ok') addBotMsg(res.data.reply);
+  else addBotMsg(u.name + '아, 오늘 <b>' + micro + '</b> 감정이구나 💙<br>더 이야기하고 싶은 게 있으면 말해봐!');
 }
 
 async function sendChat() {
