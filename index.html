@@ -1268,7 +1268,7 @@ function onLoginSuccess(data) {
     loadDashboard();
     startDashboardPoll();
     if (data.teacher_uid) loadStudents();
-    setTimeout(initCal, 300);
+    initCal(); // 로그인 중 백그라운드 달력 데이터 미리 로드
   } else {
     buildStudentUI();
     loadTokenBalance();
@@ -1329,9 +1329,15 @@ function exitPreview() {
   STATE.dashboard = null;
   STATE.chatHistory = [];
   STATE.tokenBalance = null;
+  _studentShowCount = 5;
   document.getElementById('btnBackAdmin').classList.add('hidden');
   document.getElementById('headerUser').textContent = (STATE.user?.name || '관리자') + ' (관리자)';
   buildAdminUI();
+}
+
+// 관리자 전용 UI 빌드 (buildTeacherUI와 별도로 명시)
+function buildAdminUI() {
+  buildTeacherUI(); // 내부에서 isAdmin 감지 → loadTeacherList() 자동 호출
 }
 
 // ════════════════════════════════════════
@@ -1373,9 +1379,14 @@ function switchTab(idx) {
   document.querySelectorAll('.tab-panel').forEach(function(p,i){ p.classList.toggle('active', i===idx); });
   var bgmToggle = document.getElementById('set-bgm');
   if (bgmToggle) bgmToggle.checked = AUDIO.enabled.bgm;
-  // 마음봇 탭 진입 시 페르소나 모드 가능 여부 확인
+  // 마음봇 탭 진입 시 페르소나 모드 가능 여부 확인 (학생 탭1)
   if (idx === 1 && STATE.role === 'student') {
     checkPersonaModeForStudent();
+  }
+  // 교사·관리자 마음앨범 탭 진입 시 (탭3)
+  if (idx === 3 && (STATE.role === 'teacher' || STATE.role === 'admin')) {
+    // 학생 목록이 있어야 학생 선택 가능
+    if (STATE.students.length) renderAlbumStudentPicker();
   }
 }
 // ════════════════════════════════════════
@@ -1485,14 +1496,15 @@ function renderTeacherInfo() {
 function buildTeacherUI() {
   var isAdmin = (STATE.role === 'admin') || (STATE.user && STATE.user.role === 'admin');
   var tabs = [
-    { label:'🌤 대시보드', html: dashboardHTML() },
-    { label:'👥 학생관리', html: studentMgmtHTML() },
+    { label:'🌤 대시보드',  html: dashboardHTML() },
+    { label: isAdmin ? '🔑 계정관리' : '👥 학생관리', html: studentMgmtHTML() },
     { label:'📖 기록보기', html: recordsHTML() },
+    { label:'📸 마음앨범', html: albumTeacherHTML() },
   ];
   if (!isAdmin) {
     tabs.push({ label:'⚙️ 설정', html: settingsHTML() });
   } else {
-    tabs.push({ label:'🔑 관리자', html: adminHTML() });
+    tabs.push({ label:'🛠 관리자', html: adminHTML() });
   }
   buildTabs(tabs);
   if (isAdmin) {
@@ -1522,24 +1534,32 @@ function adminHTML() {
     '</div>';
 }
 
+var _teacherShowCount = 5;
+var _teacherAll = [];
+
 async function loadTeacherList() {
   var el = document.getElementById('teacherList');
   if (!el) return;
   el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:10px">불러오는 중...</div>';
   var res = await api('get_teachers', {});
   if (res.status !== 'ok') { el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:10px">불러오기 실패</div>'; return; }
-  renderTeacherList(res.data.teachers);
+  _teacherShowCount = 5;
+  _teacherAll = (res.data.teachers || []).filter(function(t){ return t.active === 'Y'; });
+  renderTeacherList();
 }
 
-function renderTeacherList(teachers) {
+function renderTeacherList() {
   var el = document.getElementById('teacherList');
   if (!el) return;
-  var active = teachers.filter(function(t){ return t.active === 'Y'; });
-  if (!active.length) {
+  if (!_teacherAll.length) {
     el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:10px">아직 등록된 교사가 없어요</div>';
     return;
   }
-  el.innerHTML = active.map(function(t) {
+
+  var visible = _teacherAll.slice(0, _teacherShowCount);
+  var hasMore = _teacherAll.length > _teacherShowCount;
+
+  var cards = visible.map(function(t) {
     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--lgray)">' +
       '<div>' +
         '<div style="font-weight:700;font-size:14px">'+t.name+' 선생님 <span style="font-size:11px;color:var(--gray)">'+t.teacher_id+'</span></div>' +
@@ -1547,6 +1567,34 @@ function renderTeacherList(teachers) {
       '</div>' +
     '</div>';
   }).join('');
+
+  var moreBtn = hasMore
+    ? '<button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px" onclick="showMoreTeachers()">' +
+        '더보기 (' + (_teacherAll.length - _teacherShowCount) + '명 더)' +
+      '</button>'
+    : (_teacherShowCount > 5
+        ? '<button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px" onclick="showLessTeachers()">접기</button>'
+        : '');
+
+  el.innerHTML = cards + moreBtn;
+}
+
+function showMoreTeachers() {
+  _teacherShowCount += 5;
+  renderTeacherList();
+}
+function showLessTeachers() {
+  _teacherShowCount = 5;
+  renderTeacherList();
+}
+
+function showMoreStudents() {
+  _studentShowCount += 5;
+  renderStudentList();
+}
+function showLessStudents() {
+  _studentShowCount = 5;
+  renderStudentList();
 }
 
 // 교사 미리보기 — 더미 데이터로 교사 화면 실행
@@ -1702,6 +1750,12 @@ function dashboardHTML() {
   '<div class="card card-peach" id="notSubmitCard">' +
     '<div class="card-label">⚠️ 미제출 학생</div>' +
     '<div id="notSubmitList"></div>' +
+  '</div>' +
+  '<div class="card" id="adminEmotionCard" style="display:none">' +
+    '<div class="card-label" style="display:flex;align-items:center;justify-content:space-between">' +
+      '<span>📋 오늘의 감정날씨 <span id="adminEmotionCount" style="font-size:12px;font-weight:400;color:var(--gray)"></span></span>' +
+    '</div>' +
+    '<div id="adminEmotionList" style="max-height:320px;overflow-y:auto;margin-top:4px"></div>' +
   '</div>';
 }
 
@@ -1785,9 +1839,8 @@ function selectCalDay(dateStr) {
 }
 
 async function initCal() {
-  showLoading('달력을 불러오는 중이에요 📅');
+  // 로그인 시 백그라운드에서 조용히 미리 로드 (로딩 인디케이터 없음)
   var res = await api('get_emotions', { teacher_uid: STATE.user ? STATE.user.teacher_uid : '' });
-  hideLoading();
   if (res.status === 'ok') {
     CAL.data = {};
     res.data.emotions.forEach(function(e) {
@@ -1876,6 +1929,13 @@ async function loadDashboard() {
 
   // 워드클라우드
   renderWordCloud(d.emotion_words || []);
+
+  // 관리자 전용: 오늘의 감정날씨 목록 (최대 100개)
+  var adminCard = document.getElementById('adminEmotionCard');
+  if (adminCard && STATE.role === 'admin') {
+    adminCard.style.display = 'block';
+    loadAdminEmotionList();
+  }
 }
 
 function renderWordCloud(words) {
@@ -1957,6 +2017,44 @@ function renderWordCloud(words) {
     .start();
 }
 
+// 관리자 전용 — 오늘의 감정날씨 최대 100개
+async function loadAdminEmotionList() {
+  var listEl  = document.getElementById('adminEmotionList');
+  var countEl = document.getElementById('adminEmotionCount');
+  if (!listEl) return;
+  listEl.innerHTML = '<div style="color:var(--gray);font-size:13px;padding:8px 0">불러오는 중...</div>';
+
+  var today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+  var res = await api('get_emotions', { teacher_uid: '', date: today }); // 관리자: 전체 조회
+  if (res.status !== 'ok') { listEl.innerHTML = '<div style="color:var(--gray);font-size:13px">불러오기 실패</div>'; return; }
+
+  var all     = res.data.emotions || [];
+  var limited = all.slice(0, 100); // 최대 100개
+
+  if (countEl) countEl.textContent = '(' + limited.length + (all.length > 100 ? '/100+' : '/'+all.length) + '건)';
+
+  if (!limited.length) {
+    listEl.innerHTML = '<div style="color:var(--gray);font-size:13px;padding:8px 0;text-align:center">오늘 기록이 없어요</div>';
+    return;
+  }
+
+  var macroLabel = { positive:'☀️', neutral:'☁️', negative:'☔' };
+  listEl.innerHTML = limited.map(function(e) {
+    var time  = String(e.timestamp).slice(11,16);
+    var macro = macroLabel[e.macro_emotion] || '🌥';
+    var micro = e.micro_emotion ? ' · ' + e.micro_emotion : '';
+    var custom = e.custom_text ? ' <span style="font-size:11px;color:var(--gray)">"'+e.custom_text+'"</span>' : '';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--lgray);font-size:13px">' +
+      '<span style="font-size:16px;flex-shrink:0">'+macro+'</span>' +
+      '<div style="flex:1;min-width:0">' +
+        '<span style="font-weight:600">'+e.student_name+'</span>' +
+        '<span style="color:var(--gray)">'+micro+'</span>' + custom +
+      '</div>' +
+      '<span style="color:var(--gray);font-size:11px;flex-shrink:0">'+time+'</span>' +
+    '</div>';
+  }).join('');
+}
+
 // 수동 새로고침
 async function refreshDashboard() {
   await loadDashboard();
@@ -1998,15 +2096,26 @@ async function loadStudents() {
   var res = await api('get_students', { teacher_uid: STATE.user?.teacher_uid });
   if(res.status!=='ok') return;
   STATE.students = res.data.students;
+  _studentShowCount = 5; // 초기화
   renderStudentList();
 }
 
+var _studentShowCount = 5;
+
 function renderStudentList() {
   var el = document.getElementById('studentList');
-  if(!el) return;
-  if(!STATE.students.length) { el.innerHTML='<div style="text-align:center;color:var(--gray);padding:20px" class="gaegu">등록된 학생이 없어요</div>'; return; }
+  if (!el) return;
+  _studentShowCount = _studentShowCount || 5;
 
-  el.innerHTML = STATE.students.map(function(s) {
+  if (!STATE.students.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--gray);padding:20px" class="gaegu">등록된 학생이 없어요</div>';
+    return;
+  }
+
+  var visible  = STATE.students.slice(0, _studentShowCount);
+  var hasMore  = STATE.students.length > _studentShowCount;
+
+  var cards = visible.map(function(s) {
     var uid2 = s.student_uid, nm2 = s.name;
     var actions = s.active==='Y'
       ? '<button class="btn btn-sm btn-secondary" onclick="replaceCard(this)" data-uid="'+uid2+'" data-name="'+nm2+'">카드교체</button>' +
@@ -2022,6 +2131,25 @@ function renderStudentList() {
       '<div class="student-actions">'+actions+'</div>' +
     '</div>';
   }).join('');
+
+  var moreBtn = hasMore
+    ? '<button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px" onclick="showMoreStudents()">' +
+        '더보기 ('+(STATE.students.length - _studentShowCount)+'명 더)' +
+      '</button>'
+    : (_studentShowCount > 5
+        ? '<button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px" onclick="showLessStudents()">접기</button>'
+        : '');
+
+  el.innerHTML = cards + moreBtn;
+}
+
+function showMoreStudents() {
+  _studentShowCount += 5;
+  renderStudentList();
+}
+function showLessStudents() {
+  _studentShowCount = 5;
+  renderStudentList();
 }
 
 // ════════════════════════════════════════
@@ -2856,25 +2984,169 @@ async function giftToken(friend) {
 
 // ── 마음앨범 ──
 function albumHTML() {
-  return '<button class="btn btn-primary" style="margin-bottom:14px" onclick="uploadAlbum()">📸 오늘 사진 올리기</button><div id="albumGrid" class="album-grid"></div>';
+  return '<div id="albumUploadSection" style="margin-bottom:14px">' +
+    '<button class="btn btn-primary" onclick="uploadAlbum()">📸 오늘 사진 올리기</button>' +
+  '</div>' +
+  '<div id="albumGrid" class="album-grid"></div>' +
+  '<div id="albumEmpty" class="album-empty" style="display:none">아직 사진이 없어요 📷</div>';
+}
+
+// 교사용 앨범 탭 HTML — 학생 선택 후 앨범 보기
+function albumTeacherHTML() {
+  return '<div id="albumTeacherSection">' +
+    '<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px">학생 선택</div>' +
+    '<div id="albumStudentPicker" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px"></div>' +
+    '<div id="albumTeacherGrid" class="album-grid"></div>' +
+    '<div id="albumTeacherEmpty" class="album-empty" style="display:none">사진이 없어요 📷</div>' +
+  '</div>';
 }
 
 async function loadAlbum() {
-  var res = await api('get_album', { student_uid: STATE.user.student_uid });
-  var el  = document.getElementById('albumGrid');
-  if(!el||res.status!=='ok') return;
-  if(!res.data.album.length) {
-    el.innerHTML='<div class="album-empty">아직 사진이 없어요 📷</div>';
+  var isTeacher = (STATE.role === 'teacher' || STATE.role === 'admin');
+  if (isTeacher) {
+    renderAlbumStudentPicker();
     return;
   }
-  el.innerHTML = res.data.album.map(function(a){
-    return '<div class="album-item"><img src="'+a.image_url+'" alt="마음앨범" onerror="this.src=&quot;&quot;"><div class="album-date">'+a.date+'<br>'+(a.caption||'')+'</div></div>';
+  // 학생: 내 앨범
+  var grid  = document.getElementById('albumGrid');
+  var empty = document.getElementById('albumEmpty');
+  if (!grid) return;
+  grid.innerHTML = '';
+  if (empty) empty.style.display = 'none';
+
+  showLoading('마음앨범 불러오는 중 📷');
+  var res = await api('get_album', { student_uid: STATE.user.student_uid });
+  hideLoading();
+  if (res.status !== 'ok' || !res.data.album.length) {
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  var sorted = res.data.album.sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); });
+  grid.innerHTML = sorted.map(function(a) {
+    var dateStr = String(a.date).slice(0,10);
+    return '<div class="album-item">' +
+      '<img src="'+a.image_url+'" alt="마음앨범" loading="lazy" onerror="this.parentNode.style.display=\'none\'">' +
+      '<div class="album-date">'+dateStr+'<br><span style="font-size:11px;color:var(--gray)">'+(a.caption||'')+'</span></div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderAlbumStudentPicker() {
+  var picker = document.getElementById('albumStudentPicker');
+  var grid   = document.getElementById('albumTeacherGrid');
+  var empty  = document.getElementById('albumTeacherEmpty');
+  if (!picker) return;
+  if (!STATE.students.length) {
+    picker.innerHTML = '<div style="color:var(--gray);font-size:13px">등록된 학생이 없어요</div>';
+    return;
+  }
+  var active = STATE.students.filter(function(s){ return s.active === 'Y'; });
+  picker.innerHTML = active.map(function(s) {
+    return '<button class="btn btn-secondary" style="font-size:12px;padding:6px 12px" ' +
+      'onclick="loadTeacherAlbum(\'' + s.student_uid + '\',\'' + s.name + '\')">' +
+      (s.gender==='F'?'👧':'👦') + ' ' + s.num + '번 ' + s.name + '</button>';
+  }).join('');
+  if (grid) grid.innerHTML = '';
+  if (empty) empty.style.display = 'none';
+  // 안내 문구
+  var section = document.getElementById('albumTeacherSection');
+  if (section) {
+    var hint = section.querySelector('#albumTeacherHint');
+    if (!hint) {
+      var h = document.createElement('div');
+      h.id = 'albumTeacherHint';
+      h.style.cssText = 'font-size:12px;color:var(--gray);margin-bottom:8px';
+      h.textContent = '학생을 선택하면 그 학생의 마음앨범을 볼 수 있어요';
+      section.insertBefore(h, grid);
+    }
+  }
+}
+
+async function loadTeacherAlbum(studentUid, studentName) {
+  var grid  = document.getElementById('albumTeacherGrid');
+  var empty = document.getElementById('albumTeacherEmpty');
+  var hint  = document.getElementById('albumTeacherHint');
+  if (!grid) return;
+  if (hint) hint.style.display = 'none';
+  if (empty) empty.style.display = 'none';
+  grid.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:16px">불러오는 중 📷</div>';
+
+  var res = await api('get_album', { student_uid: studentUid });
+  if (res.status !== 'ok' || !res.data.album.length) {
+    grid.innerHTML = '';
+    if (empty) { empty.textContent = studentName + '의 사진이 없어요 📷'; empty.style.display = 'block'; }
+    return;
+  }
+  var sorted = res.data.album.sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); });
+  grid.innerHTML = sorted.map(function(a) {
+    var dateStr = String(a.date).slice(0,10);
+    return '<div class="album-item">' +
+      '<img src="'+a.image_url+'" alt="마음앨범" loading="lazy" onerror="this.parentNode.style.display=\'none\'">' +
+      '<div class="album-date">'+dateStr+'<br><span style="font-size:11px;color:var(--gray)">'+(a.caption||'')+'</span></div>' +
+    '</div>';
   }).join('');
 }
 
 async function uploadAlbum() {
-  // 파일 선택 → Drive 업로드는 추후 GAS upload 함수와 연결
-  toast('사진 업로드 기능은 곧 추가돼요 📸');
+  // 파일 input 동적 생성
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = async function() {
+    var file = input.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast('5MB 이하 사진만 올릴 수 있어요'); return; }
+
+    showLoading('사진을 올리는 중이에요 📸');
+
+    // Base64 변환
+    var reader = new FileReader();
+    reader.onload = async function(ev) {
+      var base64 = ev.target.result; // data:image/...;base64,...
+      var caption = '';
+      var today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+
+      var res = await api('save_album', {
+        student_uid  : STATE.user.student_uid,
+        student_name : STATE.user.name,
+        teacher_uid  : STATE.user.teacher_uid,
+        image_url    : base64,
+        caption      : caption,
+        emotion_id   : (STATE.selectedMicro && STATE.selectedMicro.id) || '',
+        date         : today,
+      });
+
+      hideLoading();
+      if (res.status === 'ok') {
+        AUDIO.sfx('save');
+        toast('마음앨범에 저장됐어요 🌸');
+        loadAlbum(); // 새로고침
+      } else if (res.message && res.message.includes('이미')) {
+        // 오늘 이미 있으면 수정 여부 확인
+        if (confirm('오늘 사진이 이미 있어요. 새 사진으로 교체할까요?')) {
+          var res2 = await api('save_album', {
+            student_uid  : STATE.user.student_uid,
+            student_name : STATE.user.name,
+            teacher_uid  : STATE.user.teacher_uid,
+            image_url    : base64,
+            caption      : caption,
+            emotion_id   : (STATE.selectedMicro && STATE.selectedMicro.id) || '',
+            date         : today,
+            is_update    : true,
+          });
+          hideLoading();
+          if (res2.status === 'ok') { toast('사진이 교체됐어요 📸'); loadAlbum(); }
+          else toast(res2.message || '오류가 발생했어요');
+        } else {
+          hideLoading();
+        }
+      } else {
+        toast(res.message || '오류가 발생했어요');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
 }
 
 // ════════════════════════════════════════
