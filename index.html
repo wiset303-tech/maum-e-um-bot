@@ -1267,8 +1267,9 @@ async function onLoginSuccess(data) {
     buildTeacherUI();
     showLoading('데이터를 불러오는 중이에요 🌤');
 
-    // teacher_uid가 있는 경우 병렬 로드, 없으면(관리자) teacher_uid 없이 로드
     var teacherUid = data.teacher_uid || '';
+
+    // 대시보드 + 학생목록만 스피너 범위 (핵심 화면)
     await Promise.all([
       loadDashboard(),
       api('get_students', { teacher_uid: teacherUid }).then(function(res) {
@@ -1278,20 +1279,23 @@ async function onLoginSuccess(data) {
           renderStudentList();
         }
       }),
-      api('get_emotions', { teacher_uid: teacherUid }).then(function(res) {
-        if (res.status === 'ok') {
-          CAL.data = {};
-          res.data.emotions.forEach(function(e) {
-            var d = String(e.timestamp).slice(0,10);
-            CAL.data[d] = (CAL.data[d] || 0) + 1;
-          });
-          renderCal();
-        }
-      }),
     ]);
 
     hideLoading();
     startDashboardPoll();
+
+    // 달력 데이터는 백그라운드에서 조용히 로드 (기록보기 탭 진입 전 준비)
+    api('get_emotions', { teacher_uid: teacherUid }).then(function(res) {
+      if (res.status === 'ok') {
+        CAL.data = {};
+        res.data.emotions.forEach(function(e) {
+          var d = String(e.timestamp).slice(0,10);
+          CAL.data[d] = (CAL.data[d] || 0) + 1;
+        });
+        renderCal();
+      }
+    });
+
   } else {
     buildStudentUI();
     loadTokenBalance();
@@ -1300,6 +1304,19 @@ async function onLoginSuccess(data) {
         if (res.status === 'ok') STATE.students = res.data.students;
       });
     }
+    // 오늘 감정 제출 여부 확인 (이미 제출했으면 배너 표시)
+    var today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+    api('get_emotions', { student_uid: data.student_uid, date: today }).then(function(res) {
+      if (res.status === 'ok' && res.data.emotions.length) {
+        var e = res.data.emotions[0];
+        STATE.todayEmotionSubmitted = true;
+        STATE.todayEmotionModified  = !!(e.is_modified === true || e.is_modified === 'TRUE');
+        // 이미 제출한 감정으로 STATE 복원
+        STATE.selectedMacro = e.macro_emotion;
+        STATE.selectedMicro = { word: e.micro_emotion, id: e.is_custom ? 'custom' : '' };
+        updateEmotionSubmittedBanner();
+      }
+    });
   }
 }
 
@@ -1355,9 +1372,15 @@ function exitPreview() {
   document.getElementById('btnBackAdmin').classList.add('hidden');
   document.getElementById('headerUser').textContent = (STATE.user?.name || '관리자') + ' (관리자)';
   buildAdminUI();
+  // 복귀 후 데이터 새로고침
+  loadDashboard();
+  api('get_students', { teacher_uid: '' }).then(function(res) {
+    if (res.status === 'ok') { STATE.students = res.data.students; renderStudentList(); }
+  });
+  startDashboardPoll();
 }
 
-// 관리자 전용 UI 빌드 (buildTeacherUI와 별도로 명시)
+// 관리자 전용 UI 빌드
 function buildAdminUI() {
   buildTeacherUI(); // 내부에서 isAdmin 감지 → loadTeacherList() 자동 호출
 }
@@ -1414,7 +1437,8 @@ function switchTab(idx) {
 
   // ── 교사·관리자 탭 액션 ──
   if (STATE.role === 'teacher' || STATE.role === 'admin') {
-    if (idx === 3 && STATE.students.length) renderAlbumStudentPicker(); // 마음앨범
+    if (idx === 2) ensureCalData();                                          // 기록보기
+    if (idx === 3 && STATE.students.length) renderAlbumStudentPicker();     // 마음앨범
   }
 }
 // ════════════════════════════════════════
@@ -1868,6 +1892,21 @@ function selectCalDay(dateStr) {
   CAL._selectedDate = dateStr;
   showLoading('기록을 불러오는 중이에요 📖');
   loadRecords(dateStr);
+}
+
+// 기록보기 탭 진입 시 달력 데이터가 아직 없으면 조용히 로드
+async function ensureCalData() {
+  if (Object.keys(CAL.data).length > 0) return; // 이미 있으면 스킵
+  var teacherUid = STATE.user ? (STATE.user.teacher_uid || '') : '';
+  var res = await api('get_emotions', { teacher_uid: teacherUid });
+  if (res.status === 'ok') {
+    CAL.data = {};
+    res.data.emotions.forEach(function(e) {
+      var d = String(e.timestamp).slice(0,10);
+      CAL.data[d] = (CAL.data[d] || 0) + 1;
+    });
+    renderCal();
+  }
 }
 
 async function initCal() {
