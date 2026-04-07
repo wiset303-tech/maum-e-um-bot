@@ -1254,7 +1254,7 @@ async function loginByPw() {
   }
 }
 
-function onLoginSuccess(data) {
+async function onLoginSuccess(data) {
   STATE.role = data.role;
   STATE.user = data;
 
@@ -1265,14 +1265,36 @@ function onLoginSuccess(data) {
 
   if (data.role === 'admin' || data.role === 'teacher') {
     buildTeacherUI();
-    loadDashboard();
+    showLoading('데이터를 불러오는 중이에요 🌤');
+
+    // teacher_uid가 있는 경우 병렬 로드, 없으면(관리자) teacher_uid 없이 로드
+    var teacherUid = data.teacher_uid || '';
+    await Promise.all([
+      loadDashboard(),
+      api('get_students', { teacher_uid: teacherUid }).then(function(res) {
+        if (res.status === 'ok') {
+          STATE.students = res.data.students;
+          _studentShowCount = 5;
+          renderStudentList();
+        }
+      }),
+      api('get_emotions', { teacher_uid: teacherUid }).then(function(res) {
+        if (res.status === 'ok') {
+          CAL.data = {};
+          res.data.emotions.forEach(function(e) {
+            var d = String(e.timestamp).slice(0,10);
+            CAL.data[d] = (CAL.data[d] || 0) + 1;
+          });
+          renderCal();
+        }
+      }),
+    ]);
+
+    hideLoading();
     startDashboardPoll();
-    if (data.teacher_uid) loadStudents();
-    initCal(); // 로그인 중 백그라운드 달력 데이터 미리 로드
   } else {
     buildStudentUI();
     loadTokenBalance();
-    // 학생도 같은 반 목록 로드 (선물하기·페르소나 친구 선택용)
     if (data.teacher_uid) {
       api('get_students', { teacher_uid: data.teacher_uid }).then(function(res) {
         if (res.status === 'ok') STATE.students = res.data.students;
@@ -1760,6 +1782,10 @@ function dashboardHTML() {
 }
 
 function studentMgmtHTML() {
+  var isAdmin = (STATE.role === 'admin');
+  if (isAdmin) {
+    return '<div id="studentList"><div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오는 중...</div></div>';
+  }
   return '<button class="btn btn-primary" style="margin-bottom:14px" onclick="openNfcRegister()">🪪 + 학생 NFC 카드 등록</button>' +
     '<div id="studentList"></div>';
 }
@@ -2105,15 +2131,51 @@ var _studentShowCount = 5;
 function renderStudentList() {
   var el = document.getElementById('studentList');
   if (!el) return;
-  _studentShowCount = _studentShowCount || 5;
 
   if (!STATE.students.length) {
     el.innerHTML = '<div style="text-align:center;color:var(--gray);padding:20px" class="gaegu">등록된 학생이 없어요</div>';
     return;
   }
 
-  var visible  = STATE.students.slice(0, _studentShowCount);
-  var hasMore  = STATE.students.length > _studentShowCount;
+  var isAdmin = (STATE.role === 'admin');
+
+  if (isAdmin) {
+    // 관리자: teacher_uid별 그룹핑해서 교사명 헤더 + 학생 5명씩
+    var groups = {};
+    STATE.students.forEach(function(s) {
+      var tid = s.teacher_uid || '미배정';
+      if (!groups[tid]) groups[tid] = [];
+      groups[tid].push(s);
+    });
+    var html = '';
+    Object.keys(groups).forEach(function(tid) {
+      var list = groups[tid];
+      // 교사 이름은 _teacherAll에서 찾기, 없으면 uid 표시
+      var tName = tid;
+      if (_teacherAll && _teacherAll.length) {
+        var found = _teacherAll.find(function(t){ return t.teacher_uid === tid; });
+        if (found) tName = found.name + ' 선생님';
+      }
+      html += '<div style="font-size:12px;font-weight:700;color:var(--gray);padding:8px 0 4px;border-top:1px solid var(--lgray);margin-top:8px">👩‍🏫 ' + tName + ' (' + list.length + '명)</div>';
+      html += list.map(function(s) {
+        return '<div class="student-item '+(s.active==='Y'?'':'inactive')+'" style="padding:8px 0">' +
+          '<div class="student-avatar" style="font-size:12px">'+s.num+'</div>' +
+          '<div class="student-info">' +
+            '<div class="student-name">'+s.name+' <span style="font-size:12px">'+(s.gender==='F'?'👧':s.gender==='M'?'👦':'')+'</span></div>' +
+            '<div class="student-id">ID: '+s.student_id+'</div>' +
+          '</div>' +
+          '<div><span style="font-size:11px;color:var(--gray)">'+(s.nfc_uid?'🪪':'🔲')+'</span></div>' +
+        '</div>';
+      }).join('');
+    });
+    el.innerHTML = html;
+    return;
+  }
+
+  // 교사: 5명씩 더보기
+  _studentShowCount = _studentShowCount || 5;
+  var visible = STATE.students.slice(0, _studentShowCount);
+  var hasMore = STATE.students.length > _studentShowCount;
 
   var cards = visible.map(function(s) {
     var uid2 = s.student_uid, nm2 = s.name;
