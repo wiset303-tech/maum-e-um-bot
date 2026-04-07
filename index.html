@@ -691,9 +691,13 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 <!-- ══ 앱 메인 ══ -->
 <div id="app" class="hidden">
   <div class="app-header">
-    <div>
-      <div class="app-header-title gaegu">마음e음 봇 🌱</div>
-      <div class="app-header-user" id="headerUser"></div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button id="btnBackAdmin" class="hidden btn btn-sm" onclick="exitPreview()"
+        style="background:var(--lav2);color:var(--lav);border:1.5px solid var(--lav);font-size:12px;padding:6px 12px;width:auto;border-radius:10px">← 관리자로</button>
+      <div>
+        <div class="app-header-title gaegu">마음e음 봇 🌱</div>
+        <div class="app-header-user" id="headerUser"></div>
+      </div>
     </div>
     <div class="app-header-right">
       <button class="btn-icon" onclick="openSettings()">⚙️</button>
@@ -864,6 +868,41 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 <!-- 토스트 -->
 <div id="toast"></div>
 
+<!-- ══ 모달: 감정 직접 입력 ══ -->
+<div id="modal-custom-emotion" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-custom-emotion')">
+  <div class="modal-box" style="position:relative">
+    <button class="modal-close" onclick="closeModal('modal-custom-emotion')">✕</button>
+    <div class="modal-title">✏️ 직접 쓰기</div>
+    <p style="font-size:13px;color:var(--gray);margin-bottom:14px">지금 내 기분을 직접 써봐요</p>
+    <input id="customEmotionInput" class="inp" placeholder="예: 설레요, 뭔가 이상해요..." maxlength="20"
+      onkeydown="if(event.key==='Enter')submitCustomEmotion()">
+    <div style="margin-top:14px;display:flex;gap:8px">
+      <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-custom-emotion')">취소</button>
+      <button class="btn btn-primary" style="flex:2" onclick="submitCustomEmotion()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 모달: 선물할 친구 선택 ══ -->
+<div id="modal-gift-select" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-gift-select')">
+  <div class="modal-box" style="position:relative;max-height:80vh;overflow-y:auto">
+    <button class="modal-close" onclick="closeModal('modal-gift-select')">✕</button>
+    <div class="modal-title">💌 친구에게 선물하기</div>
+    <p style="font-size:13px;color:var(--gray);margin-bottom:14px">토큰을 선물할 친구를 골라요</p>
+    <div id="giftFriendList" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+</div>
+
+<!-- ══ 모달: 페르소나 친구 선택 ══ -->
+<div id="modal-persona-select" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-persona-select')">
+  <div class="modal-box" style="position:relative;max-height:80vh;overflow-y:auto">
+    <button class="modal-close" onclick="closeModal('modal-persona-select')">✕</button>
+    <div class="modal-title">🤝 누구랑 대화할까요?</div>
+    <p style="font-size:13px;color:var(--gray);margin-bottom:14px">같은 반 친구를 골라요</p>
+    <div id="personaFriendList" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+</div>
+
 <script>
 // ════════════════════════════════════════
 // 설정
@@ -988,6 +1027,10 @@ var STATE = {
   chatHistory: [],     // 봇 대화 기록
   tokenBalance: null,
   selectedGender: null, // 학생 등록 성별 선택
+  isPreview: false,    // 관리자 미리보기 중 여부
+  adminUser: null,     // 미리보기 복귀용 관리자 정보
+  todayEmotionSubmitted: false, // 오늘 감정 제출 여부
+  todayEmotionModified:  false, // 오늘 감정 수정 기회 소진 여부
   settings: {          // 교사 설정
     alarm_checkin: true,
     alarm_crisis: true,
@@ -1176,8 +1219,10 @@ async function handleNfcUid(uid) {
   // 일반 로그인 처리
   var msg = document.getElementById('nfcMsg');
   if(msg) msg.textContent = '확인 중...';
+  showLoading('카드를 확인하는 중이에요 🪪');
 
   var res = await api('login_nfc', { nfc_uid: uid });
+  hideLoading();
   if (res.status === 'ok') {
     AUDIO.sfx('nfc');
     onLoginSuccess(res.data);
@@ -1196,7 +1241,9 @@ async function loginByPw() {
   var pw = document.getElementById('login-pw').value;
   if (!id || !pw) { toast('아이디와 비밀번호를 입력하세요'); return; }
 
+  showLoading('로그인 중이에요 💛');
   var res = await api('login_pw', { id: id, pw: pw });
+  hideLoading();
   if (res.status === 'ok') {
     AUDIO.sfx('login');
     closeModal('modal-login');
@@ -1225,6 +1272,12 @@ function onLoginSuccess(data) {
   } else {
     buildStudentUI();
     loadTokenBalance();
+    // 학생도 같은 반 목록 로드 (선물하기·페르소나 친구 선택용)
+    if (data.teacher_uid) {
+      api('get_students', { teacher_uid: data.teacher_uid }).then(function(res) {
+        if (res.status === 'ok') STATE.students = res.data.students;
+      });
+    }
   }
 }
 
@@ -1254,11 +1307,31 @@ function logout() {
   _lastSubmitCount = -1;
   if (STATE.role === 'student') saveChatLogIfNeeded();
   STATE = { role:null, user:null, emotions:[...STATE.emotions], students:[], dashboard:null,
-            nfcPending:null, selectedMacro:null, selectedMicro:null, chatHistory:[], tokenBalance:null };
+            nfcPending:null, selectedMacro:null, selectedMicro:null, chatHistory:[], tokenBalance:null,
+            isPreview:false, adminUser:null, selectedGender:null,
+            settings:{ alarm_checkin:true, alarm_crisis:true, bgm:true,
+                       persona_mode_enabled:false, persona_mode_until:'' } };
+  document.getElementById('btnBackAdmin').classList.add('hidden');
   document.getElementById('app').classList.add('hidden');
   document.getElementById('screen-nfc').classList.remove('hidden');
   document.getElementById('nfcMsg').textContent = '카드를 대주세요';
   focusNfcInput();
+}
+
+// 관리자 미리보기 → 관리자 화면 복귀
+function exitPreview() {
+  stopDashboardPoll();
+  STATE.isPreview = false;
+  STATE.role = 'admin';
+  STATE.user = STATE.adminUser;
+  STATE.adminUser = null;
+  STATE.students = [];
+  STATE.dashboard = null;
+  STATE.chatHistory = [];
+  STATE.tokenBalance = null;
+  document.getElementById('btnBackAdmin').classList.add('hidden');
+  document.getElementById('headerUser').textContent = (STATE.user?.name || '관리자') + ' (관리자)';
+  buildAdminUI();
 }
 
 // ════════════════════════════════════════
@@ -1479,6 +1552,8 @@ function renderTeacherList(teachers) {
 // 교사 미리보기 — 더미 데이터로 교사 화면 실행
 function previewTeacher() {
   STATE.role = 'teacher';
+  STATE.isPreview = true;
+  STATE.adminUser = STATE.user; // 복귀용 관리자 정보 보존
   STATE.user = {
     role        : 'teacher',
     teacher_uid : 'PREVIEW_TEACHER',
@@ -1490,6 +1565,7 @@ function previewTeacher() {
     class       : 1,
   };
   document.getElementById('headerUser').textContent = '미리보기 선생님 (교사 미리보기)';
+  document.getElementById('btnBackAdmin').classList.remove('hidden');
   buildTeacherUI();
   // 더미 대시보드 데이터
   setTimeout(function() {
@@ -1544,6 +1620,8 @@ function previewTeacher() {
 // 학생 미리보기 — 더미 데이터로 학생 화면 실행
 function previewStudent() {
   STATE.role = 'student';
+  STATE.isPreview = true;
+  STATE.adminUser = STATE.user; // 복귀용 관리자 정보 보존
   STATE.user = {
     role        : 'student',
     student_uid : 'PREVIEW_STUDENT',
@@ -1556,6 +1634,7 @@ function previewStudent() {
     gender      : 'M',
   };
   document.getElementById('headerUser').textContent = '김민준 (학생 미리보기)';
+  document.getElementById('btnBackAdmin').classList.remove('hidden');
   buildStudentUI();
   STATE.tokenBalance = { current_balance: 5, total_earned: 12, total_saved: 7, can_save_double: false };
   setTimeout(function() {
@@ -1700,13 +1779,15 @@ function renderCal() {
 }
 
 function selectCalDay(dateStr) {
-  document.getElementById('recordList').innerHTML =
-    '<div style="text-align:center;padding:12px;color:var(--gray);font-size:13px">불러오는 중...</div>';
+  CAL._selectedDate = dateStr;
+  showLoading('기록을 불러오는 중이에요 📖');
   loadRecords(dateStr);
 }
 
 async function initCal() {
+  showLoading('달력을 불러오는 중이에요 📅');
   var res = await api('get_emotions', { teacher_uid: STATE.user ? STATE.user.teacher_uid : '' });
+  hideLoading();
   if (res.status === 'ok') {
     CAL.data = {};
     res.data.emotions.forEach(function(e) {
@@ -2163,8 +2244,9 @@ function replaceCardById(uid, name) {
 // 기록 보기
 // ════════════════════════════════════════
 async function loadRecords(dateStr) {
-  var date = dateStr || new Date().toISOString().slice(0,10);
+  var date = dateStr || new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
   var res  = await api('get_emotions', { teacher_uid: STATE.user ? STATE.user.teacher_uid : '', date: date });
+  hideLoading();
   var el   = document.getElementById('recordList');
   if(!el||res.status!=='ok') return;
 
@@ -2174,16 +2256,39 @@ async function loadRecords(dateStr) {
   }
 
   var macroLabel = { positive:'☀️', neutral:'☁️', negative:'☔' };
+  var isTeacher = (STATE.role === 'teacher' || STATE.role === 'admin');
   el.innerHTML = res.data.emotions.map(function(e){
+    var unlockBtn = (isTeacher && !e.is_modified)
+      ? '<button onclick="teacherUnlockEmotion(\'' + e.student_uid + '\',\'' + e.student_name + '\')" ' +
+          'style="font-size:11px;background:var(--lemon2);border:1px solid var(--lemon);color:#7a5f00;' +
+          'border-radius:8px;padding:3px 9px;cursor:pointer;margin-top:6px">🔓 수정 허용</button>'
+      : (isTeacher && e.is_modified)
+        ? '<span style="font-size:11px;color:var(--gray);margin-top:6px;display:inline-block">✅ 수정 완료</span>'
+        : '';
     return '<div class="card" style="margin-bottom:10px">' +
       '<div style="display:flex;justify-content:space-between;align-items:center">' +
-        '<b>'+e.student_name+'</b>' +
-        '<span>'+(macroLabel[e.macro_emotion]||'')+' '+(e.micro_emotion||'')+'</span>' +
+        '<b>' + e.student_name + '</b>' +
+        '<span>' + (macroLabel[e.macro_emotion]||'') + ' ' + (e.micro_emotion||'') + '</span>' +
       '</div>' +
-      (e.custom_text?'<div style="font-size:12px;color:var(--gray);margin-top:4px">"'+e.custom_text+'"</div>':'') +
-      '<div style="font-size:11px;color:var(--gray);margin-top:4px">'+String(e.timestamp).slice(0,16)+'</div>' +
+      (e.custom_text ? '<div style="font-size:12px;color:var(--gray);margin-top:4px">"' + e.custom_text + '"</div>' : '') +
+      '<div style="font-size:11px;color:var(--gray);margin-top:4px">' + String(e.timestamp).slice(0,16) + '</div>' +
+      unlockBtn +
     '</div>';
   }).join('');
+}
+
+async function teacherUnlockEmotion(student_uid, student_name) {
+  showLoading(student_name + '의 감정 수정을 허용하는 중이에요 🔓');
+  var res = await api('unlock_emotion', { student_uid: student_uid });
+  hideLoading();
+  if (res.status === 'ok') {
+    toast(student_name + ' 학생이 다시 감정을 수정할 수 있어요');
+    // 현재 날짜 기록 새로고침
+    var activeDate = CAL._selectedDate;
+    if (activeDate) loadRecords(activeDate);
+  } else {
+    toast(res.message || '오류가 발생했어요');
+  }
 }
 
 // ════════════════════════════════════════
@@ -2215,6 +2320,7 @@ function emotionInputHTML() {
     '</div>' +
     '<div class="welcome-banner-char"><img src="'+charSrc+'" alt="캐릭터"></div>' +
   '</div>' +
+  '<div id="emotionSubmittedBanner"></div>' +
   '<div style="font-weight:700;font-size:14px;color:var(--navy);margin-bottom:10px;letter-spacing:-0.3px">지금 내 기분은...</div>' +
   '<div class="macro-btns">' +
     '<div class="macro-btn neg" onclick="selectMacro(&quot;negative&quot;,this)"><span class="emoji">☔</span><span class="lbl">힘들어요</span></div>' +
@@ -2267,10 +2373,28 @@ function selectMicro(id, word, el) {
 }
 
 function openCustomEmotion() {
-  var word = prompt('어떤 감정인지 직접 써봐요 ✏️');
-  if(!word) return;
-  STATE.selectedMicro = { id:'custom', word };
-  toast('"'+word+'" 감정으로 저장할게요');
+  document.getElementById('customEmotionInput').value = '';
+  openModal('modal-custom-emotion');
+  setTimeout(function(){ document.getElementById('customEmotionInput').focus(); }, 150);
+}
+
+function submitCustomEmotion() {
+  var word = document.getElementById('customEmotionInput').value.trim();
+  if (!word) { toast('감정을 입력해 주세요'); return; }
+  closeModal('modal-custom-emotion');
+  STATE.selectedMicro = { id:'custom', word: word };
+  document.querySelectorAll('.micro-btn').forEach(function(b){ b.classList.remove('selected'); });
+  // 커스텀 칩 표시
+  var grid = document.getElementById('microGrid');
+  if (grid) {
+    var old = grid.querySelector('.custom-selected');
+    if (old) old.remove();
+    var chip = document.createElement('div');
+    chip.className = 'micro-btn selected custom-selected';
+    chip.textContent = '✏️ ' + word;
+    grid.insertBefore(chip, grid.firstChild);
+  }
+  toast('"' + word + '" 감정으로 저장할게요');
 }
 
 function openMoreEmotions(cat) {
@@ -2287,7 +2411,13 @@ async function submitEmotion() {
   var micro = STATE.selectedMicro;
   var scoreMap = {'positive':2,'neutral':0,'negative':-2};
 
-  showLoading('오늘 감정을 기록하는 중이에요 💛');
+  // 이미 제출 상태이면 수정 모드
+  var isModify = !!STATE.todayEmotionSubmitted;
+  if (isModify) {
+    showLoading('감정을 수정하는 중이에요 ✏️');
+  } else {
+    showLoading('오늘 감정을 기록하는 중이에요 💛');
+  }
 
   var res = await api('save_emotion', {
     student_uid  : STATE.user.student_uid,
@@ -2299,19 +2429,67 @@ async function submitEmotion() {
     is_custom    : micro?.id === 'custom',
     custom_text  : micro?.id === 'custom' ? micro.word : '',
     type         : 'checkin',
+    is_modify    : isModify,
   });
 
   hideLoading();
   if(res.status==='ok') {
     AUDIO.sfx('save');
-    toast('감정을 저장했어요 💛');
-    switchTab(1);
-    startBotGreeting();
+    STATE.todayEmotionSubmitted = true;
+    STATE.todayEmotionModified  = isModify;
+    updateEmotionSubmittedBanner();
+    toast(isModify ? '감정을 수정했어요 ✏️' : '감정을 저장했어요 💛');
+    if (!isModify) { switchTab(1); startBotGreeting(); }
+  } else if(res.message?.includes('수정 기회를 이미')) {
+    // 수정 1회 소진
+    STATE.todayEmotionModified = true;
+    updateEmotionSubmittedBanner();
+    toast('오늘 감정 수정 기회를 이미 사용했어요');
   } else if(res.message?.includes('이미')) {
-    toast(res.message);
+    // 첫 제출 후 수정 가능 상태 안내
+    STATE.todayEmotionSubmitted = true;
+    updateEmotionSubmittedBanner();
+    toast('오늘 이미 감정을 기록했어요. 수정하려면 아래 버튼을 눌러요');
   } else {
     toast(res.message||'오류가 발생했어요');
   }
+}
+
+// 이미 제출한 경우 마음날씨 탭 상단에 상태 배너 갱신
+function updateEmotionSubmittedBanner() {
+  var banner = document.getElementById('emotionSubmittedBanner');
+  if (!banner) return;
+  var modified = STATE.todayEmotionModified;
+  if (STATE.todayEmotionSubmitted) {
+    if (modified) {
+      // 수정 기회 소진 — 버튼 비활성
+      banner.innerHTML =
+        '<div style="background:var(--mint3);border-radius:12px;padding:10px 14px;font-size:13px;color:var(--mint2);display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
+        '✅ 오늘 감정을 기록하고 수정했어요. 내일 또 만나요! 💛</div>';
+      // 저장 버튼 숨김
+      var btn = document.querySelector('#microSection .btn-primary');
+      if (btn) btn.style.display = 'none';
+    } else {
+      // 수정 가능 상태 안내 배너
+      banner.innerHTML =
+        '<div style="background:var(--lemon2);border-radius:12px;padding:10px 14px;font-size:13px;color:#b8860b;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">' +
+        '<span>📝 오늘 이미 기록했어요. 다시 고를 수 있어요 (1회)</span>' +
+        '<button class="btn btn-sm" onclick="enterModifyMode()" style="background:var(--lemon);color:#7a5f00;white-space:nowrap;width:auto;padding:5px 10px;flex-shrink:0">수정하기</button>' +
+        '</div>';
+    }
+  } else {
+    banner.innerHTML = '';
+  }
+}
+
+// 수정 모드 진입 — 저장 버튼을 "수정 저장" 으로 교체
+function enterModifyMode() {
+  var btn = document.querySelector('#microSection .btn-primary');
+  if (btn) {
+    btn.style.display = 'flex';
+    btn.textContent = '감정 수정 저장하기 ✏️';
+  }
+  toast('감정을 다시 선택하고 저장하세요');
 }
 
 // ── 봇 대화 ──
@@ -2373,23 +2551,24 @@ async function checkPersonaModeForStudent() {
 // 친구 또는 나 자신 선택
 async function openPersonaSelect(isSelf) {
   if (isSelf) {
-    // 나 자신 — 바로 시작
     startPersonaChat(STATE.user.student_uid, STATE.user.name, true);
     return;
   }
-  // 친구 선택 — 같은 반 목록
+  // 친구 선택 — 모달
   var peers = STATE.students.filter(function(s){
     return s.student_uid !== STATE.user.student_uid && s.active === 'Y';
   });
   if (!peers.length) { toast('대화할 수 있는 친구가 없어요'); return; }
 
-  // 이름 목록으로 선택 (추후 모달로 개선 가능)
-  var names = peers.map(function(s){ return s.name; }).join(', ');
-  var input = prompt('누구와 대화할까요?\n' + names);
-  if (!input) return;
-  var found = peers.find(function(s){ return s.name === input.trim(); });
-  if (!found) { toast('찾을 수 없는 이름이에요'); return; }
-  startPersonaChat(found.student_uid, found.name, false);
+  var list = document.getElementById('personaFriendList');
+  list.innerHTML = peers.map(function(f) {
+    return '<button class="btn btn-secondary" style="justify-content:flex-start;gap:10px;padding:12px 16px" ' +
+      'onclick="startPersonaChat(\'' + f.student_uid + '\',\'' + f.name + '\',false);closeModal(\'modal-persona-select\')">' +
+      '<span style="font-size:18px">' + (f.gender === 'F' ? '👧' : '👦') + '</span>' +
+      '<span style="font-weight:600">' + f.num + '번 ' + f.name + '</span>' +
+    '</button>';
+  }).join('');
+  openModal('modal-persona-select');
 }
 
 function startPersonaChat(targetUid, targetName, isSelf) {
@@ -2480,7 +2659,7 @@ async function sendPersonaChat(msg) {
 async function startBotGreeting() {
   var u = STATE.user;
   var micro = STATE.selectedMicro?.word || STATE.selectedMacro || '';
-  var today = new Date().toISOString().slice(0, 10);
+  var today = new Date(Date.now() + 9*3600000).toISOString().slice(0, 10);
   var greetKey = 'bot_greeted_' + (u.student_uid || '') + '_' + today;
 
   // 오늘 이미 스몰토크 했으면 간단 인사만
@@ -2597,7 +2776,7 @@ async function saveChatLogIfNeeded() {
       student_uid  : u.student_uid,
       student_name : u.name,
       teacher_uid  : u.teacher_uid,
-      date         : new Date().toISOString().slice(0,10),
+      date         : new Date(Date.now() + 9*3600000).toISOString().slice(0,10),
       turn_count   : analysis.turn_count,
       macro_emotion: STATE.selectedMacro || '',
       micro_emotion: (STATE.selectedMicro && STATE.selectedMicro.word) || '',
@@ -2649,12 +2828,16 @@ async function saveToken() {
 }
 
 function openGiftSelect() {
-  var s = STATE.students.filter(s=>s.student_uid!==STATE.user.student_uid&&s.active==='Y');
-  if(!s.length) { toast('선물할 친구가 없어요'); return; }
-  var name = prompt('선물할 친구 이름을 입력하세요:\n' + s.map(x=>x.name).join(', '));
-  var friend = s.find(x=>x.name===name);
-  if(!friend) { toast('찾을 수 없어요'); return; }
-  giftToken(friend);
+  var s = STATE.students.filter(function(s){ return s.student_uid !== STATE.user.student_uid && s.active === 'Y'; });
+  if (!s.length) { toast('선물할 친구가 없어요'); return; }
+  var list = document.getElementById('giftFriendList');
+  list.innerHTML = s.map(function(f) {
+    return '<button class="btn btn-secondary" style="justify-content:flex-start;gap:10px;padding:12px 16px" onclick="giftToken(' + JSON.stringify(f).replace(/"/g,'&quot;') + ');closeModal(\'modal-gift-select\')">' +
+      '<span style="font-size:18px">' + (f.gender === 'F' ? '👧' : '👦') + '</span>' +
+      '<span style="font-weight:600">' + f.num + '번 ' + f.name + '</span>' +
+    '</button>';
+  }).join('');
+  openModal('modal-gift-select');
 }
 
 async function giftToken(friend) {
