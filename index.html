@@ -1562,7 +1562,7 @@ function exitPreview() {
 
 // 관리자 전용 UI 빌드
 function buildAdminUI() {
-  buildTeacherUI(); // 내부에서 isAdmin 감지 → loadTeacherList() 자동 호출
+  buildTeacherUI(); // 내부에서 isAdmin 감지 → renderAdminAccountMgmt() 자동 호출
 }
 
 // ════════════════════════════════════════
@@ -1619,6 +1619,7 @@ function switchTab(idx) {
   if (STATE.role === 'teacher' || STATE.role === 'admin') {
     if (idx === 2) ensureCalData();                                          // 기록보기
     if (idx === 3 && STATE.students.length) renderAlbumStudentPicker();     // 마음앨범
+    if (idx === 1 && STATE.role === 'admin') renderAdminAccountMgmt();      // 관리자 계정관리
   }
 }
 // ════════════════════════════════════════
@@ -1743,7 +1744,7 @@ function buildTeacherUI() {
     var btns = document.querySelectorAll('.tab-btn');
     var last = btns[btns.length - 1];
     if (last) last.style.color = 'var(--lav)';
-    loadTeacherList();
+    renderAdminAccountMgmt();  // 계정관리 탭 초기 로드
   } else {
     // 교사 설정 로드
     loadSettings();
@@ -1751,19 +1752,14 @@ function buildTeacherUI() {
 }
 
 function adminHTML() {
-  return '<div class="card card-lav" style="margin-bottom:14px">' +
-    '<div class="card-label gaegu">👩‍🏫 교사 계정 등록</div>' +
-    '<button class="btn btn-primary" style="margin-bottom:12px" onclick="openTeacherForm()">+ 교사 계정 만들기</button>' +
-    '<div id="teacherList"><div style="color:var(--gray);font-size:13px;text-align:center;padding:10px">아직 등록된 교사가 없어요</div></div>' +
-    '</div>' +
-    '<div class="card card-sky" style="margin-bottom:14px">' +
+  return '<div class="card card-sky">' +
     '<div class="card-label gaegu">👀 화면 미리보기</div>' +
     '<div style="font-size:12px;color:var(--gray);margin-bottom:10px">더미 데이터로 교사·학생 화면을 미리 볼 수 있어요</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
       '<button class="btn btn-peach" onclick="previewTeacher()">👩‍🏫 교사 화면</button>' +
       '<button class="btn btn-lav" onclick="previewStudent()">👧 학생 화면</button>' +
     '</div>' +
-    '</div>';
+  '</div>';
 }
 
 var _teacherShowCount = 5;
@@ -1818,6 +1814,159 @@ function showMoreTeachers() {
 function showLessTeachers() {
   _teacherShowCount = 5;
   renderTeacherList();
+}
+
+// ════════════════════════════════════════
+// 관리자 계정관리 — 2단 구조 (교사 → 학생)
+// ════════════════════════════════════════
+async function renderAdminAccountMgmt() {
+  var el = document.getElementById('adminTeacherList');
+  if (!el) return;
+
+  // 교사 목록 로드
+  var res = await api('get_teachers', {});
+  if (res.status !== 'ok') {
+    el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오기 실패</div>';
+    return;
+  }
+  _teacherAll = res.data.teachers || [];
+  if (!_teacherAll.length) {
+    el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">아직 등록된 교사가 없어요</div>';
+    return;
+  }
+
+  el.innerHTML = _teacherAll.map(function(t, idx) {
+    var active = t.active === 'Y';
+    var tid = t.teacher_uid;
+    var tname = t.name;
+    return '<div class="card" style="margin-bottom:10px;padding:12px 14px">' +
+      // 교사 헤더 행
+      '<div style="display:flex;align-items:center;gap:10px">' +
+        '<div style="width:36px;height:36px;border-radius:50%;background:var(--lav2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">👩‍🏫</div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-weight:700;font-size:14px;color:var(--navy)">' + tname + ' 선생님 ' +
+            (active ? '' : '<span style="font-size:11px;color:var(--gray);font-weight:400">(비활성)</span>') + '</div>' +
+          '<div style="font-size:11px;color:var(--gray);margin-top:1px">' + t.school_name + ' ' + t.grade + '학년 ' + t.class + '반 · ' + (t.nfc_uid ? '🪪 NFC' : '🔲 NFC없음') + '</div>' +
+        '</div>' +
+        // 교사 ⋯ 드롭다운
+        (active ? '<div class="stu-menu-wrap">' +
+          '<button class="stu-menu-btn" onclick="toggleStuMenu(this)">⋯</button>' +
+          '<div class="stu-dropdown" style="display:none">' +
+            '<button onclick="openChangeTeacherPw(\'' + tid + '\',\'' + tname + '\')">🔑 비번변경</button>' +
+            '<button onclick="replaceTeacherCardUI(\'' + tid + '\',\'' + tname + '\')">🪪 카드교체</button>' +
+            '<div class="divider"></div>' +
+            '<button class="danger" onclick="deactivateTeacherUI(\'' + tid + '\',\'' + tname + '\')">🚫 비활성</button>' +
+          '</div>' +
+        '</div>' : '') +
+        // 학생 펼치기 버튼
+        '<button class="btn btn-sm btn-secondary" style="font-size:11px;padding:5px 10px;margin-left:4px" ' +
+          'onclick="toggleAdminStudents(this,\'' + tid + '\')" data-open="0">학생 ▼</button>' +
+      '</div>' +
+      // 학생 목록 영역 (기본 숨김)
+      '<div id="adm-stu-' + tid + '" style="display:none;margin-top:10px;border-top:1px solid var(--lgray);padding-top:8px">' +
+        '<div style="color:var(--gray);font-size:12px;text-align:center;padding:8px">불러오는 중...</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+async function toggleAdminStudents(btn, teacherUid) {
+  var wrap = document.getElementById('adm-stu-' + teacherUid);
+  if (!wrap) return;
+  var isOpen = btn.getAttribute('data-open') === '1';
+  if (isOpen) {
+    wrap.style.display = 'none';
+    btn.textContent = '학생 ▼';
+    btn.setAttribute('data-open', '0');
+    return;
+  }
+  wrap.style.display = 'block';
+  btn.textContent = '학생 ▲';
+  btn.setAttribute('data-open', '1');
+
+  // 해당 교사 학생 로드
+  var res = await api('get_students', { teacher_uid: teacherUid });
+  if (res.status !== 'ok' || !res.data.students.length) {
+    wrap.innerHTML = '<div style="color:var(--gray);font-size:12px;text-align:center;padding:8px">등록된 학생이 없어요</div>';
+    return;
+  }
+  var students = res.data.students;
+  wrap.innerHTML = students.map(function(s) {
+    var uid2 = s.student_uid, nm2 = s.name;
+    var active = s.active === 'Y';
+    return '<div class="student-item ' + (active ? '' : 'inactive') + '" style="padding:7px 0">' +
+      '<div class="student-avatar" style="font-size:12px">' + s.num + '</div>' +
+      '<div class="student-info">' +
+        '<div class="student-name">' + nm2 + ' <span style="font-size:11px">' + (s.gender==='F'?'👧':s.gender==='M'?'👦':'') + '</span></div>' +
+        '<div class="student-id">ID: ' + s.student_id + ' · ' + (s.nfc_uid ? '🪪' : '🔲') + '</div>' +
+        (STATE.tokenBalances && STATE.tokenBalances[uid2]
+          ? '<div style="font-size:11px;color:#ff8c42">🌡️ ' + STATE.tokenBalances[uid2].temp + '° 🪙 ' + STATE.tokenBalances[uid2].current_balance + '개</div>'
+          : '') +
+      '</div>' +
+      (active ? '<div class="stu-menu-wrap">' +
+        '<button class="stu-menu-btn" onclick="toggleStuMenu(this)">⋯</button>' +
+        '<div class="stu-dropdown" style="display:none">' +
+          '<button onclick="openChangePw(\'' + uid2 + '\',\'' + nm2 + '\')">🔑 비번변경</button>' +
+          '<button onclick="resetStudentPw(\'' + uid2 + '\',\'' + nm2 + '\')">🔄 비번초기화</button>' +
+          '<button onclick="replaceCard(this);closeStuMenu()" data-uid="' + uid2 + '" data-name="' + nm2 + '">🪪 카드교체</button>' +
+          '<div class="divider"></div>' +
+          '<button class="danger" onclick="deactivateBtn(this)" data-uid="' + uid2 + '" data-name="' + nm2 + '">🚫 비활성</button>' +
+        '</div>' +
+      '</div>' : '<span style="font-size:11px;color:var(--gray)">비활성</span>') +
+    '</div>';
+  }).join('');
+}
+
+// 교사 비번변경
+var _teacherPwTargetUid = '';
+function openChangeTeacherPw(uid, name) {
+  closeStuMenu();
+  _teacherPwTargetUid = uid;
+  document.getElementById('changePwDesc').textContent = name + ' 선생님의 새 비밀번호를 입력하세요';
+  document.getElementById('changePwInput').value = '';
+  // 확인 함수를 교사용으로 임시 교체
+  document.getElementById('changePwInput').dataset.mode = 'teacher';
+  openModal('modal-change-pw');
+  setTimeout(function(){ document.getElementById('changePwInput').focus(); }, 300);
+}
+
+async function confirmChangePw() {
+  var newPw = document.getElementById('changePwInput').value.trim();
+  if (!newPw) { toast('비밀번호를 입력하세요'); return; }
+  if (newPw.length < 4) { toast('4자 이상 입력해주세요'); return; }
+  var isTeacher = document.getElementById('changePwInput').dataset.mode === 'teacher';
+  closeModal('modal-change-pw');
+  showLoading('비밀번호를 변경하는 중이에요 🔑');
+  var res;
+  if (isTeacher) {
+    res = await api('change_teacher_password', { teacher_uid: _teacherPwTargetUid, new_pw: newPw });
+  } else {
+    res = await api('change_student_password', { student_uid: _pwTargetUid, new_pw: newPw });
+  }
+  hideLoading();
+  toast(res.status === 'ok' ? res.data.message : res.message);
+}
+
+// 교사 NFC 교체
+function replaceTeacherCardUI(uid, name) {
+  closeStuMenu();
+  STATE.nfcPending = { mode: 'replace_teacher', teacher_uid: uid, name };
+  document.getElementById('nfcRegisterStatus').textContent = name + ' 선생님의 새 카드를 대주세요';
+  document.getElementById('nfcRegisterUid').textContent = '';
+  document.getElementById('nfcRegisterAnim').textContent = '🔄';
+  openModal('modal-nfc-register');
+  focusNfcInput();
+}
+
+// 교사 비활성화
+async function deactivateTeacherUI(uid, name) {
+  closeStuMenu();
+  if (!confirm(name + ' 선생님을 비활성화할까요?')) return;
+  showLoading('비활성화하는 중이에요...');
+  var res = await api('deactivate_teacher', { teacher_uid: uid });
+  hideLoading();
+  if (res.status === 'ok') { toast('비활성화됐어요'); renderAdminAccountMgmt(); }
+  else toast(res.message);
 }
 
 function showMoreStudents() {
@@ -2003,7 +2152,8 @@ function dashboardHTML() {
 function studentMgmtHTML() {
   var isAdmin = (STATE.role === 'admin');
   if (isAdmin) {
-    return '<div id="studentList"><div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오는 중...</div></div>';
+    return '<button class="btn btn-primary" style="margin-bottom:14px;width:100%" onclick="openTeacherForm()">👩‍🏫 + 교사 계정 만들기</button>' +
+      '<div id="adminTeacherList"><div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오는 중...</div></div>';
   }
   return '<button class="btn btn-primary" style="margin-bottom:14px" onclick="openNfcRegister()">🪪 + 학생 NFC 카드 등록</button>' +
     '<div id="studentList"></div>';
@@ -2645,6 +2795,38 @@ async function handleRegisterNfc(uid) {
     return;
   }
 
+  // 학생 카드 교체 모드
+  if (STATE.nfcPending && STATE.nfcPending.mode === 'replace') {
+    var p = STATE.nfcPending;
+    STATE.nfcPending = null;
+    showLoading('카드를 교체하는 중이에요 🪪');
+    var res = await api('replace_card', { student_uid: p.student_uid, new_nfc_uid: uid });
+    hideLoading();
+    if (res.status === 'ok') {
+      toast(res.data.message);
+      await loadStudents();
+    } else {
+      toast(res.message);
+    }
+    return;
+  }
+
+  // 교사 카드 교체 모드 (관리자)
+  if (STATE.nfcPending && STATE.nfcPending.mode === 'replace_teacher') {
+    var p = STATE.nfcPending;
+    STATE.nfcPending = null;
+    showLoading('교사 카드를 교체하는 중이에요 🪪');
+    var res = await api('replace_teacher_card', { teacher_uid: p.teacher_uid, new_nfc_uid: uid });
+    hideLoading();
+    if (res.status === 'ok') {
+      toast(res.data.message);
+      renderAdminAccountMgmt();
+    } else {
+      toast(res.message);
+    }
+    return;
+  }
+
   // 학생 등록 모드
   var u = STATE.user;
   STATE.selectedGender = null;
@@ -2743,7 +2925,7 @@ async function submitTeacherForm() {
   if (res.status==='ok') {
     AUDIO.sfx('save');
     toast('교사 계정이 만들어졌어요 ✅');
-    loadTeacherList();
+    if (STATE.role === 'admin') { renderAdminAccountMgmt(); } else { loadTeacherList(); }
   } else {
     toast(res.message);
     openModal('modal-teacher-form');
