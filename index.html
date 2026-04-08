@@ -536,6 +536,11 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .stu-dropdown button.danger{color:#c0392b}
 .stu-dropdown .divider{height:1px;background:var(--lgray);margin:2px 0}
 
+/* 관리자 정렬 버튼 active */
+.adm-sort-btn.active-sort{
+  background:var(--navy);color:#fff;border-color:var(--navy);
+}
+
 /* NFC 등록 팝업 */
 .nfc-register-wrap{
   text-align:center;padding:20px 0;
@@ -1762,93 +1767,113 @@ function adminHTML() {
   '</div>';
 }
 
-var _teacherShowCount = 5;
-var _teacherAll = [];
+var _admSortMode = 'school'; // 'school' | 'name'
 
-async function loadTeacherList() {
-  var el = document.getElementById('teacherList');
-  if (!el) return;
-  el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:10px">불러오는 중...</div>';
-  var res = await api('get_teachers', {});
-  if (res.status !== 'ok') { el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:10px">불러오기 실패</div>'; return; }
-  _teacherShowCount = 5;
-  _teacherAll = (res.data.teachers || []).filter(function(t){ return t.active === 'Y'; });
-  renderTeacherList();
-}
-
-function renderTeacherList() {
-  var el = document.getElementById('teacherList');
-  if (!el) return;
-  if (!_teacherAll.length) {
-    el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:10px">아직 등록된 교사가 없어요</div>';
-    return;
-  }
-
-  var visible = _teacherAll.slice(0, _teacherShowCount);
-  var hasMore = _teacherAll.length > _teacherShowCount;
-
-  var cards = visible.map(function(t) {
-    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--lgray)">' +
-      '<div>' +
-        '<div style="font-weight:700;font-size:14px">'+t.name+' 선생님 <span style="font-size:11px;color:var(--gray)">'+t.teacher_id+'</span></div>' +
-        '<div style="font-size:12px;color:var(--gray);margin-top:2px">'+t.school_name+' '+t.grade+'학년 '+t.class+'반 · '+(t.nfc_uid?'🪪 NFC':'🔲 NFC없음')+'</div>' +
-      '</div>' +
-    '</div>';
-  }).join('');
-
-  var moreBtn = hasMore
-    ? '<button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px" onclick="showMoreTeachers()">' +
-        '더보기 (' + (_teacherAll.length - _teacherShowCount) + '명 더)' +
-      '</button>'
-    : (_teacherShowCount > 5
-        ? '<button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px" onclick="showLessTeachers()">접기</button>'
-        : '');
-
-  el.innerHTML = cards + moreBtn;
-}
-
-function showMoreTeachers() {
-  _teacherShowCount += 5;
-  renderTeacherList();
-}
-function showLessTeachers() {
-  _teacherShowCount = 5;
-  renderTeacherList();
-}
-
-// ════════════════════════════════════════
-// 관리자 계정관리 — 2단 구조 (교사 → 학생)
-// ════════════════════════════════════════
 async function renderAdminAccountMgmt() {
   var el = document.getElementById('adminTeacherList');
   if (!el) return;
 
-  // 교사 목록 로드
+  el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오는 중...</div>';
+
   var res = await api('get_teachers', {});
   if (res.status !== 'ok') {
     el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오기 실패</div>';
     return;
   }
-  _teacherAll = res.data.teachers || [];
+  _teacherAll = (res.data.teachers || []);
+  _renderAdminTeacherList();
+}
+
+function _renderAdminTeacherList() {
+  var el = document.getElementById('adminTeacherList');
+  if (!el) return;
+
   if (!_teacherAll.length) {
     el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">아직 등록된 교사가 없어요</div>';
     return;
   }
 
-  el.innerHTML = _teacherAll.map(function(t, idx) {
-    var active = t.active === 'Y';
-    var tid = t.teacher_uid;
-    var tname = t.name;
-    return '<div class="card" style="margin-bottom:10px;padding:12px 14px">' +
-      // 교사 헤더 행
-      '<div style="display:flex;align-items:center;gap:10px">' +
-        '<div style="width:36px;height:36px;border-radius:50%;background:var(--lav2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">👩‍🏫</div>' +
-        '<div style="flex:1;min-width:0">' +
-          '<div style="font-weight:700;font-size:14px;color:var(--navy)">' + tname + ' 선생님 ' +
-            (active ? '' : '<span style="font-size:11px;color:var(--gray);font-weight:400">(비활성)</span>') + '</div>' +
-          '<div style="font-size:11px;color:var(--gray);margin-top:1px">' + t.school_name + ' ' + t.grade + '학년 ' + t.class + '반 · ' + (t.nfc_uid ? '🪪 NFC' : '🔲 NFC없음') + '</div>' +
+  // 정렬
+  var sorted = _teacherAll.slice();
+  if (_admSortMode === 'name') {
+    sorted.sort(function(a, b) { return (a.name || '').localeCompare(b.name || '', 'ko'); });
+  } else {
+    // 학교순 + 이름순
+    sorted.sort(function(a, b) {
+      var sc = (a.school_name || '').localeCompare(b.school_name || '', 'ko');
+      if (sc !== 0) return sc;
+      return (a.name || '').localeCompare(b.name || '', 'ko');
+    });
+  }
+
+  var html = '';
+
+  if (_admSortMode === 'school') {
+    // 학교별 그룹핑
+    var groups = {};
+    var groupOrder = [];
+    sorted.forEach(function(t) {
+      var sn = t.school_name || '미배정';
+      if (!groups[sn]) { groups[sn] = []; groupOrder.push(sn); }
+      groups[sn].push(t);
+    });
+
+    groupOrder.forEach(function(sn) {
+      var teachers = groups[sn];
+      var groupId = 'admgrp-' + sn.replace(/[^가-힣a-zA-Z0-9]/g, '_');
+      html += '<div style="margin-bottom:14px">' +
+        // 학교 헤더
+        '<div onclick="toggleAdminSchoolGroup(this,\'' + groupId + '\')" ' +
+          'style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--lav2);border-radius:10px;cursor:pointer;margin-bottom:6px;user-select:none">' +
+          '<span style="font-size:15px">🏫</span>' +
+          '<span style="font-weight:700;font-size:13px;color:var(--navy);flex:1">' + sn + '</span>' +
+          '<span style="font-size:11px;color:var(--gray)">' + teachers.length + '명</span>' +
+          '<span class="grp-arrow" style="font-size:11px;color:var(--gray);margin-left:4px">▼</span>' +
         '</div>' +
-        // 교사 ⋯ 드롭다운
+        // 교사 카드 목록
+        '<div id="' + groupId + '">' +
+          teachers.map(function(t) { return _buildTeacherCard(t); }).join('') +
+        '</div>' +
+      '</div>';
+    });
+  } else {
+    // 가나다순 — 그룹 없이 일렬
+    html = sorted.map(function(t) { return _buildTeacherCard(t); }).join('');
+  }
+
+  el.innerHTML = html;
+  // 정렬 버튼 active 표시
+  document.querySelectorAll('.adm-sort-btn').forEach(function(b) { b.classList.remove('active-sort'); });
+  var activeBtn = document.getElementById('adm-sort-' + _admSortMode);
+  if (activeBtn) activeBtn.classList.add('active-sort');
+}
+
+function _buildTeacherCard(t) {
+  var active = t.active === 'Y';
+  var tid = t.teacher_uid;
+  var tname = t.name;
+  return '<div class="card" style="margin-bottom:8px;padding:10px 12px">' +
+    '<div style="display:flex;align-items:center;gap:8px;min-width:0">' +
+      // 아바타
+      '<div style="width:34px;height:34px;border-radius:50%;background:var(--lav2);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">' +
+        (active ? '👩‍🏫' : '🚫') +
+      '</div>' +
+      // 교사 정보 (overflow 방지)
+      '<div style="flex:1;min-width:0;overflow:hidden">' +
+        '<div style="font-weight:700;font-size:13px;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+          tname + ' 선생님' +
+          (active ? '' : ' <span style="font-size:10px;color:var(--gray);font-weight:400">(비활성)</span>') +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--gray);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+          t.grade + '학년 ' + t.class + '반 · ' + (t.nfc_uid ? '🪪 NFC' : '🔲 NFC없음') +
+        '</div>' +
+      '</div>' +
+      // 우측 버튼 그룹 (flex-shrink:0 필수)
+      '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0">' +
+        // 학생 펼치기 버튼
+        '<button class="btn btn-sm btn-secondary" style="font-size:11px;padding:4px 8px;white-space:nowrap" ' +
+          'onclick="toggleAdminStudents(this,\'' + tid + '\')" data-open="0">학생 ▼</button>' +
+        // ⋯ 드롭다운 (활성 교사만)
         (active ? '<div class="stu-menu-wrap">' +
           '<button class="stu-menu-btn" onclick="toggleStuMenu(this)">⋯</button>' +
           '<div class="stu-dropdown" style="display:none">' +
@@ -1858,16 +1883,27 @@ async function renderAdminAccountMgmt() {
             '<button class="danger" onclick="deactivateTeacherUI(\'' + tid + '\',\'' + tname + '\')">🚫 비활성</button>' +
           '</div>' +
         '</div>' : '') +
-        // 학생 펼치기 버튼
-        '<button class="btn btn-sm btn-secondary" style="font-size:11px;padding:5px 10px;margin-left:4px" ' +
-          'onclick="toggleAdminStudents(this,\'' + tid + '\')" data-open="0">학생 ▼</button>' +
       '</div>' +
-      // 학생 목록 영역 (기본 숨김)
-      '<div id="adm-stu-' + tid + '" style="display:none;margin-top:10px;border-top:1px solid var(--lgray);padding-top:8px">' +
-        '<div style="color:var(--gray);font-size:12px;text-align:center;padding:8px">불러오는 중...</div>' +
-      '</div>' +
-    '</div>';
-  }).join('');
+    '</div>' +
+    // 학생 목록 영역 (기본 숨김)
+    '<div id="adm-stu-' + tid + '" style="display:none;margin-top:8px;border-top:1px solid var(--lgray);padding-top:6px">' +
+      '<div style="color:var(--gray);font-size:12px;text-align:center;padding:6px">불러오는 중...</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function adminSortBy(mode) {
+  _admSortMode = mode;
+  _renderAdminTeacherList();
+}
+
+function toggleAdminSchoolGroup(headerEl, groupId) {
+  var body = document.getElementById(groupId);
+  if (!body) return;
+  var arrow = headerEl.querySelector('.grp-arrow');
+  var isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  if (arrow) arrow.textContent = isOpen ? '▶' : '▼';
 }
 
 async function toggleAdminStudents(btn, teacherUid) {
@@ -1884,24 +1920,19 @@ async function toggleAdminStudents(btn, teacherUid) {
   btn.textContent = '학생 ▲';
   btn.setAttribute('data-open', '1');
 
-  // 해당 교사 학생 로드
   var res = await api('get_students', { teacher_uid: teacherUid });
   if (res.status !== 'ok' || !res.data.students.length) {
     wrap.innerHTML = '<div style="color:var(--gray);font-size:12px;text-align:center;padding:8px">등록된 학생이 없어요</div>';
     return;
   }
-  var students = res.data.students;
-  wrap.innerHTML = students.map(function(s) {
+  wrap.innerHTML = res.data.students.map(function(s) {
     var uid2 = s.student_uid, nm2 = s.name;
     var active = s.active === 'Y';
-    return '<div class="student-item ' + (active ? '' : 'inactive') + '" style="padding:7px 0">' +
+    return '<div class="student-item ' + (active ? '' : 'inactive') + '" style="padding:6px 0">' +
       '<div class="student-avatar" style="font-size:12px">' + s.num + '</div>' +
       '<div class="student-info">' +
         '<div class="student-name">' + nm2 + ' <span style="font-size:11px">' + (s.gender==='F'?'👧':s.gender==='M'?'👦':'') + '</span></div>' +
         '<div class="student-id">ID: ' + s.student_id + ' · ' + (s.nfc_uid ? '🪪' : '🔲') + '</div>' +
-        (STATE.tokenBalances && STATE.tokenBalances[uid2]
-          ? '<div style="font-size:11px;color:#ff8c42">🌡️ ' + STATE.tokenBalances[uid2].temp + '° 🪙 ' + STATE.tokenBalances[uid2].current_balance + '개</div>'
-          : '') +
       '</div>' +
       (active ? '<div class="stu-menu-wrap">' +
         '<button class="stu-menu-btn" onclick="toggleStuMenu(this)">⋯</button>' +
@@ -1917,6 +1948,7 @@ async function toggleAdminStudents(btn, teacherUid) {
   }).join('');
 }
 
+// ════════════════════════════════════════
 // 교사 비번변경
 var _teacherPwTargetUid = '';
 function openChangeTeacherPw(uid, name) {
@@ -2152,8 +2184,17 @@ function dashboardHTML() {
 function studentMgmtHTML() {
   var isAdmin = (STATE.role === 'admin');
   if (isAdmin) {
-    return '<button class="btn btn-primary" style="margin-bottom:14px;width:100%" onclick="openTeacherForm()">👩‍🏫 + 교사 계정 만들기</button>' +
-      '<div id="adminTeacherList"><div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오는 중...</div></div>';
+    return '<div id="adminAccountMgmt">' +
+      // 상단 버튼 + 필터 행
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">' +
+        '<button class="btn btn-primary" style="flex-shrink:0" onclick="openTeacherForm()">👩‍🏫 + 교사 계정 만들기</button>' +
+        '<div style="display:flex;gap:6px;margin-left:auto">' +
+          '<button id="adm-sort-school" class="btn btn-sm btn-secondary adm-sort-btn active-sort" onclick="adminSortBy(\'school\')">🏫 학교순</button>' +
+          '<button id="adm-sort-name" class="btn btn-sm btn-secondary adm-sort-btn" onclick="adminSortBy(\'name\')">가나다순</button>' +
+        '</div>' +
+      '</div>' +
+      '<div id="adminTeacherList"><div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오는 중...</div></div>' +
+    '</div>';
   }
   return '<button class="btn btn-primary" style="margin-bottom:14px" onclick="openNfcRegister()">🪪 + 학생 NFC 카드 등록</button>' +
     '<div id="studentList"></div>';
@@ -2662,42 +2703,7 @@ function renderStudentList() {
     return;
   }
 
-  var isAdmin = (STATE.role === 'admin');
-
-  if (isAdmin) {
-    // 관리자: teacher_uid별 그룹핑해서 교사명 헤더 + 학생 5명씩
-    var groups = {};
-    STATE.students.forEach(function(s) {
-      var tid = s.teacher_uid || '미배정';
-      if (!groups[tid]) groups[tid] = [];
-      groups[tid].push(s);
-    });
-    var html = '';
-    Object.keys(groups).forEach(function(tid) {
-      var list = groups[tid];
-      // 교사 이름은 _teacherAll에서 찾기, 없으면 uid 표시
-      var tName = tid;
-      if (_teacherAll && _teacherAll.length) {
-        var found = _teacherAll.find(function(t){ return t.teacher_uid === tid; });
-        if (found) tName = found.name + ' 선생님';
-      }
-      html += '<div style="font-size:12px;font-weight:700;color:var(--gray);padding:8px 0 4px;border-top:1px solid var(--lgray);margin-top:8px">👩‍🏫 ' + tName + ' (' + list.length + '명)</div>';
-      html += list.map(function(s) {
-        return '<div class="student-item '+(s.active==='Y'?'':'inactive')+'" style="padding:8px 0">' +
-          '<div class="student-avatar" style="font-size:12px">'+s.num+'</div>' +
-          '<div class="student-info">' +
-            '<div class="student-name">'+s.name+' <span style="font-size:12px">'+(s.gender==='F'?'👧':s.gender==='M'?'👦':'')+'</span></div>' +
-            '<div class="student-id">ID: '+s.student_id+'</div>' +
-          '</div>' +
-          '<div><span style="font-size:11px;color:var(--gray)">'+(s.nfc_uid?'🪪':'🔲')+'</span></div>' +
-        '</div>';
-      }).join('');
-    });
-    el.innerHTML = html;
-    return;
-  }
-
-  // 교사: 5명씩 더보기
+  // 교사: 5명씩 더보기 (관리자는 renderAdminAccountMgmt 에서 처리)
   _studentShowCount = _studentShowCount || 5;
   var visible = STATE.students.slice(0, _studentShowCount);
   var hasMore = STATE.students.length > _studentShowCount;
@@ -2925,7 +2931,7 @@ async function submitTeacherForm() {
   if (res.status==='ok') {
     AUDIO.sfx('save');
     toast('교사 계정이 만들어졌어요 ✅');
-    if (STATE.role === 'admin') { renderAdminAccountMgmt(); } else { loadTeacherList(); }
+    if (STATE.role === 'admin') { renderAdminAccountMgmt(); }
   } else {
     toast(res.message);
     openModal('modal-teacher-form');
