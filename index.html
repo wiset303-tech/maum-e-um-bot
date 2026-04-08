@@ -1480,8 +1480,8 @@ async function onLoginSuccess(data) {
   document.getElementById('headerUser').textContent =
     data.name + ' ' + (data.role==='teacher'?'선생님':data.role==='admin'?'(관리자)':'학생');
 
-  // 프로필 이미지 헤더 초기화 (교사·학생만)
-  if (data.role === 'teacher' || data.role === 'student') {
+  // 프로필 이미지 헤더 초기화 (교사만 — 학생은 배너에 표시)
+  if (data.role === 'teacher') {
     updateHeaderProfile(data.profile_image_url || '', data.name, data.gender);
   }
 
@@ -2712,7 +2712,7 @@ async function saveProfileImage(imageUrl) {
   if (res.status === 'ok') {
     // STATE 즉시 반영
     STATE.user.profile_image_url = imageUrl;
-    updateHeaderProfile(imageUrl, u.name, u.gender);
+    if (STATE.role === 'teacher') updateHeaderProfile(imageUrl, u.name, u.gender);
     updateBannerProfile();
     // 팝업 이미지도 갱신
     var imgEl  = document.getElementById('profilePopupImg');
