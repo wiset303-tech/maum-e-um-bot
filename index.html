@@ -612,14 +612,28 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .album-item{
   border-radius:var(--r2);overflow:hidden;
   box-shadow:var(--shadow2);position:relative;cursor:pointer;
+  transition:transform .15s;
 }
+.album-item:active{transform:scale(.97)}
 .album-item img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
 .album-item .album-date{
   position:absolute;bottom:0;left:0;right:0;
-  background:linear-gradient(transparent,rgba(0,0,0,.5));
-  color:#fff;font-size:11px;padding:8px 8px 6px;
+  background:linear-gradient(transparent,rgba(0,0,0,.55));
+  color:#fff;font-size:11px;padding:20px 8px 7px;
+}
+.album-item .album-caption-thumb{
+  font-size:11px;color:rgba(255,255,255,.85);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .album-empty{text-align:center;padding:40px;color:var(--gray);font-family:'Black Han Sans',sans-serif;font-size:16px}
+/* 해시태그 칩 */
+.hashtag-chip{
+  display:inline-block;background:var(--mint3);color:var(--mint2);
+  border-radius:12px;padding:2px 10px;font-size:11px;font-weight:600;margin:2px 2px 2px 0;
+}
+/* 업로드 미리보기 */
+.album-preview-wrap{width:100%;aspect-ratio:1;border-radius:12px;overflow:hidden;margin-bottom:12px;background:var(--lgray)}
+.album-preview-wrap img{width:100%;height:100%;object-fit:cover;display:block}
 
 /* ════════════════════════════════════════
    설정 패널
@@ -940,6 +954,43 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       onkeydown="if(event.key==='Enter')confirmChangePw()" style="margin-bottom:6px">
     <div style="font-size:11px;color:var(--gray);margin-bottom:16px">4자 이상 입력해주세요</div>
     <button class="btn btn-mint" style="width:100%" onclick="confirmChangePw()">변경하기</button>
+  </div>
+</div>
+
+<!-- ══ 모달: 마음앨범 업로드 ══ -->
+<div id="modal-album-upload" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-album-upload')">
+  <div class="modal-box" style="position:relative;max-height:90vh;overflow-y:auto">
+    <button class="modal-close" onclick="closeModal('modal-album-upload')">✕</button>
+    <div class="modal-title">📸 오늘의 마음앨범</div>
+    <div class="album-preview-wrap">
+      <img id="albumPreviewImg" src="" alt="미리보기">
+    </div>
+    <div class="inp-label">한줄소감</div>
+    <input class="inp" id="albumCaptionInput" type="text" placeholder="오늘 하루를 한 줄로 표현해봐요" maxlength="60"
+      style="margin-bottom:14px">
+    <div class="inp-label">해시태그 <span style="font-size:11px;color:var(--gray)">(최대 5개, 띄어쓰기로 구분)</span></div>
+    <input class="inp" id="albumHashtagInput" type="text" placeholder="오늘 행복 친구 (# 없이 입력)"
+      oninput="previewHashtags()" style="margin-bottom:6px">
+    <div id="albumHashtagPreview" style="min-height:24px;margin-bottom:16px"></div>
+    <button class="btn btn-mint" style="width:100%" onclick="submitAlbumUpload()">💾 저장하기</button>
+  </div>
+</div>
+
+<!-- ══ 모달: 마음앨범 팝업 (SNS 스타일) ══ -->
+<div id="modal-album-popup" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-album-popup')">
+  <div class="modal-box" style="position:relative;padding:0;overflow:hidden;max-height:92vh">
+    <button class="modal-close" onclick="closeModal('modal-album-popup')"
+      style="position:absolute;top:10px;right:12px;z-index:10;background:rgba(0,0,0,.35);color:#fff;border-radius:50%;width:28px;height:28px;font-size:16px">✕</button>
+    <img id="popupAlbumImg" src="" alt="마음앨범" style="width:100%;display:block;max-height:55vw;object-fit:cover">
+    <div style="padding:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div id="popupAlbumDate" style="font-size:12px;color:var(--gray)"></div>
+        <button id="popupAlbumDelete" class="btn btn-sm" style="background:var(--rose2);color:#a03030;display:none"
+          onclick="deleteAlbumItem()">🗑 삭제</button>
+      </div>
+      <div id="popupAlbumCaption" style="font-size:15px;font-weight:600;color:var(--navy);margin-bottom:8px;min-height:20px"></div>
+      <div id="popupAlbumHashtags" style="margin-bottom:4px"></div>
+    </div>
   </div>
 </div>
 
@@ -3270,19 +3321,53 @@ function albumTeacherHTML() {
   '</div>';
 }
 
+// 해시태그 파싱 (최대 5개, # 자동 추가)
+function parseHashtags(raw) {
+  return raw.trim().split(/[\s,]+/)
+    .filter(Boolean)
+    .map(function(t){ return t.startsWith('#') ? t : '#' + t; })
+    .slice(0, 5);
+}
+
+function renderHashtagChips(tags) {
+  return tags.map(function(t){
+    return '<span class="hashtag-chip">' + t + '</span>';
+  }).join('');
+}
+
+function previewHashtags() {
+  var raw = document.getElementById('albumHashtagInput').value;
+  var tags = parseHashtags(raw);
+  document.getElementById('albumHashtagPreview').innerHTML = renderHashtagChips(tags);
+}
+
+// Canvas 이미지 압축
+function compressImage(dataUrl, maxSide, quality, callback) {
+  var img = new Image();
+  img.onload = function() {
+    var scale = Math.min(maxSide / img.width, maxSide / img.height, 1);
+    var w = Math.round(img.width * scale);
+    var h = Math.round(img.height * scale);
+    var canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    callback(canvas.toDataURL('image/jpeg', quality));
+  };
+  img.src = dataUrl;
+}
+
+// 전역 업로드 임시 저장
+var _albumUploadData = { imageUrl: '', thumbUrl: '', isUpdate: false };
+
 async function loadAlbum() {
   var isTeacher = (STATE.role === 'teacher' || STATE.role === 'admin');
-  if (isTeacher) {
-    renderAlbumStudentPicker();
-    return;
-  }
-  // 학생: 내 앨범
+  if (isTeacher) { renderAlbumStudentPicker(); return; }
   var grid  = document.getElementById('albumGrid');
   var empty = document.getElementById('albumEmpty');
   if (!grid) return;
+  _albumCache = [];
   grid.innerHTML = '';
   if (empty) empty.style.display = 'none';
-
   showLoading('마음앨범 불러오는 중 📷');
   var res = await api('get_album', { student_uid: STATE.user.student_uid });
   hideLoading();
@@ -3291,13 +3376,7 @@ async function loadAlbum() {
     return;
   }
   var sorted = res.data.album.sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); });
-  grid.innerHTML = sorted.map(function(a) {
-    var dateStr = String(a.date).slice(0,10);
-    return '<div class="album-item">' +
-      '<img src="'+a.image_url+'" alt="마음앨범" loading="lazy" onerror="this.parentNode.style.display=\'none\'">' +
-      '<div class="album-date">'+dateStr+'<br><span style="font-size:11px;color:var(--gray)">'+(a.caption||'')+'</span></div>' +
-    '</div>';
-  }).join('');
+  grid.innerHTML = sorted.map(function(a) { return albumItemHTML(a, true); }).join('');
 }
 
 function renderAlbumStudentPicker() {
@@ -3317,17 +3396,13 @@ function renderAlbumStudentPicker() {
   }).join('');
   if (grid) grid.innerHTML = '';
   if (empty) empty.style.display = 'none';
-  // 안내 문구
   var section = document.getElementById('albumTeacherSection');
-  if (section) {
-    var hint = section.querySelector('#albumTeacherHint');
-    if (!hint) {
-      var h = document.createElement('div');
-      h.id = 'albumTeacherHint';
-      h.style.cssText = 'font-size:12px;color:var(--gray);margin-bottom:8px';
-      h.textContent = '학생을 선택하면 그 학생의 마음앨범을 볼 수 있어요';
-      section.insertBefore(h, grid);
-    }
+  if (section && !section.querySelector('#albumTeacherHint')) {
+    var h = document.createElement('div');
+    h.id = 'albumTeacherHint';
+    h.style.cssText = 'font-size:12px;color:var(--gray);margin-bottom:8px';
+    h.textContent = '학생을 선택하면 그 학생의 마음앨범을 볼 수 있어요';
+    section.insertBefore(h, grid);
   }
 }
 
@@ -3338,8 +3413,8 @@ async function loadTeacherAlbum(studentUid, studentName) {
   if (!grid) return;
   if (hint) hint.style.display = 'none';
   if (empty) empty.style.display = 'none';
+  _albumCache = [];
   grid.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:16px">불러오는 중 📷</div>';
-
   var res = await api('get_album', { student_uid: studentUid });
   if (res.status !== 'ok' || !res.data.album.length) {
     grid.innerHTML = '';
@@ -3347,75 +3422,129 @@ async function loadTeacherAlbum(studentUid, studentName) {
     return;
   }
   var sorted = res.data.album.sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); });
-  grid.innerHTML = sorted.map(function(a) {
-    var dateStr = String(a.date).slice(0,10);
-    return '<div class="album-item">' +
-      '<img src="'+a.image_url+'" alt="마음앨범" loading="lazy" onerror="this.parentNode.style.display=\'none\'">' +
-      '<div class="album-date">'+dateStr+'<br><span style="font-size:11px;color:var(--gray)">'+(a.caption||'')+'</span></div>' +
-    '</div>';
-  }).join('');
+  grid.innerHTML = sorted.map(function(a) { return albumItemHTML(a, false); }).join('');
 }
 
+// 앨범 아이템 HTML (썸네일용) — 전역 캐시로 onclick 안전하게 처리
+var _albumCache = [];
+function albumItemHTML(a, canDelete) {
+  var idx = _albumCache.length;
+  _albumCache.push({ data: a, canDelete: canDelete });
+  var thumb = a.thumb_url || a.image_url;
+  var dateStr = String(a.date).slice(0, 10);
+  return '<div class="album-item" onclick="openAlbumPopup(' + idx + ')">' +
+    '<img src="' + thumb + '" alt="마음앨범" loading="lazy" onerror="this.parentNode.style.display=\'none\'">' +
+    '<div class="album-date">' +
+      '<div>' + dateStr + '</div>' +
+      (a.caption ? '<div class="album-caption-thumb">' + a.caption + '</div>' : '') +
+    '</div>' +
+  '</div>';
+}
+
+// SNS 팝업 열기
+var _popupAlbumUid = '';
+function openAlbumPopup(idx) {
+  var entry = _albumCache[idx];
+  if (!entry) return;
+  var albumData = entry.data;
+  var canDelete = entry.canDelete;
+  _popupAlbumUid = albumData.album_uid;
+  document.getElementById('popupAlbumImg').src = albumData.image_url;
+  document.getElementById('popupAlbumDate').textContent = String(albumData.date).slice(0, 10);
+  document.getElementById('popupAlbumCaption').textContent = albumData.caption || '';
+  var tags = albumData.hashtags ? parseHashtags(albumData.hashtags) : [];
+  document.getElementById('popupAlbumHashtags').innerHTML = renderHashtagChips(tags);
+  var delBtn = document.getElementById('popupAlbumDelete');
+  if (delBtn) delBtn.style.display = canDelete ? 'block' : 'none';
+  openModal('modal-album-popup');
+}
+
+async function deleteAlbumItem() {
+  if (!_popupAlbumUid) return;
+  if (!confirm('이 사진을 삭제할까요?')) return;
+  closeModal('modal-album-popup');
+  showLoading('삭제 중이에요 🗑');
+  var res = await api('delete_album', { album_uid: _popupAlbumUid });
+  hideLoading();
+  if (res.status === 'ok') { toast('삭제됐어요'); loadAlbum(); }
+  else toast(res.message);
+}
+
+// 업로드: 파일 선택 → 압축 → 모달 표시
 async function uploadAlbum() {
-  // 파일 input 동적 생성
   var input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
-  input.onchange = async function() {
+  input.onchange = function() {
     var file = input.files[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) { toast('5MB 이하 사진만 올릴 수 있어요'); return; }
-
-    showLoading('사진을 올리는 중이에요 📸');
-
-    // Base64 변환
+    showLoading('사진을 준비하는 중이에요 📸');
     var reader = new FileReader();
-    reader.onload = async function(ev) {
-      var base64 = ev.target.result; // data:image/...;base64,...
-      var caption = '';
-      var today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
-
-      var res = await api('save_album', {
-        student_uid  : STATE.user.student_uid,
-        student_name : STATE.user.name,
-        teacher_uid  : STATE.user.teacher_uid,
-        image_url    : base64,
-        caption      : caption,
-        emotion_id   : (STATE.selectedMicro && STATE.selectedMicro.id) || '',
-        date         : today,
+    reader.onload = function(ev) {
+      var rawData = ev.target.result;
+      // 고화질 (팝업용: 1000px, quality 0.82)
+      compressImage(rawData, 1000, 0.82, function(imageUrl) {
+        // 썸네일 (그리드용: 240px, quality 0.65)
+        compressImage(rawData, 240, 0.65, function(thumbUrl) {
+          hideLoading();
+          _albumUploadData.imageUrl = imageUrl;
+          _albumUploadData.thumbUrl = thumbUrl;
+          _albumUploadData.isUpdate = false;
+          document.getElementById('albumPreviewImg').src = thumbUrl;
+          document.getElementById('albumCaptionInput').value = '';
+          document.getElementById('albumHashtagInput').value = '';
+          document.getElementById('albumHashtagPreview').innerHTML = '';
+          openModal('modal-album-upload');
+        });
       });
-
-      hideLoading();
-      if (res.status === 'ok') {
-        AUDIO.sfx('save');
-        toast('마음앨범에 저장됐어요 🌸');
-        loadAlbum(); // 새로고침
-      } else if (res.message && res.message.includes('이미')) {
-        // 오늘 이미 있으면 수정 여부 확인
-        if (confirm('오늘 사진이 이미 있어요. 새 사진으로 교체할까요?')) {
-          var res2 = await api('save_album', {
-            student_uid  : STATE.user.student_uid,
-            student_name : STATE.user.name,
-            teacher_uid  : STATE.user.teacher_uid,
-            image_url    : base64,
-            caption      : caption,
-            emotion_id   : (STATE.selectedMicro && STATE.selectedMicro.id) || '',
-            date         : today,
-            is_update    : true,
-          });
-          hideLoading();
-          if (res2.status === 'ok') { toast('사진이 교체됐어요 📸'); loadAlbum(); }
-          else toast(res2.message || '오류가 발생했어요');
-        } else {
-          hideLoading();
-        }
-      } else {
-        toast(res.message || '오류가 발생했어요');
-      }
     };
     reader.readAsDataURL(file);
   };
   input.click();
+}
+
+async function submitAlbumUpload() {
+  var caption  = document.getElementById('albumCaptionInput').value.trim();
+  var rawTags  = document.getElementById('albumHashtagInput').value;
+  var tags     = parseHashtags(rawTags);
+  var hashtags = tags.join(' ');
+  var today    = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+
+  closeModal('modal-album-upload');
+  showLoading('마음앨범에 저장하는 중이에요 🌸');
+
+  var payload = {
+    student_uid  : STATE.user.student_uid,
+    student_name : STATE.user.name,
+    teacher_uid  : STATE.user.teacher_uid,
+    image_url    : _albumUploadData.imageUrl,
+    thumb_url    : _albumUploadData.thumbUrl,
+    caption      : caption,
+    hashtags     : hashtags,
+    emotion_id   : (STATE.selectedMicro && STATE.selectedMicro.id) || '',
+    date         : today,
+  };
+
+  var res = await api('save_album', payload);
+  hideLoading();
+
+  if (res.status === 'ok') {
+    AUDIO.sfx('save');
+    toast('마음앨범에 저장됐어요 🌸');
+    loadAlbum();
+  } else if (res.message && res.message.includes('이미')) {
+    if (confirm('오늘 사진이 이미 있어요. 새 사진으로 교체할까요?')) {
+      showLoading('교체하는 중이에요 📸');
+      payload.is_update = true;
+      var res2 = await api('save_album', payload);
+      hideLoading();
+      if (res2.status === 'ok') { toast('사진이 교체됐어요 📸'); loadAlbum(); }
+      else toast(res2.message || '오류가 발생했어요');
+    }
+  } else {
+    toast(res.message || '오류가 발생했어요');
+  }
 }
 
 // ════════════════════════════════════════
