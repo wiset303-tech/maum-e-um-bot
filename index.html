@@ -2885,12 +2885,22 @@ function selectGender(g) {
   sel.style.borderColor = 'var(--mint2)';
 }
 
+function _getSchoolPrefix(school_name) {
+  var schoolMap = { '마음':'me','감천':'gc','우산':'us','창원':'cw','학장':'hj','남산':'ns','감동':'gd' };
+  var keys = Object.keys(schoolMap);
+  for (var k = 0; k < keys.length; k++) {
+    if ((school_name||'').indexOf(keys[k]) >= 0) return schoolMap[keys[k]];
+  }
+  return (school_name||'xx').slice(0, 2);
+}
+
 function onNumInput(val) {
   if (!val) return;
   var u = STATE.user;
   if (!u) return;
-  var sn = (u.school_name||'xx').slice(0,2);
-  var id = sn+'e'+String(u.year||2026).slice(-2)+(u.grade||'')+(u.class||'')+('0'+val).slice(-2);
+  var prefix = _getSchoolPrefix(u.school_name);
+  var typeCode = (u.school_type||'e') === 'e' ? 'e' : (u.school_type === 'm' ? 'm' : 'h');
+  var id = prefix + typeCode + String(u.year||2026).slice(-2) + (u.grade||'') + (u.class||'') + ('0'+val).slice(-2);
   document.getElementById('sf-id').value = id;
 }
 
@@ -2898,9 +2908,9 @@ function generateId() {
   var u = STATE.user;
   var num = document.getElementById('sf-num').value;
   if(!num) { toast('번호를 먼저 입력하세요'); return; }
-  // 간이 생성 (서버 로직과 동일)
-  var sn = (u.school_name||'xx').slice(0,2);
-  var id = sn+'e'+String(u.year||2026).slice(-2)+(u.grade||'')+(u.class||'')+('0'+num).slice(-2);
+  var prefix = _getSchoolPrefix(u.school_name);
+  var typeCode = (u.school_type||'e') === 'e' ? 'e' : (u.school_type === 'm' ? 'm' : 'h');
+  var id = prefix + typeCode + String(u.year||2026).slice(-2) + (u.grade||'') + (u.class||'') + ('0'+num).slice(-2);
   document.getElementById('sf-id').value = id;
 }
 
