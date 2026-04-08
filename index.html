@@ -2662,8 +2662,8 @@ async function uploadProfileImage() {
     showLoading('프로필 사진을 저장하는 중이에요 📸');
     var reader = new FileReader();
     reader.onload = function(ev) {
-      // 300px 압축 — 원형 표시에 충분한 해상도
-      compressImage(ev.target.result, 300, 0.85, function(compressed) {
+      // 800px 압축 — 레티나 대응 원형 표시 고화질
+      compressImage(ev.target.result, 800, 0.92, function(compressed) {
         saveProfileImage(compressed);
       });
     };
@@ -3155,12 +3155,9 @@ function emotionInputHTML() {
   var uname = u.name || '';
   var gender = u.gender || 'default';
   var charSrc = CHAR_IMG[gender] || CHAR_IMG['default'];
-  // 이름 끝 글자 받침 여부로 "아" / "야" 구분
-  var lastChar = uname.charCodeAt(uname.length - 1);
-  var suffix = (lastChar - 0xAC00) % 28 === 0 ? '야' : '아';
   return '<div class="welcome-banner">' +
     '<div class="welcome-banner-text">' +
-      '<h2 class="gaegu">'+uname+suffix+', 안녕! 👋</h2>' +
+      '<h2 class="gaegu">'+uname+', 안녕! 👋</h2>' +
       '<div class="welcome-mood">📅 오늘 마음 날씨는 어때?</div>' +
     '</div>' +
     '<div class="welcome-banner-char"><img src="'+charSrc+'" alt="캐릭터"></div>' +
@@ -4076,8 +4073,8 @@ async function uploadAlbum() {
       var rawData = ev.target.result;
       // 고화질 (팝업용: 1000px, quality 0.82)
       compressImage(rawData, 1000, 0.82, function(imageUrl) {
-        // 썸네일 (그리드용: 240px, quality 0.65)
-        compressImage(rawData, 240, 0.65, function(thumbUrl) {
+        // 썸네일 (그리드용: 500px, quality 0.72)
+        compressImage(rawData, 500, 0.72, function(thumbUrl) {
           hideLoading();
           _albumUploadData.imageUrl = imageUrl;
           _albumUploadData.thumbUrl = thumbUrl;
