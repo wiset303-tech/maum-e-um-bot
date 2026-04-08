@@ -421,6 +421,49 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   transform:scale(1.1);
 }
 
+/* ── 마음 온도 (학생 개인) ── */
+.heart-temp-widget{
+  background:#fff;border-radius:var(--r);padding:16px 18px;
+  margin-bottom:14px;box-shadow:var(--shadow2);
+  display:flex;align-items:center;gap:14px;
+}
+.heart-temp-icon{font-size:36px;line-height:1;flex-shrink:0}
+.heart-temp-info{flex:1}
+.heart-temp-label{font-size:12px;color:var(--gray);margin-bottom:2px}
+.heart-temp-value{
+  font-family:'Noto Sans KR',sans-serif;font-weight:900;
+  font-size:32px;color:#ff5e1a;letter-spacing:-1px;line-height:1;
+}
+.heart-temp-bar-wrap{
+  height:8px;border-radius:4px;background:var(--lgray);
+  margin-top:8px;overflow:hidden;
+}
+.heart-temp-bar{
+  height:100%;border-radius:4px;
+  background:linear-gradient(90deg,#ffb347,#ff5e1a);
+  transition:width 1s cubic-bezier(.4,0,.2,1);
+}
+
+/* ── 학급 온도계 (교사/관리자 대시보드) ── */
+.class-temp-bar-wrap{
+  background:#fff;border-radius:var(--r2);padding:12px 16px;
+  margin-bottom:14px;box-shadow:var(--shadow2);
+}
+.class-temp-header{
+  display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;
+}
+.class-temp-title{font-size:13px;font-weight:700;color:var(--navy)}
+.class-temp-degree{
+  font-family:'Noto Sans KR',sans-serif;font-weight:900;
+  font-size:18px;color:#ff5e1a;
+}
+.class-temp-track{height:12px;border-radius:6px;background:var(--lgray);overflow:hidden}
+.class-temp-fill{
+  height:100%;border-radius:6px;
+  background:linear-gradient(90deg,#ffe0b2,#ffb347,#ff5e1a);
+  transition:width 1.2s cubic-bezier(.4,0,.2,1);
+}
+
 .emotion-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .emotion-chip{
   padding:4px 12px;border-radius:14px;font-size:12px;font-weight:600;
@@ -1117,6 +1160,7 @@ var STATE = {
   selectedMicro: null,
   chatHistory: [],     // 봇 대화 기록
   tokenBalance: null,
+  tokenBalances: {},     // 교사용: {student_uid: {current_balance, total_saved, temp}}
   selectedGender: null, // 학생 등록 성별 선택
   isPreview: false,    // 관리자 미리보기 중 여부
   adminUser: null,     // 미리보기 복귀용 관리자 정보
@@ -1440,6 +1484,7 @@ function logout() {
   if (STATE.role === 'student') saveChatLogIfNeeded();
   STATE = { role:null, user:null, emotions:[...STATE.emotions], students:[], dashboard:null,
             nfcPending:null, selectedMacro:null, selectedMicro:null, chatHistory:[], tokenBalance:null,
+            tokenBalances:{},
             isPreview:false, adminUser:null, selectedGender:null,
             settings:{ alarm_checkin:true, alarm_crisis:true, bgm:true,
                        persona_mode_enabled:false, persona_mode_until:'' } };
@@ -1863,6 +1908,15 @@ function dashboardHTML() {
       '<span class="refresh-icon">🔄</span> 새로고침' +
     '</button>' +
   '</div>' +
+  '<div class="class-temp-bar-wrap">' +
+    '<div class="class-temp-header">' +
+      '<div class="class-temp-title">🌡️ 학급 마음 온도</div>' +
+      '<div class="class-temp-degree"><span id="classTempValue">—</span>°</div>' +
+    '</div>' +
+    '<div class="class-temp-track">' +
+      '<div class="class-temp-fill" id="classTempFill" style="width:0%"></div>' +
+    '</div>' +
+  '</div>' +
   '<div class="weather-box ws-none" id="weatherBox">' +
     // 날씨 레이어들
     '<div class="wx-layer"><div class="wx-sun"></div></div>' +
@@ -2068,6 +2122,15 @@ async function loadDashboard() {
   setText('statTotal',  d.total_students);
   setText('statSubmit', d.submitted);
   setText('statMiss',   d.total_students - d.submitted);
+
+  // 학급 마음 온도
+  var classTemp = d.class_temp || 0;
+  setText('classTempValue', classTemp);
+  var fill = document.getElementById('classTempFill');
+  if (fill) setTimeout(function(){ fill.style.width = classTemp + '%'; }, 150);
+
+  // token_balances STATE 저장 (학생관리 카드 표시용)
+  if (d.token_balances) STATE.tokenBalances = d.token_balances;
 
   // 훈훈습도계
   for (var i=1; i<=5; i++) {
@@ -2376,6 +2439,9 @@ function renderStudentList() {
         '<div class="student-name">'+s.name+' <span style="font-size:12px">'+(s.gender==='F'?'👧':s.gender==='M'?'👦':'')+'</span></div>' +
         '<div class="student-id">ID: '+s.student_id+'</div>' +
         '<div class="student-nfc">'+(s.nfc_uid?'🪪 NFC 등록됨':'🔲 NFC 없음')+'</div>' +
+        (STATE.tokenBalances && STATE.tokenBalances[uid2]
+          ? '<div style="font-size:11px;color:#ff8c42;margin-top:2px">🌡️ '+STATE.tokenBalances[uid2].temp+'° &nbsp;🪙 '+STATE.tokenBalances[uid2].current_balance+'개</div>'
+          : '') +
       '</div>' +
       '<div class="student-actions">'+actions+'</div>' +
     '</div>';
@@ -2762,6 +2828,16 @@ function emotionInputHTML() {
       '<div class="welcome-mood">📅 오늘 마음 날씨는 어때?</div>' +
     '</div>' +
     '<div class="welcome-banner-char"><img src="'+charSrc+'" alt="캐릭터"></div>' +
+  '</div>' +
+  '<div class="heart-temp-widget">' +
+    '<div class="heart-temp-icon">🌡️</div>' +
+    '<div class="heart-temp-info">' +
+      '<div class="heart-temp-label">내 마음의 온도</div>' +
+      '<div><span class="heart-temp-value" id="heartTempValue">—</span><span style="font-size:14px;color:#ff5e1a;font-weight:700">°</span></div>' +
+      '<div class="heart-temp-bar-wrap">' +
+        '<div class="heart-temp-bar" id="heartTempBar" style="width:0%"></div>' +
+      '</div>' +
+    '</div>' +
   '</div>' +
   '<div id="emotionSubmittedBanner"></div>' +
   '<div style="font-weight:700;font-size:14px;color:var(--navy);margin-bottom:10px;letter-spacing:-0.3px">지금 내 기분은...</div>' +
@@ -3241,17 +3317,40 @@ async function saveChatLogIfNeeded() {
 
 // ── 마음토큰 ──
 function tokenHTML() {
-  return '<div class="token-balance">' +
-    '<div class="lbl">내 마음토큰</div>' +
-    '<div class="amount" id="tokenAmount">...</div>' +
-    '<div class="lbl">개</div></div>' +
+  return '<div class="heart-temp-widget" style="margin-bottom:10px">' +
+      '<div class="heart-temp-icon">🌡️</div>' +
+      '<div class="heart-temp-info">' +
+        '<div class="heart-temp-label">내 마음의 온도</div>' +
+        '<div><span class="heart-temp-value" id="tokenTempValue">—</span><span style="font-size:14px;color:#ff5e1a;font-weight:700">°</span></div>' +
+        '<div class="heart-temp-bar-wrap">' +
+          '<div class="heart-temp-bar" id="tokenTempBar" style="width:0%"></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">' +
+      '<div style="background:#fff;border-radius:12px;padding:10px;text-align:center;box-shadow:var(--shadow2)">' +
+        '<div style="font-size:11px;color:var(--gray);margin-bottom:2px">현재 잔액</div>' +
+        '<div class="gaegu" style="font-size:24px;color:var(--navy)" id="tokenAmount">...</div>' +
+        '<div style="font-size:11px;color:var(--gray)">개</div>' +
+      '</div>' +
+      '<div style="background:#fff;border-radius:12px;padding:10px;text-align:center;box-shadow:var(--shadow2)">' +
+        '<div style="font-size:11px;color:var(--gray);margin-bottom:2px">누적 획득</div>' +
+        '<div class="gaegu" style="font-size:24px;color:var(--mint2)" id="tokenEarned">...</div>' +
+        '<div style="font-size:11px;color:var(--gray)">개</div>' +
+      '</div>' +
+      '<div style="background:#fff;border-radius:12px;padding:10px;text-align:center;box-shadow:var(--shadow2)">' +
+        '<div style="font-size:11px;color:var(--gray);margin-bottom:2px">누적 저축</div>' +
+        '<div class="gaegu" style="font-size:24px;color:#ff8c42" id="tokenSaved">...</div>' +
+        '<div style="font-size:11px;color:var(--gray)">개</div>' +
+      '</div>' +
+    '</div>' +
     '<div class="token-actions">' +
       '<button class="btn btn-peach" onclick="saveToken()">🪙 저축하기</button>' +
       '<button class="btn btn-lav" onclick="openGiftSelect()">💌 선물하기</button>' +
     '</div>' +
     '<div class="card card-lemon" style="margin-top:8px">' +
       '<div class="card-label gaegu">마음토큰이란?</div>' +
-      '<div style="font-size:13px;line-height:1.7;color:var(--gray)">매일 로그인하면 토큰 1개를 받아요.<br>토큰을 저축하거나 힘든 친구에게 선물할 수 있어요.<br>선물받으면 한 번에 2개를 저축할 수 있어요 💛</div>' +
+      '<div style="font-size:13px;line-height:1.7;color:var(--gray)">매일 로그인하면 토큰 1개를 받아요.<br>토큰을 <b>저축</b>하면 마음 온도가 올라가요 🌡️<br>토큰 2개 저축 = 마음 온도 1°<br>최대 100°까지 올릴 수 있어요!</div>' +
     '</div>';
 }
 
@@ -3259,8 +3358,30 @@ async function loadTokenBalance() {
   var res = await api('get_token_balance', { student_uid: STATE.user.student_uid });
   if(res.status==='ok') {
     STATE.tokenBalance = res.data;
-    setText('tokenAmount', res.data.current_balance);
+    var balance  = res.data.current_balance || 0;
+    var earned   = res.data.total_earned   || 0;
+    var saved    = res.data.total_saved    || 0;
+    var temp     = Math.min(100, Math.floor(saved / 2));
+
+    setText('tokenAmount', balance);
+    setText('tokenEarned', earned);
+    setText('tokenSaved',  saved);
+    updateHeartTempUI(temp);
   }
+}
+
+function updateHeartTempUI(temp) {
+  var pct = temp + '%';
+  // 마음날씨 탭 위젯
+  var v1 = document.getElementById('heartTempValue');
+  var b1 = document.getElementById('heartTempBar');
+  if (v1) v1.textContent = temp;
+  if (b1) setTimeout(function(){ b1.style.width = pct; }, 100);
+  // 마음토큰 탭 위젯
+  var v2 = document.getElementById('tokenTempValue');
+  var b2 = document.getElementById('tokenTempBar');
+  if (v2) v2.textContent = temp;
+  if (b2) setTimeout(function(){ b2.style.width = pct; }, 100);
 }
 
 async function saveToken() {
