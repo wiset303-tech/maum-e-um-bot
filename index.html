@@ -574,25 +574,48 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 ════════════════════════════════════════ */
 .welcome-banner{
   background:linear-gradient(135deg,var(--mint),var(--mint2));
-  border-radius:var(--r);padding:18px 16px 14px;margin-bottom:16px;color:#fff;
-  display:flex;align-items:center;justify-content:space-between;
-  position:relative;overflow:hidden;min-height:100px;
+  border-radius:var(--r);padding:16px;margin-bottom:16px;color:#fff;
+  display:flex;align-items:center;gap:12px;
+  position:relative;overflow:hidden;
 }
+.welcome-banner-profile{
+  width:46px;height:46px;border-radius:50%;flex-shrink:0;
+  border:2.5px solid rgba(255,255,255,.8);
+  background:rgba(255,255,255,.25);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;overflow:hidden;
+}
+.welcome-banner-profile img{width:100%;height:100%;object-fit:cover}
 .welcome-banner-text{flex:1;text-align:left}
-.welcome-banner h2{font-family:'Noto Sans KR',sans-serif;font-weight:900;font-size:20px;letter-spacing:-0.5px;line-height:1.3}
-.welcome-banner p{font-size:12px;opacity:.85;margin-top:5px}
-.welcome-banner-char{
-  width:90px;height:90px;flex-shrink:0;
-  position:relative;margin-right:-4px;
-}
-.welcome-banner-char img{
-  width:100%;height:100%;object-fit:contain;
-  filter:drop-shadow(0 4px 12px rgba(0,0,0,.18));
-}
+.welcome-banner h2{font-family:'Noto Sans KR',sans-serif;font-weight:900;font-size:18px;letter-spacing:-0.5px;line-height:1.3}
 .welcome-mood{
-  font-size:11px;opacity:.75;margin-top:4px;
+  font-size:11px;opacity:.8;margin-top:3px;
   display:flex;align-items:center;gap:4px;
 }
+
+/* ── 마음채움 ── */
+.mindgame-section{
+  background:#fff;border-radius:var(--r);padding:14px 16px;
+  margin-bottom:14px;box-shadow:var(--shadow2);
+}
+.mindgame-title{
+  font-family:'Noto Sans KR',sans-serif;font-weight:700;
+  font-size:13px;color:var(--navy);margin-bottom:10px;letter-spacing:-0.3px;
+}
+.mindgame-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mindgame-btn{
+  border:none;border-radius:var(--r2);padding:16px 10px;
+  text-align:center;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  transition:transform .15s,box-shadow .15s;
+}
+.mindgame-btn:active{transform:scale(.96)}
+.mindgame-btn .mg-emoji{font-size:30px;line-height:1}
+.mindgame-btn .mg-name{font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:13px;letter-spacing:-0.3px}
+.mindgame-btn .mg-desc{font-size:11px;opacity:.7;line-height:1.3}
+.mindgame-rainbow{background:linear-gradient(135deg,var(--lav2),#e8e0ff);color:#6a4fc4}
+.mindgame-detective{background:linear-gradient(135deg,var(--lemon2),#fff8d0);color:#7a6200}
+.mindgame-btn.done{opacity:.45;cursor:default;pointer-events:none}
 
 .macro-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px}
 .macro-btn{
@@ -1220,6 +1243,11 @@ var STATE = {
   adminUser: null,     // 미리보기 복귀용 관리자 정보
   todayEmotionSubmitted: false, // 오늘 감정 제출 여부
   todayEmotionModified:  false, // 오늘 감정 수정 기회 소진 여부
+  bannerMessage: null,  // 개인화 배너 멘트 (로그인당 1회 고정)
+  gameSession: {        // 마음채움 게임 세션
+    type: null, turn: 0, history: [], completed: false,
+    todayPlayed: { rainbow: false, detective: false, mirror: false }
+  },
   settings: {          // 교사 설정
     alarm_checkin: true,
     alarm_crisis: true,
@@ -2685,6 +2713,7 @@ async function saveProfileImage(imageUrl) {
     // STATE 즉시 반영
     STATE.user.profile_image_url = imageUrl;
     updateHeaderProfile(imageUrl, u.name, u.gender);
+    updateBannerProfile();
     // 팝업 이미지도 갱신
     var imgEl  = document.getElementById('profilePopupImg');
     var emptyEl= document.getElementById('profilePopupEmpty');
@@ -3155,7 +3184,7 @@ function buildStudentUI() {
     { label:'📸 마음앨범', html: albumHTML() },
   ]);
   renderEmotionGrid();
-  // 마음앨범 초기 로드
+  updateBannerProfile();
   setTimeout(loadAlbum, 200);
 }
 
@@ -3163,14 +3192,12 @@ function buildStudentUI() {
 function emotionInputHTML() {
   var u = STATE.user || {};
   var uname = u.name || '';
-  var gender = u.gender || 'default';
-  var charSrc = CHAR_IMG[gender] || CHAR_IMG['default'];
   return '<div class="welcome-banner">' +
+    '<div id="welcomeBannerProfile" class="welcome-banner-profile"></div>' +
     '<div class="welcome-banner-text">' +
-      '<h2 class="gaegu">'+uname+', 안녕! 👋</h2>' +
-      '<div class="welcome-mood">📅 오늘 마음 날씨는 어때?</div>' +
+      '<h2 class="gaegu">' + uname + ', 안녕! 👋</h2>' +
+      '<div class="welcome-mood" id="bannerMessage">📅 오늘 마음 날씨는 어때?</div>' +
     '</div>' +
-    '<div class="welcome-banner-char"><img src="'+charSrc+'" alt="캐릭터"></div>' +
   '</div>' +
   '<div class="heart-temp-widget">' +
     '<div class="heart-temp-icon">🌡️</div>' +
@@ -3180,6 +3207,21 @@ function emotionInputHTML() {
       '<div class="heart-temp-bar-wrap">' +
         '<div class="heart-temp-bar" id="heartTempBar" style="width:0%"></div>' +
       '</div>' +
+    '</div>' +
+  '</div>' +
+  '<div class="mindgame-section">' +
+    '<div class="mindgame-title">🎮 오늘의 마음채움</div>' +
+    '<div class="mindgame-grid">' +
+      '<button id="gameBtn-rainbow" class="mindgame-btn mindgame-rainbow" onclick="openGame(\'rainbow\')">' +
+        '<span class="mg-emoji">🌈</span>' +
+        '<span class="mg-name">감정 무지개</span>' +
+        '<span class="mg-desc">내 감정을 색깔로 표현해봐</span>' +
+      '</button>' +
+      '<button id="gameBtn-detective" class="mindgame-btn mindgame-detective" onclick="openGame(\'detective\')">' +
+        '<span class="mg-emoji">🔍</span>' +
+        '<span class="mg-name">감정 탐정</span>' +
+        '<span class="mg-desc">이야기 속 마음을 맞춰봐</span>' +
+      '</button>' +
     '</div>' +
   '</div>' +
   '<div id="emotionSubmittedBanner"></div>' +
@@ -3710,6 +3752,7 @@ async function loadTokenBalance() {
     setText('tokenEarned', earned);
     setText('tokenSaved',  saved);
     updateHeartTempUI(temp);
+    calcBannerMessage(res.data);
   }
 }
 
@@ -3725,6 +3768,68 @@ function updateHeartTempUI(temp) {
   var b2 = document.getElementById('tokenTempBar');
   if (v2) v2.textContent = temp;
   if (b2) setTimeout(function(){ b2.style.width = pct; }, 100);
+}
+
+// 배너 프로필 사진 갱신
+function updateBannerProfile() {
+  var u = STATE.user || {};
+  var el = document.getElementById('welcomeBannerProfile');
+  if (!el) return;
+  if (u.profile_image_url) {
+    el.innerHTML = '<img src="' + u.profile_image_url + '" alt="프로필">';
+  } else {
+    el.textContent = u.gender === 'F' ? '👧' : u.gender === 'M' ? '👦' : '🙂';
+  }
+}
+
+// 개인화 배너 멘트 계산 (로그인당 1회 고정)
+function calcBannerMessage(tokenData) {
+  if (STATE.bannerMessage) {
+    var el = document.getElementById('bannerMessage');
+    if (el) el.textContent = STATE.bannerMessage;
+    return;
+  }
+  var today     = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+  var yesterday = new Date(Date.now() + 9*3600000 - 86400000).toISOString().slice(0,10);
+  var lastDate  = tokenData.last_daily_date || '';
+  var balance   = tokenData.current_balance || 0;
+  var saved     = tokenData.total_saved    || 0;
+  var temp      = Math.min(100, Math.floor(saved / 2));
+  var dow       = new Date(Date.now() + 9*3600000).getDay(); // 0=일, 1=월 ... 6=토
+
+  var pool = [];
+  // 출석 스트릭
+  if (lastDate === today || lastDate === yesterday) {
+    pool.push({ w:3, msg:'🔥 꾸준히 마음 체크인 중이야!' });
+  }
+  // 토큰·온도 이정표
+  if (temp >= 30) pool.push({ w:2, msg:'🌡️ 마음 온도가 ' + temp + '도래! 따뜻해지고 있어' });
+  if (balance >= 5) pool.push({ w:2, msg:'🪙 토큰이 ' + balance + '개나 있어!' });
+  // 요일 기반
+  if (dow === 1) pool.push({ w:2, msg:'새로운 한 주 시작! 잘 할 수 있어 💪' });
+  if (dow === 5) pool.push({ w:2, msg:'오늘 하루만 더! 주말이 기다려 🎉' });
+  if (dow === 3) pool.push({ w:2, msg:'이번 주 딱 중간이야, 잘 하고 있어 👏' });
+  // 기본 응원 (항상 포함)
+  pool.push({ w:1, msg:'📅 오늘 마음 날씨는 어때?' });
+  pool.push({ w:1, msg:'오늘도 네 마음을 들어줄게 🌿' });
+  pool.push({ w:1, msg:'천천히 괜찮아, 오늘 어땠어? 😊' });
+
+  // 가중 랜덤 선택
+  var total = pool.reduce(function(s, x){ return s + x.w; }, 0);
+  var r = Math.random() * total, cum = 0;
+  var chosen = pool[pool.length - 1].msg;
+  for (var i = 0; i < pool.length; i++) {
+    cum += pool[i].w;
+    if (r < cum) { chosen = pool[i].msg; break; }
+  }
+  STATE.bannerMessage = chosen;
+  var el = document.getElementById('bannerMessage');
+  if (el) el.textContent = chosen;
+}
+
+// 마음채움 게임 진입 (Phase 4 — 모달 구현 전 stub)
+function openGame(type) {
+  toast('✨ 곧 오픈해요! 기대해줘 😊');
 }
 
 async function saveToken() {
