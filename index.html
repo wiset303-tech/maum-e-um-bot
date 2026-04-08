@@ -3999,6 +3999,8 @@ async function loadTeacherAlbum(studentUid, studentName) {
   var empty = document.getElementById('albumTeacherEmpty');
   var hint  = document.getElementById('albumTeacherHint');
   if (!grid) return;
+  // 현재 보고 있는 학생 기억 (삭제 후 새로고침용)
+  STATE._teacherAlbumTarget = { uid: studentUid, name: studentName };
   if (hint) hint.style.display = 'none';
   if (empty) empty.style.display = 'none';
   _albumCache = [];
@@ -4010,7 +4012,7 @@ async function loadTeacherAlbum(studentUid, studentName) {
     return;
   }
   var sorted = res.data.album.sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); });
-  grid.innerHTML = sorted.map(function(a) { return albumItemHTML(a, false); }).join('');
+  grid.innerHTML = sorted.map(function(a) { return albumItemHTML(a, true); }).join('');
 }
 
 // 앨범 아이템 HTML (썸네일용) — 전역 캐시로 onclick 안전하게 처리
@@ -4054,8 +4056,14 @@ async function deleteAlbumItem() {
   showLoading('삭제 중이에요 🗑');
   var res = await api('delete_album', { album_uid: _popupAlbumUid });
   hideLoading();
-  if (res.status === 'ok') { toast('삭제됐어요'); loadAlbum(); }
-  else toast(res.message);
+  if (res.status === 'ok') {
+    toast('삭제됐어요');
+    if (STATE.role === 'teacher' && STATE._teacherAlbumTarget) {
+      loadTeacherAlbum(STATE._teacherAlbumTarget.uid, STATE._teacherAlbumTarget.name);
+    } else {
+      loadAlbum();
+    }
+  } else toast(res.message);
 }
 
 // 업로드: 파일 선택 → 압축 → 모달 표시
