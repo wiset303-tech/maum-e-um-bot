@@ -2328,19 +2328,23 @@ function startPersonaPoll() {
       if (res.status !== 'ok') return;
       var enabled = !!res.data.enabled;
       if (_lastPersonaEnabled === enabled) return; // 변화 없으면 스킵
+
+      var isFirstCheck = (_lastPersonaEnabled === null); // 첫 응답 여부
       _lastPersonaEnabled = enabled;
 
-      // 버튼 표시/숨김
+      // 버튼 표시/숨김 (첫 체크 포함 — 초기 상태 반영)
       var bf = document.getElementById('btnPersonaFriend');
       var bs = document.getElementById('btnPersonaSelf');
       if (bf) bf.style.display = enabled ? 'block' : 'none';
       if (bs) bs.style.display = enabled ? 'block' : 'none';
 
-      // 상태 변화 알림
+      // 첫 응답은 토스트 없이 조용히 초기화
+      if (isFirstCheck) return;
+
+      // 이후부터는 실제 변화 → 알림
       if (enabled) {
         toast('선생님이 페르소나 대화를 열었어요 💜');
       } else {
-        // 페르소나 대화 중이었으면 강제 종료
         if (PERSONA_MODE.active) {
           exitPersonaMode();
           toast('페르소나 대화가 종료됐어요');
