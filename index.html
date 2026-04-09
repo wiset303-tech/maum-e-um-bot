@@ -1273,12 +1273,12 @@ async function api(action, data) {
       catch(e) { resolve({ status:'error', message:'파싱오류:'+xhr.responseText.slice(0,80) }); }
     };
     xhr.onerror = function() {
-      resolve({ status:'error', message:'네트워크 오류' });
+      resolve({ status:'error', message:'서버에 연결하지 못했어요. 네트워크를 확인해주세요 🌐' });
     };
     xhr.ontimeout = function() {
-      resolve({ status:'error', message:'요청 시간 초과' });
+      resolve({ status:'error', message:'응답 시간이 초과됐어요. 잠시 후 다시 시도해주세요 ⏱' });
     };
-    xhr.timeout = 15000;
+    xhr.timeout = 30000;
     xhr.send(payload);
   });
 }
@@ -2690,8 +2690,15 @@ async function uploadProfileImage() {
     showLoading('프로필 사진을 저장하는 중이에요 📸');
     var reader = new FileReader();
     reader.onload = function(ev) {
-      // 800px 압축 — 레티나 대응 원형 표시 고화질
-      compressImage(ev.target.result, 800, 0.92, function(compressed) {
+      // 600px 압축 — 레티나 대응 원형 표시
+      compressImage(ev.target.result, 600, 0.85, function(compressed) {
+        // 압축 후에도 너무 크면 차단 (GAS 전송 한계 약 600KB)
+        var sizeKB = Math.round(compressed.length * 0.75 / 1024);
+        if (sizeKB > 600) {
+          hideLoading();
+          toast('이미지가 너무 커요 (' + sizeKB + 'KB). 더 작은 사진을 선택해주세요 📷');
+          return;
+        }
         saveProfileImage(compressed);
       });
     };
