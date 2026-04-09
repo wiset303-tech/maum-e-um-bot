@@ -3452,6 +3452,7 @@ async function submitEmotion() {
     student_uid  : STATE.user.student_uid,
     student_name : STATE.user.name,
     teacher_uid  : STATE.user.teacher_uid,
+    school_name  : STATE.user.school_name || '',
     macro_emotion: STATE.selectedMacro,
     micro_emotion: micro?.word || '',
     emotion_score: scoreMap[STATE.selectedMacro],
@@ -3963,6 +3964,7 @@ async function saveToken() {
     student_uid : STATE.user.student_uid,
     student_name: STATE.user.name,
     teacher_uid : STATE.user.teacher_uid,
+    school_name : STATE.user.school_name || '',
   });
   hideLoading();
   if(res.status==='ok') {
@@ -3992,6 +3994,7 @@ async function giftToken(friend) {
     to_uid   : friend.student_uid,
     to_name  : friend.name,
     teacher_uid: STATE.user.teacher_uid,
+    school_name: STATE.user.school_name || '',
   });
   hideLoading();
   if(res.status==='ok') {
