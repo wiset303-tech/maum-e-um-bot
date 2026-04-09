@@ -2322,10 +2322,13 @@ function adminDashboardHTML() {
       '<span class="refresh-icon">🔄</span> 새로고침' +
     '</button>' +
   '</div>' +
-  // 전국 지표 카드 4개
-  '<div class="stat-row" style="grid-template-columns:repeat(4,1fr)">' +
+  // 전국 지표 카드 4개 (2x2 grid로 도 글자 문제 해결)
+  '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">' +
     '<div class="stat-card">' +
-      '<div class="num gaegu" id="adm-nation-temp" style="white-space:nowrap">—</div>' +
+      '<div style="display:flex;align-items:baseline;gap:1px;justify-content:center">' +
+        '<div class="num gaegu" id="adm-nation-temp">—</div>' +
+        '<span style="font-size:18px;color:var(--mint2);font-weight:700;font-family:sans-serif">°</span>' +
+      '</div>' +
       '<div class="lbl">🌡️ 전국 마음 온도</div>' +
     '</div>' +
     '<div class="stat-card">' +
@@ -2337,12 +2340,18 @@ function adminDashboardHTML() {
       '<div class="lbl">📝 오늘 제출</div>' +
     '</div>' +
     '<div class="stat-card">' +
-      '<div class="num gaegu" id="adm-crisis" style="color:var(--red,#e74c3c)">—</div>' +
+      '<div class="num gaegu" id="adm-crisis" style="color:#e74c3c">—</div>' +
       '<div class="lbl">⚠️ 위기 신호</div>' +
     '</div>' +
   '</div>' +
-  // 학교별 현황
-  '<div class="card" style="margin-top:14px;padding:12px 14px">' +
+  // 전국 마음 날씨 지도 (위로 이동)
+  '<div class="card" style="margin-bottom:14px;padding:12px 14px">' +
+    '<div class="card-label" style="margin-bottom:10px">🗺️ 전국 마음 날씨 지도</div>' +
+    '<div id="adm-map-svg"></div>' +
+    '<div id="adm-map-legend" style="display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px"></div>' +
+  '</div>' +
+  // 학교별 현황 (아래로 이동)
+  '<div class="card" style="padding:12px 14px">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">' +
       '<div class="card-label" style="margin:0">학교별 현황</div>' +
       '<div style="display:flex;align-items:center;gap:6px">' +
@@ -2353,16 +2362,8 @@ function adminDashboardHTML() {
     '<div id="adm-school-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px"></div>' +
     '<div id="adm-pagination" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px"></div>' +
   '</div>' +
-  // 드릴다운 패널 (클릭 시 등장)
-  '<div id="adm-drill-panel" style="display:none;margin-top:10px"></div>' +
-  // 전국 마음 날씨 지도
-  '<div class="card" style="margin-top:14px;padding:12px 14px">' +
-    '<div class="card-label" style="margin-bottom:10px">🗺️ 전국 마음 날씨 지도</div>' +
-    '<div id="adm-map-wrap" style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">' +
-      '<div id="adm-map-svg" style="flex:0 0 auto;width:220px"></div>' +
-      '<div id="adm-map-legend" style="flex:1;min-width:120px;padding-top:8px"></div>' +
-    '</div>' +
-  '</div>';
+  // 드릴다운 패널
+  '<div id="adm-drill-panel" style="display:none;margin-top:10px"></div>';
 }
 
 function studentMgmtHTML() {
@@ -2591,7 +2592,7 @@ async function loadAdminDashboard() {
   setText('dashUpdatedAt', hh+':'+mm+' 기준');
 
   // 상단 지표
-  setText('adm-nation-temp',  (d.nation_temp || 0) + '°');
+  setText('adm-nation-temp',  d.nation_temp || 0);
   setText('adm-school-count', d.school_count || 0);
   setText('adm-submitted',    d.today_submitted || 0);
   setText('adm-crisis',       d.today_crisis || 0);
@@ -2747,27 +2748,40 @@ function admRenderDrill(schoolName) {
 }
 
 // ── 전국 마음 날씨 지도 ──
-var ADM_REGION_PINS = [
-  { r:'서울',  x:196, y:118 }, { r:'인천',  x:158, y:132 },
-  { r:'경기',  x:205, y:150 }, { r:'강원',  x:274, y:120 },
-  { r:'충남',  x:170, y:200 }, { r:'대전',  x:210, y:214 },
-  { r:'세종',  x:226, y:190 }, { r:'충북',  x:248, y:186 },
-  { r:'경북',  x:292, y:208 }, { r:'대구',  x:282, y:252 },
-  { r:'울산',  x:312, y:276 }, { r:'경남',  x:278, y:304 },
-  { r:'부산',  x:306, y:330 }, { r:'전북',  x:186, y:258 },
-  { r:'광주',  x:162, y:292 }, { r:'전남',  x:190, y:312 },
-  { r:'제주',  x:208, y:418 }
+// ── 전국 마음 날씨 지도 ──
+// 17개 시/도 SVG path 데이터 (viewBox 0 0 460 560)
+var ADM_PROVINCES = [
+  // 대형 도 (layer 1 - 먼저 그림)
+  { r:'경기', cx:195, cy:148, path:'M 138,68 L 168,58 L 200,55 L 230,60 L 248,75 L 255,98 L 252,125 L 242,148 L 225,162 L 205,168 L 180,165 L 158,152 L 140,135 L 130,115 L 128,95 Z' },
+  { r:'강원', cx:308, cy:128, path:'M 230,58 L 262,50 L 298,46 L 332,48 L 358,58 L 378,75 L 385,100 L 382,128 L 370,152 L 352,170 L 328,182 L 302,185 L 278,178 L 258,162 L 248,140 L 248,115 L 248,90 L 240,72 Z' },
+  { r:'충남', cx:170, cy:225, path:'M 128,172 L 152,165 L 180,165 L 208,172 L 225,188 L 228,212 L 220,238 L 205,258 L 182,268 L 158,265 L 132,252 L 115,235 L 112,215 L 118,195 Z' },
+  { r:'충북', cx:258, cy:215, path:'M 225,165 L 248,162 L 272,172 L 290,188 L 298,212 L 292,238 L 275,258 L 255,265 L 232,260 L 215,248 L 212,228 L 218,205 L 222,185 Z' },
+  { r:'경북', cx:318, cy:248, path:'M 278,178 L 302,185 L 328,182 L 355,188 L 375,208 L 382,235 L 378,262 L 362,288 L 338,308 L 312,318 L 285,312 L 265,295 L 255,272 L 258,248 L 262,222 L 268,198 Z' },
+  { r:'전북', cx:185, cy:298, path:'M 115,270 L 140,265 L 165,265 L 190,268 L 212,280 L 225,302 L 218,325 L 202,342 L 178,348 L 152,342 L 128,325 L 112,305 L 110,285 Z' },
+  { r:'경남', cx:298, cy:348, path:'M 255,272 L 278,285 L 305,295 L 332,298 L 352,312 L 360,338 L 352,362 L 332,382 L 305,392 L 278,388 L 252,372 L 235,350 L 232,325 L 242,305 Z' },
+  { r:'전남', cx:185, cy:378, path:'M 112,348 L 135,342 L 162,348 L 188,352 L 212,345 L 232,358 L 238,382 L 225,408 L 200,422 L 172,425 L 145,415 L 122,398 L 108,375 L 108,355 Z' },
+  { r:'제주', cx:218, cy:492, path:'M 162,478 L 192,468 L 225,464 L 258,468 L 278,480 L 272,498 L 248,510 L 218,514 L 188,510 L 165,496 Z' },
+  // 광역시 (layer 2 - 위에 그림)
+  { r:'인천', cx:140, cy:122, path:'M 118,105 L 140,100 L 158,108 L 162,125 L 155,140 L 138,145 L 120,135 L 112,120 Z' },
+  { r:'서울', cx:208, cy:118, path:'M 192,105 L 212,100 L 228,108 L 232,122 L 224,136 L 208,140 L 192,132 L 186,118 Z' },
+  { r:'세종', cx:222, cy:218, path:'M 214,208 L 228,205 L 235,218 L 225,230 L 212,225 Z' },
+  { r:'대전', cx:215, cy:242, path:'M 205,230 L 225,226 L 232,240 L 222,256 L 205,255 L 198,242 Z' },
+  { r:'대구', cx:298, cy:285, path:'M 282,272 L 305,265 L 322,278 L 322,298 L 305,310 L 282,305 L 270,290 Z' },
+  { r:'울산', cx:350, cy:302, path:'M 338,285 L 360,278 L 375,292 L 375,315 L 358,325 L 338,318 L 328,305 Z' },
+  { r:'부산', cx:345, cy:368, path:'M 332,352 L 358,342 L 375,358 L 375,378 L 358,392 L 335,390 L 322,375 Z' },
+  { r:'광주', cx:170, cy:342, path:'M 158,330 L 178,325 L 192,335 L 192,352 L 175,360 L 158,352 L 150,338 Z' }
 ];
 
+// 날씨 → 색상/아이콘
 function admRegionWeather(pos, neu, neg) {
   var total = pos + neu + neg;
-  if (total === 0) return { icon:'🌥', stroke:'#9CA3AF', fill:'#F3F4F6', label:'데이터 없음' };
+  if (total === 0) return { icon:'🌥', fill:'#E8E8E8', stroke:'#AAAAAA', label:'데이터 없음' };
   var posR = pos/total, negR = neg/total;
-  if (posR >= 0.6)  return { icon:'☀️', stroke:'#F59E0B', fill:'#FFF9E6', label:'맑음' };
-  if (posR >= 0.4)  return { icon:'⛅', stroke:'#93C5FD', fill:'#EFF6FF', label:'구름 조금' };
-  if (negR >= 0.4)  return { icon:'⚡', stroke:'#EF4444', fill:'#FEF3C7', label:'천둥번개' };
-  if (negR >= 0.25) return { icon:'🌧', stroke:'#60A5FA', fill:'#EFF6FF', label:'비' };
-  return { icon:'☁️', stroke:'#9CA3AF', fill:'#F3F4F6', label:'흐림' };
+  if (posR >= 0.6)  return { icon:'☀️', fill:'#FEF3C7', stroke:'#F59E0B', label:'맑음' };
+  if (posR >= 0.4)  return { icon:'⛅', fill:'#DBEAFE', stroke:'#93C5FD', label:'구름 조금' };
+  if (negR >= 0.4)  return { icon:'⚡', fill:'#FEE2E2', stroke:'#EF4444', label:'천둥번개' };
+  if (negR >= 0.25) return { icon:'🌧', fill:'#EFF6FF', stroke:'#60A5FA', label:'비' };
+  return { icon:'☁️', fill:'#F1F5F9', stroke:'#94A3B8', label:'흐림' };
 }
 
 function admComputeRegionMap() {
@@ -2789,51 +2803,46 @@ function admRenderMap() {
   if (!svgEl) return;
 
   var regionMap = admComputeRegionMap();
+  var legendSeen = {};
 
-  // 범례에 등장한 날씨 종류 수집
-  var legendSet = {};
-
-  var pins = ADM_REGION_PINS.map(function(p) {
+  var provincePaths = ADM_PROVINCES.map(function(p) {
     var d = regionMap[p.r] || { pos:0, neu:0, neg:0 };
     var w = admRegionWeather(d.pos, d.neu, d.neg);
-    var r = p.r === '세종' ? 13 : 18;
-    var fs = p.r === '세종' ? 9 : 12;
-    legendSet[w.label] = w;
-    return '<g style="cursor:pointer" onclick="admMapRegionClick(\'' + p.r + '\')">' +
-      '<circle cx="' + p.x + '" cy="' + p.y + '" r="' + r + '" fill="' + w.fill + '" stroke="' + w.stroke + '" stroke-width="1.5"/>' +
-      '<text x="' + p.x + '" y="' + (p.y - 3) + '" text-anchor="middle" dominant-baseline="central" font-size="' + fs + '" style="user-select:none">' + w.icon + '</text>' +
-      '<text x="' + p.x + '" y="' + (p.y + r - 4) + '" text-anchor="middle" font-size="7.5" font-weight="600" fill="#5F5E5A" style="user-select:none">' + p.r + '</text>' +
+    legendSeen[w.label] = w;
+    var hasData = (d.pos + d.neu + d.neg) > 0;
+    // 작은 시 (서울/인천/세종/대전/대구/울산/부산/광주) 는 텍스트 작게
+    var isSmall = ['서울','인천','세종','대전','대구','울산','부산','광주'].indexOf(p.r) >= 0;
+    var labelSize = isSmall ? 7.5 : 9;
+    var iconSize = isSmall ? 11 : 14;
+    return '<g style="cursor:pointer" onclick="admMapRegionClick(\'' + p.r + '\')" title="' + p.r + '">' +
+      '<path d="' + p.path + '" fill="' + w.fill + '" stroke="' + w.stroke + '" stroke-width="' + (isSmall ? '0.8' : '1') + '" stroke-linejoin="round"/>' +
+      (hasData ?
+        '<text x="' + p.cx + '" y="' + (p.cy - 4) + '" text-anchor="middle" font-size="' + iconSize + '" dominant-baseline="auto" style="pointer-events:none;user-select:none">' + w.icon + '</text>' : '') +
+      '<text x="' + p.cx + '" y="' + (p.cy + (hasData ? 8 : 4)) + '" text-anchor="middle" font-size="' + labelSize + '" font-weight="600" fill="#374151" dominant-baseline="auto" style="pointer-events:none;user-select:none">' + p.r + '</text>' +
     '</g>';
   }).join('');
 
   svgEl.innerHTML =
-    '<svg viewBox="0 0 340 460" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">' +
-    '<path d="M138,18 L155,12 L178,10 L200,12 L218,18 L232,28 L248,35 L258,42 L265,52 L272,58 L278,52 L288,58 L300,68 L310,80 L318,96 L324,112 L328,128 L330,144 L330,158 L326,172 L318,182 L322,196 L322,212 L318,228 L314,244 L312,260 L314,276 L310,292 L302,308 L290,322 L276,334 L260,344 L244,350 L226,352 L208,348 L192,338 L178,324 L166,308 L156,290 L150,272 L146,254 L142,236 L140,218 L138,200 L136,184 L130,168 L128,152 L130,136 L130,120 L128,104 L128,88 L130,72 L134,56 L136,40 Z" fill="#EDE0C8" stroke="#C4B89A" stroke-width="1.5"/>' +
-    '<ellipse cx="208" cy="418" rx="30" ry="13" fill="#EDE0C8" stroke="#C4B89A" stroke-width="1.5"/>' +
-    pins +
+    '<svg viewBox="0 0 460 530" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">' +
+    '<rect width="460" height="530" fill="none"/>' +
+    provincePaths +
     '</svg>';
 
   // 범례
-  var legendOrder = ['맑음','구름 조금','흐림','비','천둥번개','데이터 없음'];
-  var iconMap = { '맑음':'☀️','구름 조금':'⛅','흐림':'☁️','비':'🌧','천둥번개':'⚡','데이터 없음':'🌥' };
   if (legEl) {
-    legEl.innerHTML = legendOrder.filter(function(l){ return legendSet[l]; }).map(function(l) {
-      return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:12px;color:var(--gray)">' +
-        '<span style="font-size:15px">' + iconMap[l] + '</span>' + l +
-      '</div>';
-    }).join('') +
-    '<div style="margin-top:10px;font-size:11px;color:var(--gray);line-height:1.5">' +
-      '학교 region 정보가<br>설정된 지역만 표시돼요' +
-    '</div>';
+    var order = ['맑음','구름 조금','흐림','비','천둥번개','데이터 없음'];
+    var icons = { '맑음':'☀️','구름 조금':'⛅','흐림':'☁️','비':'🌧','천둥번개':'⚡','데이터 없음':'🌥' };
+    legEl.innerHTML = order.filter(function(l){ return legendSeen[l]; }).map(function(l) {
+      return '<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--gray)">' +
+        '<span style="font-size:13px">' + icons[l] + '</span>' + l + '</div>';
+    }).join('');
   }
 }
 
 function admMapRegionClick(region) {
-  // 해당 지역 학교 카드로 스크롤 + 필터 (간단 토스트)
   var schools = _admSchools.filter(function(s){ return s.region === region; });
-  if (!schools.length) { toast(region + ' 지역 학교 데이터가 없어요'); return; }
-  var names = schools.map(function(s){ return s.school_name; }).join(', ');
-  toast(region + ': ' + names);
+  if (!schools.length) { toast(region + ' 지역 등록 학교 없음'); return; }
+  toast(region + ' · ' + schools.map(function(s){ return s.school_name; }).join(', '));
 }
 
 function renderWordCloud(words) {
