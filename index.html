@@ -3193,7 +3193,7 @@ function emotionInputHTML() {
   var u = STATE.user || {};
   var uname = u.name || '';
   return '<div class="welcome-banner">' +
-    '<div id="welcomeBannerProfile" class="welcome-banner-profile"></div>' +
+    '<div id="welcomeBannerProfile" class="welcome-banner-profile" onclick="openProfilePopup()" style="cursor:pointer"></div>' +
     '<div class="welcome-banner-text">' +
       '<h2 class="gaegu">' + uname + ', 안녕! 👋</h2>' +
       '<div class="welcome-mood" id="bannerMessage">📅 오늘 마음 날씨는 어때?</div>' +
