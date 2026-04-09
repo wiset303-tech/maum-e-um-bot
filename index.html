@@ -2354,7 +2354,15 @@ function adminDashboardHTML() {
     '<div id="adm-pagination" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px"></div>' +
   '</div>' +
   // 드릴다운 패널 (클릭 시 등장)
-  '<div id="adm-drill-panel" style="display:none;margin-top:10px"></div>';
+  '<div id="adm-drill-panel" style="display:none;margin-top:10px"></div>' +
+  // 전국 마음 날씨 지도
+  '<div class="card" style="margin-top:14px;padding:12px 14px">' +
+    '<div class="card-label" style="margin-bottom:10px">🗺️ 전국 마음 날씨 지도</div>' +
+    '<div id="adm-map-wrap" style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">' +
+      '<div id="adm-map-svg" style="flex:0 0 auto;width:220px"></div>' +
+      '<div id="adm-map-legend" style="flex:1;min-width:120px;padding-top:8px"></div>' +
+    '</div>' +
+  '</div>';
 }
 
 function studentMgmtHTML() {
@@ -2590,6 +2598,7 @@ async function loadAdminDashboard() {
 
   _admPage = 0;
   admRenderSchoolGrid();
+  admRenderMap();
 }
 
 function admSortedSchools() {
@@ -2736,6 +2745,97 @@ function admRenderDrill(schoolName) {
     rowsHTML +
   '</div>';
 }
+
+// ── 전국 마음 날씨 지도 ──
+var ADM_REGION_PINS = [
+  { r:'서울',  x:196, y:118 }, { r:'인천',  x:158, y:132 },
+  { r:'경기',  x:205, y:150 }, { r:'강원',  x:274, y:120 },
+  { r:'충남',  x:170, y:200 }, { r:'대전',  x:210, y:214 },
+  { r:'세종',  x:226, y:190 }, { r:'충북',  x:248, y:186 },
+  { r:'경북',  x:292, y:208 }, { r:'대구',  x:282, y:252 },
+  { r:'울산',  x:312, y:276 }, { r:'경남',  x:278, y:304 },
+  { r:'부산',  x:306, y:330 }, { r:'전북',  x:186, y:258 },
+  { r:'광주',  x:162, y:292 }, { r:'전남',  x:190, y:312 },
+  { r:'제주',  x:208, y:418 }
+];
+
+function admRegionWeather(pos, neu, neg) {
+  var total = pos + neu + neg;
+  if (total === 0) return { icon:'🌥', stroke:'#9CA3AF', fill:'#F3F4F6', label:'데이터 없음' };
+  var posR = pos/total, negR = neg/total;
+  if (posR >= 0.6)  return { icon:'☀️', stroke:'#F59E0B', fill:'#FFF9E6', label:'맑음' };
+  if (posR >= 0.4)  return { icon:'⛅', stroke:'#93C5FD', fill:'#EFF6FF', label:'구름 조금' };
+  if (negR >= 0.4)  return { icon:'⚡', stroke:'#EF4444', fill:'#FEF3C7', label:'천둥번개' };
+  if (negR >= 0.25) return { icon:'🌧', stroke:'#60A5FA', fill:'#EFF6FF', label:'비' };
+  return { icon:'☁️', stroke:'#9CA3AF', fill:'#F3F4F6', label:'흐림' };
+}
+
+function admComputeRegionMap() {
+  var regionMap = {};
+  _admSchools.forEach(function(s) {
+    var r = s.region;
+    if (!r) return;
+    if (!regionMap[r]) regionMap[r] = { pos:0, neu:0, neg:0 };
+    regionMap[r].pos += s.positive || 0;
+    regionMap[r].neu += s.neutral  || 0;
+    regionMap[r].neg += s.negative || 0;
+  });
+  return regionMap;
+}
+
+function admRenderMap() {
+  var svgEl = document.getElementById('adm-map-svg');
+  var legEl = document.getElementById('adm-map-legend');
+  if (!svgEl) return;
+
+  var regionMap = admComputeRegionMap();
+
+  // 범례에 등장한 날씨 종류 수집
+  var legendSet = {};
+
+  var pins = ADM_REGION_PINS.map(function(p) {
+    var d = regionMap[p.r] || { pos:0, neu:0, neg:0 };
+    var w = admRegionWeather(d.pos, d.neu, d.neg);
+    var r = p.r === '세종' ? 13 : 18;
+    var fs = p.r === '세종' ? 9 : 12;
+    legendSet[w.label] = w;
+    return '<g style="cursor:pointer" onclick="admMapRegionClick(\'' + p.r + '\')">' +
+      '<circle cx="' + p.x + '" cy="' + p.y + '" r="' + r + '" fill="' + w.fill + '" stroke="' + w.stroke + '" stroke-width="1.5"/>' +
+      '<text x="' + p.x + '" y="' + (p.y - 3) + '" text-anchor="middle" dominant-baseline="central" font-size="' + fs + '" style="user-select:none">' + w.icon + '</text>' +
+      '<text x="' + p.x + '" y="' + (p.y + r - 4) + '" text-anchor="middle" font-size="7.5" font-weight="600" fill="#5F5E5A" style="user-select:none">' + p.r + '</text>' +
+    '</g>';
+  }).join('');
+
+  svgEl.innerHTML =
+    '<svg viewBox="0 0 340 460" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">' +
+    '<path d="M138,18 L155,12 L178,10 L200,12 L218,18 L232,28 L248,35 L258,42 L265,52 L272,58 L278,52 L288,58 L300,68 L310,80 L318,96 L324,112 L328,128 L330,144 L330,158 L326,172 L318,182 L322,196 L322,212 L318,228 L314,244 L312,260 L314,276 L310,292 L302,308 L290,322 L276,334 L260,344 L244,350 L226,352 L208,348 L192,338 L178,324 L166,308 L156,290 L150,272 L146,254 L142,236 L140,218 L138,200 L136,184 L130,168 L128,152 L130,136 L130,120 L128,104 L128,88 L130,72 L134,56 L136,40 Z" fill="#EDE0C8" stroke="#C4B89A" stroke-width="1.5"/>' +
+    '<ellipse cx="208" cy="418" rx="30" ry="13" fill="#EDE0C8" stroke="#C4B89A" stroke-width="1.5"/>' +
+    pins +
+    '</svg>';
+
+  // 범례
+  var legendOrder = ['맑음','구름 조금','흐림','비','천둥번개','데이터 없음'];
+  var iconMap = { '맑음':'☀️','구름 조금':'⛅','흐림':'☁️','비':'🌧','천둥번개':'⚡','데이터 없음':'🌥' };
+  if (legEl) {
+    legEl.innerHTML = legendOrder.filter(function(l){ return legendSet[l]; }).map(function(l) {
+      return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:12px;color:var(--gray)">' +
+        '<span style="font-size:15px">' + iconMap[l] + '</span>' + l +
+      '</div>';
+    }).join('') +
+    '<div style="margin-top:10px;font-size:11px;color:var(--gray);line-height:1.5">' +
+      '학교 region 정보가<br>설정된 지역만 표시돼요' +
+    '</div>';
+  }
+}
+
+function admMapRegionClick(region) {
+  // 해당 지역 학교 카드로 스크롤 + 필터 (간단 토스트)
+  var schools = _admSchools.filter(function(s){ return s.region === region; });
+  if (!schools.length) { toast(region + ' 지역 학교 데이터가 없어요'); return; }
+  var names = schools.map(function(s){ return s.school_name; }).join(', ');
+  toast(region + ': ' + names);
+}
+
 function renderWordCloud(words) {
   var svg    = document.getElementById('wordcloudSvg');
   var empty  = document.getElementById('wordcloudEmpty');
