@@ -2690,8 +2690,13 @@ async function uploadProfileImage() {
     showLoading('프로필 사진을 저장하는 중이에요 📸');
     var reader = new FileReader();
     reader.onload = function(ev) {
-      // 500px 압축 — Drive 저장 방식이므로 화질 유지
-      compressImage(ev.target.result, 500, 0.85, function(compressed) {
+      // 400px/0.65 압축 — Sheets 50,000자 한도 이내 + 원형 표시 충분한 화질
+      compressImage(ev.target.result, 400, 0.65, function(compressed) {
+        if (compressed.length > 49000) {
+          hideLoading();
+          toast('이미지가 너무 복잡해요. 더 단순하거나 작은 사진을 선택해주세요 📷');
+          return;
+        }
         saveProfileImage(compressed);
       });
     };
