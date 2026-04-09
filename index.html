@@ -3257,11 +3257,12 @@ function renderEmotionGrid(cat) {
   if(!grid) return;
 
   var pool = STATE.emotions.filter(e => !cat || e.category === cat);
-  // 랜덤 7개 (긍정3 중립1 부정3 비율 유지)
+  // 대감정 선택 없을 때: 긍정3 중립3 부정3 균등 제시
+  // 대감정 선택 시: 해당 카테고리 위주 3개 + 나머지 각 3개
   var pos = shuffle(pool.filter(e=>e.category==='positive')).slice(0,3);
-  var neu = shuffle(pool.filter(e=>e.category==='neutral')).slice(0,1);
+  var neu = shuffle(pool.filter(e=>e.category==='neutral')).slice(0,3);
   var neg = shuffle(pool.filter(e=>e.category==='negative')).slice(0,3);
-  var selected = shuffle([...pos,...neu,...neg]).slice(0,7);
+  var selected = shuffle([...pos,...neu,...neg]);
 
   grid.innerHTML = selected.map(function(e){
     return '<div class="micro-btn" onclick="selectMicroBtn(this)" data-id="'+e.emotion_id+'" data-word="'+e.word+'">'+e.word+'</div>';
@@ -3845,8 +3846,10 @@ async function saveToken() {
     teacher_uid : STATE.user.teacher_uid,
   });
   hideLoading();
-  if(res.status==='ok') { toast(res.data.message); loadTokenBalance(); }
-  else toast(res.message);
+  if(res.status==='ok') {
+    toast((res.data.message || '저축 완료!') + ' 잔액을 불러오는 중이에요 🌡️');
+    loadTokenBalance();
+  } else toast(res.message);
 }
 
 function openGiftSelect() {
@@ -3872,8 +3875,10 @@ async function giftToken(friend) {
     teacher_uid: STATE.user.teacher_uid,
   });
   hideLoading();
-  if(res.status==='ok') { toast(res.data.message); loadTokenBalance(); }
-  else toast(res.message);
+  if(res.status==='ok') {
+    toast((res.data.message || '선물 완료!') + ' 잔액을 불러오는 중이에요 💌');
+    loadTokenBalance();
+  } else toast(res.message);
 }
 
 // ── 마음앨범 ──
