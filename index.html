@@ -2690,15 +2690,8 @@ async function uploadProfileImage() {
     showLoading('프로필 사진을 저장하는 중이에요 📸');
     var reader = new FileReader();
     reader.onload = function(ev) {
-      // 600px 압축 — 레티나 대응 원형 표시
-      compressImage(ev.target.result, 600, 0.85, function(compressed) {
-        // 압축 후에도 너무 크면 차단 (GAS 전송 한계 약 600KB)
-        var sizeKB = Math.round(compressed.length * 0.75 / 1024);
-        if (sizeKB > 600) {
-          hideLoading();
-          toast('이미지가 너무 커요 (' + sizeKB + 'KB). 더 작은 사진을 선택해주세요 📷');
-          return;
-        }
+      // 500px 압축 — Drive 저장 방식이므로 화질 유지
+      compressImage(ev.target.result, 500, 0.85, function(compressed) {
         saveProfileImage(compressed);
       });
     };
