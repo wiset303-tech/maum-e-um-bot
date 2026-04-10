@@ -850,6 +850,10 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <div class="profile-avatar" id="headerProfileAvatar">🙂</div>
     </div>
     <div class="app-header-right">
+      <div style="position:relative;display:inline-block">
+        <button class="btn-icon" id="btnNotif" onclick="toggleNotifDropdown()" style="font-size:20px;position:relative">🔔<span id="notifBadge" style="display:none;position:absolute;top:-2px;right:-2px;background:#e05050;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 4px;min-width:14px;text-align:center"></span></button>
+        <div id="notifDropdown" style="display:none;position:absolute;right:0;top:38px;width:280px;background:#fff;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.15);z-index:1000;overflow:hidden"></div>
+      </div>
       <button class="btn-icon" onclick="openSettings()">⚙️</button>
       <button class="btn btn-sm btn-secondary" onclick="logout()" style="width:auto;padding:7px 14px">로그아웃</button>
     </div>
@@ -1550,6 +1554,11 @@ async function onLoginSuccess(data) {
   // 프로필 이미지 헤더 초기화 (교사만 — 학생은 배너에 표시)
   if (data.role === 'teacher') {
     updateHeaderProfile(data.profile_image_url || '', data.name, data.gender);
+  }
+
+  // 알림 로드 (교사/학생 공통)
+  if (data.role === 'teacher' || data.role === 'student') {
+    loadNotifications();
   }
 
   if (data.role === 'admin' || data.role === 'teacher') {
@@ -2328,6 +2337,7 @@ function dashboardHTML() {
   '<div class="warmth-bar">' +
     '<div class="warmth-title gaegu">🧡 훈훈습도계</div>' +
     '<div class="warmth-dots" id="warmthDots">' + warmthDots + '</div>' +
+    '<div id="giftFeed" style="margin-top:8px;min-height:0"></div>' +
   '</div>' +
   '<div class="card card-mint">' +
     '<div class="card-label">오늘의 감정 분포</div>' +
@@ -2591,12 +2601,31 @@ async function loadDashboard() {
   }
 
   renderWordCloud(d.emotion_words || []);
+
+  // 선물 피드 — 오늘 선물 현황
+  renderGiftFeed(d.today_gifts || []);
 }
 
 // ── 관리자 대시보드 ──
+function renderGiftFeed(gifts) {
+  var el = document.getElementById('giftFeed');
+  if (!el) return;
+  if (!gifts || !gifts.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="margin-top:6px;font-size:11px;color:var(--gray);font-weight:600;margin-bottom:4px">오늘의 선물 💝</div>' +
+    gifts.slice(0, 5).map(function(g) {
+      return '<div style="font-size:11px;color:var(--gray);padding:2px 0">' +
+        '<span style="color:var(--navy);font-weight:600">' + g.from_name + '</span>' +
+        ' → ' +
+        '<span style="color:var(--navy);font-weight:600">' + g.to_name + '</span>' +
+        ' 💝' +
+      '</div>';
+    }).join('');
+}
 var _admSchools = [];       // 전체 학교 데이터 (get_admin_dashboard 응답)
 var _admSortSchool = 'temp'; // 'temp' | 'name'
 var _admPage = 0;           // 현재 페이지 (0-indexed)
+var _notifications = [];    // 알림 목록 캐시
+var _notifOpen = false;     // 드롭다운 열림 상태
 var ADM_PAGE_SIZE = 9;      // 3열 × 3행
 var _admSelectedSchool = null; // 현재 드릴다운 중인 school_name
 
@@ -2988,6 +3017,120 @@ function admMapRegionClick(region, pinEl) {
   } else {
     popup.style.transform = 'translate(-10%, -110%)';
   }
+}
+
+// ══════════════════════════════════════════════
+// 🔔 알림 시스템
+// ══════════════════════════════════════════════
+async function loadNotifications() {
+  var uid = STATE.user && (STATE.user.teacher_uid || STATE.user.student_uid);
+  if (!uid) return;
+  var res = await api('get_notifications', { recipient_uid: uid });
+  if (res.status === 'ok') {
+    _notifications = res.data.notifications || [];
+    updateNotifBadge();
+  }
+}
+
+function updateNotifBadge() {
+  var badge = document.getElementById('notifBadge');
+  if (!badge) return;
+  var unread = _notifications.filter(function(n){ return !n.is_read; }).length;
+  if (unread > 0) {
+    badge.style.display = 'inline-block';
+    badge.textContent = unread > 9 ? '9+' : unread;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function toggleNotifDropdown() {
+  var dd = document.getElementById('notifDropdown');
+  if (!dd) return;
+  _notifOpen = !_notifOpen;
+  if (_notifOpen) {
+    renderNotifDropdown();
+    dd.style.display = 'block';
+    // 외부 클릭 시 닫기
+    setTimeout(function() {
+      document.addEventListener('click', _notifOutsideClick);
+    }, 10);
+  } else {
+    dd.style.display = 'none';
+    document.removeEventListener('click', _notifOutsideClick);
+  }
+}
+
+function _notifOutsideClick(e) {
+  var dd = document.getElementById('notifDropdown');
+  var btn = document.getElementById('btnNotif');
+  if (dd && !dd.contains(e.target) && btn && !btn.contains(e.target)) {
+    dd.style.display = 'none';
+    _notifOpen = false;
+    document.removeEventListener('click', _notifOutsideClick);
+  }
+}
+
+function renderNotifDropdown() {
+  var dd = document.getElementById('notifDropdown');
+  if (!dd) return;
+
+  var ICON = { token_gift:'💝', emotion_crisis:'⚡', attendance:'🏫' };
+  var items = _notifications.slice(0, 20);
+
+  if (!items.length) {
+    dd.innerHTML = '<div style="padding:20px;text-align:center;font-size:13px;color:var(--gray)">새 알림이 없어요 🌱</div>';
+    return;
+  }
+
+  dd.innerHTML =
+    '<div style="padding:12px 14px 8px;font-size:13px;font-weight:700;color:var(--navy);border-bottom:1px solid var(--lgray)">알림</div>' +
+    items.map(function(n) {
+      var icon  = ICON[n.type] || '🔔';
+      var time  = _timeAgo(n.created_at);
+      var bg    = n.is_read ? '#fff' : 'var(--mint4)';
+      return '<div onclick="markNotifRead(\'' + n.notification_uid + '\',this)" style="' +
+        'padding:10px 14px;cursor:pointer;border-bottom:0.5px solid var(--lgray);background:' + bg + ';' +
+        'transition:background .15s">' +
+        '<div style="display:flex;gap:8px;align-items:flex-start">' +
+          '<span style="font-size:18px;flex-shrink:0">' + icon + '</span>' +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:2px">' + n.title + '</div>' +
+            '<div style="font-size:11px;color:var(--gray);line-height:1.4">' + n.body + '</div>' +
+            '<div style="font-size:10px;color:#bbb;margin-top:3px">' + time + '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('') +
+    '<div onclick="markAllNotifsRead()" style="padding:10px;text-align:center;font-size:11px;color:var(--mint2);cursor:pointer;font-weight:600">모두 읽음 처리</div>';
+}
+
+async function markNotifRead(uid, el) {
+  // 로컬 즉시 반영
+  _notifications.forEach(function(n){ if (n.notification_uid === uid) n.is_read = true; });
+  if (el) el.style.background = '#fff';
+  updateNotifBadge();
+  await api('mark_notification_read', { notification_uid: uid });
+}
+
+async function markAllNotifsRead() {
+  var unread = _notifications.filter(function(n){ return !n.is_read; });
+  _notifications.forEach(function(n){ n.is_read = true; });
+  updateNotifBadge();
+  renderNotifDropdown();
+  for (var i = 0; i < unread.length; i++) {
+    await api('mark_notification_read', { notification_uid: unread[i].notification_uid });
+  }
+}
+
+function _timeAgo(ts) {
+  if (!ts) return '';
+  var d = new Date(ts), now = new Date();
+  var diff = Math.floor((now - d) / 1000);
+  if (diff < 60)   return '방금 전';
+  if (diff < 3600) return Math.floor(diff/60) + '분 전';
+  if (diff < 86400) return Math.floor(diff/3600) + '시간 전';
+  return Math.floor(diff/86400) + '일 전';
 }
 
 function renderWordCloud(words) {
