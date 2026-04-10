@@ -2808,59 +2808,23 @@ function admRegionWeather(pos, neu, neg) {
   return { type:'cloud', bg:MINT_BG, border:MINT_BD, label:'우울/걱정' };
 }
 
-function _svgSun(x, y, s) {
-  var rc = (s*0.32).toFixed(1), sw = Math.max(3, s*0.09).toFixed(1);
-  var r1 = s*0.52, r2 = s*0.72, rays = '';
-  for (var i=0; i<8; i++) {
-    var a = (i*45-90)*Math.PI/180;
-    rays += '<line x1="'+(x+r1*Math.cos(a)).toFixed(0)+'" y1="'+(y+r1*Math.sin(a)).toFixed(0)+
-            '" x2="'+(x+r2*Math.cos(a)).toFixed(0)+'" y2="'+(y+r2*Math.sin(a)).toFixed(0)+
-            '" stroke="#F59E0B" stroke-width="'+sw+'" stroke-linecap="round"/>';
-  }
-  return rays+'<circle cx="'+x+'" cy="'+y+'" r="'+rc+'" fill="#F59E0B"/>';
-}
-
-function _svgCloud(x, y, s, col) {
-  col = col||'#94A3B8';
-  var rx = (s*0.15).toFixed(1);
-  return '<ellipse cx="'+(x-s*0.2).toFixed(0)+'" cy="'+(y+s*0.05).toFixed(0)+'" rx="'+(s*0.24).toFixed(0)+'" ry="'+(s*0.2).toFixed(0)+'" fill="'+col+'"/>'+
-         '<ellipse cx="'+x.toFixed(0)+'" cy="'+(y-s*0.1).toFixed(0)+'" rx="'+(s*0.32).toFixed(0)+'" ry="'+(s*0.26).toFixed(0)+'" fill="'+col+'"/>'+
-         '<ellipse cx="'+(x+s*0.25).toFixed(0)+'" cy="'+(y+s*0.05).toFixed(0)+'" rx="'+(s*0.2).toFixed(0)+'" ry="'+(s*0.18).toFixed(0)+'" fill="'+col+'"/>'+
-         '<rect x="'+(x-s*0.44).toFixed(0)+'" y="'+y.toFixed(0)+'" width="'+(s*0.88).toFixed(0)+'" height="'+(s*0.28).toFixed(0)+'" rx="'+rx+'" fill="'+col+'"/>';
-}
-
-function _svgRain(x, y, s) {
-  var cloud = _svgCloud(x, y-s*0.14, s, '#60A5FA');
-  var sw = Math.max(3, s*0.09).toFixed(1), drops='';
-  var ox = [-s*0.25, 0, s*0.25];
-  for (var i=0; i<3; i++) {
-    drops += '<line x1="'+(x+ox[i]).toFixed(0)+'" y1="'+(y+s*0.2).toFixed(0)+
-             '" x2="'+(x+ox[i]-s*0.07).toFixed(0)+'" y2="'+(y+s*0.48).toFixed(0)+
-             '" stroke="#3B82F6" stroke-width="'+sw+'" stroke-linecap="round"/>';
-  }
-  return cloud+drops;
-}
-
-function _svgPartly(x, y, s) {
-  return _svgSun(x+s*0.18, y-s*0.18, s*0.58) + _svgCloud(x-s*0.08, y+s*0.1, s*0.78, '#B0BEC5');
-}
-
-function _svgThunder(x, y, s) {
-  var cloud = _svgCloud(x, y-s*0.12, s, '#6B7280');
-  var bx=x, by=y+s*0.12;
-  var bolt='<polygon points="'+(bx+s*0.1)+','+(by)+' '+(bx-s*0.06)+','+(by+s*0.22)+' '+
-    (bx+s*0.03)+','+(by+s*0.22)+' '+(bx-s*0.1)+','+(by+s*0.48)+' '+
-    (bx+s*0.12)+','+(by+s*0.2)+' '+(bx+s*0.03)+','+(by+s*0.2)+'" fill="#F59E0B"/>';
-  return cloud+bolt;
-}
+// 날씨 아이콘 — 기본 이모지 사용 (SVG text 태그로 렌더)
+var _WEATHER_EMOJI = {
+  sunny:   '☀️',
+  partly:  '⛅',
+  cloud:   '☁️',
+  rain:    '🌧️',
+  thunder: '⚡',
+  nodata:  ''
+};
 
 function _drawWeatherIcon(type, x, y, s) {
-  if (type==='sunny')   return _svgSun(x, y, s);
-  if (type==='partly')  return _svgPartly(x, y, s);
-  if (type==='cloud')   return _svgCloud(x, y, s);
-  if (type==='rain')    return _svgRain(x, y, s);
-  if (type==='thunder') return _svgThunder(x, y, s);
-  return _svgCloud(x, y, s, '#C8C8C8');
+  var emoji = _WEATHER_EMOJI[type] || '';
+  if (!emoji) return '';
+  var fontSize = Math.round(s * 0.9);
+  return '<text x="' + x + '" y="' + y + '" text-anchor="middle" dominant-baseline="middle"' +
+         ' font-size="' + fontSize + '" style="pointer-events:none;user-select:none">' +
+         emoji + '</text>';
 }
 
 function admComputeRegionMap() {
@@ -2892,10 +2856,11 @@ function admRenderMap() {
     var sz = p.r === '부산' ? 54 : (p.small ? 36 : 48);
     legendSeen[w.type] = w;
 
-    var IS = p.small ? 18 : (p.r === '부산' ? 30 : 26);
-    var cx = sz/2, cy = hasData ? sz*0.38 : sz/2;
+    // 이모지: 원 상단 40%, 라벨: 원 하단 75%
+    var IS = p.small ? 13 : (p.r === '부산' ? 20 : 17);
+    var cx = sz/2, cy = hasData ? sz*0.36 : sz/2;
     var iconSVG = _drawWeatherIcon(w.type, cx, cy, IS);
-    var labelY = hasData ? sz*0.82 : sz*0.62;
+    var labelY = hasData ? sz*0.76 : sz*0.58;
     var strokeW = p.r === '부산' ? 2.5 : (p.small ? 1.5 : 2);
     var fontSize = p.r === '부산' ? 9.5 : (p.small ? 7 : 9);
 
@@ -3483,12 +3448,19 @@ function selectGender(g) {
 }
 
 function _getSchoolPrefix(school_name) {
-  var schoolMap = { '마음':'me','감천':'gc','우산':'us','창원':'cw','학장':'hj','남산':'ns','감동':'gd' };
+  var schoolMap = { '마음':'me','감천':'gc','우산':'us','창원':'cw','학장':'hj','남산':'ns','감동':'gd','금곡':'gg' };
   var keys = Object.keys(schoolMap);
   for (var k = 0; k < keys.length; k++) {
     if ((school_name||'').indexOf(keys[k]) >= 0) return schoolMap[keys[k]];
   }
-  return (school_name||'xx').slice(0, 2);
+  // 미등록: 한글 초성 자동 추출
+  var cho = ['g','gg','n','d','dd','r','m','b','bb','s','ss','','j','jj','ch','k','t','p','h'];
+  var result = '';
+  for (var i = 0; i < (school_name||'').length && result.length < 2; i++) {
+    var code = (school_name||'').charCodeAt(i);
+    if (code >= 0xAC00 && code <= 0xD7A3) result += cho[Math.floor((code - 0xAC00) / 588)];
+  }
+  return result || (school_name||'xx').slice(0, 2);
 }
 
 function onNumInput(val) {
@@ -3593,6 +3565,8 @@ async function submitStudentForm() {
     hideLoading();
     toast(res.data.message);
     closeModal('modal-student-form');
+    // 앨범 캐시 초기화 (새 학생 반영)
+    _adminAlbumCache = {};
     loadStudents();
   } else {
     hideLoading();
