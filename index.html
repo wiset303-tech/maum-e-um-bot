@@ -69,6 +69,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 }
 @keyframes popIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
 @keyframes popupIn{from{opacity:0;transform:scale(.85) translateY(4px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes popupOut{from{opacity:1;transform:scale(1) translateY(0)}to{opacity:0;transform:scale(.88) translateY(4px)}}
 @keyframes spin{to{transform:rotate(360deg)}}
 .modal-title{font-family:'Black Han Sans',sans-serif;font-size:20px;color:var(--mint2);margin-bottom:16px;text-align:center}
 .modal-close{
@@ -2932,7 +2933,14 @@ function admMapBgClick(e) {
 
 function admMapClosePopup() {
   var popup = document.getElementById('adm-map-popup');
-  if (popup) popup.style.display = 'none';
+  if (!popup || popup.style.display === 'none') return;
+  var inner = popup.querySelector('div');
+  if (inner) {
+    inner.style.animation = 'popupOut 0.18s cubic-bezier(.25,.8,.25,1) forwards';
+    setTimeout(function(){ popup.style.display = 'none'; }, 170);
+  } else {
+    popup.style.display = 'none';
+  }
 }
 
 // 날씨 타입 → 메시지
