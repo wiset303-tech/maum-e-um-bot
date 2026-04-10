@@ -2748,37 +2748,83 @@ function admRenderDrill(schoolName) {
   '</div>';
 }
 
-// ── 전국 마음 날씨 지도 (실제 한국 지도 기반) ──
-// 위키미디어 location map 좌표계: x=(lon-124.5)/6.4*1771.627, y=(38.9-lat)/5.8*1672.414
+// ── 전국 마음 날씨 지도 ──
 var ADM_PROVINCES = [
-  { r:'서울',  x:687,  y:384  },
-  { r:'인천',  x:554,  y:412  },
-  { r:'경기',  x:761,  y:470  },
-  { r:'강원',  x:1038, y:389  },
-  { r:'충북',  x:828,  y:655  },
-  { r:'충남',  x:595,  y:663  },
-  { r:'대전',  x:797,  y:735  },
-  { r:'세종',  x:772,  y:698  },
-  { r:'경북',  x:1171, y:672  },
-  { r:'대구',  x:1135, y:874  },
-  { r:'울산',  x:1331, y:969  },
-  { r:'경남',  x:969,  y:1009 },
-  { r:'부산',  x:1257, y:1073 },
-  { r:'전북',  x:722,  y:888  },
-  { r:'전남',  x:637,  y:1153 },
-  { r:'광주',  x:651,  y:1078 },
+  { r:'서울',  x:687,  y:384  }, { r:'인천',  x:554,  y:412  },
+  { r:'경기',  x:761,  y:470  }, { r:'강원',  x:1038, y:389  },
+  { r:'충북',  x:828,  y:655  }, { r:'충남',  x:595,  y:663  },
+  { r:'대전',  x:797,  y:735  }, { r:'세종',  x:772,  y:698  },
+  { r:'경북',  x:1171, y:672  }, { r:'대구',  x:1135, y:874  },
+  { r:'울산',  x:1331, y:969  }, { r:'경남',  x:969,  y:1009 },
+  { r:'부산',  x:1257, y:1073 }, { r:'전북',  x:722,  y:888  },
+  { r:'전남',  x:637,  y:1153 }, { r:'광주',  x:651,  y:1078 },
   { r:'제주',  x:567,  y:1560 }
 ];
 
 function admRegionWeather(pos, neu, neg) {
   var total = pos + neu + neg;
-  if (total === 0) return { icon:'🌥', bg:'rgba(180,180,180,0.15)', border:'#AAAAAA', label:'데이터 없음' };
+  if (total === 0) return { type:'nodata',  bg:'rgba(200,200,200,0.18)', border:'#AAAAAA', label:'데이터 없음' };
   var posR = pos/total, negR = neg/total;
-  if (posR >= 0.6)  return { icon:'☀️', bg:'rgba(251,191,36,0.25)',  border:'#F59E0B', label:'맑음' };
-  if (posR >= 0.4)  return { icon:'⛅', bg:'rgba(147,197,253,0.25)', border:'#60A5FA', label:'구름 조금' };
-  if (negR >= 0.4)  return { icon:'⚡', bg:'rgba(239,68,68,0.25)',   border:'#EF4444', label:'천둥번개' };
-  if (negR >= 0.25) return { icon:'🌧', bg:'rgba(96,165,250,0.25)',  border:'#3B82F6', label:'비' };
-  return { icon:'☁️', bg:'rgba(148,163,184,0.20)', border:'#94A3B8', label:'흐림' };
+  if (posR >= 0.6)  return { type:'sunny',   bg:'rgba(251,191,36,0.22)',  border:'#F59E0B', label:'햇님' };
+  if (posR >= 0.4)  return { type:'partly',  bg:'rgba(147,197,253,0.22)', border:'#60A5FA', label:'구름 낀 햇님' };
+  if (negR >= 0.4)  return { type:'thunder', bg:'rgba(239,68,68,0.22)',   border:'#EF4444', label:'천둥번개' };
+  if (negR >= 0.25) return { type:'rain',    bg:'rgba(96,165,250,0.22)',  border:'#3B82F6', label:'비' };
+  return { type:'cloud', bg:'rgba(148,163,184,0.20)', border:'#94A3B8', label:'구름' };
+}
+
+function _svgSun(x, y, s) {
+  var rc = (s*0.32).toFixed(1), sw = Math.max(3, s*0.09).toFixed(1);
+  var r1 = s*0.52, r2 = s*0.72, rays = '';
+  for (var i=0; i<8; i++) {
+    var a = (i*45-90)*Math.PI/180;
+    rays += '<line x1="'+(x+r1*Math.cos(a)).toFixed(0)+'" y1="'+(y+r1*Math.sin(a)).toFixed(0)+
+            '" x2="'+(x+r2*Math.cos(a)).toFixed(0)+'" y2="'+(y+r2*Math.sin(a)).toFixed(0)+
+            '" stroke="#F59E0B" stroke-width="'+sw+'" stroke-linecap="round"/>';
+  }
+  return rays+'<circle cx="'+x+'" cy="'+y+'" r="'+rc+'" fill="#F59E0B"/>';
+}
+
+function _svgCloud(x, y, s, col) {
+  col = col||'#94A3B8';
+  var rx = (s*0.15).toFixed(1);
+  return '<ellipse cx="'+(x-s*0.2).toFixed(0)+'" cy="'+(y+s*0.05).toFixed(0)+'" rx="'+(s*0.24).toFixed(0)+'" ry="'+(s*0.2).toFixed(0)+'" fill="'+col+'"/>'+
+         '<ellipse cx="'+x.toFixed(0)+'" cy="'+(y-s*0.1).toFixed(0)+'" rx="'+(s*0.32).toFixed(0)+'" ry="'+(s*0.26).toFixed(0)+'" fill="'+col+'"/>'+
+         '<ellipse cx="'+(x+s*0.25).toFixed(0)+'" cy="'+(y+s*0.05).toFixed(0)+'" rx="'+(s*0.2).toFixed(0)+'" ry="'+(s*0.18).toFixed(0)+'" fill="'+col+'"/>'+
+         '<rect x="'+(x-s*0.44).toFixed(0)+'" y="'+y.toFixed(0)+'" width="'+(s*0.88).toFixed(0)+'" height="'+(s*0.28).toFixed(0)+'" rx="'+rx+'" fill="'+col+'"/>';
+}
+
+function _svgRain(x, y, s) {
+  var cloud = _svgCloud(x, y-s*0.14, s, '#60A5FA');
+  var sw = Math.max(3, s*0.09).toFixed(1), drops='';
+  var ox = [-s*0.25, 0, s*0.25];
+  for (var i=0; i<3; i++) {
+    drops += '<line x1="'+(x+ox[i]).toFixed(0)+'" y1="'+(y+s*0.2).toFixed(0)+
+             '" x2="'+(x+ox[i]-s*0.07).toFixed(0)+'" y2="'+(y+s*0.48).toFixed(0)+
+             '" stroke="#3B82F6" stroke-width="'+sw+'" stroke-linecap="round"/>';
+  }
+  return cloud+drops;
+}
+
+function _svgPartly(x, y, s) {
+  return _svgSun(x+s*0.18, y-s*0.18, s*0.58) + _svgCloud(x-s*0.08, y+s*0.1, s*0.78, '#B0BEC5');
+}
+
+function _svgThunder(x, y, s) {
+  var cloud = _svgCloud(x, y-s*0.12, s, '#6B7280');
+  var bx=x, by=y+s*0.12;
+  var bolt='<polygon points="'+(bx+s*0.1)+','+(by)+' '+(bx-s*0.06)+','+(by+s*0.22)+' '+
+    (bx+s*0.03)+','+(by+s*0.22)+' '+(bx-s*0.1)+','+(by+s*0.48)+' '+
+    (bx+s*0.12)+','+(by+s*0.2)+' '+(bx+s*0.03)+','+(by+s*0.2)+'" fill="#F59E0B"/>';
+  return cloud+bolt;
+}
+
+function _drawWeatherIcon(type, x, y, s) {
+  if (type==='sunny')   return _svgSun(x, y, s);
+  if (type==='partly')  return _svgPartly(x, y, s);
+  if (type==='cloud')   return _svgCloud(x, y, s);
+  if (type==='rain')    return _svgRain(x, y, s);
+  if (type==='thunder') return _svgThunder(x, y, s);
+  return _svgCloud(x, y, s, '#C8C8C8');
 }
 
 function admComputeRegionMap() {
@@ -2796,12 +2842,14 @@ function admComputeRegionMap() {
 
 function admRenderMap() {
   var container = document.getElementById('adm-map-svg');
-  var legEl = document.getElementById('adm-map-legend');
+  var legEl     = document.getElementById('adm-map-legend');
   if (!container) return;
 
-  // 실제 SVG 지도 복사 (hidden template → display area)
   var template = document.getElementById('korea-svg-template');
-  if (!template) { container.innerHTML = '<div style="color:var(--gray);font-size:12px;padding:20px;text-align:center">지도 로드 실패</div>'; return; }
+  if (!template) {
+    container.innerHTML = '<div style="color:var(--gray);font-size:12px;padding:20px;text-align:center">지도 로드 실패</div>';
+    return;
+  }
 
   container.innerHTML = '';
   var svgEl = template.querySelector('svg');
@@ -2810,73 +2858,85 @@ function admRenderMap() {
   cloned.removeAttribute('width');
   cloned.removeAttribute('height');
   cloned.style.cssText = 'width:100%;height:auto;display:block;border-radius:8px';
+
+  var style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+  style.textContent =
+    '.pm{cursor:pointer;transition:transform 0.18s cubic-bezier(.34,1.56,.64,1);transform-box:fill-box;transform-origin:50% 50%}' +
+    '.pm:hover,.pm:active{transform:scale(1.45)}';
+  cloned.insertBefore(style, cloned.firstChild);
   container.appendChild(cloned);
 
-  // 오버레이 그룹 가져오기
   var overlay = cloned.querySelector('#province-overlays');
   if (!overlay) return;
 
   var regionMap = admComputeRegionMap();
   var legendSeen = {};
-
-  // 마커 크기 (SVG 좌표계 1771x1672 기준)
-  var R = 52; // 원 반지름 (축소)
   var smallCities = { '서울':1,'인천':1,'대전':1,'세종':1,'대구':1,'울산':1,'부산':1,'광주':1 };
+  var parser = new DOMParser();
 
   ADM_PROVINCES.forEach(function(p) {
     var d = regionMap[p.r] || { pos:0, neu:0, neg:0 };
     var w = admRegionWeather(d.pos, d.neu, d.neg);
     var hasData = (d.pos + d.neu + d.neg) > 0;
     var isSmall = !!smallCities[p.r];
-    var r = isSmall ? 38 : R;
-    var iconSize = isSmall ? 30 : 38;
-    var labelSize = isSmall ? 22 : 26;
-
-    legendSeen[w.label] = w;
+    var R = isSmall ? 38 : 52;
+    var iconS = isSmall ? 28 : 38;
+    var labelSize = isSmall ? 20 : 26;
+    legendSeen[w.type] = w;
 
     var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    g.setAttribute('style', 'cursor:pointer');
+    g.setAttribute('class', 'pm');
     g.setAttribute('onclick', 'admMapRegionClick(\'' + p.r + '\')');
 
-    // 배경 원
     var circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    circle.setAttribute('cx', p.x); circle.setAttribute('cy', p.y); circle.setAttribute('r', r);
+    circle.setAttribute('cx', p.x); circle.setAttribute('cy', p.y); circle.setAttribute('r', R);
     circle.setAttribute('fill', w.bg);
-    circle.setAttribute('stroke', w.border); circle.setAttribute('stroke-width', '8');
+    circle.setAttribute('stroke', w.border); circle.setAttribute('stroke-width', isSmall ? 4 : 6);
     g.appendChild(circle);
 
-    // 날씨 아이콘
-    if (hasData) {
-      var iconEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      iconEl.setAttribute('x', p.x); iconEl.setAttribute('y', p.y - 8);
-      iconEl.setAttribute('text-anchor', 'middle'); iconEl.setAttribute('dominant-baseline', 'middle');
-      iconEl.setAttribute('font-size', iconSize);
-      iconEl.setAttribute('style', 'pointer-events:none;user-select:none');
-      iconEl.textContent = w.icon;
-      g.appendChild(iconEl);
-    }
+    var iconY = p.y - R*0.18;
+    var iconHTML = _drawWeatherIcon(w.type, p.x, iconY, iconS);
+    var doc = parser.parseFromString('<svg xmlns="http://www.w3.org/2000/svg">'+iconHTML+'</svg>', 'image/svg+xml');
+    Array.from(doc.documentElement.childNodes).forEach(function(n){
+      g.appendChild(cloned.ownerDocument.adoptNode(n.cloneNode(true)));
+    });
 
-    // 지역명
     var label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    label.setAttribute('x', p.x); label.setAttribute('y', p.y + (hasData ? r - 10 : 0));
-    label.setAttribute('text-anchor', 'middle'); label.setAttribute('dominant-baseline', 'middle');
-    label.setAttribute('font-size', labelSize); label.setAttribute('font-weight', '700');
+    label.setAttribute('x', p.x);
+    label.setAttribute('y', p.y + R - 6);
+    label.setAttribute('text-anchor', 'middle');
+    label.setAttribute('dominant-baseline', 'middle');
+    label.setAttribute('font-size', labelSize);
+    label.setAttribute('font-weight', '700');
     label.setAttribute('fill', '#1F2937');
     label.setAttribute('style', 'pointer-events:none;user-select:none');
     label.textContent = p.r;
     g.appendChild(label);
 
+    g.addEventListener('touchstart', function(){ this.style.transform='scale(1.45)'; }, {passive:true});
+    g.addEventListener('touchend',   function(){ this.style.transform=''; });
+    g.addEventListener('touchcancel',function(){ this.style.transform=''; });
+
     overlay.appendChild(g);
   });
 
-  // 범례
   if (legEl) {
-    var order = ['맑음','구름 조금','흐림','비','천둥번개','데이터 없음'];
-    var icons = { '맑음':'☀️','구름 조금':'⛅','흐림':'☁️','비':'🌧','천둥번개':'⚡','데이터 없음':'🌥' };
-    legEl.innerHTML = order.filter(function(l){ return legendSeen[l]; }).map(function(l) {
-      return '<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--gray)">' +
-        '<span style="font-size:13px">' + icons[l] + '</span>' + l + '</div>';
-    }).join('');
+    var order  = ['sunny','partly','cloud','rain','thunder','nodata'];
+    var labels = { sunny:'햇님', partly:'구름 낀 햇님', cloud:'구름', rain:'비', thunder:'천둥번개', nodata:'데이터 없음' };
+    var bgMap  = { sunny:'rgba(251,191,36,0.18)', partly:'rgba(147,197,253,0.18)',
+                   cloud:'rgba(148,163,184,0.18)', rain:'rgba(96,165,250,0.18)',
+                   thunder:'rgba(239,68,68,0.18)', nodata:'rgba(200,200,200,0.18)' };
+    var bdMap  = { sunny:'#F59E0B', partly:'#60A5FA', cloud:'#94A3B8',
+                   rain:'#3B82F6', thunder:'#EF4444', nodata:'#AAAAAA' };
+
+    legEl.innerHTML = '<div style="font-size:11px;font-weight:600;color:var(--gray);margin-bottom:6px;width:100%">범례</div>' +
+      order.filter(function(t){ return legendSeen[t]; }).map(function(t) {
+        var S=14;
+        var svgIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="22" viewBox="0 0 28 22" style="flex-shrink:0">'+
+          '<circle cx="14" cy="11" r="10" fill="'+bgMap[t]+'" stroke="'+bdMap[t]+'" stroke-width="1.5"/>'+
+          _drawWeatherIcon(t, 14, 11, S)+'</svg>';
+        return '<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--gray)">'+svgIcon+'<span>'+labels[t]+'</span></div>';
+      }).join('');
   }
 }
 
