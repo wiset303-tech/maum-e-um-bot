@@ -967,6 +967,27 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <input class="inp" id="tf-pw" type="password" placeholder="비밀번호" style="margin-bottom:10px">
     <div class="inp-label">학교명 <span style="color:#e05050">*</span></div>
     <input class="inp" id="tf-school" placeholder="공식 이름을 입력해 주세요 (예: 학장초등학교)" style="margin-bottom:10px">
+    <div class="inp-label">지역 (시/도) <span style="color:#e05050">*</span></div>
+    <select class="inp" id="tf-region" style="margin-bottom:10px">
+      <option value="">-- 지역 선택 --</option>
+      <option value="서울">서울</option>
+      <option value="부산">부산</option>
+      <option value="대구">대구</option>
+      <option value="인천">인천</option>
+      <option value="광주">광주</option>
+      <option value="대전">대전</option>
+      <option value="울산">울산</option>
+      <option value="세종">세종</option>
+      <option value="경기">경기</option>
+      <option value="강원">강원</option>
+      <option value="충북">충북</option>
+      <option value="충남">충남</option>
+      <option value="전북">전북</option>
+      <option value="전남">전남</option>
+      <option value="경북">경북</option>
+      <option value="경남">경남</option>
+      <option value="제주">제주</option>
+    </select>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
       <div>
         <div class="inp-label">학교급</div>
@@ -1876,7 +1897,7 @@ async function renderAdminAccountMgmt() {
   var el = document.getElementById('adminTeacherList');
   if (!el) return;
 
-  // _teacherAll 이미 로드된 경우 API 스킵
+  // 캐시 있으면 즉시 렌더 (등록/수정 후 캐시 초기화로 갱신 보장)
   if (_teacherAll.length) {
     _renderAdminTeacherList();
     return;
@@ -2260,6 +2281,7 @@ function openTeacherFormDirect() {
   openModal('modal-teacher-form');
   document.getElementById('tf-nfc-uid').value = '';
   document.getElementById('tf-nfc-status').textContent = '🔲 NFC 카드 없음';
+  document.getElementById('tf-region').value = '';
 }
 
 function dashboardHTML() {
@@ -3500,16 +3522,18 @@ function retapTeacherNfc() {
 }
 
 async function submitTeacherForm() {
-  var name  = document.getElementById('tf-name').value.trim();
-  var id    = document.getElementById('tf-id').value.trim();
-  var pw    = document.getElementById('tf-pw').value.trim();
-  var school= document.getElementById('tf-school').value.trim();
-  var type  = document.getElementById('tf-type').value;
-  var grade = document.getElementById('tf-grade').value.trim();
-  var cls   = document.getElementById('tf-class').value.trim();
-  var year  = document.getElementById('tf-year').value.trim() || '2026';
+  var name   = document.getElementById('tf-name').value.trim();
+  var id     = document.getElementById('tf-id').value.trim();
+  var pw     = document.getElementById('tf-pw').value.trim();
+  var school = document.getElementById('tf-school').value.trim();
+  var region = document.getElementById('tf-region').value;
+  var type   = document.getElementById('tf-type').value;
+  var grade  = document.getElementById('tf-grade').value.trim();
+  var cls    = document.getElementById('tf-class').value.trim();
+  var year   = document.getElementById('tf-year').value.trim() || '2026';
 
   if (!name||!id||!pw||!school) { toast('이름, 아이디, 비밀번호, 학교명은 필수예요'); return; }
+  if (!region) { toast('지역(시/도)을 선택해주세요'); return; }
 
   var gradeNum = parseInt(grade, 10);
   var clsNum   = parseInt(cls, 10);
@@ -3523,6 +3547,7 @@ async function submitTeacherForm() {
   var res = await api('register_teacher', {
     teacher_id: id, pw: pw, name: name,
     school_name: school, school_type: type,
+    region: region,
     year: parseInt(year, 10), grade: gradeNum, class: clsNum,
     nfc_uid: nfcUid
   });
@@ -3531,7 +3556,7 @@ async function submitTeacherForm() {
   if (res.status==='ok') {
     AUDIO.sfx('save');
     toast('교사 계정이 만들어졌어요 ✅');
-    if (STATE.role === 'admin') { renderAdminAccountMgmt(); }
+    if (STATE.role === 'admin') { _teacherAll = []; _adminAlbumCache = {}; renderAdminAccountMgmt(); }
   } else {
     toast(res.message);
     openModal('modal-teacher-form');
@@ -4483,9 +4508,27 @@ async function renderAdminAlbum() {
   var el = document.getElementById('adminAlbumList');
   if (!el) return;
 
-  // 캐시가 이미 있으면 재렌더만 (API 재호출 없음)
+  // 캐시 있으면 즉시 렌더 후 백그라운드에서 갱신
   if (Object.keys(_adminAlbumCache).length) {
     _renderAdminAlbumFromCache(el);
+    // 백그라운드 갱신: 교사 목록 + 앨범 재로드
+    api('get_teachers', {}).then(function(tres) {
+      if (tres.status !== 'ok') return;
+      _teacherAll = tres.data.teachers || [];
+      var schoolMap = {};
+      _teacherAll.filter(function(t){ return t.active === 'Y'; }).forEach(function(t) {
+        var sn = t.school_name || '미배정';
+        if (!schoolMap[sn]) schoolMap[sn] = [];
+        schoolMap[sn].push(t.teacher_uid);
+      });
+      // 기존 캐시에 없는 새 학교만 추가 로드
+      Object.keys(schoolMap).forEach(function(sn) {
+        var sid = 'admAlb-' + sn.replace(/[^가-힣a-zA-Z0-9]/g, '_');
+        if (!_adminAlbumCache[sid]) {
+          _loadAdminAlbumSchool(sn, schoolMap[sn]);
+        }
+      });
+    });
     return;
   }
 
