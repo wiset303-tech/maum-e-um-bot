@@ -5924,7 +5924,7 @@ function tokenHTML() {
         '</div>' +
       '</div>' +
     '</div>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">' +
       '<div style="background:#fff;border-radius:12px;padding:10px;text-align:center;box-shadow:var(--shadow2)">' +
         '<div style="font-size:11px;color:var(--gray);margin-bottom:2px">현재 잔액</div>' +
         '<div class="gaegu" style="font-size:24px;color:var(--navy)" id="tokenAmount">...</div>' +
@@ -5941,9 +5941,17 @@ function tokenHTML() {
         '<div style="font-size:11px;color:var(--gray)">개</div>' +
       '</div>' +
     '</div>' +
+    // 선물받은 토큰 표시 (gift_balance > 0 일 때만 표시됨 — JS로 제어)
+    '<div id="giftBadgeRow" style="display:none;background:linear-gradient(135deg,#fde8f5,#ffe9fb);border-radius:12px;padding:9px 14px;margin-bottom:10px;display:none;align-items:center;gap:8px">' +
+      '<span style="font-size:18px">💝</span>' +
+      '<div style="flex:1">' +
+        '<div style="font-size:12px;font-weight:700;color:#9b2368">선물받은 토큰 <span id="giftBalAmount">0</span>개</div>' +
+        '<div style="font-size:11px;color:#b5569a">선물받은 토큰은 저축만 가능해요 — 다시 선물할 수 없어요</div>' +
+      '</div>' +
+    '</div>' +
     '<div class="token-actions">' +
       '<button class="btn btn-peach" onclick="saveToken()">🪙 저축하기</button>' +
-      '<button class="btn btn-lav" onclick="openGiftSelect()">💌 선물하기</button>' +
+      '<button class="btn btn-lav" id="giftBtn" onclick="openGiftSelect()">💌 선물하기</button>' +
     '</div>' +
     '<div class="card card-lemon" style="margin-top:8px">' +
       '<div class="card-label gaegu">마음토큰이란?</div>' +
@@ -5955,16 +5963,42 @@ async function loadTokenBalance() {
   var res = await api('get_token_balance', { student_uid: STATE.user.student_uid });
   if(res.status==='ok') {
     STATE.tokenBalance = res.data;
-    var balance  = res.data.current_balance || 0;
-    var earned   = res.data.total_earned   || 0;
-    var saved    = res.data.total_saved    || 0;
-    var temp     = Math.min(100, Math.floor(saved / 2));
+    var balance   = res.data.current_balance || 0;
+    var earned    = res.data.total_earned   || 0;
+    var saved     = res.data.total_saved    || 0;
+    var giftBal   = res.data.gift_balance   || 0;
+    var giftable  = Math.max(0, balance - giftBal); // 선물 가능량
+    var temp      = Math.min(100, Math.floor(saved / 2));
 
     setText('tokenAmount', balance);
     setText('tokenEarned', earned);
     setText('tokenSaved',  saved);
     updateHeartTempUI(temp);
     calcBannerMessage(res.data);
+
+    // 선물받은 토큰 뱃지
+    var badge = document.getElementById('giftBadgeRow');
+    var giftAmtEl = document.getElementById('giftBalAmount');
+    if (badge) {
+      badge.style.display = giftBal > 0 ? 'flex' : 'none';
+    }
+    if (giftAmtEl) giftAmtEl.textContent = giftBal;
+
+    // 선물하기 버튼 — 직접 획득한 토큰 없으면 비활성
+    var giftBtn = document.getElementById('giftBtn');
+    if (giftBtn) {
+      if (giftable < 1) {
+        giftBtn.disabled = true;
+        giftBtn.style.opacity = '0.45';
+        giftBtn.title = giftBal > 0
+          ? '선물받은 토큰은 다시 선물할 수 없어요 💝'
+          : '선물할 토큰이 부족해요';
+      } else {
+        giftBtn.disabled = false;
+        giftBtn.style.opacity = '1';
+        giftBtn.title = '';
+      }
+    }
   }
 }
 
@@ -6077,6 +6111,16 @@ async function saveToken() {
 }
 
 function openGiftSelect() {
+  var tb = STATE.tokenBalance || {};
+  var giftBal  = tb.gift_balance  || 0;
+  var balance  = tb.current_balance || 0;
+  var giftable = Math.max(0, balance - giftBal);
+  if (giftable < 1) {
+    toast(giftBal > 0
+      ? '💝 선물받은 토큰은 다시 선물할 수 없어요\n직접 획득한 토큰이 없어요'
+      : '선물할 토큰이 부족해요');
+    return;
+  }
   var s = STATE.students.filter(function(s){ return s.student_uid !== STATE.user.student_uid && s.active === 'Y'; });
   if (!s.length) { toast('선물할 친구가 없어요'); return; }
   var list = document.getElementById('giftFriendList');
