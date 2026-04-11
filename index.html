@@ -5134,11 +5134,17 @@ function attendMove(dir) {
   var ws = new Date(CAL.weekStart + 'T12:00:00');
   ws.setDate(ws.getDate() + dir * 7);
 
-  // 범위 제한: 과거 2026-01, 미래 2027-12
+  // 과거 제한: 2026-01, 미래 제한: 이번 주 이후 이동 불가
   var minDate = new Date('2026-01-01T12:00:00');
-  var maxDate = new Date('2027-12-31T12:00:00');
+  var todayKST = new Date(Date.now() + 9*3600000);
+  // 이번 주 일요일 (현재 주의 시작)
+  var thisSunday = new Date(todayKST);
+  thisSunday.setDate(thisSunday.getDate() - thisSunday.getDay());
+  thisSunday.setHours(12,0,0,0);
+
   if (ws < minDate) ws = minDate;
-  if (ws > maxDate) ws = maxDate;
+  if (ws > thisSunday) ws = thisSunday; // 이번 주 이상은 이동 불가
+
   // weekStart는 항상 해당 주의 일요일로 고정
   ws.setDate(ws.getDate() - ws.getDay());
 
@@ -5166,7 +5172,7 @@ function renderAttendanceGrid() {
   }
   var dates = _monthDates();
   if (!dates.length) {
-    wrap.innerHTML = '<div style="color:var(--gray);font-size:12px;text-align:center;padding:16px">이 달에는 아직 출석 데이터가 없어요</div>';
+    wrap.innerHTML = '<div style="color:var(--gray);font-size:12px;text-align:center;padding:16px">아직 출석 데이터가 없어요</div>';
     return;
   }
 
