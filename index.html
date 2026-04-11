@@ -3219,8 +3219,10 @@ function toggleNotifDropdown() {
   if (!dd) return;
   _notifOpen = !_notifOpen;
   if (_notifOpen) {
-    renderNotifDropdown();
+    // 드롭다운 열 때 최신 알림 pull — 캐시 의존 없이 항상 재조회
     dd.style.display = 'block';
+    dd.innerHTML = '<div style="padding:16px;text-align:center;font-size:12px;color:var(--gray)">불러오는 중...</div>';
+    loadNotifications().then(function() { renderNotifDropdown(); });
     // 외부 클릭 시 닫기
     setTimeout(function() {
       document.addEventListener('click', _notifOutsideClick);
