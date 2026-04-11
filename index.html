@@ -1064,6 +1064,53 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   </div>
 </div>
 
+<!-- ══ 모달: 연속등교 모드 ══ -->
+<div id="modal-attend-mode" class="modal-overlay hidden">
+  <div class="modal-box" style="position:relative;min-height:320px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px 20px">
+    <button class="modal-close" onclick="closeAttendanceMode()">✕</button>
+    <div class="modal-title" style="margin-bottom:4px">🏃 연속등교 모드</div>
+
+    <!-- NFC 대기 화면 -->
+    <div id="attend-waiting" style="text-align:center;padding:20px 0;width:100%">
+      <div style="font-size:48px;margin-bottom:12px">🪪</div>
+      <div class="gaegu" style="font-size:18px;color:var(--navy);margin-bottom:6px">카드를 대주세요</div>
+      <div style="font-size:12px;color:var(--gray)">학생이 NFC 카드를 태그하면 자동으로 인식돼요</div>
+      <div id="attend-search-wrap" style="margin-top:16px">
+        <div style="font-size:11px;color:var(--gray);margin-bottom:6px">카드 없이 찾으려면</div>
+        <div style="display:flex;gap:6px">
+          <input id="attend-search-input" class="inp" style="flex:1;font-size:13px" placeholder="이름 또는 번호 입력"
+            onkeydown="if(event.key==='Enter')attendSearch()">
+          <button class="btn btn-secondary" style="width:auto;padding:0 12px;font-size:13px" onclick="attendSearch()">검색</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 학생 확인 + 감정 선택 화면 -->
+    <div id="attend-confirm" style="display:none;text-align:center;width:100%">
+      <div id="attend-student-info" style="margin-bottom:16px"></div>
+      <div class="gaegu" style="font-size:13px;color:var(--gray);margin-bottom:10px">오늘 기분은?</div>
+      <div style="display:flex;gap:10px;justify-content:center;margin-bottom:18px">
+        <button class="attend-macro-btn" onclick="selectAttendMacro('positive')" id="amBtn-positive"
+          style="flex:1;padding:14px 8px;border-radius:14px;border:2px solid var(--lgray);background:#fff;font-size:22px;cursor:pointer;transition:all .15s">
+          ☀️<div style="font-size:11px;color:var(--gray);margin-top:4px">긍정</div>
+        </button>
+        <button class="attend-macro-btn" onclick="selectAttendMacro('neutral')" id="amBtn-neutral"
+          style="flex:1;padding:14px 8px;border-radius:14px;border:2px solid var(--lgray);background:#fff;font-size:22px;cursor:pointer;transition:all .15s">
+          ☁️<div style="font-size:11px;color:var(--gray);margin-top:4px">중립</div>
+        </button>
+        <button class="attend-macro-btn" onclick="selectAttendMacro('negative')" id="amBtn-negative"
+          style="flex:1;padding:14px 8px;border-radius:14px;border:2px solid var(--lgray);background:#fff;font-size:22px;cursor:pointer;transition:all .15s">
+          ☔<div style="font-size:11px;color:var(--gray);margin-top:4px">부정</div>
+        </button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary" style="flex:1" onclick="skipAttendEmotion()">건너뛰기</button>
+        <button class="btn btn-mint" style="flex:1" id="attend-submit-btn" onclick="submitAttendEmotion()" disabled>저장하기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ══ 모달: 페르소나 친구 선택 ══ -->
 <div id="modal-persona-select" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-persona-select')">
   <div class="modal-box" style="position:relative;max-height:80vh;overflow-y:auto">
@@ -1575,6 +1622,12 @@ async function handleNfcUid(uid) {
   // 등록 모달이 열려있으면 → 등록 처리
   if (!document.getElementById('modal-nfc-register').classList.contains('hidden')) {
     handleRegisterNfc(uid);
+    return;
+  }
+
+  // 연속등교 모드 모달이 열려있으면 → 등교 처리
+  if (!document.getElementById('modal-attend-mode').classList.contains('hidden')) {
+    handleAttendNfc(uid);
     return;
   }
 
@@ -2624,9 +2677,12 @@ function dashboardHTML() {
   }
   return '<div class="dashboard-header">' +
     '<div class="dashboard-updated" id="dashUpdatedAt">불러오는 중...</div>' +
-    '<button class="btn-refresh" id="btnRefresh" onclick="refreshDashboard()">' +
-      '<span class="refresh-icon">🔄</span> 새로고침' +
-    '</button>' +
+    '<div style="display:flex;gap:6px;align-items:center">' +
+      '<button class="btn btn-sm btn-mint" style="font-size:11px;padding:4px 10px;white-space:nowrap" onclick="openAttendanceMode()">🏃 연속등교</button>' +
+      '<button class="btn-refresh" id="btnRefresh" onclick="refreshDashboard()">' +
+        '<span class="refresh-icon">🔄</span> 새로고침' +
+      '</button>' +
+    '</div>' +
   '</div>' +
   '<div class="class-temp-bar-wrap" style="border:1.5px dashed var(--mint3);background:linear-gradient(135deg,#f5fffe,#fff)">' +
     '<div class="class-temp-header">' +
@@ -2886,6 +2942,135 @@ var WEATHER_MAP = {
   rainbow:       { emoji:'🌈', label:'무지개', sub:'다양한 감정이 공존하는 날이에요' },
   none:          { emoji:'🌥', label:'아직 데이터 없음', sub:'학생들이 감정을 기록하면 나타나요' },
 };
+
+// ════════════════════════════════════════
+// 연속등교 모드
+// ════════════════════════════════════════
+var ATTEND = { student: null, macro: null };
+
+function openAttendanceMode() {
+  ATTEND.student = null;
+  ATTEND.macro   = null;
+  _attendShowWaiting();
+  openModal('modal-attend-mode');
+  focusNfcInput();
+}
+
+function closeAttendanceMode() {
+  closeModal('modal-attend-mode');
+  focusNfcInput();
+}
+
+function _attendShowWaiting() {
+  document.getElementById('attend-waiting').style.display = 'block';
+  document.getElementById('attend-confirm').style.display = 'none';
+  var si = document.getElementById('attend-search-input');
+  if (si) si.value = '';
+  ATTEND.student = null;
+  ATTEND.macro   = null;
+}
+
+function _attendShowConfirm(student) {
+  ATTEND.student = student;
+  ATTEND.macro   = null;
+  // 학생 정보 표시
+  var genderIcon = student.gender === 'F' ? '👧' : '👦';
+  document.getElementById('attend-student-info').innerHTML =
+    '<div style="font-size:40px;margin-bottom:6px">' + genderIcon + '</div>' +
+    '<div class="gaegu" style="font-size:20px;color:var(--navy)">' + student.student_name + '</div>' +
+    '<div style="font-size:12px;color:var(--gray);margin-top:2px">등교 확인 ✅</div>';
+  // 감정 버튼 초기화
+  ['positive','neutral','negative'].forEach(function(m) {
+    var btn = document.getElementById('amBtn-'+m);
+    if (btn) btn.style.cssText = btn.style.cssText.replace(/background:[^;]+;/,'background:#fff;').replace(/border:[^;]+;/,'border:2px solid var(--lgray);');
+  });
+  var submitBtn = document.getElementById('attend-submit-btn');
+  if (submitBtn) submitBtn.disabled = true;
+  document.getElementById('attend-waiting').style.display = 'none';
+  document.getElementById('attend-confirm').style.display = 'block';
+}
+
+async function handleAttendNfc(uid) {
+  if (!uid) return;
+  var waitEl = document.getElementById('attend-waiting');
+  if (waitEl) waitEl.querySelector('.gaegu').textContent = '확인 중...';
+  var res = await api('lookup_nfc_student', {
+    nfc_uid: uid,
+    teacher_uid: STATE.user.teacher_uid,
+  });
+  if (res.status === 'ok') {
+    AUDIO.sfx('nfc');
+    _attendShowConfirm(res.data);
+  } else {
+    toast(res.message || '등록되지 않은 카드입니다');
+    if (waitEl) waitEl.querySelector('.gaegu').textContent = '카드를 대주세요';
+    focusNfcInput();
+  }
+}
+
+async function attendSearch() {
+  var query = (document.getElementById('attend-search-input') || {}).value || '';
+  query = query.trim();
+  if (!query) return;
+  // 번호 or 이름으로 STATE.students에서 검색
+  var match = STATE.students.filter(function(s) {
+    return s.active === 'Y' && (String(s.num) === query || s.name.includes(query));
+  });
+  if (!match.length) { toast('해당 학생을 찾을 수 없어요'); return; }
+  if (match.length > 1) { toast(match.map(function(s){ return s.num+'번 '+s.name; }).join(', ') + ' — 더 구체적으로 입력해주세요'); return; }
+  var s = match[0];
+  // lookup 없이 직접 확인 화면으로 (토큰 미지급 — 카드 태깅 시만)
+  _attendShowConfirm({ student_uid: s.student_uid, student_name: s.name, gender: s.gender || '' });
+}
+
+function selectAttendMacro(macro) {
+  ATTEND.macro = macro;
+  var colorMap = { positive:'var(--mint3)', neutral:'#fef9c3', negative:'#fde8e8' };
+  var borderMap = { positive:'var(--mint2)', neutral:'#fbbf24', negative:'var(--rose)' };
+  ['positive','neutral','negative'].forEach(function(m) {
+    var btn = document.getElementById('amBtn-'+m);
+    if (!btn) return;
+    if (m === macro) {
+      btn.style.background = colorMap[m];
+      btn.style.border = '2px solid ' + borderMap[m];
+    } else {
+      btn.style.background = '#fff';
+      btn.style.border = '2px solid var(--lgray)';
+    }
+  });
+  var submitBtn = document.getElementById('attend-submit-btn');
+  if (submitBtn) submitBtn.disabled = false;
+}
+
+async function submitAttendEmotion() {
+  if (!ATTEND.student || !ATTEND.macro) return;
+  var s = ATTEND.student;
+  var macroScore = { positive: 7, neutral: 5, negative: 3 };
+  var macroWord  = { positive: '긍정', neutral: '중립', negative: '부정' };
+  var res = await api('save_emotion', {
+    student_uid  : s.student_uid,
+    student_name : s.student_name,
+    teacher_uid  : STATE.user.teacher_uid,
+    school_name  : STATE.user.school_name || '',
+    macro_emotion: ATTEND.macro,
+    micro_emotion: macroWord[ATTEND.macro],
+    emotion_score: macroScore[ATTEND.macro],
+    is_custom    : false,
+    custom_text  : '',
+    type         : 'checkin',
+    is_modify    : false,
+  });
+  toast(res.status === 'ok'
+    ? s.student_name + ' ✅ 저장됐어요'
+    : (res.message || '오류가 발생했어요'));
+  _attendShowWaiting();
+  focusNfcInput();
+}
+
+function skipAttendEmotion() {
+  _attendShowWaiting();
+  focusNfcInput();
+}
 
 async function loadDashboard() {
   if (STATE.role === 'admin') { await loadAdminDashboard(); return; }
