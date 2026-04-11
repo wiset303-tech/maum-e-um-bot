@@ -845,8 +845,26 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   </div>
   <!-- PC USB 리더기 영역 -->
   <div id="nfcEnvUsb" style="display:none;text-align:center">
-    <button id="webusbConnectBtn" class="nfc-bypass" onclick="connectWebUSBReader()" style="color:var(--gray)">🔌 마음카드 리더기 연결하기</button>
-    <div id="nfcUsbHint" style="font-size:11px;color:var(--gray);margin-top:6px;line-height:1.6"></div>
+    <!-- 연결 전 -->
+    <div id="usbPreConnect">
+      <button id="webusbConnectBtn" class="nfc-bypass" onclick="connectWebUSBReader()" style="color:var(--mint2);font-weight:700">🔌 마음카드 리더기 연결하기</button>
+      <div style="font-size:11px;color:var(--gray);margin-top:6px">
+        마음카드 리더기가 없으신가요?
+        <a href="https://drive.google.com/file/d/1JkCyF49giern3lNjYXUzZ9jCBQDOrTi1/view?usp=sharing" target="_blank"
+           style="color:var(--mint2);font-weight:700;text-decoration:none">⬇️ 다운받기</a>
+      </div>
+    </div>
+    <!-- 연결 클릭 후 — 실행 안내 -->
+    <div id="usbRunGuide" style="display:none;background:rgba(255,255,255,0.75);border-radius:14px;padding:12px 16px;margin:0 16px;text-align:center">
+      <div style="font-size:28px;margin-bottom:6px">💾</div>
+      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px">마음카드 리더기.exe 를 실행해주세요!</div>
+      <div style="font-size:11px;color:var(--gray);line-height:1.6">실행 후 이 버튼을 다시 눌러주세요 🙂</div>
+      <button onclick="_usbGuideBack()" style="margin-top:8px;font-size:11px;color:var(--gray);background:none;border:none;cursor:pointer;text-decoration:underline">← 돌아가기</button>
+    </div>
+    <!-- 연결됨 -->
+    <div id="usbConnected" style="display:none">
+      <button id="webusbDisconnectBtn" onclick="disconnectWebUSBReader()" style="color:var(--mint2);font-weight:700;background:none;border:none;cursor:pointer;font-size:13px">🟢 마음카드 리더기 연결됨 (해제)</button>
+    </div>
   </div>
   <!-- 공통: 아이디 로그인 -->
   <button class="nfc-bypass" style="margin-top:10px" onclick="openLoginModal()">카드가 없어요 (아이디로 로그인)</button>
@@ -6761,7 +6779,7 @@ function updateNfcEnvUI() {
     nfc_ready    : '카드를 폰에 가까이 대주세요 🪪',
     nfc_available: 'NFC를 활성화한 뒤 카드를 대주세요',
     ios          : '아이디로 로그인해주세요',
-    pc_no_usb    : 'NFC 카드리더기가 연결된 PC라면\n마음카드 리더기를 먼저 실행하세요',
+    pc_no_usb    : '카드를 대주세요',
     other        : '아이디로 로그인해주세요',
   };
 
@@ -6771,28 +6789,25 @@ function updateNfcEnvUI() {
   if (envNfc) envNfc.style.display = (env === 'nfc_available') ? 'block' : 'none';
   if (envUsb) envUsb.style.display = (env === 'pc_no_usb' || env === 'usb_ready') ? 'block' : 'none';
 
-  // USB 힌트 문구
-  var hint = document.getElementById('nfcUsbHint');
-  if (hint) {
-    if (env === 'pc_no_usb') {
-      hint.innerHTML = '마음카드 리더기가 없으신가요? ' +
-        '<a href="https://drive.google.com/file/d/1JkCyF49giern3lNjYXUzZ9jCBQDOrTi1/view?usp=sharing" ' +
-        'target="_blank" style="color:var(--mint2);text-decoration:underline">여기서 다운로드</a>';
-    } else {
-      hint.innerHTML = '';
-    }
-  }
+  // USB 힌트 문구 제거 (패널로 대체됨)
 
-  // USB 버튼 상태
-  if (usbBtn) {
+  // USB 패널 상태 제어
+  var usbPre  = document.getElementById('usbPreConnect');
+  var usbGuide = document.getElementById('usbRunGuide');
+  var usbConn = document.getElementById('usbConnected');
+  if (usbPre && usbGuide && usbConn) {
     if (env === 'usb_ready') {
-      usbBtn.textContent = '🟢 마음카드 리더기 연결됨 (클릭하여 해제)';
-      usbBtn.style.color = 'var(--mint2)';
-      usbBtn.onclick     = disconnectWebUSBReader;
+      usbPre.style.display   = 'none';
+      usbGuide.style.display = 'none';
+      usbConn.style.display  = 'block';
     } else {
-      usbBtn.textContent = '🔌 마음카드 리더기 연결하기';
-      usbBtn.style.color = 'var(--gray)';
-      usbBtn.onclick     = connectWebUSBReader;
+      // 연결 안된 상태 — pre 패널 (guide는 버튼 클릭 시만)
+      if (usbConn.style.display === 'block') {
+        // 방금 해제된 경우 → pre로 복귀
+        usbPre.style.display   = 'block';
+        usbGuide.style.display = 'none';
+        usbConn.style.display  = 'none';
+      }
     }
   }
 
@@ -6866,7 +6881,24 @@ function disconnectWebUSBReader() {
   toast('카드리더기 연결 해제됐어요');
 }
 
-function connectWebUSBReader() { connectNfcBridge(); }
+function connectWebUSBReader() {
+  // 가이드 패널 먼저 표시 → 사용자가 exe 실행 후 다시 누름
+  var pre   = document.getElementById('usbPreConnect');
+  var guide = document.getElementById('usbRunGuide');
+  var conn  = document.getElementById('usbConnected');
+  if (pre)   pre.style.display   = 'none';
+  if (guide) guide.style.display = 'block';
+  if (conn)  conn.style.display  = 'none';
+  // 백그라운드에서 브릿지 연결 시도 (exe가 이미 실행중이면 바로 연결)
+  connectNfcBridge();
+}
+
+function _usbGuideBack() {
+  var pre   = document.getElementById('usbPreConnect');
+  var guide = document.getElementById('usbRunGuide');
+  if (pre)   pre.style.display   = 'block';
+  if (guide) guide.style.display = 'none';
+}
 
 function _webusbUpdateUI(connected) { updateNfcEnvUI(); }
 
