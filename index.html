@@ -1507,10 +1507,21 @@ document.addEventListener('DOMContentLoaded', () => {
       handleNfcUid(nfcBuffer.trim());
       nfcBuffer = '';
     } else {
+      // 첫 문자 수신 = 카드 접촉 시작 → 즉시 로딩 표시
+      if (nfcBuffer === '') {
+        var isRegister = !document.getElementById('modal-nfc-register').classList.contains('hidden');
+        if (!isRegister) {
+          showLoading('카드를 읽는 중이에요 🪪');
+          if (navigator.vibrate) navigator.vibrate(40);
+        }
+      }
       nfcBuffer += e.key;
     }
     clearTimeout(nfcTimer);
-    nfcTimer = setTimeout(() => { nfcBuffer = ''; }, 200);
+    nfcTimer = setTimeout(() => {
+      if (nfcBuffer) { hideLoading(); } // 타임아웃 시 스피너 닫기
+      nfcBuffer = '';
+    }, 200);
   });
 
   // 화면 클릭 시 포커스 복원
@@ -5682,7 +5693,13 @@ async function initWebNFC() {
       var uid = event.serialNumber || '';
       nfcLog('🎉 카드를 읽었어요! (' + uid + ')');
       if (!uid) return;
-      if (!document.getElementById('modal-nfc-register').classList.contains('hidden')) {
+      var isRegister = !document.getElementById('modal-nfc-register').classList.contains('hidden');
+      // 즉시 피드백 (등록 모달 아닐 때)
+      if (!isRegister) {
+        showLoading('카드를 읽는 중이에요 🪪');
+        if (navigator.vibrate) navigator.vibrate(40);
+      }
+      if (isRegister) {
         handleRegisterNfc(uid);
         return;
       }
@@ -5728,15 +5745,18 @@ async function testWebNFC() {
       var uid = event.serialNumber || '';
       if (!uid) return;
       AUDIO.sfx('nfc');
-      // 어느 화면에서든 UID 표시
-      toast('🎉 NFC 인식! UID: ' + uid.toUpperCase());
-      setTimeout(function(){
-        alert('NFC 태깅 성공! 🎉\nUID: ' + uid.toUpperCase() + '\n\n이제 카드를 등록하거나 로그인에 사용할 수 있어요!');
-      }, 300);
-      // 로그인 화면이면 로그인 처리
+      if (navigator.vibrate) navigator.vibrate(40);
+      // 로그인 화면이면 즉시 스피너 + 로그인 처리
       if (!document.getElementById('screen-nfc').classList.contains('hidden')) {
+        showLoading('카드를 읽는 중이에요 \uD83D\uDCB3');
         handleNfcUid(uid);
+        return;
       }
+      // 테스트 모드: UID 표시
+      toast('\uD83C\uDF89 NFC 인식! UID: ' + uid.toUpperCase());
+      setTimeout(function(){
+        alert('NFC 태깅 성공! \uD83C\uDF89\nUID: ' + uid.toUpperCase() + '\n\n이제 카드를 등록하거나 로그인에 사용할 수 있어요!');
+      }, 300);
     };
   } catch(err) {
     if (err.name === 'NotAllowedError') {
