@@ -2897,11 +2897,13 @@ function recordsHTML() {
     '</div>' +
     '<div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px"></div>' +
     '</div>' +
-    '<div class="card" id="recordList" style="margin-top:10px;min-height:60px"></div>' +
+    // ② 감정 출석부 (달력 바로 아래)
     '<div class="card" style="margin-top:10px;padding:12px 10px">' +
       '<div class="card-label" style="margin-bottom:8px">📋 감정 출석부</div>' +
       '<div id="attendGridWrap"><div style="color:var(--gray);font-size:12px;text-align:center;padding:16px">데이터를 불러오는 중이에요...</div></div>' +
-    '</div>';
+    '</div>' +
+    // ③ 날짜별 감정 제출 기록 (가장 아래)
+    '<div class="card" id="recordList" style="margin-top:10px;min-height:60px"></div>';
 }
 
 function adminAttendanceHTML() {
@@ -5050,17 +5052,31 @@ function _isRedDay(dateStr) {
 
 // 현재 CAL.year/month 기준 날짜 배열 (학년도 시작~오늘 범위 안에서)
 function _monthDates() {
-  var schoolStart = new Date('2026-03-01T00:00:00');
-  var todayStr = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
-  var today    = new Date(todayStr + 'T00:00:00');
-  var firstDay = new Date(CAL.year, CAL.month, 1);
-  var lastDay  = new Date(CAL.year, CAL.month + 1, 0);
-  var start    = firstDay < schoolStart ? schoolStart : firstDay;
-  var end      = lastDay  > today       ? today       : lastDay;
+  // toISOString()은 UTC 기준이라 KST 자정이 전날 날짜로 찍히는 문제가 있음
+  // → 문자열 직접 계산으로 timezone 버그 완전 회피
+  var schoolStart = '2026-03-01';
+  var todayStr    = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+
+  var y = CAL.year, m = CAL.month; // m: 0-indexed
+  var mm     = String(m + 1).padStart(2, '0');
+  var lastD  = new Date(y, m + 1, 0).getDate(); // 해당 월의 마지막 일
+  var firstStr = y + '-' + mm + '-01';
+  var lastStr  = y + '-' + mm + '-' + String(lastD).padStart(2, '0');
+
+  var start = firstStr > schoolStart ? firstStr : schoolStart;
+  var end   = lastStr  > todayStr   ? todayStr  : lastStr;
   if (start > end) return [];
+
   var dates = [];
-  for (var d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    dates.push(d.toISOString().slice(0,10));
+  // noon으로 생성해 DST/timezone 경계 회피
+  var cur     = new Date(start + 'T12:00:00');
+  var endDate = new Date(end   + 'T12:00:00');
+  while (cur <= endDate) {
+    var cy = cur.getFullYear();
+    var cm = String(cur.getMonth() + 1).padStart(2, '0');
+    var cd = String(cur.getDate()).padStart(2, '0');
+    dates.push(cy + '-' + cm + '-' + cd);
+    cur.setDate(cur.getDate() + 1);
   }
   return dates;
 }
