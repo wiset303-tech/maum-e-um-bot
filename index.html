@@ -1662,18 +1662,14 @@ async function onLoginSuccess(data) {
     startDashboardPoll();        // 관리자면 60초 전체 폴링
     if (STATE.role === 'teacher') startEmotionSignalPoll(); // 교사면 15초 신호 폴링
 
-    // 달력 + 오늘 기록 백그라운드 선로드 (기록보기 탭 진입 전 준비)
-    var _bgToday = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+    // 달력 데이터는 백그라운드에서 조용히 로드 (기록보기 탭 진입 전 준비)
     api('get_emotions', { teacher_uid: teacherUid }).then(function(res) {
       if (res.status === 'ok') {
         CAL.data = {};
-        var todayEmotions = [];
         res.data.emotions.forEach(function(e) {
           var d = String(e.timestamp).slice(0,10);
           CAL.data[d] = (CAL.data[d] || 0) + 1;
-          if (d === _bgToday) todayEmotions.push(e);
         });
-        _preloadedTodayRecords = { date: _bgToday, emotions: todayEmotions };
         renderCal();
       }
     });
@@ -1844,24 +1840,9 @@ function switchTab(idx) {
 
   // ── 교사·관리자 탭 액션 ──
   if (STATE.role === 'teacher' || STATE.role === 'admin') {
-    if (idx === 2) {
-      ensureCalData();
-      // 처음 진입 시 오늘 날짜 자동 선택
-      if (!CAL._selectedDate) {
-        var _today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
-        CAL._selectedDate = _today;
-        renderCal();
-        // 미리 로드된 오늘 기록이 있으면 즉시 렌더, 없으면 API 호출
-        if (_preloadedTodayRecords && _preloadedTodayRecords.date === _today) {
-          _renderRecordList(_preloadedTodayRecords.emotions);
-        } else {
-          showLoading('기록을 불러오는 중이에요 📖');
-          loadRecords(_today);
-        }
-      }
-    }                                                                         // 기록보기
+    if (idx === 2) ensureCalData();                                          // 기록보기
     if (idx === 3 && STATE.role === 'admin') renderAdminAlbum();             // 관리자 마음앨범
-    if (idx === 3 && STATE.role === 'teacher') loadAlbumIfNeeded();          // 교사 마음앨범
+    if (idx === 3 && STATE.role === 'teacher' && STATE.students.length) renderAlbumStudentPicker(); // 교사 마음앨범
     if (idx === 1 && STATE.role === 'admin') renderAdminAccountMgmt();      // 관리자 계정관리
     if (idx === 4 && STATE.role === 'admin') {                               // 관리자 탭: BGM 상태 동기화
       var admBgm = document.getElementById('adm-set-bgm');
@@ -3695,7 +3676,12 @@ function admMapRegionClick(region, pinEl) {
 // 🔔 알림 시스템
 // ══════════════════════════════════════════════
 async function loadNotifications() {
-  var uid = STATE.user && (STATE.user.teacher_uid || STATE.user.student_uid || STATE.user.parent_uid);
+  // 역할별로 올바른 자신의 uid 사용 (teacher_uid는 학생도 갖고 있으므로 || 방식 금지)
+  var uid;
+  var role = STATE.role || (STATE.user && STATE.user.role);
+  if (role === 'teacher' || role === 'admin') uid = STATE.user && STATE.user.teacher_uid;
+  else if (role === 'student')                uid = STATE.user && STATE.user.student_uid;
+  else if (role === 'parent')                 uid = STATE.user && STATE.user.parent_uid;
   if (!uid) return;
   var res = await api('get_notifications', { recipient_uid: uid });
   if (res.status === 'ok') {
@@ -4703,18 +4689,23 @@ async function resetStudentPw(uid, name) {
 // ════════════════════════════════════════
 // 기록 보기
 // ════════════════════════════════════════
-var _preloadedTodayRecords = null; // { date:'YYYY-MM-DD', emotions:[...] } 로그인 시 미리 채움
+async function loadRecords(dateStr) {
+  var date = dateStr || new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+  // 관리자(teacher_uid 없음)는 전체 조회
+  var teacher_uid = (STATE.user && STATE.user.teacher_uid) ? STATE.user.teacher_uid : '';
+  var res  = await api('get_emotions', { teacher_uid: teacher_uid, date: date });
+  hideLoading();
+  var el   = document.getElementById('recordList');
+  if(!el||res.status!=='ok') return;
 
-function _renderRecordList(emotions) {
-  var el = document.getElementById('recordList');
-  if (!el) return;
-  if (!emotions || !emotions.length) {
-    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray)" class="gaegu">이날 기록이 없어요</div>';
+  if(!res.data.emotions.length) {
+    el.innerHTML='<div style="text-align:center;padding:20px;color:var(--gray)" class="gaegu">이날 기록이 없어요</div>';
     return;
   }
+
   var macroLabel = { positive:'☀️', neutral:'☁️', negative:'☔' };
   var isTeacher = (STATE.role === 'teacher' || STATE.role === 'admin');
-  el.innerHTML = emotions.map(function(e){
+  el.innerHTML = res.data.emotions.map(function(e){
     var unlockBtn = (isTeacher && !e.is_modified)
       ? '<button onclick="teacherUnlockEmotion(\'' + e.student_uid + '\',\'' + e.student_name + '\')" ' +
           'style="font-size:11px;background:var(--lemon2);border:1px solid var(--lemon);color:#7a5f00;' +
@@ -4734,18 +4725,13 @@ function _renderRecordList(emotions) {
   }).join('');
 }
 
-async function loadRecords(dateStr) {
-  var date = dateStr || new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
-  var teacher_uid = (STATE.user && STATE.user.teacher_uid) ? STATE.user.teacher_uid : '';
-  var res = await api('get_emotions', { teacher_uid: teacher_uid, date: date });
-  hideLoading();
-  if (!document.getElementById('recordList') || res.status !== 'ok') return;
-  _renderRecordList(res.data.emotions);
-}
-
 async function teacherUnlockEmotion(student_uid, student_name) {
   showLoading(student_name + '의 감정 수정을 허용하는 중이에요 🔓');
-  var res = await api('unlock_emotion', { student_uid: student_uid });
+  var res = await api('unlock_emotion', {
+    student_uid:  student_uid,
+    student_name: student_name,
+    teacher_name: STATE.user ? STATE.user.name : '선생님',
+  });
   hideLoading();
   if (res.status === 'ok') {
     toast(student_name + ' 학생이 다시 감정을 수정할 수 있어요');
