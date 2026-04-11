@@ -837,9 +837,18 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <div class="nfc-icon">🪪</div>
   </div>
   <div class="nfc-msg gaegu" id="nfcMsg">카드를 대주세요</div>
-  <button class="nfc-bypass" onclick="openLoginModal()">카드가 없어요 (아이디로 로그인)</button>
-  <button class="nfc-bypass" style="margin-top:8px;color:var(--mint2);text-decoration:none" onclick="testWebNFC()">📡 NFC 기능 테스트</button>
-  <button id="webusbConnectBtn" class="nfc-bypass" style="margin-top:8px;color:var(--gray)" onclick="connectWebUSBReader()">🔌 USB 카드리더기 연결 (PC용)</button>
+
+  <!-- 환경별 안내 영역 — updateNfcEnvUI()가 동적으로 제어 -->
+  <!-- Android NFC 영역 -->
+  <div id="nfcEnvNfc" style="display:none;text-align:center">
+    <button class="nfc-bypass" style="color:var(--mint2)" onclick="testWebNFC()">📡 NFC 활성화하기</button>
+  </div>
+  <!-- PC USB 리더기 영역 -->
+  <div id="nfcEnvUsb" style="display:none;text-align:center">
+    <button id="webusbConnectBtn" class="nfc-bypass" onclick="connectWebUSBReader()" style="color:var(--gray)">🔌 USB 카드리더기 연결하기</button>
+  </div>
+  <!-- 공통: 아이디 로그인 -->
+  <button class="nfc-bypass" style="margin-top:10px" onclick="openLoginModal()">카드가 없어요 (아이디로 로그인)</button>
   <div id="nfcDebugLog" style="
     margin-top:12px;padding:10px 16px;
     background:rgba(255,255,255,0.7);border-radius:12px;
@@ -1853,7 +1862,7 @@ function logout() {
   if (btnSet) btnSet.classList.add('hidden');
   document.getElementById('app').classList.add('hidden');
   document.getElementById('screen-nfc').classList.remove('hidden');
-  document.getElementById('nfcMsg').textContent = '카드를 대주세요';
+  updateNfcEnvUI();
   focusNfcInput();
 }
 
@@ -3002,11 +3011,11 @@ var ATTEND = { student: null, macro: null };
 function openAttendanceMode() {
   ATTEND.student = null;
   ATTEND.macro   = null;
-  // 이미지 설정 (최초 1회)
   var img = document.getElementById('attendModeImg');
   if (img && !img.src) img.src = ATTEND_IMG;
   _attendShowWaiting();
   openModal('modal-attend-mode');
+  updateNfcEnvUI(); // 현재 환경 반영
   focusNfcInput();
 }
 
@@ -6631,6 +6640,7 @@ async function initWebNFC() {
     nfcLog('📡 카드 읽기를 준비하고 있어요...');
     await NDEF_READER.scan();
     NFC_READY = true;
+    updateNfcEnvUI();
     nfcLog('✅ 준비됐어요! 카드를 가까이 대주세요 🪪');
 
     NDEF_READER.onreadingerror = function(e) {
@@ -6682,6 +6692,7 @@ async function testWebNFC() {
     nfcLog('📡 다시 카드 읽기를 준비하고 있어요...');
     await NDEF_READER.scan();
     NFC_READY = true;
+    updateNfcEnvUI();
     nfcLog('✅ 이제 카드를 가까이 대주세요 🪪');
     toast('✅ NFC 준비됐어요! 지금 카드를 대보세요');
 
@@ -6717,7 +6728,80 @@ async function testWebNFC() {
 }
 
 // ════════════════════════════════════════
-// WebUSB NFC — PC용 ACR122U 카드리더기
+// 환경별 NFC 안내 UI 업데이트
+// 호출 시점: 페이지 로드, NFC 준비, USB 연결/해제, 연속등교 모달 열기
+// ════════════════════════════════════════
+function _detectEnv() {
+  var ua       = navigator.userAgent;
+  var isAndroid = /Android/i.test(ua);
+  var isIOS     = /iPhone|iPad|iPod/i.test(ua);
+  var hasWebNFC = 'NDEFReader' in window;
+  var usbOn     = !!WEBUSB.device;
+
+  if (usbOn)                    return 'usb_ready';      // USB 리더기 연결됨
+  if (hasWebNFC && NFC_READY)   return 'nfc_ready';      // Android NFC 활성
+  if (hasWebNFC)                return 'nfc_available';  // Android NFC 미시작
+  if (isIOS)                    return 'ios';
+  if (!isAndroid)               return 'pc_no_usb';      // PC, 리더기 없음
+  return 'other';
+}
+
+function updateNfcEnvUI() {
+  var env = _detectEnv();
+
+  // ── NFC 로그인 화면 ──────────────────
+  var msgEl  = document.getElementById('nfcMsg');
+  var envNfc = document.getElementById('nfcEnvNfc');
+  var envUsb = document.getElementById('nfcEnvUsb');
+  var usbBtn = document.getElementById('webusbConnectBtn');
+
+  var MSG = {
+    usb_ready    : '카드를 리더기에 태그해주세요 🔌',
+    nfc_ready    : '카드를 폰에 가까이 대주세요 🪪',
+    nfc_available: 'NFC를 활성화한 뒤 카드를 대주세요',
+    ios          : '아이디로 로그인해주세요',
+    pc_no_usb    : 'USB 카드리더기를 연결하거나\n아이디로 로그인하세요',
+    other        : '아이디로 로그인해주세요',
+  };
+
+  if (msgEl) msgEl.textContent = MSG[env] || MSG.other;
+
+  // 영역 표시 제어
+  if (envNfc) envNfc.style.display = (env === 'nfc_available') ? 'block' : 'none';
+  if (envUsb) envUsb.style.display = (env === 'pc_no_usb' || env === 'usb_ready') ? 'block' : 'none';
+
+  // USB 버튼 상태
+  if (usbBtn) {
+    if (env === 'usb_ready') {
+      usbBtn.textContent = '🟢 USB 리더기 연결됨 (클릭하여 해제)';
+      usbBtn.style.color = 'var(--mint2)';
+      usbBtn.onclick     = disconnectWebUSBReader;
+    } else {
+      usbBtn.textContent = '🔌 USB 카드리더기 연결하기';
+      usbBtn.style.color = 'var(--gray)';
+      usbBtn.onclick     = connectWebUSBReader;
+    }
+  }
+
+  // ── 연속등교 모달 ────────────────────
+  var waitMsg    = document.getElementById('attendWaitMsg');
+  var readerStat = document.getElementById('attendReaderStatus');
+  var ATTEND_MSG = {
+    usb_ready    : '카드를 리더기에 태그해주세요',
+    nfc_ready    : '카드를 폰에 가까이 대주세요',
+    nfc_available: '카드를 폰에 가까이 대주세요',
+    ios          : '아이디로 찾거나 이름을 검색하세요',
+    pc_no_usb    : 'USB 리더기를 연결하거나 아래에서 검색하세요',
+    other        : '이름 또는 번호로 검색하세요',
+  };
+  if (waitMsg) waitMsg.textContent = ATTEND_MSG[env] || ATTEND_MSG.other;
+  if (readerStat) {
+    readerStat.textContent = (env === 'usb_ready') ? '🟢 USB 리더기 연결됨' :
+                             (env === 'nfc_ready')  ? '🟢 NFC 준비됨'        : '';
+  }
+}
+
+
 // 갤럭시 Web NFC와 동일하게 handleNfcUid()로 연결
 // ════════════════════════════════════════
 var WEBUSB = {
@@ -6852,30 +6936,21 @@ function disconnectWebUSBReader() {
 }
 
 function _webusbUpdateUI(connected) {
-  // NFC 로그인 화면 버튼
-  var btn = document.getElementById('webusbConnectBtn');
-  if (btn) {
-    btn.textContent = connected
-      ? '🟢 USB 리더기 연결됨 (클릭하여 해제)'
-      : '🔌 USB 카드리더기 연결 (PC용)';
-    btn.style.color  = connected ? 'var(--mint2)' : 'var(--gray)';
-    btn.onclick      = connected ? disconnectWebUSBReader : connectWebUSBReader;
-  }
-  // 연속등교 모달 상태
-  var st = document.getElementById('attendReaderStatus');
-  if (st) {
-    st.textContent = connected ? '🟢 USB 리더기 연결됨' : '';
-  }
+  updateNfcEnvUI(); // 환경 재평가 → NFC 화면 + 연속등교 모달 동시 업데이트
 }
 
 // 페이지 재로드 시 이전 연결 자동 복구
 async function tryAutoReconnectUSB() {
-  if (!navigator.usb) return;
+  if (!navigator.usb) {
+    updateNfcEnvUI(); // USB 없는 환경도 UI 초기화
+    return;
+  }
   try {
     var devs = await navigator.usb.getDevices();
     var acs  = devs.find(function(d){ return d.vendorId === 0x072F; });
-    if (acs) _webusbInit(acs);
+    if (acs) { await _webusbInit(acs); return; }
   } catch(e) {}
+  updateNfcEnvUI(); // 자동 연결 실패해도 환경 표시
 }
 
 // ════════════════════════════════════════
