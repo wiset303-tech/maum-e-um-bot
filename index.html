@@ -6239,12 +6239,18 @@ function openGame(type) {
 }
 
 async function saveToken() {
+  // 이중 탭 방지: 저축 버튼 즉시 비활성화
+  var saveBtn = document.querySelector('[onclick="saveToken()"]');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = '0.5'; }
+  var _restore = function() {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = ''; }
+  };
+
   // 미리보기 모드: mock 성공
   if (STATE.isPreview) {
     var tb = STATE.tokenBalance || {};
     var canDouble = tb.can_save_double;
     toast((canDouble ? '2배 저축 완료! 🌟' : '저축 완료!') + ' 잔액을 불러오는 중이에요 🌡️');
-    // 더미 잔액 갱신
     STATE.tokenBalance = Object.assign({}, tb, {
       current_balance : Math.max(0, (tb.current_balance || 0) - 1),
       total_saved     : (tb.total_saved || 0) + (canDouble ? 2 : 1),
@@ -6254,6 +6260,7 @@ async function saveToken() {
       setText('tokenAmount', STATE.tokenBalance.current_balance);
       setText('tokenSaved',  STATE.tokenBalance.total_saved);
     }, 300);
+    _restore();
     return;
   }
   showLoading('마음토큰을 저축하는 중이에요 🪙');
@@ -6264,6 +6271,7 @@ async function saveToken() {
     school_name : STATE.user.school_name || '',
   });
   hideLoading();
+  _restore();
   if(res.status==='ok') {
     toast((res.data.message || '저축 완료!') + ' 잔액을 불러오는 중이에요 🌡️');
     loadTokenBalance();
@@ -6294,9 +6302,11 @@ function openGiftSelect() {
 }
 
 async function giftToken(friend) {
+  // 탭 즉시 모달 닫기 (자연스러운 UX)
+  closeModal('modal-gift-select');
+
   // 미리보기 모드: mock 성공
   if (STATE.isPreview) {
-    closeModal('modal-gift-select');
     toast(friend.name + '에게 마음토큰을 선물했어요 💝 잔액을 불러오는 중이에요 💌');
     var tb = STATE.tokenBalance || {};
     STATE.tokenBalance = Object.assign({}, tb, {
@@ -6315,10 +6325,13 @@ async function giftToken(friend) {
     school_name: STATE.user.school_name || '',
   });
   hideLoading();
-  if(res.status==='ok') {
+  if (res.status === 'ok') {
     toast((res.data.message || '선물 완료!') + ' 잔액을 불러오는 중이에요 💌');
     loadTokenBalance();
-  } else toast(res.message);
+  } else {
+    toast(res.message);
+    // 실패 시 선물하기 버튼(메인)만 복구 — 모달은 이미 닫혔으므로 재시도 안내
+  }
 }
 
 // ── 마음앨범 ──
