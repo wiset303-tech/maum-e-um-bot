@@ -1092,14 +1092,14 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 
 <!-- ══ 모달: 학생 비번변경 ══ -->
 <!-- ══ 모달: 관리자 — 교사 학급 정보 변경 ══ -->
-<div id="modal-school-form" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-school-form')">
-  <div class="modal-box" style="position:relative;max-height:90vh;overflow-y:auto">
-    <button class="modal-close" onclick="closeModal('modal-school-form')">✕</button>
-    <div id="school-form-body"><!-- JS로 채움 --></div>
+<div id="modal-parent-create" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-parent-create')">
+  <div class="modal-box" style="position:relative">
+    <button class="modal-close" onclick="closeModal('modal-parent-create')">✕</button>
+    <div id="parent-create-body"><!-- JS로 채움 --></div>
   </div>
 </div>
 
-<div id="modal-change-teacher-info" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-change-teacher-info')">
+<div id="modal-change-teacher-info" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-change-teacher-info')"
   <div class="modal-box" style="position:relative">
     <button class="modal-close" onclick="closeModal('modal-change-teacher-info')">✕</button>
     <div class="modal-title">🏫 학급 정보 변경</div>
@@ -1556,15 +1556,17 @@ async function onLoginSuccess(data) {
   document.getElementById('screen-nfc').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('headerUser').textContent =
-    data.name + ' ' + (data.role==='teacher'?'선생님':data.role==='admin'?'(관리자)':'학생');
+    data.role === 'parent'
+      ? (data.student_name || '') + ' 보호자'
+      : data.name + ' ' + (data.role==='teacher'?'선생님':data.role==='admin'?'(관리자)':'학생');
 
   // 프로필 이미지 헤더 초기화 (교사만 — 학생은 배너에 표시)
   if (data.role === 'teacher') {
     updateHeaderProfile(data.profile_image_url || '', data.name, data.gender);
   }
 
-  // 알림 로드 (교사/학생 공통)
-  if (data.role === 'teacher' || data.role === 'student') {
+  // 알림 로드 (교사/학생/학부모 공통)
+  if (data.role === 'teacher' || data.role === 'student' || data.role === 'parent') {
     loadNotifications();
   }
 
@@ -1575,16 +1577,12 @@ async function onLoginSuccess(data) {
     var teacherUid = data.teacher_uid || '';
 
     if (data.role === 'admin') {
-      // 관리자: 학교 단위 대시보드 + 교사 목록 + 학교 목록
+      // 관리자: 학교 단위 대시보드 + 교사 목록
       await Promise.all([
         loadAdminDashboard(),
         api('get_teachers', {}).then(function(res) {
           if (res.status === 'ok') _teacherAll = res.data.teachers || [];
           _renderAdminTeacherList();
-        }),
-        api('get_schools', {}).then(function(res) {
-          if (res.status === 'ok') _schoolAll = res.data.schools || [];
-          _renderAdminSchoolList();
         }),
       ]);
     } else {
@@ -1615,6 +1613,12 @@ async function onLoginSuccess(data) {
         renderCal();
       }
     });
+
+  } else if (data.role === 'parent') {
+    // 학부모 로그인 — 경량 모드 (폴링 없음)
+    hideLoading();
+    buildParentUI();
+    loadNotifications(); // 알림 로드 (기존 NOTIFICATIONS 공유)
 
   } else {
     buildStudentUI();
@@ -1766,6 +1770,7 @@ function switchTab(idx) {
     if (idx === 3 && STATE.role === 'admin') renderAdminAlbum();             // 관리자 마음앨범
     if (idx === 3 && STATE.role === 'teacher' && STATE.students.length) renderAlbumStudentPicker(); // 교사 마음앨범
     if (idx === 1 && STATE.role === 'admin') renderAdminAccountMgmt();      // 관리자 계정관리
+    if (STATE.role === 'parent') onParentTabSwitch(idx);                   // 학부모 탭 전환
   }
 }
 // ════════════════════════════════════════
@@ -1911,18 +1916,13 @@ function adminHTML() {
   '</div>';
 }
 
-var _admSortMode = 'school';   // 'school' | 'name'
-var _schoolAll   = [];         // 학교 목록 캐시
-var _schoolSectionOpen = true; // 학교 섹션 펼침 여부
+var _admSortMode = 'school'; // 'school' | 'name'
 
 async function renderAdminAccountMgmt() {
   var el = document.getElementById('adminTeacherList');
   if (!el) return;
 
-  // 학교 목록 로드 (캐시 없으면)
-  if (!_schoolAll.length) loadAdminSchools();
-
-  // 교사 목록: 캐시 있으면 즉시 렌더
+  // 캐시 있으면 즉시 렌더 (등록/수정 후 캐시 초기화로 갱신 보장)
   if (_teacherAll.length) {
     _renderAdminTeacherList();
     return;
@@ -1939,170 +1939,6 @@ async function renderAdminAccountMgmt() {
   _renderAdminTeacherList();
 }
 
-// ────────────────────────────────────────────
-// 학교 관리
-// ────────────────────────────────────────────
-async function loadAdminSchools() {
-  var el = document.getElementById('adminSchoolList');
-  if (!el) return;
-
-  var res = await api('get_schools', {});
-  if (res.status !== 'ok') {
-    el.innerHTML = '<div style="color:var(--gray);font-size:12px;text-align:center;padding:10px">불러오기 실패</div>';
-    return;
-  }
-  _schoolAll = res.data.schools || [];
-  _renderAdminSchoolList();
-}
-
-function _renderAdminSchoolList() {
-  var el = document.getElementById('adminSchoolList');
-  if (!el) return;
-
-  // 섹션 접힘 상태 반영
-  if (!_schoolSectionOpen) { el.style.display = 'none'; return; }
-  el.style.display = '';
-
-  if (!_schoolAll.length) {
-    el.innerHTML = '<div style="color:var(--gray);font-size:12px;text-align:center;padding:12px">등록된 학교가 없어요</div>';
-    return;
-  }
-
-  var typeLabel = { e: '초등', m: '중학', h: '고등' };
-  var html = '<div style="display:flex;flex-direction:column;gap:6px">';
-  _schoolAll.forEach(function(sc, idx) {
-    html +=
-      '<div class="card" style="padding:10px 12px;display:flex;align-items:center;gap:10px">' +
-        '<div style="width:34px;height:34px;border-radius:50%;background:var(--lav2);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🏫</div>' +
-        '<div style="flex:1;min-width:0">' +
-          '<div style="font-weight:700;font-size:13px;color:var(--navy)">' + sc.school_name + '</div>' +
-          '<div style="font-size:11px;color:var(--gray);margin-top:2px">' +
-            (typeLabel[sc.school_type] || sc.school_type) + ' &nbsp;·&nbsp; 코드: ' + sc.school_code +
-            (sc.region ? '&nbsp;·&nbsp; ' + sc.region : '') +
-          '</div>' +
-        '</div>' +
-        '<button class="btn btn-sm btn-secondary" style="font-size:11px;flex-shrink:0" ' +
-          'onclick="openSchoolEditForm(_schoolAll[' + idx + '])">정보</button>' +
-      '</div>';
-  });
-  html += '</div>';
-  el.innerHTML = html;
-}
-
-function toggleSchoolSection() {
-  _schoolSectionOpen = !_schoolSectionOpen;
-  var arrow = document.getElementById('school-section-arrow');
-  if (arrow) arrow.textContent = _schoolSectionOpen ? '▼' : '▶';
-  _renderAdminSchoolList();
-}
-
-function openSchoolForm() {
-  var html =
-    '<div style="margin-bottom:14px;font-weight:700;font-size:15px;color:var(--navy)">🏫 학교 등록</div>' +
-
-    '<div style="margin-bottom:10px">' +
-      '<label style="font-size:12px;color:var(--gray);display:block;margin-bottom:4px">학교명 <span style="color:var(--accent)">*</span></label>' +
-      '<input id="sf-name" type="text" placeholder="예: 학장초등학교" class="inp" style="width:100%">' +
-    '</div>' +
-
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">' +
-      '<div>' +
-        '<label style="font-size:12px;color:var(--gray);display:block;margin-bottom:4px">학교 유형 <span style="color:var(--accent)">*</span></label>' +
-        '<select id="sf-type" class="inp" style="width:100%">' +
-          '<option value="e">초등학교</option>' +
-          '<option value="m">중학교</option>' +
-          '<option value="h">고등학교</option>' +
-        '</select>' +
-      '</div>' +
-      '<div>' +
-        '<label style="font-size:12px;color:var(--gray);display:block;margin-bottom:4px">학교 코드 <span style="color:var(--accent)">*</span></label>' +
-        '<input id="sf-code" type="text" placeholder="예: hj" class="inp" style="width:100%" maxlength="6">' +
-      '</div>' +
-    '</div>' +
-
-    '<div style="margin-bottom:10px">' +
-      '<label style="font-size:12px;color:var(--gray);display:block;margin-bottom:4px">지역 <span style="color:var(--accent)">*</span></label>' +
-      '<select id="sf-region" class="inp" style="width:100%">' +
-        '<option value="">-- 지역 선택 --</option>' +
-        ['서울','부산','대구','인천','광주','대전','울산','세종','경기','강원','충북','충남','전북','전남','경북','경남','제주'].map(function(r){return '<option value="'+r+'">'+r+'</option>';}).join('') +
-      '</select>' +
-    '</div>' +
-
-    '<div style="margin-bottom:16px">' +
-      '<label style="font-size:12px;color:var(--gray);display:block;margin-bottom:4px">주소 <span style="color:var(--gray)">(선택)</span></label>' +
-      '<input id="sf-address" type="text" placeholder="예: 부산광역시 사하구 학장로 123" class="inp" style="width:100%">' +
-    '</div>' +
-
-    '<div style="font-size:11px;color:var(--gray);background:var(--lav2);border-radius:8px;padding:8px 10px;margin-bottom:14px">' +
-      '💡 학교 코드는 학생 ID 생성에 사용돼요 (예: hj → hje261101).<br>' +
-      '영문 소문자 2~4자, 중복 불가합니다.' +
-    '</div>' +
-
-    '<div style="display:flex;gap:8px">' +
-      '<button class="btn btn-secondary" style="flex:1" onclick="closeModal(\'modal-school-form\')">취소</button>' +
-      '<button id="sf-submit-btn" class="btn btn-primary" style="flex:1" onclick="submitSchoolForm()">등록하기</button>' +
-    '</div>';
-
-  document.getElementById('school-form-body').innerHTML = html;
-  openModal('modal-school-form');
-}
-
-async function submitSchoolForm() {
-  var name    = (document.getElementById('sf-name')    || {}).value || '';
-  var type    = (document.getElementById('sf-type')    || {}).value || 'e';
-  var code    = (document.getElementById('sf-code')    || {}).value || '';
-  var region  = (document.getElementById('sf-region')  || {}).value || '';
-  var address = (document.getElementById('sf-address') || {}).value || '';
-
-  name   = name.trim();
-  code   = code.trim().toLowerCase();
-  region = region.trim();
-
-  if (!name)   { toast('학교명을 입력해주세요'); return; }
-  if (!code)   { toast('학교 코드를 입력해주세요'); return; }
-  if (!/^[a-z]{2,4}$/.test(code)) { toast('학교 코드는 영문 소문자 2~4자로 입력해주세요'); return; }
-  if (!region) { toast('지역을 선택해주세요'); return; }
-
-  var btn = document.getElementById('sf-submit-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '등록 중...'; }
-
-  var res = await api('register_school', { school_name: name, school_type: type, school_code: code, region: region, address: address });
-  if (btn) { btn.disabled = false; btn.textContent = '등록하기'; }
-
-  if (res.status !== 'ok') { toast('오류: ' + (res.message || '등록 실패')); return; }
-  toast('✅ ' + name + ' 등록 완료!');
-  closeModal('modal-school-form');
-  _schoolAll = [];       // 캐시 초기화
-  loadAdminSchools();
-}
-
-function openSchoolEditForm(sc) {
-  var typeLabel = { e: '초등학교', m: '중학교', h: '고등학교' };
-  var html =
-    '<div style="margin-bottom:14px;font-weight:700;font-size:15px;color:var(--navy)">🏫 학교 정보</div>' +
-
-    '<div style="background:var(--lav2);border-radius:10px;padding:12px;margin-bottom:14px">' +
-      '<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px">' + sc.school_name + '</div>' +
-      '<div style="font-size:12px;color:var(--gray)">' +
-        (typeLabel[sc.school_type] || sc.school_type) + ' · 코드: ' + sc.school_code +
-        (sc.region ? ' · ' + sc.region : '') +
-      '</div>' +
-      (sc.address ? '<div style="font-size:11px;color:var(--gray);margin-top:4px">' + sc.address + '</div>' : '') +
-      '<div style="font-size:10px;color:var(--gray);margin-top:6px;opacity:.7">UID: ' + sc.school_uid + '</div>' +
-    '</div>' +
-
-    '<div style="font-size:12px;color:var(--gray);text-align:center;padding:10px 0;margin-bottom:12px">' +
-      '현재 버전에서는 학교 정보 수정 기능이 준비 중이에요.<br>' +
-      '삭제(비활성화)가 필요하면 시트에서 직접 active를 N으로 변경해주세요.' +
-    '</div>' +
-
-    '<button class="btn btn-secondary" style="width:100%" onclick="closeModal(\'modal-school-form\')">닫기</button>';
-
-  document.getElementById('school-form-body').innerHTML = html;
-  openModal('modal-school-form');
-}
-
-// ────────────────────────────────────────────
 function _renderAdminTeacherList() {
   var el = document.getElementById('adminTeacherList');
   if (!el) return;
@@ -2584,20 +2420,7 @@ function studentMgmtHTML() {
   var isAdmin = (STATE.role === 'admin');
   if (isAdmin) {
     return '<div id="adminAccountMgmt">' +
-
-      // ── 학교 관리 섹션 ──
-      '<div style="margin-bottom:16px">' +
-        // 섹션 헤더 (클릭으로 펼침/접힘)
-        '<div onclick="toggleSchoolSection()" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--lav2);border-radius:12px;cursor:pointer;user-select:none;margin-bottom:8px">' +
-          '<span style="font-size:16px">🏫</span>' +
-          '<span style="font-weight:700;font-size:14px;color:var(--navy);flex:1">학교 관리</span>' +
-          '<button class="btn btn-sm btn-primary" style="font-size:11px;padding:4px 10px" onclick="event.stopPropagation();openSchoolForm()">+ 학교 등록</button>' +
-          '<span id="school-section-arrow" style="font-size:11px;color:var(--gray);margin-left:6px">▼</span>' +
-        '</div>' +
-        '<div id="adminSchoolList"><div style="color:var(--gray);font-size:13px;text-align:center;padding:16px">불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div></div>' +
-      '</div>' +
-
-      // ── 교사 관리 섹션 ──
+      // 상단 버튼 + 필터 행
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">' +
         '<button class="btn btn-primary" style="flex-shrink:0" onclick="openTeacherForm()">👩‍🏫 + 교사 계정 만들기</button>' +
         '<div style="display:flex;gap:6px;margin-left:auto">' +
@@ -3216,7 +3039,7 @@ function admMapRegionClick(region, pinEl) {
 // 🔔 알림 시스템
 // ══════════════════════════════════════════════
 async function loadNotifications() {
-  var uid = STATE.user && (STATE.user.teacher_uid || STATE.user.student_uid);
+  var uid = STATE.user && (STATE.user.teacher_uid || STATE.user.student_uid || STATE.user.parent_uid);
   if (!uid) return;
   var res = await api('get_notifications', { recipient_uid: uid });
   if (res.status === 'ok') {
@@ -3630,6 +3453,7 @@ function renderStudentList() {
             '<button onclick="openChangePw(\'' + uid2 + '\',\'' + nm2 + '\')">🔑 비번변경</button>' +
             '<button onclick="resetStudentPw(\'' + uid2 + '\',\'' + nm2 + '\')">🔄 비번초기화</button>' +
             '<button onclick="replaceCard(this);closeStuMenu()" data-uid="' + uid2 + '" data-name="' + nm2 + '">🪪 카드교체</button>' +
+            '<button onclick="openParentCreate(\'' + uid2 + '\',\'' + nm2 + '\',\'' + (s.student_id||'') + '\')">👨‍👩‍👧 학부모 계정</button>' +
             '<div class="divider"></div>' +
             '<button class="danger" onclick="deactivateBtn(this)" data-uid="' + uid2 + '" data-name="' + nm2 + '">🚫 비활성</button>' +
           '</div>' +
@@ -3658,6 +3482,61 @@ function renderStudentList() {
         : '');
 
   el.innerHTML = cards + moreBtn;
+}
+
+// ── 학부모 계정 생성 ──────────────────────────
+function openParentCreate(student_uid, student_name, student_id) {
+  var parent_id = student_id + '_p';
+  document.getElementById('parent-create-body').innerHTML =
+    '<div style="margin-bottom:14px;font-weight:700;font-size:15px;color:var(--navy)">👨‍👩‍👧 학부모 계정 만들기</div>' +
+    '<div style="background:var(--lav2);border-radius:10px;padding:12px;margin-bottom:14px">' +
+      '<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:6px">' + student_name + ' 보호자 계정</div>' +
+      '<div style="font-size:12px;color:var(--gray);line-height:1.8">' +
+        '아이디: <b style="color:var(--navy)">' + parent_id + '</b><br>' +
+        '초기 비밀번호: <b style="color:var(--navy)">maum1234</b>' +
+      '</div>' +
+    '</div>' +
+    '<div style="font-size:11px;color:var(--gray);background:#fff8e1;border-radius:8px;padding:8px 10px;margin-bottom:14px">' +
+      '💡 학부모가 처음 로그인 후 비밀번호를 변경할 수 있어요.' +
+    '</div>' +
+    '<div style="display:flex;gap:8px">' +
+      '<button class="btn btn-secondary" style="flex:1" onclick="closeModal(\'modal-parent-create\')">취소</button>' +
+      '<button id="parent-create-submit" class="btn btn-primary" style="flex:1" ' +
+        'onclick="submitParentCreate(\'' + student_uid + '\',\'' + student_name + '\')">계정 만들기</button>' +
+    '</div>';
+  openModal('modal-parent-create');
+}
+
+async function submitParentCreate(student_uid, student_name) {
+  var btn = document.getElementById('parent-create-submit');
+  if (btn) { btn.disabled = true; btn.textContent = '생성 중...'; }
+  var res = await api('register_parent', { student_uid: student_uid });
+  if (btn) { btn.disabled = false; btn.textContent = '계정 만들기'; }
+
+  if (res.status === 'ok') {
+    var d = res.data;
+    document.getElementById('parent-create-body').innerHTML =
+      '<div style="text-align:center;padding:10px 0 16px">' +
+        '<div style="font-size:36px;margin-bottom:8px">✅</div>' +
+        '<div style="font-weight:700;font-size:15px;color:var(--navy);margin-bottom:12px">' + student_name + ' 학부모 계정 생성 완료!</div>' +
+        '<div style="background:var(--lav2);border-radius:10px;padding:12px;text-align:left;margin-bottom:14px">' +
+          '<div style="font-size:12px;color:var(--gray);line-height:2">' +
+            '아이디: <b style="color:var(--navy);font-size:14px">' + d.parent_id + '</b><br>' +
+            '비밀번호: <b style="color:var(--navy);font-size:14px">' + d.default_pw + '</b>' +
+          '</div>' +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--gray);margin-bottom:14px">학부모에게 이 정보를 전달해주세요</div>' +
+        '<button class="btn btn-primary" style="width:100%" onclick="closeModal(\'modal-parent-create\')">확인</button>' +
+      '</div>';
+  } else {
+    var isExisting = (res.message || '').indexOf('이미') >= 0;
+    document.getElementById('parent-create-body').innerHTML =
+      '<div style="text-align:center;padding:10px 0 16px">' +
+        '<div style="font-size:36px;margin-bottom:8px">' + (isExisting ? 'ℹ️' : '❌') + '</div>' +
+        '<div style="font-weight:700;font-size:14px;color:var(--navy);margin-bottom:12px">' + (res.message || '오류가 발생했어요') + '</div>' +
+        '<button class="btn btn-secondary" style="width:100%" onclick="closeModal(\'modal-parent-create\')">닫기</button>' +
+      '</div>';
+  }
 }
 
 function showMoreStudents() {
@@ -3864,7 +3743,7 @@ async function submitTeacherForm() {
   if (res.status==='ok') {
     AUDIO.sfx('save');
     toast('교사 계정이 만들어졌어요 ✅');
-    if (STATE.role === 'admin') { _teacherAll = []; _schoolAll = []; _adminAlbumCache = {}; renderAdminAccountMgmt(); }
+    if (STATE.role === 'admin') { _teacherAll = []; _adminAlbumCache = {}; renderAdminAccountMgmt(); }
   } else {
     toast(res.message);
     openModal('modal-teacher-form');
@@ -4095,6 +3974,150 @@ async function teacherUnlockEmotion(student_uid, student_name) {
 // ════════════════════════════════════════
 // 학생 UI
 // ════════════════════════════════════════
+// ════════════════════════════════════════
+// 학부모 UI (탭 2개, 폴링 없음)
+// ════════════════════════════════════════
+function buildParentUI() {
+  var u = STATE.user || {};
+  document.getElementById('headerUser').textContent = u.student_name + ' 학부모님';
+  buildTabs([
+    { label: '📊 우리아이 현황', html: parentDashboardHTML() },
+    { label: '🔔 알림',         html: '<div id="parentNotifPanel" style="min-height:80px"></div>' },
+  ]);
+  loadParentDashboard();
+}
+
+function parentDashboardHTML() {
+  var u = STATE.user || {};
+  return '<div style="padding:4px 0">' +
+    '<div class="card" style="margin-bottom:12px;padding:14px 16px;display:flex;align-items:center;gap:12px">' +
+      '<div style="width:44px;height:44px;border-radius:50%;background:var(--lav2);display:flex;align-items:center;justify-content:center;font-size:22px">👦</div>' +
+      '<div>' +
+        '<div style="font-weight:700;font-size:15px;color:var(--navy)">' + (u.student_name || '') + '</div>' +
+        '<div style="font-size:12px;color:var(--gray)">' + (u.school_name || '') + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="card" style="margin-bottom:12px">' +
+      '<div style="font-weight:700;font-size:13px;color:var(--navy);margin-bottom:10px">🌡️ 마음 온도</div>' +
+      '<div style="display:flex;align-items:center;gap:10px">' +
+        '<span id="parentTempValue" style="font-size:28px;font-weight:900;color:#ff5e1a">—</span>' +
+        '<span style="font-size:14px;color:#ff5e1a;font-weight:700">°</span>' +
+        '<div style="flex:1;height:8px;background:var(--lgray);border-radius:99px;overflow:hidden">' +
+          '<div id="parentTempBar" style="height:100%;background:linear-gradient(90deg,#ff5e1a,#ffb347);border-radius:99px;width:0%;transition:width .6s ease"></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="card">' +
+      '<div style="font-weight:700;font-size:13px;color:var(--navy);margin-bottom:10px">😊 이번 주 감정</div>' +
+      '<div id="parentEmotionList"><div style="color:var(--gray);font-size:12px;text-align:center;padding:16px">불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div></div>' +
+    '</div>' +
+    '<div style="margin-top:12px;display:flex;gap:8px">' +
+      '<button class="btn btn-secondary" style="flex:1;font-size:12px" onclick="loadParentDashboard()">🔄 새로고침</button>' +
+      '<button class="btn btn-secondary" style="flex:1;font-size:12px" onclick="openParentChangePw()">🔑 비밀번호 변경</button>' +
+    '</div>' +
+  '</div>';
+}
+
+async function loadParentDashboard() {
+  var u = STATE.user || {};
+  var res = await api('get_parent_dashboard', { parent_uid: u.parent_uid });
+  if (res.status !== 'ok') return;
+  var d = res.data;
+
+  // 마음 온도
+  var temp = d.heart_temp || 0;
+  var tv = document.getElementById('parentTempValue');
+  var tb = document.getElementById('parentTempBar');
+  if (tv) tv.textContent = temp;
+  if (tb) setTimeout(function(){ tb.style.width = temp + '%'; }, 100);
+
+  // 이번 주 감정 리스트
+  var el = document.getElementById('parentEmotionList');
+  if (!el) return;
+  var emotions = d.emotions || [];
+  if (!emotions.length) {
+    el.innerHTML = '<div style="color:var(--gray);font-size:12px;text-align:center;padding:16px">이번 주 감정 기록이 없어요 🌱</div>';
+    return;
+  }
+  var MACRO_ICON = { positive: '😊', neutral: '😐', negative: '😢' };
+  el.innerHTML = emotions.slice(0, 7).map(function(e) {
+    var icon = MACRO_ICON[e.macro_emotion] || '😐';
+    var date = e.date ? e.date.slice(5).replace('-', '/') : '';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:0.5px solid var(--lgray)">' +
+      '<span style="font-size:20px">' + icon + '</span>' +
+      '<div style="flex:1">' +
+        '<span style="font-size:13px;font-weight:600;color:var(--navy)">' + (e.micro_emotion || '') + '</span>' +
+      '</div>' +
+      '<span style="font-size:11px;color:var(--gray)">' + date + '</span>' +
+    '</div>';
+  }).join('');
+}
+
+// 학부모 탭 전환 시 알림 패널 로드
+function onParentTabSwitch(idx) {
+  if (idx === 1) renderParentNotifPanel();
+}
+
+function renderParentNotifPanel() {
+  var el = document.getElementById('parentNotifPanel');
+  if (!el) return;
+  var ICON = { attendance: '🏫', emotion_crisis: '⚡', token_gift: '💝' };
+  if (!_notifications.length) {
+    el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:30px">새 알림이 없어요 🌱</div>';
+    return;
+  }
+  el.innerHTML = _notifications.slice(0, 30).map(function(n) {
+    var icon = ICON[n.type] || '🔔';
+    var time = _timeAgo(n.created_at);
+    var bg   = n.is_read ? '#fff' : 'var(--mint4)';
+    return '<div onclick="markNotifRead(\'' + n.notification_uid + '\',this)" style="' +
+      'padding:12px 14px;cursor:pointer;border-bottom:0.5px solid var(--lgray);background:' + bg + '">' +
+      '<div style="display:flex;gap:8px;align-items:flex-start">' +
+        '<span style="font-size:20px;flex-shrink:0">' + icon + '</span>' +
+        '<div style="flex:1">' +
+          '<div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:2px">' + n.title + '</div>' +
+          '<div style="font-size:11px;color:var(--gray)">' + n.body + '</div>' +
+          '<div style="font-size:10px;color:#bbb;margin-top:3px">' + time + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('') +
+  '<div onclick="markAllNotifsRead()" style="padding:10px;text-align:center;font-size:11px;color:var(--mint2);cursor:pointer;font-weight:600">모두 읽음 처리</div>';
+}
+
+function openParentChangePw() {
+  document.getElementById('parent-create-body').innerHTML =
+    '<div style="margin-bottom:14px;font-weight:700;font-size:15px;color:var(--navy)">🔑 비밀번호 변경</div>' +
+    '<div class="inp-label">현재 비밀번호 <span style="color:#e05050">*</span></div>' +
+    '<input class="inp" id="pcp-old" type="password" placeholder="현재 비밀번호" style="margin-bottom:10px">' +
+    '<div class="inp-label">새 비밀번호 <span style="color:#e05050">*</span></div>' +
+    '<input class="inp" id="pcp-new" type="password" placeholder="6자 이상" style="margin-bottom:16px"' +
+      ' onkeydown="if(event.key===\'Enter\')confirmParentChangePw()">' +
+    '<div style="display:flex;gap:8px">' +
+      '<button class="btn btn-secondary" style="flex:1" onclick="closeModal(\'modal-parent-create\')">취소</button>' +
+      '<button id="pcp-submit" class="btn btn-primary" style="flex:1" onclick="confirmParentChangePw()">변경하기</button>' +
+    '</div>';
+  openModal('modal-parent-create');
+  setTimeout(function(){ document.getElementById('pcp-old').focus(); }, 300);
+}
+
+async function confirmParentChangePw() {
+  var oldPw = (document.getElementById('pcp-old') || {}).value || '';
+  var newPw = (document.getElementById('pcp-new') || {}).value || '';
+  if (!oldPw) { toast('현재 비밀번호를 입력하세요'); return; }
+  if (newPw.length < 6) { toast('새 비밀번호는 6자 이상이어야 해요'); return; }
+  var btn = document.getElementById('pcp-submit');
+  if (btn) { btn.disabled = true; btn.textContent = '변경 중...'; }
+  var res = await api('change_parent_password', {
+    parent_uid : STATE.user.parent_uid,
+    old_pw     : oldPw,
+    new_pw     : newPw
+  });
+  if (btn) { btn.disabled = false; btn.textContent = '변경하기'; }
+  closeModal('modal-parent-create');
+  toast(res.status === 'ok' ? '✅ ' + res.data.message : res.message);
+}
+
 function buildStudentUI() {
   buildTabs([
     { label:'😊 마음날씨',  html: emotionInputHTML() },
