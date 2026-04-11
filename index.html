@@ -1111,6 +1111,16 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 
 <!-- ══ 모달: 학생 비번변경 ══ -->
 <!-- ══ 모달: 관리자 — 교사 학급 정보 변경 ══ -->
+<!-- ══ 모달: 전국 마음 날씨 지도 (교사용) ══ -->
+<div id="modal-national-map" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-national-map')">
+  <div class="modal-box" style="position:relative;max-width:520px;padding:18px 16px 16px">
+    <button class="modal-close" onclick="closeModal('modal-national-map')">✕</button>
+    <div class="modal-title">🗺️ 전국 마음 날씨</div>
+    <div id="national-map-svg"></div>
+    <div id="national-map-legend" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px"></div>
+  </div>
+</div>
+
 <div id="modal-parent-create" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-parent-create')">
   <div class="modal-box" style="position:relative">
     <button class="modal-close" onclick="closeModal('modal-parent-create')">✕</button>
@@ -2279,6 +2289,10 @@ function previewTeacher() {
     setText('statTotal', 28);
     setText('statSubmit', 20);
     setText('statMiss', 8);
+    // 전국 마음 온도 더미
+    setText('nationalTempValue', 27);
+    var nFill = document.getElementById('nationalTempFill');
+    if (nFill) setTimeout(function(){ nFill.style.width = '27%'; }, 200);
     // 날씨 클래스
     var box = document.getElementById('weatherBox');
     if (box) box.className = 'weather-box ws-partly';
@@ -2582,6 +2596,18 @@ function dashboardHTML() {
       '<span class="refresh-icon">🔄</span> 새로고침' +
     '</button>' +
   '</div>' +
+  '<div class="class-temp-bar-wrap" style="border:1.5px dashed var(--mint3);background:linear-gradient(135deg,#f5fffe,#fff)">' +
+    '<div class="class-temp-header">' +
+      '<div class="class-temp-title" style="color:#0F6E56">🌍 전국 마음 온도</div>' +
+      '<div style="display:flex;align-items:center;gap:8px">' +
+        '<div class="class-temp-degree" style="color:#0F6E56"><span id="nationalTempValue">—</span>°</div>' +
+        '<button class="btn btn-sm btn-secondary" style="font-size:11px;padding:4px 10px;white-space:nowrap" onclick="openNationalMapModal()">🗺️ 지도 보기</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="class-temp-track">' +
+      '<div class="class-temp-fill" id="nationalTempFill" style="width:0%;background:linear-gradient(90deg,#81d4fa,#4ecdb4,#1D9E75);transition:width 1.2s cubic-bezier(.4,0,.2,1)"></div>' +
+    '</div>' +
+  '</div>' +
   '<div class="class-temp-bar-wrap">' +
     '<div class="class-temp-header">' +
       '<div class="class-temp-title">🌡️ 학급 마음 온도</div>' +
@@ -2775,6 +2801,21 @@ function selectCalDay(dateStr) {
 // 기록보기 탭 진입 시 달력 데이터가 아직 없으면 조용히 로드
 async function ensureCalData() {
   if (Object.keys(CAL.data).length > 0) return; // 이미 있으면 스킵
+
+  // 미리보기 모드: 7월 더미 달력
+  if (STATE.isPreview) {
+    CAL.year = 2026; CAL.month = 6; // 7월 (0-indexed)
+    CAL.data = {
+      '2026-07-01':3, '2026-07-02':4, '2026-07-03':5, '2026-07-04':4,
+      '2026-07-07':6, '2026-07-08':5, '2026-07-09':4, '2026-07-10':3, '2026-07-11':5,
+      '2026-07-14':5, '2026-07-15':6, '2026-07-16':4, '2026-07-17':3, '2026-07-18':5,
+      '2026-07-21':4, '2026-07-22':5, '2026-07-23':3, '2026-07-24':4, '2026-07-25':6,
+      '2026-07-28':5, '2026-07-29':4, '2026-07-30':3, '2026-07-31':5,
+    };
+    renderCal();
+    return;
+  }
+
   var teacherUid = STATE.user ? (STATE.user.teacher_uid || '') : '';
   var res = await api('get_emotions', { teacher_uid: teacherUid });
   if (res.status === 'ok') {
@@ -2933,6 +2974,107 @@ function renderGiftFeed(gifts) {
     }).join('');
 }
 var _admSchools = [];       // 전체 학교 데이터 (get_admin_dashboard 응답)
+var _nationalMapCache = null; // 교사용 전국 지도 캐시
+
+// ── 교사 전국 마음 날씨 지도 모달 ──────────────────────────
+async function openNationalMapModal() {
+  openModal('modal-national-map');
+  var svgEl = document.getElementById('national-map-svg');
+  var legEl = document.getElementById('national-map-legend');
+
+  // 미리보기 모드: 더미 데이터
+  if (STATE.isPreview) {
+    var dummySchools = [
+      { region:'서울', positive:12, neutral:5, negative:3 },
+      { region:'경기', positive:18, neutral:8, negative:4 },
+      { region:'부산', positive:9,  neutral:4, negative:2 },
+      { region:'경남', positive:7,  neutral:5, negative:5 },
+      { region:'전남', positive:5,  neutral:3, negative:6 },
+      { region:'강원', positive:10, neutral:6, negative:1 },
+      { region:'충남', positive:8,  neutral:5, negative:3 },
+      { region:'충북', positive:6,  neutral:4, negative:2 },
+    ];
+    renderNationalMap(svgEl, legEl, dummySchools);
+    return;
+  }
+
+  if (_nationalMapCache) {
+    renderNationalMap(svgEl, legEl, _nationalMapCache);
+    return;
+  }
+
+  if (svgEl) svgEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--gray);font-size:13px">전국 데이터를 불러오는 중이에요 🗺️</div>';
+  var res = await api('get_admin_dashboard', {});
+  if (res.status !== 'ok') {
+    if (svgEl) svgEl.innerHTML = '<div style="text-align:center;padding:20px;color:#e05050;font-size:13px">데이터를 불러오지 못했어요</div>';
+    return;
+  }
+  _nationalMapCache = res.data.schools || [];
+
+  // 전국 평균 온도 갱신
+  var avgTemp = 0;
+  if (_nationalMapCache.length) {
+    avgTemp = Math.round(_nationalMapCache.reduce(function(s,sc){ return s + (sc.temp||0); }, 0) / _nationalMapCache.length);
+  }
+  setText('nationalTempValue', avgTemp);
+  var fill = document.getElementById('nationalTempFill');
+  if (fill) setTimeout(function(){ fill.style.width = avgTemp + '%'; }, 100);
+
+  renderNationalMap(svgEl, legEl, _nationalMapCache);
+}
+
+// 전국 지도 렌더링 (admRenderMap 의 교사 모달용 버전)
+function renderNationalMap(container, legEl, schools) {
+  if (!container) return;
+  var regionMap = {};
+  (schools || []).forEach(function(s) {
+    var r = s.region; if (!r) return;
+    if (!regionMap[r]) regionMap[r] = { pos:0, neu:0, neg:0 };
+    regionMap[r].pos += s.positive || 0;
+    regionMap[r].neu += s.neutral  || 0;
+    regionMap[r].neg += s.negative || 0;
+  });
+
+  var legendSeen = {};
+  var markers = ADM_PROVINCES.map(function(p) {
+    var d = regionMap[p.r] || { pos:0, neu:0, neg:0 };
+    var w = admRegionWeather(d.pos, d.neu, d.neg);
+    var hasData = (d.pos + d.neu + d.neg) > 0;
+    var sz = p.r === '부산' ? 54 : (p.small ? 36 : 48);
+    legendSeen[w.type] = w;
+    var IS = p.small ? 13 : (p.r === '부산' ? 20 : 17);
+    var cx = sz/2, cy = hasData ? sz*0.36 : sz/2;
+    var iconSVG = _drawWeatherIcon(w.type, cx, cy, IS);
+    var labelY = hasData ? sz*0.76 : sz*0.58;
+    var strokeW = p.r === '부산' ? 2.5 : (p.small ? 1.5 : 2);
+    var fontSize = p.r === '부산' ? 9.5 : (p.small ? 7 : 9);
+    return '<div class="adm-pin" style="' +
+      'position:absolute;left:' + p.px + '%;top:' + p.py + '%;' +
+      'transform:translate(-50%,-50%);width:' + sz + 'px;height:' + sz + 'px;cursor:default;z-index:1">' +
+      '<svg width="' + sz + '" height="' + sz + '" viewBox="0 0 ' + sz + ' ' + sz + '" xmlns="http://www.w3.org/2000/svg">' +
+        '<circle cx="' + sz/2 + '" cy="' + sz/2 + '" r="' + (sz/2-1) + '" fill="' + w.bg + '" stroke="' + w.border + '" stroke-width="' + strokeW + '" opacity="0.72"/>' +
+        iconSVG +
+        '<text x="' + sz/2 + '" y="' + labelY + '" text-anchor="middle" font-size="' + fontSize + '" font-weight="700" fill="#2D2D2D" style="user-select:none">' + p.r + '</text>' +
+      '</svg>' +
+    '</div>';
+  }).join('');
+
+  container.innerHTML =
+    '<div style="position:relative;display:inline-block;width:100%">' +
+    '<img src="' + KOREA_MAP_SRC + '" alt="한국 지도" style="width:100%;height:auto;display:block;border-radius:8px" draggable="false"/>' +
+    markers +
+    '</div>';
+
+  if (legEl) {
+    legEl.innerHTML = Object.keys(legendSeen).map(function(type) {
+      var w = legendSeen[type];
+      return '<div style="display:flex;align-items:center;gap:4px;font-size:11px">' +
+        '<div style="width:12px;height:12px;border-radius:50%;background:' + w.bg + ';border:1.5px solid ' + w.border + '"></div>' +
+        '<span>' + w.label + '</span>' +
+      '</div>';
+    }).join('');
+  }
+}
 var _admSortSchool = 'temp'; // 'temp' | 'name'
 var _admPage = 0;           // 현재 페이지 (0-indexed)
 var _notifications = [];    // 알림 목록 캐시
