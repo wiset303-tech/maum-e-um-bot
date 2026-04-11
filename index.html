@@ -845,7 +845,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   </div>
   <!-- PC USB 리더기 영역 -->
   <div id="nfcEnvUsb" style="display:none;text-align:center">
-    <button id="webusbConnectBtn" class="nfc-bypass" onclick="connectWebUSBReader()" style="color:var(--gray)">🔌 USB 카드리더기 연결하기</button>
+    <button id="webusbConnectBtn" class="nfc-bypass" onclick="connectWebUSBReader()" style="color:var(--gray)">🔌 마음카드 리더기 연결하기</button>
+    <div id="nfcUsbHint" style="font-size:11px;color:var(--gray);margin-top:6px;line-height:1.6"></div>
   </div>
   <!-- 공통: 아이디 로그인 -->
   <button class="nfc-bypass" style="margin-top:10px" onclick="openLoginModal()">카드가 없어요 (아이디로 로그인)</button>
@@ -6760,7 +6761,7 @@ function updateNfcEnvUI() {
     nfc_ready    : '카드를 폰에 가까이 대주세요 🪪',
     nfc_available: 'NFC를 활성화한 뒤 카드를 대주세요',
     ios          : '아이디로 로그인해주세요',
-    pc_no_usb    : 'USB 카드리더기를 연결하거나\n아이디로 로그인하세요',
+    pc_no_usb    : 'NFC 카드리더기가 연결된 PC라면\n마음카드 리더기를 먼저 실행하세요',
     other        : '아이디로 로그인해주세요',
   };
 
@@ -6770,14 +6771,26 @@ function updateNfcEnvUI() {
   if (envNfc) envNfc.style.display = (env === 'nfc_available') ? 'block' : 'none';
   if (envUsb) envUsb.style.display = (env === 'pc_no_usb' || env === 'usb_ready') ? 'block' : 'none';
 
+  // USB 힌트 문구
+  var hint = document.getElementById('nfcUsbHint');
+  if (hint) {
+    if (env === 'pc_no_usb') {
+      hint.innerHTML = '마음카드 리더기가 없으신가요? ' +
+        '<a href="https://drive.google.com/file/d/1JkCyF49giern3lNjYXUzZ9jCBQDOrTi1/view?usp=sharing" ' +
+        'target="_blank" style="color:var(--mint2);text-decoration:underline">여기서 다운로드</a>';
+    } else {
+      hint.innerHTML = '';
+    }
+  }
+
   // USB 버튼 상태
   if (usbBtn) {
     if (env === 'usb_ready') {
-      usbBtn.textContent = '🟢 USB 리더기 연결됨 (클릭하여 해제)';
+      usbBtn.textContent = '🟢 마음카드 리더기 연결됨 (클릭하여 해제)';
       usbBtn.style.color = 'var(--mint2)';
       usbBtn.onclick     = disconnectWebUSBReader;
     } else {
-      usbBtn.textContent = '🔌 USB 카드리더기 연결하기';
+      usbBtn.textContent = '🔌 마음카드 리더기 연결하기';
       usbBtn.style.color = 'var(--gray)';
       usbBtn.onclick     = connectWebUSBReader;
     }
@@ -6791,7 +6804,7 @@ function updateNfcEnvUI() {
     nfc_ready    : '카드를 폰에 가까이 대주세요',
     nfc_available: '카드를 폰에 가까이 대주세요',
     ios          : '아이디로 찾거나 이름을 검색하세요',
-    pc_no_usb    : 'USB 리더기를 연결하거나 아래에서 검색하세요',
+    pc_no_usb    : '마음카드 리더기를 실행한 후 연결하거나 아래에서 검색하세요',
     other        : '이름 또는 번호로 검색하세요',
   };
   if (waitMsg) waitMsg.textContent = ATTEND_MSG[env] || ATTEND_MSG.other;
