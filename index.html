@@ -6857,6 +6857,21 @@ async function _webusbInit(device) {
     _webusbPoll();
     toast('카드리더기 연결됐어요 🔌 카드를 태그해주세요');
   } catch(e) {
+    if (e.message && e.message.toLowerCase().includes('access denied')) {
+      // Windows PC/SC 드라이버가 장치를 선점한 경우
+      setTimeout(function(){
+        alert(
+          '❌ 드라이버 충돌 — Windows가 카드리더기를 선점하고 있어요.\n\n' +
+          '해결 방법 (5분):\n' +
+          '1. zadig.akeo.ie 에서 Zadig 다운로드\n' +
+          '2. 실행 → Options → List All Devices 체크\n' +
+          '3. ACR122U 선택 → WinUSB 선택 → Replace Driver\n' +
+          '4. 완료 후 Chrome 새로고침\n\n' +
+          '※ 이 작업은 처음 한 번만 하면 돼요.'
+        );
+      }, 200);
+      return;
+    }
     toast('초기화 실패: ' + e.message);
   }
 }
