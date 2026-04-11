@@ -257,15 +257,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 /* ── 탭 바 ── */
 .tab-bar{
   display:flex;background:#fff;border-bottom:2px solid var(--mint3);
-  overflow-x:auto;flex-shrink:0;scrollbar-width:none;
+  flex-shrink:0;
 }
 .tab-bar::-webkit-scrollbar{display:none}
 .tab-btn{
-  flex-shrink:0;background:none;border:none;
+  flex:1;background:none;border:none;
   font-family:'Black Han Sans',sans-serif;font-size:13px;
-  color:var(--gray);padding:10px 10px 8px;cursor:pointer;
+  color:var(--gray);padding:10px 4px 8px;cursor:pointer;
   border-bottom:3px solid transparent;margin-bottom:-2px;
-  transition:all .2s;white-space:nowrap;
+  transition:all .2s;white-space:nowrap;text-align:center;
 }
 .tab-btn.active{color:var(--mint2);border-bottom-color:var(--mint2);font-weight:700}
 
@@ -858,7 +858,6 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
         <button class="btn-icon" id="btnNotif" onclick="toggleNotifDropdown()" style="font-size:20px;position:relative">🔔<span id="notifBadge" style="display:none;position:absolute;top:-2px;right:-2px;background:#e05050;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 4px;min-width:14px;text-align:center"></span></button>
         <div id="notifDropdown" style="display:none;position:fixed;right:8px;top:62px;width:min(300px,calc(100vw - 16px));background:#fff;border-radius:14px;box-shadow:0 4px 24px rgba(0,0,0,0.18);z-index:2000;overflow:hidden;max-height:70vh;overflow-y:auto"></div>
       </div>
-      <button class="btn-icon" onclick="openSettings()">⚙️</button>
       <button class="btn btn-sm btn-secondary" onclick="logout()" style="width:auto;padding:7px 14px">로그아웃</button>
     </div>
   </div>
@@ -879,19 +878,11 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   </div>
 </div>
 
-<!-- ══ 모달: 설정 ══ -->
+<!-- ══ 모달: 설정 (NFC 화면용 — 배경음악만) ══ -->
 <div id="modal-settings" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-settings')">
   <div class="modal-box" style="position:relative">
     <div class="modal-title">⚙️ 설정</div>
     <button class="modal-close" onclick="closeModal('modal-settings')">✕</button>
-    <div class="settings-item">
-      <div><div class="settings-label">🔔 등교 알림</div><div class="settings-sub">태깅 시 알림</div></div>
-      <label class="toggle"><input type="checkbox" id="set-alarm-checkin" checked><span class="toggle-slider"></span></label>
-    </div>
-    <div class="settings-item">
-      <div><div class="settings-label">⚠️ 위기 알림</div><div class="settings-sub">부정 감정 연속 시</div></div>
-      <label class="toggle"><input type="checkbox" id="set-alarm-crisis" checked><span class="toggle-slider"></span></label>
-    </div>
     <div class="settings-item">
       <div><div class="settings-label">🎵 배경음악</div></div>
       <label class="toggle"><input type="checkbox" id="set-bgm-modal" onchange="AUDIO.toggleBgm(this.checked)"><span class="toggle-slider"></span></label>
