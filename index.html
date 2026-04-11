@@ -3671,7 +3671,12 @@ function admMapRegionClick(region, pinEl) {
 // 🔔 알림 시스템
 // ══════════════════════════════════════════════
 async function loadNotifications() {
-  var uid = STATE.user && (STATE.user.teacher_uid || STATE.user.student_uid || STATE.user.parent_uid);
+  // 역할별로 자신의 uid만 사용 (teacher_uid는 학생도 갖고 있어서 || 방식 금지)
+  var uid;
+  var role = STATE.role || (STATE.user && STATE.user.role);
+  if (role === 'teacher' || role === 'admin') uid = STATE.user && STATE.user.teacher_uid;
+  else if (role === 'student')                uid = STATE.user && STATE.user.student_uid;
+  else if (role === 'parent')                 uid = STATE.user && STATE.user.parent_uid;
   if (!uid) return;
   var res = await api('get_notifications', { recipient_uid: uid });
   if (res.status === 'ok') {
