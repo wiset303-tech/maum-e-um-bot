@@ -6233,10 +6233,9 @@ function albumTeacherHTML() {
       '<div id="adminAlbumList"><div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div></div>' +
     '</div>';
   }
-  // 교사: 학생 선택
+  // 교사: 우리 반 전체 앨범 (학생 필터 포함)
   return '<div id="albumTeacherSection">' +
-    '<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px">학생 선택</div>' +
-    '<div id="albumStudentPicker" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px"></div>' +
+    '<div id="albumStudentPicker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>' +
     '<div id="albumTeacherGrid" class="album-grid"></div>' +
     '<div id="albumTeacherEmpty" class="album-empty" style="display:none">사진이 없어요 📷</div>' +
   '</div>';
@@ -6344,52 +6343,76 @@ async function loadAlbum(loadAll) {
   _albumLoaded = true; // 캐시 유효 표시
 }
 
+var _teacherAlbumAll = [];      // 우리 반 전체 앨범 캐시
+var _teacherAlbumLoaded = false; // 로드 완료 플래그
+var _teacherAlbumFilter = null;  // null = 전체, student_uid = 특정 학생
+
 function renderAlbumStudentPicker() {
   var picker = document.getElementById('albumStudentPicker');
-  var grid   = document.getElementById('albumTeacherGrid');
-  var empty  = document.getElementById('albumTeacherEmpty');
   if (!picker) return;
-  if (!STATE.students.length) {
-    picker.innerHTML = '<div style="color:var(--gray);font-size:13px">등록된 학생이 없어요</div>';
-    return;
-  }
-  var active = STATE.students.filter(function(s){ return s.active === 'Y'; });
-  picker.innerHTML = active.map(function(s) {
-    return '<button class="btn btn-secondary" style="font-size:12px;padding:6px 12px" ' +
-      'onclick="loadTeacherAlbum(\'' + s.student_uid + '\',\'' + s.name + '\')">' +
-      (s.gender==='F'?'👧':'👦') + ' ' + s.num + '번 ' + s.name + '</button>';
+  var active = (STATE.students || []).filter(function(s){ return s.active === 'Y'; });
+
+  // 필터 버튼 렌더 (전체 + 학생별)
+  var allBtn = '<button class="btn btn-sm" id="albFilterAll" ' +
+    'style="font-size:11px;padding:4px 10px;background:var(--mint3);border:1.5px solid var(--mint2);border-radius:20px;font-weight:700;color:var(--navy)" ' +
+    'onclick="filterTeacherAlbum(null)">🖼️ 전체</button>';
+  var stuBtns = active.map(function(s) {
+    return '<button class="btn btn-sm alb-stu-btn" data-uid="' + s.student_uid + '" ' +
+      'style="font-size:11px;padding:4px 10px;background:#f5f5f5;border:1.5px solid var(--lgray);border-radius:20px;color:var(--gray)" ' +
+      'onclick="filterTeacherAlbum(\'' + s.student_uid + '\')">' +
+      (s.gender === 'F' ? '👧' : '👦') + ' ' + s.num + '번 ' + s.name + '</button>';
   }).join('');
-  if (grid) grid.innerHTML = '';
-  if (empty) empty.style.display = 'none';
-  var section = document.getElementById('albumTeacherSection');
-  if (section && !section.querySelector('#albumTeacherHint')) {
-    var h = document.createElement('div');
-    h.id = 'albumTeacherHint';
-    h.style.cssText = 'font-size:12px;color:var(--gray);margin-bottom:8px';
-    h.textContent = '학생을 선택하면 그 학생의 마음앨범을 볼 수 있어요';
-    section.insertBefore(h, grid);
-  }
+  picker.innerHTML = allBtn + stuBtns;
+
+  // 이미 로드됐으면 렌더만
+  if (_teacherAlbumLoaded) { _renderTeacherAlbumGrid(); return; }
+  _loadTeacherClassAlbum();
 }
 
-async function loadTeacherAlbum(studentUid, studentName) {
+async function _loadTeacherClassAlbum() {
   var grid  = document.getElementById('albumTeacherGrid');
   var empty = document.getElementById('albumTeacherEmpty');
-  var hint  = document.getElementById('albumTeacherHint');
-  if (!grid) return;
-  // 현재 보고 있는 학생 기억 (삭제 후 새로고침용)
-  STATE._teacherAlbumTarget = { uid: studentUid, name: studentName };
-  if (hint) hint.style.display = 'none';
+  if (grid) grid.innerHTML = '<div style="color:var(--gray);font-size:12px;text-align:center;padding:20px">불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div>';
   if (empty) empty.style.display = 'none';
+  var res = await api('get_album', { teacher_uid: STATE.user.teacher_uid });
+  _teacherAlbumAll = (res.status === 'ok') ? res.data.album : [];
   _albumCache = [];
-  grid.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:16px">불러오는 중 📷</div>';
-  var res = await api('get_album', { student_uid: studentUid });
-  if (res.status !== 'ok' || !res.data.album.length) {
+  _teacherAlbumLoaded = true;
+  _teacherAlbumFilter = null;
+  _renderTeacherAlbumGrid();
+}
+
+function filterTeacherAlbum(studentUid) {
+  _teacherAlbumFilter = studentUid;
+  // 필터 버튼 활성화 스타일 토글
+  document.querySelectorAll('#albumStudentPicker button').forEach(function(btn) {
+    var isActive = studentUid === null
+      ? btn.id === 'albFilterAll'
+      : btn.getAttribute('data-uid') === studentUid;
+    btn.style.background   = isActive ? 'var(--mint3)' : '#f5f5f5';
+    btn.style.borderColor  = isActive ? 'var(--mint2)' : 'var(--lgray)';
+    btn.style.color        = isActive ? 'var(--navy)'  : 'var(--gray)';
+    btn.style.fontWeight   = isActive ? '700'          : '400';
+  });
+  _renderTeacherAlbumGrid();
+}
+
+function _renderTeacherAlbumGrid() {
+  var grid  = document.getElementById('albumTeacherGrid');
+  var empty = document.getElementById('albumTeacherEmpty');
+  if (!grid) return;
+  _albumCache = [];
+  var items = _teacherAlbumFilter
+    ? _teacherAlbumAll.filter(function(a){ return a.student_uid === _teacherAlbumFilter; })
+    : _teacherAlbumAll;
+  items = items.slice().sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); });
+  if (!items.length) {
     grid.innerHTML = '';
-    if (empty) { empty.textContent = studentName + '의 사진이 없어요 📷'; empty.style.display = 'block'; }
+    if (empty) { empty.textContent = '사진이 없어요 📷'; empty.style.display = 'block'; }
     return;
   }
-  var sorted = res.data.album.sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); });
-  grid.innerHTML = sorted.map(function(a) { return albumItemHTML(a, true); }).join('');
+  if (empty) empty.style.display = 'none';
+  grid.innerHTML = items.map(function(a) { return albumItemHTML(a, true); }).join('');
 }
 
 // 앨범 아이템 HTML (썸네일용) — 전역 캐시로 onclick 안전하게 처리
@@ -6445,10 +6468,11 @@ async function deleteAlbumItem() {
   hideLoading();
   if (res.status === 'ok') {
     toast('삭제됐어요');
-    if (STATE.role === 'teacher' && STATE._teacherAlbumTarget) {
-      loadTeacherAlbum(STATE._teacherAlbumTarget.uid, STATE._teacherAlbumTarget.name);
+    if (STATE.role === 'teacher') {
+      _teacherAlbumLoaded = false; // 캐시 무효화 → 재로드
+      renderAlbumStudentPicker();
     } else {
-      _albumLoaded = false; // 캐시 무효화
+      _albumLoaded = false;
       loadAlbum();
     }
   } else toast(res.message);
