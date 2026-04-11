@@ -6846,10 +6846,10 @@ function connectNfcBridge() {
   if (BRIDGE.ws && BRIDGE.ws.readyState === WebSocket.OPEN) {
     toast('이미 연결되어 있어요 🟢'); return;
   }
-  _bridgeConnect();
+  _bridgeConnect(true); // 사용자 클릭 → 실패 시 안내
 }
 
-function _bridgeConnect() {
+function _bridgeConnect(isUserClick) {
   try {
     var ws = new WebSocket('ws://localhost:9999');
     ws.onopen = function() {
@@ -6874,7 +6874,12 @@ function _bridgeConnect() {
         BRIDGE.retryTimer = setTimeout(_bridgeConnect, 3000);
       }
     };
-    ws.onerror = function() {};
+    ws.onerror = function() {
+      // 사용자가 직접 버튼을 눌렀을 때만 안내 토스트
+      if (isUserClick) {
+        toast('💾 마음카드 리더기를 먼저 실행해 주세요');
+      }
+    };
   } catch(e) { toast('브릿지 연결 실패: ' + e.message); }
 }
 
