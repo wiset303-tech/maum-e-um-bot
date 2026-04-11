@@ -1604,7 +1604,8 @@ async function onLoginSuccess(data) {
     }
 
     hideLoading();
-    startDashboardPoll();
+    startDashboardPoll();        // 관리자면 60초 전체 폴링
+    if (STATE.role === 'teacher') startEmotionSignalPoll(); // 교사면 15초 신호 폴링
 
     // 달력 데이터는 백그라운드에서 조용히 로드 (기록보기 탭 진입 전 준비)
     api('get_emotions', { teacher_uid: teacherUid }).then(function(res) {
@@ -1672,9 +1673,11 @@ function skipNfcRegister() {
 
 function logout() {
   stopDashboardPoll();
-  stopPersonaPoll(); // 페르소나 폴링도 정지
-  _lastSubmitCount = -1;
-  _albumLoaded    = false; // 앨범 캐시 무효화
+  stopPersonaPoll();
+  stopEmotionSignalPoll();     // 교사 신호 폴링 정지
+  _lastSubmitCount  = -1;
+  _lastEmotionSignal = '';
+  _albumLoaded    = false;
   _albumAllLoaded = false;
   _albumCache     = [];
   _notifications  = [];
@@ -1709,12 +1712,12 @@ function exitPreview() {
   document.getElementById('btnBackAdmin').classList.add('hidden');
   document.getElementById('headerUser').textContent = (STATE.user?.name || '관리자') + ' (관리자)';
   buildAdminUI();
-  // 복귀 후 데이터 새로고침
   loadDashboard();
   api('get_students', { teacher_uid: '' }).then(function(res) {
     if (res.status === 'ok') { STATE.students = res.data.students; renderStudentList(); }
   });
-  startDashboardPoll();
+  stopEmotionSignalPoll(); // 미리보기 중 신호 폴링 정지
+  startDashboardPoll();    // 관리자 60초 폴링 재개
 }
 
 // 관리자 전용 UI 빌드
@@ -2247,10 +2250,11 @@ function previewTeacher() {
       }
     }
     var miss = document.getElementById('notSubmitList');
-    if (miss) miss.innerHTML =
-      '<div style="font-size:13px;padding:3px 0">5번 김서연</div>' +
-      '<div style="font-size:13px;padding:3px 0">12번 박민준</div>' +
-      '<div style="font-size:13px;padding:3px 0">19번 이수아</div>';
+    if (miss) renderNotSubmitList([
+      {num:5, name:'김서연'},{num:8, name:'박민준'},{num:11, name:'이수아'},
+      {num:14, name:'정하늘'},{num:17, name:'최지우'},{num:20, name:'윤서준'},
+      {num:22, name:'강다은'},{num:25, name:'오준혁'},{num:28, name:'임채원'},
+    ], false);
     // 워드클라우드 더미
     renderWordCloud([
       {word:'설레는', type:'positive', count:4},
@@ -2279,24 +2283,43 @@ function previewTeacher() {
 function previewStudent() {
   STATE.role = 'student';
   STATE.isPreview = true;
-  STATE.adminUser = STATE.user; // 복귀용 관리자 정보 보존
+  STATE.adminUser = STATE.user;
   STATE.user = {
     role        : 'student',
     student_uid : 'PREVIEW_STUDENT',
     student_id  : 'mee264101',
     name        : '김민준',
     teacher_uid : 'PREVIEW_TEACHER',
-    grade       : 4,
-    class       : 1,
-    num         : 1,
-    gender      : 'M',
+    school_name : '마음초등학교',
+    grade       : 4, class: 1, num: 1, gender: 'M',
   };
   document.getElementById('headerUser').textContent = '김민준 (학생 미리보기)';
   document.getElementById('btnBackAdmin').classList.remove('hidden');
+  // 반 친구 더미 (선물하기 목록 테스트용)
+  STATE.students = [
+    {student_uid:'ps1',student_id:'mee264102',name:'이서연',num:2,grade:4,class:1,gender:'F',active:'Y'},
+    {student_uid:'ps2',student_id:'mee264103',name:'박지호',num:3,grade:4,class:1,gender:'M',active:'Y'},
+    {student_uid:'ps3',student_id:'mee264104',name:'최유나',num:4,grade:4,class:1,gender:'F',active:'Y'},
+    {student_uid:'ps4',student_id:'mee264105',name:'정태양',num:5,grade:4,class:1,gender:'M',active:'Y'},
+  ];
+  // 토큰 더미 (2배 저축 가능 케이스 포함)
+  STATE.tokenBalance = { current_balance: 5, total_earned: 12, total_saved: 7, can_save_double: true };
+  // 알림 더미
+  _notifications = [
+    { notification_uid:'pn1', type:'token_gift', title:'💝 마음토큰 선물 도착!',
+      body:'이서연이(가) 마음토큰을 선물했어요', sender_name:'이서연',
+      is_read: false, created_at: new Date(Date.now()-300000).toISOString() },
+    { notification_uid:'pn2', type:'attendance', title:'🏫 등교 완료',
+      body:'오늘도 학교에 잘 도착했어요', sender_name:'',
+      is_read: true, created_at: new Date(Date.now()-3600000).toISOString() },
+  ];
   buildStudentUI();
-  STATE.tokenBalance = { current_balance: 5, total_earned: 12, total_saved: 7, can_save_double: false };
+  updateNotifBadge();
   setTimeout(function() {
     setText('tokenAmount', 5);
+    setText('tokenEarned', 12);
+    setText('tokenSaved', 7);
+    updateHeartTempUI(Math.min(100, Math.floor(7/2)));
   }, 200);
 }
 
@@ -2618,9 +2641,7 @@ async function loadDashboard() {
     if (!d.not_submitted?.length) {
       list.innerHTML = '<div style="font-size:13px;color:var(--gray)">모두 제출했어요 🎉</div>';
     } else {
-      list.innerHTML = d.not_submitted.map(function(s){
-        return '<div style="font-size:13px;padding:4px 0">'+s.num+'번 '+s.name+'</div>';
-      }).join('');
+      renderNotSubmitList(d.not_submitted, false);
     }
   }
 
@@ -2631,6 +2652,38 @@ async function loadDashboard() {
 }
 
 // ── 관리자 대시보드 ──
+// 미제출 학생 2열 그리드 렌더링 (더보기 지원)
+var _notSubmitAll = [];
+function renderNotSubmitList(students, showAll) {
+  _notSubmitAll = students || _notSubmitAll;
+  var list = document.getElementById('notSubmitList');
+  if (!list) return;
+  var SHOW = 8;
+  var visible = showAll ? _notSubmitAll : _notSubmitAll.slice(0, SHOW);
+  var chips = visible.map(function(s) {
+    return '<span style="display:inline-flex;align-items:center;gap:3px;' +
+      'background:var(--lav2);border-radius:20px;padding:4px 10px;' +
+      'font-size:12px;font-weight:600;color:var(--navy);white-space:nowrap">' +
+      s.num + '번 ' + s.name + '</span>';
+  }).join('');
+  var moreBtn = (!showAll && _notSubmitAll.length > SHOW)
+    ? '<div style="margin-top:6px;text-align:center">' +
+        '<button onclick="renderNotSubmitList(null,true)" ' +
+          'style="font-size:11px;color:var(--mint2);background:none;border:none;cursor:pointer;font-weight:700;padding:2px 8px">' +
+          '▼ 더보기 (+' + (_notSubmitAll.length - SHOW) + '명)' +
+        '</button>' +
+      '</div>'
+    : (showAll && _notSubmitAll.length > SHOW
+        ? '<div style="margin-top:6px;text-align:center">' +
+            '<button onclick="renderNotSubmitList(null,false)" ' +
+              'style="font-size:11px;color:var(--gray);background:none;border:none;cursor:pointer;padding:2px 8px">▲ 접기</button>' +
+          '</div>'
+        : '');
+  list.innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 6px;margin-top:2px">' +
+    chips + '</div>' + moreBtn;
+}
+
 function renderGiftFeed(gifts) {
   var el = document.getElementById('giftFeed');
   if (!el) return;
@@ -3242,48 +3295,60 @@ async function refreshDashboard() {
 }
 
 // 경량 변경 감지 폴링 — 제출 건수만 확인, 변화 시에만 풀 새로고침
-var _lastSubmitCount = -1;
-var _pollTimer = null;
+var _lastSubmitCount  = -1;
+var _lastEmotionSignal = '';
+var _pollTimer        = null;
+var _signalTimer      = null;
 
+// 관리자 전용 60초 폴링 (get_admin_dashboard — 관리자만 유지)
 function startDashboardPoll() {
   stopDashboardPoll();
+  if (STATE.role !== 'admin') return;
   _pollTimer = setInterval(async function() {
     var panel = document.getElementById('panel-0');
     if (!panel || !panel.classList.contains('active')) return;
     try {
-      if (STATE.role === 'admin') {
-        // 관리자: 위기 신호 수 변화 감지
-        var res = await api('get_admin_dashboard', {});
-        if (res.status !== 'ok') return;
-        var crisis = res.data.today_crisis || 0;
-        if (_lastSubmitCount === -1) { _lastSubmitCount = crisis; return; }
-        if (crisis !== _lastSubmitCount) {
-          _lastSubmitCount = crisis;
-          await loadAdminDashboard();
-        }
-      } else {
-        if (!STATE.user?.teacher_uid) return;
-        var res = await api('get_dashboard', { teacher_uid: STATE.user.teacher_uid });
-        if (res.status !== 'ok') return;
-        var submitted = res.data.submitted || 0;
-        if (_lastSubmitCount === -1) { _lastSubmitCount = submitted; return; }
-        if (submitted !== _lastSubmitCount) {
-          var diff = submitted - _lastSubmitCount;
-          _lastSubmitCount = submitted;
-          await loadDashboard();
-          if (diff > 0) {
-            toast('새 감정이 ' + diff + '개 제출됐어요 💛');
-            sparkleWeatherIcon(); // 날씨 아이콘 반짝임
-          }
-        }
+      var res = await api('get_admin_dashboard', {});
+      if (res.status !== 'ok') return;
+      var crisis = res.data.today_crisis || 0;
+      if (_lastSubmitCount === -1) { _lastSubmitCount = crisis; return; }
+      if (crisis !== _lastSubmitCount) {
+        _lastSubmitCount = crisis;
+        await loadAdminDashboard();
       }
     } catch(e) {}
   }, 60000);
 }
 
+// 교사 전용 감정 신호 폴링 (15초, PropertiesService 1줄 읽기 — 초경량)
+// 학생 saveEmotion 시 신호값 갱신 -> 달라지면 그때만 getDashboard 전체 호출
+function startEmotionSignalPoll() {
+  stopEmotionSignalPoll();
+  _lastEmotionSignal = '';
+  _signalTimer = setInterval(async function() {
+    if (!STATE.user || !STATE.user.teacher_uid) return;
+    try {
+      var res = await api('check_emotion_signal', { teacher_uid: STATE.user.teacher_uid });
+      if (res.status !== 'ok') return;
+      var sig = res.data.signal || '';
+      if (_lastEmotionSignal === '') { _lastEmotionSignal = sig; return; }
+      if (sig !== _lastEmotionSignal) {
+        _lastEmotionSignal = sig;
+        await loadDashboard();
+        toast('새 감정이 제출됐어요 💛');
+        sparkleWeatherIcon();
+      }
+    } catch(e) {}
+  }, 15000);
+}
+
 function stopDashboardPoll() {
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
 }
+function stopEmotionSignalPoll() {
+  if (_signalTimer) { clearInterval(_signalTimer); _signalTimer = null; }
+}
+
 
 // 새 감정 제출 감지 시 날씨 아이콘 반짝임
 function sparkleWeatherIcon() {
@@ -4819,6 +4884,23 @@ function openGame(type) {
 }
 
 async function saveToken() {
+  // 미리보기 모드: mock 성공
+  if (STATE.isPreview) {
+    var tb = STATE.tokenBalance || {};
+    var canDouble = tb.can_save_double;
+    toast((canDouble ? '2배 저축 완료! 🌟' : '저축 완료!') + ' 잔액을 불러오는 중이에요 🌡️');
+    // 더미 잔액 갱신
+    STATE.tokenBalance = Object.assign({}, tb, {
+      current_balance : Math.max(0, (tb.current_balance || 0) - 1),
+      total_saved     : (tb.total_saved || 0) + (canDouble ? 2 : 1),
+      can_save_double : false
+    });
+    setTimeout(function(){
+      setText('tokenAmount', STATE.tokenBalance.current_balance);
+      setText('tokenSaved',  STATE.tokenBalance.total_saved);
+    }, 300);
+    return;
+  }
   showLoading('마음토큰을 저축하는 중이에요 🪙');
   var res = await api('save_token', {
     student_uid : STATE.user.student_uid,
@@ -4847,6 +4929,17 @@ function openGiftSelect() {
 }
 
 async function giftToken(friend) {
+  // 미리보기 모드: mock 성공
+  if (STATE.isPreview) {
+    closeModal('modal-gift-select');
+    toast(friend.name + '에게 마음토큰을 선물했어요 💝 잔액을 불러오는 중이에요 💌');
+    var tb = STATE.tokenBalance || {};
+    STATE.tokenBalance = Object.assign({}, tb, {
+      current_balance: Math.max(0, (tb.current_balance || 0) - 1)
+    });
+    setTimeout(function(){ setText('tokenAmount', STATE.tokenBalance.current_balance); }, 300);
+    return;
+  }
   showLoading(friend.name+'에게 토큰을 선물하는 중이에요 💌');
   var res = await api('gift_token', {
     from_uid : STATE.user.student_uid,
