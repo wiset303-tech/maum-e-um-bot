@@ -2866,6 +2866,8 @@ function calMove(dir) {
   if (CAL.month > 11) { CAL.month = 0; CAL.year++; }
   if (CAL.month < 0)  { CAL.month = 11; CAL.year--; }
   renderCal();
+  // 출석부 탭이 열려있으면 그리드도 함께 갱신
+  if (document.getElementById('attendGridWrap')) renderAttendanceGrid();
 }
 
 function renderCal() {
@@ -4971,13 +4973,18 @@ function _isRedDay(dateStr) {
   return dow === 0 || dow === 6 || KR_HOLIDAYS.has(dateStr);
 }
 
-// 2026 학년도 시작(3/1)부터 오늘까지 날짜 배열 생성
-function _schoolYearDates() {
-  var start = new Date('2026-03-01T00:00:00');
-  var today = new Date(Date.now() + 9*3600000);
-  today = new Date(today.toISOString().slice(0,10) + 'T00:00:00');
+// 현재 CAL.year/month 기준 날짜 배열 (학년도 시작~오늘 범위 안에서)
+function _monthDates() {
+  var schoolStart = new Date('2026-03-01T00:00:00');
+  var todayStr = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+  var today    = new Date(todayStr + 'T00:00:00');
+  var firstDay = new Date(CAL.year, CAL.month, 1);
+  var lastDay  = new Date(CAL.year, CAL.month + 1, 0);
+  var start    = firstDay < schoolStart ? schoolStart : firstDay;
+  var end      = lastDay  > today       ? today       : lastDay;
+  if (start > end) return [];
   var dates = [];
-  for (var d = new Date(start); d <= today; d.setDate(d.getDate()+1)) {
+  for (var d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     dates.push(d.toISOString().slice(0,10));
   }
   return dates;
@@ -4991,56 +4998,56 @@ function renderAttendanceGrid() {
     wrap.innerHTML = '<div style="color:var(--gray);font-size:12px;text-align:center;padding:16px">학생 정보를 불러오는 중이에요</div>';
     return;
   }
-  var dates = _schoolYearDates();
-  if (!dates.length) { wrap.innerHTML = ''; return; }
+  var dates = _monthDates();
+  if (!dates.length) {
+    wrap.innerHTML = '<div style="color:var(--gray);font-size:12px;text-align:center;padding:16px">이 달에는 아직 출석 데이터가 없어요</div>';
+    return;
+  }
 
-  // 월별 그룹화 (colspan 계산)
-  var monthGroups = [];
-  var curMonth = '', curCount = 0;
-  dates.forEach(function(d) {
-    var ym = d.slice(0,7);
-    if (ym !== curMonth) {
-      if (curMonth) monthGroups.push({ label: parseInt(curMonth.slice(5),10)+'월', count: curCount });
-      curMonth = ym; curCount = 1;
-    } else { curCount++; }
-  });
-  if (curCount) monthGroups.push({ label: parseInt(curMonth.slice(5),10)+'월', count: curCount });
-
-  // 헤더 row1: 월 (colspan)
-  var monthCells = monthGroups.map(function(g){
-    return '<th class="attend-th-month" colspan="'+g.count+'">'+g.label+'</th>';
-  }).join('');
-
-  // 헤더 row2: 일 (MM/DD → D만 표시)
+  // 헤더: 일 번호
   var dayCells = dates.map(function(d) {
-    var day = parseInt(d.slice(8),10);
-    var cls = _isRedDay(d) ? 'attend-th-day wk' : 'attend-th-day';
-    return '<th class="'+cls+'">'+day+'</th>';
+    var day = parseInt(d.slice(8), 10);
+    var cls = _isRedDay(d) ? 'attend-th-day hol' : 'attend-th-day';
+    return '<th class="' + cls + '">' + day + '</th>';
   }).join('');
 
   // 학생 행
   var rows = students.map(function(s) {
     var cells = dates.map(function(d) {
-      var hasEmot = _attendanceMap[d] && _attendanceMap[d][s.student_uid];
-      var redCls = _isRedDay(d) ? 'attend-cell wk' : 'attend-cell';
-      return '<td class="'+redCls+'">'+(hasEmot?'🩷':'')+'</td>';
+      var has = _attendanceMap[d] && _attendanceMap[d][s.student_uid];
+      var cls = _isRedDay(d) ? 'attend-cell hol' : 'attend-cell';
+      return '<td class="' + cls + '">' + (has ? '🩷' : '') + '</td>';
     }).join('');
     return '<tr>' +
-      '<td class="attend-td-name">'+s.num+'번 '+s.name+'</td>' +
+      '<td class="attend-td-name">' + s.num + '번 ' + s.name + '</td>' +
       cells +
     '</tr>';
   }).join('');
 
   wrap.innerHTML =
-    '<div class="attend-wrap">' +
+    '<div class="attend-wrap" id="attendScrollBox">' +
       '<table class="attend-table">' +
-        '<thead>' +
-          '<tr><th class="attend-th-name" rowspan="2" style="font-size:11px">이름</th>'+monthCells+'</tr>' +
-          '<tr>'+dayCells+'</tr>' +
-        '</thead>' +
-        '<tbody>'+rows+'</tbody>' +
+        '<thead><tr>' +
+          '<th class="attend-th-name">이름</th>' + dayCells +
+        '</tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
       '</table>' +
     '</div>';
+
+  // 이번 달이면 오늘 열로 자동 스크롤
+  var todayKST = new Date(Date.now() + 9*3600000);
+  if (CAL.year === todayKST.getFullYear() && CAL.month === todayKST.getMonth()) {
+    var todayStr = todayKST.toISOString().slice(0,10);
+    var todayIdx = dates.indexOf(todayStr);
+    if (todayIdx >= 0) {
+      var NAME_W = 76, DAY_W = 26;
+      var scrollX = NAME_W + todayIdx * DAY_W - 8; // 오늘 열이 왼쪽에 살짝 여유 두고 표출
+      setTimeout(function(){
+        var box = document.getElementById('attendScrollBox');
+        if (box) box.scrollLeft = Math.max(0, scrollX);
+      }, 80);
+    }
+  }
 }
 
 function renderAdminAttendance() {
