@@ -2780,7 +2780,7 @@ function dashboardHTML() {
   return '<div class="dashboard-header">' +
     '<div class="dashboard-updated" id="dashUpdatedAt">불러오는 중...</div>' +
     '<div style="display:flex;gap:6px;align-items:center">' +
-      '<button class="btn btn-sm" style="font-size:11px;padding:4px 10px;white-space:nowrap;background:linear-gradient(135deg,#ffb347,#ffd89b);color:#7a4500;border:none;border-radius:20px;font-weight:700" onclick="openAttendanceMode()">🏃 연속등교</button>' +
+      '<button class="btn btn-sm" style="font-size:11px;padding:4px 10px;white-space:nowrap;background:linear-gradient(135deg,#b39ddb,#9575cd);color:#fff;border:none;border-radius:20px;font-weight:700" onclick="openAttendanceMode()">🏃 연속등교</button>' +
       '<button class="btn-refresh" id="btnRefresh" onclick="refreshDashboard()">' +
         '<span class="refresh-icon">🔄</span> 새로고침' +
       '</button>' +
@@ -2790,8 +2790,8 @@ function dashboardHTML() {
     '<div class="class-temp-header">' +
       '<div class="class-temp-title" style="color:#0F6E56">🌍 전국 마음 온도</div>' +
       '<div style="display:flex;align-items:center;gap:8px">' +
-        '<div class="class-temp-degree" style="color:#0F6E56"><span id="nationalTempValue">—</span>°</div>' +
         '<button class="btn btn-sm btn-secondary" style="font-size:11px;padding:4px 10px;white-space:nowrap" onclick="openNationalMapModal()">🗺️ 지도 보기</button>' +
+        '<div class="class-temp-degree" style="color:#0F6E56"><span id="nationalTempValue">—</span>°</div>' +
       '</div>' +
     '</div>' +
     '<div class="class-temp-track">' +
