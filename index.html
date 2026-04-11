@@ -429,6 +429,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .btn-refresh.spinning .refresh-icon{animation:spin .6s linear infinite}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
+.attend-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:12px;border-radius:12px;border:1px solid var(--lgray)}
+.attend-table{border-collapse:collapse;font-size:11px;width:max-content;min-width:100%}
+.attend-table th,.attend-table td{padding:4px 3px;text-align:center;border-bottom:.5px solid var(--lgray);white-space:nowrap}
+.attend-th-name{position:sticky;left:0;background:#fff;z-index:2;min-width:72px;max-width:72px;font-weight:700;color:var(--navy);border-right:1px solid var(--lgray);padding:4px 6px;text-align:left}
+.attend-td-name{position:sticky;left:0;background:#fff;z-index:1;min-width:72px;max-width:72px;font-size:11px;color:var(--navy);border-right:1px solid var(--lgray);padding:4px 6px;text-align:left;overflow:hidden;text-overflow:ellipsis}
+.attend-th-month{background:var(--mint3);color:var(--navy);font-weight:700;font-size:10px;padding:3px;border-right:1px solid var(--mint2)}
+.attend-th-day{color:var(--navy);font-size:10px;min-width:26px;max-width:26px}
+.attend-th-day.wk{color:#e05050}.attend-th-day.hol{color:#e05050;background:#fff5f5}
+.attend-cell{font-size:13px;min-width:26px;max-width:26px}.attend-cell.wk{background:#fafafa}.attend-cell.hol{background:#fff5f5}
 .warmth-bar{
   background:#fff;border-radius:var(--r2);padding:14px 16px;
   margin-bottom:14px;box-shadow:var(--shadow2);
@@ -1723,19 +1732,25 @@ async function onLoginSuccess(data) {
     startDashboardPoll();        // 관리자면 60초 전체 폴링
     if (STATE.role === 'teacher') startEmotionSignalPoll(); // 교사면 15초 신호 폴링
 
-    // 달력 + 오늘 기록 백그라운드 선로드 (기록보기 탭 진입 전 준비)
+    // 달력 + 오늘 기록 + 출석부 맵 백그라운드 선로드
     var _bgToday = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
     api('get_emotions', { teacher_uid: teacherUid }).then(function(res) {
       if (res.status === 'ok') {
         CAL.data = {};
+        _attendanceMap = {};
         var todayEmotions = [];
         res.data.emotions.forEach(function(e) {
           var d = String(e.timestamp).slice(0,10);
           CAL.data[d] = (CAL.data[d] || 0) + 1;
           if (d === _bgToday) todayEmotions.push(e);
+          if (!_attendanceMap[d]) _attendanceMap[d] = {};
+          _attendanceMap[d][e.student_uid] = true;
         });
         _preloadedTodayRecords = { date: _bgToday, emotions: todayEmotions };
         renderCal();
+        // 출석부 탭이 이미 열려있으면 즉시 렌더
+        var activeTab = document.querySelector('.tab-btn.active');
+        if (activeTab && activeTab.textContent.includes('출석부')) renderAttendanceGrid();
       }
     });
 
@@ -1906,21 +1921,25 @@ function switchTab(idx) {
   // ── 교사·관리자 탭 액션 ──
   if (STATE.role === 'teacher' || STATE.role === 'admin') {
     if (idx === 2) {
-      ensureCalData();
-      // 처음 진입 시 오늘 날짜 자동 선택
-      if (!CAL._selectedDate) {
-        var _today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
-        CAL._selectedDate = _today;
-        renderCal();
-        // 미리 로드된 오늘 기록 즉시 렌더, 없으면 API 호출
-        if (_preloadedTodayRecords && _preloadedTodayRecords.date === _today) {
-          _renderRecordList(_preloadedTodayRecords.emotions);
-        } else {
-          showLoading('기록을 불러오는 중이에요 📖');
-          loadRecords(_today);
+      if (STATE.role === 'admin') {
+        renderAdminAttendance();
+      } else {
+        ensureCalData();
+        renderAttendanceGrid();
+        // 처음 진입 시 오늘 날짜 자동 선택
+        if (!CAL._selectedDate) {
+          var _today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+          CAL._selectedDate = _today;
+          renderCal();
+          if (_preloadedTodayRecords && _preloadedTodayRecords.date === _today) {
+            _renderRecordList(_preloadedTodayRecords.emotions);
+          } else {
+            showLoading('기록을 불러오는 중이에요 📖');
+            loadRecords(_today);
+          }
         }
       }
-    }                                                                         // 기록보기
+    }                                                                         // 출석부
     if (idx === 3 && STATE.role === 'admin') renderAdminAlbum();             // 관리자 마음앨범
     if (idx === 3 && STATE.role === 'teacher') loadAlbumIfNeeded();          // 교사 마음앨범
     if (idx === 1 && STATE.role === 'admin') renderAdminAccountMgmt();      // 관리자 계정관리
@@ -2043,7 +2062,7 @@ function buildTeacherUI() {
   var tabs = [
     { label:'🌤 대시보드',  html: dashboardHTML() },
     { label: isAdmin ? '🔑 계정관리' : '👥 학생관리', html: studentMgmtHTML() },
-    { label:'📖 기록보기', html: recordsHTML() },
+    { label: isAdmin ? '📋 통합출석부' : '📋 출석부', html: recordsHTML() },
     { label:'📸 마음앨범', html: albumTeacherHTML() },
   ];
   if (!isAdmin) {
@@ -2811,8 +2830,7 @@ function studentMgmtHTML() {
 }
 
 function recordsHTML() {
-  var now = new Date();
-  var y = now.getFullYear(), m = now.getMonth();
+  if (STATE.role === 'admin') return adminAttendanceHTML();
   return '<div class="card" style="padding:12px 8px">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 8px">' +
       '<button class="btn-icon" onclick="calMove(-1)">◀</button>' +
@@ -2826,7 +2844,19 @@ function recordsHTML() {
     '</div>' +
     '<div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px"></div>' +
     '</div>' +
-    '<div class="card" id="recordList" style="margin-top:10px;min-height:60px"></div>';
+    '<div class="card" id="recordList" style="margin-top:10px;min-height:60px"></div>' +
+    '<div class="card" style="margin-top:10px;padding:12px 10px">' +
+      '<div class="card-label" style="margin-bottom:8px">📋 감정 출석부</div>' +
+      '<div id="attendGridWrap"><div style="color:var(--gray);font-size:12px;text-align:center;padding:16px">데이터를 불러오는 중이에요...</div></div>' +
+    '</div>';
+}
+
+function adminAttendanceHTML() {
+  return '<div class="card" style="padding:14px">' +
+    '<div class="card-label" style="margin-bottom:4px">📋 통합출석부</div>' +
+    '<div style="font-size:12px;color:var(--gray);margin-bottom:12px">오늘 기준 학교별 감정 제출 현황</div>' +
+    '<div id="adminAttendTable"><div style="color:var(--gray);font-size:12px;text-align:center;padding:20px">불러오는 중...</div></div>' +
+  '</div>';
 }
 
 var CAL = { year: new Date().getFullYear(), month: new Date().getMonth(), data: {} };
@@ -4918,6 +4948,142 @@ async function resetStudentPw(uid, name) {
 // 기록 보기
 // ════════════════════════════════════════
 var _preloadedTodayRecords = null; // { date:'YYYY-MM-DD', emotions:[...] } 로그인 시 채움
+var _attendanceMap = {};           // { 'YYYY-MM-DD': { student_uid: true } }
+
+// 2026 한국 공휴일 (대체공휴일 포함)
+var KR_HOLIDAYS = new Set([
+  '2026-01-01',                                     // 신정
+  '2026-01-27','2026-01-28','2026-01-29',           // 설날연휴
+  '2026-03-01','2026-03-02',                        // 삼일절 + 대체
+  '2026-05-05',                                     // 어린이날
+  '2026-05-24','2026-05-25',                        // 부처님오신날 + 대체
+  '2026-06-06','2026-06-08',                        // 현충일(토) + 대체
+  '2026-08-15','2026-08-17',                        // 광복절(토) + 대체
+  '2026-09-24','2026-09-25','2026-09-26','2026-09-27', // 추석연휴 + 대체
+  '2026-10-03','2026-10-05',                        // 개천절(토) + 대체
+  '2026-10-09',                                     // 한글날
+  '2026-12-25',                                     // 성탄절
+]);
+
+function _isRedDay(dateStr) {
+  var d = new Date(dateStr + 'T00:00:00');
+  var dow = d.getDay();
+  return dow === 0 || dow === 6 || KR_HOLIDAYS.has(dateStr);
+}
+
+// 2026 학년도 시작(3/1)부터 오늘까지 날짜 배열 생성
+function _schoolYearDates() {
+  var start = new Date('2026-03-01T00:00:00');
+  var today = new Date(Date.now() + 9*3600000);
+  today = new Date(today.toISOString().slice(0,10) + 'T00:00:00');
+  var dates = [];
+  for (var d = new Date(start); d <= today; d.setDate(d.getDate()+1)) {
+    dates.push(d.toISOString().slice(0,10));
+  }
+  return dates;
+}
+
+function renderAttendanceGrid() {
+  var wrap = document.getElementById('attendGridWrap');
+  if (!wrap) return;
+  var students = (STATE.students || []).filter(function(s){ return s.active === 'Y'; });
+  if (!students.length) {
+    wrap.innerHTML = '<div style="color:var(--gray);font-size:12px;text-align:center;padding:16px">학생 정보를 불러오는 중이에요</div>';
+    return;
+  }
+  var dates = _schoolYearDates();
+  if (!dates.length) { wrap.innerHTML = ''; return; }
+
+  // 월별 그룹화 (colspan 계산)
+  var monthGroups = [];
+  var curMonth = '', curCount = 0;
+  dates.forEach(function(d) {
+    var ym = d.slice(0,7);
+    if (ym !== curMonth) {
+      if (curMonth) monthGroups.push({ label: parseInt(curMonth.slice(5),10)+'월', count: curCount });
+      curMonth = ym; curCount = 1;
+    } else { curCount++; }
+  });
+  if (curCount) monthGroups.push({ label: parseInt(curMonth.slice(5),10)+'월', count: curCount });
+
+  // 헤더 row1: 월 (colspan)
+  var monthCells = monthGroups.map(function(g){
+    return '<th class="attend-th-month" colspan="'+g.count+'">'+g.label+'</th>';
+  }).join('');
+
+  // 헤더 row2: 일 (MM/DD → D만 표시)
+  var dayCells = dates.map(function(d) {
+    var day = parseInt(d.slice(8),10);
+    var cls = _isRedDay(d) ? 'attend-th-day wk' : 'attend-th-day';
+    return '<th class="'+cls+'">'+day+'</th>';
+  }).join('');
+
+  // 학생 행
+  var rows = students.map(function(s) {
+    var cells = dates.map(function(d) {
+      var hasEmot = _attendanceMap[d] && _attendanceMap[d][s.student_uid];
+      var redCls = _isRedDay(d) ? 'attend-cell wk' : 'attend-cell';
+      return '<td class="'+redCls+'">'+(hasEmot?'🩷':'')+'</td>';
+    }).join('');
+    return '<tr>' +
+      '<td class="attend-td-name">'+s.num+'번 '+s.name+'</td>' +
+      cells +
+    '</tr>';
+  }).join('');
+
+  wrap.innerHTML =
+    '<div class="attend-wrap">' +
+      '<table class="attend-table">' +
+        '<thead>' +
+          '<tr><th class="attend-th-name" rowspan="2" style="font-size:11px">이름</th>'+monthCells+'</tr>' +
+          '<tr>'+dayCells+'</tr>' +
+        '</thead>' +
+        '<tbody>'+rows+'</tbody>' +
+      '</table>' +
+    '</div>';
+}
+
+function renderAdminAttendance() {
+  var wrap = document.getElementById('adminAttendTable');
+  if (!wrap) return;
+  // _nationalMapCache 또는 STATE.dashboard 에서 데이터 재활용
+  var schools = _nationalMapCache || [];
+  if (!schools.length) {
+    wrap.innerHTML = '<div style="color:var(--gray);font-size:12px;text-align:center;padding:20px">데이터를 불러오는 중이에요</div>';
+    // 비동기 로드
+    api('get_admin_dashboard', {}).then(function(res) {
+      if (res.status === 'ok') {
+        _nationalMapCache = res.data.schools || [];
+        renderAdminAttendance();
+      }
+    });
+    return;
+  }
+  // 제출률 낮은 순 정렬
+  var sorted = schools.slice().sort(function(a,b){ return (a.submission_rate||0)-(b.submission_rate||0); });
+  var rows = sorted.map(function(s) {
+    var rate = Math.round((s.submission_rate||0)*100);
+    var color = rate>=70?'var(--mint2)':rate>=40?'#f59e0b':'var(--rose)';
+    return '<tr style="border-bottom:.5px solid var(--lgray)">' +
+      '<td style="padding:8px 6px;font-size:12px;color:var(--navy)">' + s.school_name + '</td>' +
+      '<td style="padding:8px 4px;font-size:12px;text-align:center;color:var(--gray)">' + (s.total_students||0) + '</td>' +
+      '<td style="padding:8px 4px;font-size:12px;text-align:center;color:var(--gray)">' + (s.submitted||0) + '</td>' +
+      '<td style="padding:8px 6px;font-size:13px;font-weight:700;text-align:right;color:'+color+'">' + rate + '%</td>' +
+    '</tr>';
+  }).join('');
+  wrap.innerHTML =
+    '<table style="width:100%;border-collapse:collapse">' +
+      '<thead><tr style="border-bottom:1.5px solid var(--lgray)">' +
+        '<th style="padding:6px;font-size:11px;color:var(--gray);text-align:left">학교</th>' +
+        '<th style="padding:6px;font-size:11px;color:var(--gray)">전체</th>' +
+        '<th style="padding:6px;font-size:11px;color:var(--gray)">제출</th>' +
+        '<th style="padding:6px;font-size:11px;color:var(--gray);text-align:right">제출률</th>' +
+      '</tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+    '</table>';
+}
+
+
 
 function _renderRecordList(emotions) {
   var el = document.getElementById('recordList');
