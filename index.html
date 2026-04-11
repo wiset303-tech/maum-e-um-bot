@@ -3089,7 +3089,13 @@ async function handleAttendNfc(uid) {
     nfc_uid: uid,
     teacher_uid: STATE.user.teacher_uid,
   });
-  if (res.status === 'ok') {
+  if (res.status === 'already_attended') {
+    AUDIO.sfx('nfc');
+    toast('✅ ' + res.data.student_name + ' — 이미 등교했어요!');
+    if (msg) msg.textContent = '카드를 가까이 대주세요';
+    updateNfcEnvUI();
+    focusNfcInput();
+  } else if (res.status === 'ok') {
     AUDIO.sfx('nfc');
     _attendShowConfirm(res.data);
   } else {
@@ -3103,14 +3109,18 @@ async function attendSearch() {
   var query = (document.getElementById('attend-search-input') || {}).value || '';
   query = query.trim();
   if (!query) return;
-  // 번호 or 이름으로 STATE.students에서 검색
   var match = STATE.students.filter(function(s) {
     return s.active === 'Y' && (String(s.num) === query || s.name.includes(query));
   });
   if (!match.length) { toast('해당 학생을 찾을 수 없어요'); return; }
   if (match.length > 1) { toast(match.map(function(s){ return s.num+'번 '+s.name; }).join(', ') + ' — 더 구체적으로 입력해주세요'); return; }
   var s = match[0];
-  // lookup 없이 직접 확인 화면으로 (토큰 미지급 — 카드 태깅 시만)
+  // 오늘 이미 등교한 학생 체크 (로컬 캐시)
+  var today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+  if (_attendanceMap[today] && _attendanceMap[today][s.student_uid]) {
+    toast('✅ ' + s.name + ' — 이미 등교했어요!');
+    return;
+  }
   _attendShowConfirm({ student_uid: s.student_uid, student_name: s.name, gender: s.gender || '' });
 }
 
@@ -3154,6 +3164,12 @@ async function submitAttendEmotion() {
   toast(res.status === 'ok'
     ? s.student_name + ' ✅ 저장됐어요'
     : (res.message || '오류가 발생했어요'));
+  if (res.status === 'ok') {
+    // 로컬 출석 맵 즉시 반영 — 같은 모달 안에서 재시도 방지
+    var today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+    if (!_attendanceMap[today]) _attendanceMap[today] = {};
+    _attendanceMap[today][s.student_uid] = true;
+  }
   _attendShowWaiting();
   focusNfcInput();
 }
