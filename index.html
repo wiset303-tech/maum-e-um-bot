@@ -858,6 +858,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
         <button class="btn-icon" id="btnNotif" onclick="toggleNotifDropdown()" style="font-size:20px;position:relative">🔔<span id="notifBadge" style="display:none;position:absolute;top:-2px;right:-2px;background:#e05050;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 4px;min-width:14px;text-align:center"></span></button>
         <div id="notifDropdown" style="display:none;position:fixed;right:8px;top:62px;width:min(300px,calc(100vw - 16px));background:#fff;border-radius:14px;box-shadow:0 4px 24px rgba(0,0,0,0.18);z-index:2000;overflow:hidden;max-height:70vh;overflow-y:auto"></div>
       </div>
+      <button class="btn-icon hidden" id="btnSettings" onclick="openSettings()" title="설정">⚙️</button>
       <button class="btn btn-sm btn-secondary" onclick="logout()" style="width:auto;padding:7px 14px">로그아웃</button>
     </div>
   </div>
@@ -1547,11 +1548,11 @@ async function handleNfcUid(uid) {
   showLoading('카드를 확인하는 중이에요 🪪');
 
   var res = await api('login_nfc', { nfc_uid: uid });
-  hideLoading();
   if (res.status === 'ok') {
     AUDIO.sfx('nfc');
-    onLoginSuccess(res.data);
+    onLoginSuccess(res.data); // hideLoading은 onLoginSuccess 내부에서 역할별로 처리
   } else {
+    hideLoading();
     toast(res.message || '등록되지 않은 카드입니다');
     if(msg) msg.textContent = '카드를 대주세요';
     focusNfcInput();
@@ -1568,12 +1569,12 @@ async function loginByPw() {
 
   showLoading('로그인 중이에요 💛');
   var res = await api('login_pw', { id: id, pw: pw });
-  hideLoading();
   if (res.status === 'ok') {
     AUDIO.sfx('login');
     closeModal('modal-login');
-    onLoginSuccess(res.data);
+    onLoginSuccess(res.data); // hideLoading은 onLoginSuccess 내부에서 처리
   } else {
+    hideLoading();
     AUDIO.sfx('error');
     toast(res.message);
   }
@@ -1647,13 +1648,19 @@ async function onLoginSuccess(data) {
 
   } else if (data.role === 'parent') {
     // 학부모 로그인 — 경량 모드 (폴링 없음)
-    hideLoading();
     buildParentUI();
-    loadNotifications(); // 알림 로드 (기존 NOTIFICATIONS 공유)
+    hideLoading();
+    loadNotifications();
 
   } else {
+    // 학생: 헤더 설정 버튼 표시 (탭에 설정 없으므로 BGM 접근용)
+    var btnSet = document.getElementById('btnSettings');
+    if (btnSet) btnSet.classList.remove('hidden');
+    // 스피너를 유지한 채 UI 구성 → 핵심 데이터 로드 완료 후 해제
+    showLoading('잠깐만요, 화면 준비 중이에요 💚');
     buildStudentUI();
-    loadTokenBalance();
+    await loadTokenBalance(); // 마음온도·토큰 로드 완료 → 스피너 해제
+    hideLoading();
     startPersonaPoll(); // 페르소나 모드 실시간 감지 시작
     if (data.teacher_uid) {
       api('get_students', { teacher_uid: data.teacher_uid }).then(function(res) {
@@ -1716,6 +1723,8 @@ function logout() {
                        persona_mode_enabled:false, persona_mode_until:'' } };
   document.getElementById('btnBackAdmin').classList.add('hidden');
   document.getElementById('headerProfileWrap').classList.add('hidden');
+  var btnSet = document.getElementById('btnSettings');
+  if (btnSet) btnSet.classList.add('hidden');
   document.getElementById('app').classList.add('hidden');
   document.getElementById('screen-nfc').classList.remove('hidden');
   document.getElementById('nfcMsg').textContent = '카드를 대주세요';
@@ -1807,6 +1816,10 @@ function switchTab(idx) {
     if (idx === 3 && STATE.role === 'admin') renderAdminAlbum();             // 관리자 마음앨범
     if (idx === 3 && STATE.role === 'teacher' && STATE.students.length) renderAlbumStudentPicker(); // 교사 마음앨범
     if (idx === 1 && STATE.role === 'admin') renderAdminAccountMgmt();      // 관리자 계정관리
+    if (idx === 4 && STATE.role === 'admin') {                               // 관리자 탭: BGM 상태 동기화
+      var admBgm = document.getElementById('adm-set-bgm');
+      if (admBgm) admBgm.checked = AUDIO.enabled.bgm;
+    }
     if (STATE.role === 'parent') onParentTabSwitch(idx);                   // 학부모 탭 전환
   }
 }
@@ -1943,7 +1956,14 @@ function buildTeacherUI() {
 }
 
 function adminHTML() {
-  return '<div class="card card-sky">' +
+  return '<div class="card" style="margin-bottom:10px">' +
+    '<div class="card-label gaegu">⚙️ 설정</div>' +
+    '<div class="settings-item">' +
+      '<div><div class="settings-label">🎵 배경음악</div></div>' +
+      '<label class="toggle"><input type="checkbox" id="adm-set-bgm" onchange="AUDIO.toggleBgm(this.checked)"><span class="toggle-slider"></span></label>' +
+    '</div>' +
+  '</div>' +
+  '<div class="card card-sky">' +
     '<div class="card-label gaegu">👀 화면 미리보기</div>' +
     '<div style="font-size:12px;color:var(--gray);margin-bottom:10px">더미 데이터로 교사·학생 화면을 미리 볼 수 있어요</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
@@ -5217,9 +5237,9 @@ async function renderAdminAlbum() {
     var sid = 'admAlb-' + sn.replace(/[^가-힣a-zA-Z0-9]/g, '_');
     return '<div style="margin-bottom:20px">' +
       // 학교 헤더
-      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">' +
-        '<span style="font-size:14px">🏫</span>' +
-        '<span style="font-weight:700;font-size:13px;color:var(--navy);flex:1">' + sn + '</span>' +
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;width:100%;box-sizing:border-box">' +
+        '<span style="font-size:14px;flex-shrink:0">🏫</span>' +
+        '<span style="font-weight:700;font-size:13px;color:var(--navy);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + sn + '</span>' +
         '<button class="btn btn-sm btn-secondary" style="font-size:11px;padding:4px 8px;display:none" ' +
           'id="admAlbMoreBtn-' + sid + '" onclick="toggleAdminAlbumMore(\'' + sid + '\')">더보기 ▼</button>' +
       '</div>' +
@@ -5245,9 +5265,9 @@ function _renderAdminAlbumFromCache(el) {
     var entry = _adminAlbumCache[sid];
     var displayName = entry.school_name || sid;
     return '<div style="margin-bottom:20px">' +
-      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">' +
-        '<span style="font-size:14px">\uD83C\uDFEB</span>' +
-        '<span style="font-weight:700;font-size:13px;color:var(--navy);flex:1">' + displayName + '</span>' +
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;width:100%;box-sizing:border-box">' +
+        '<span style="font-size:14px;flex-shrink:0">\uD83C\uDFEB</span>' +
+        '<span style="font-weight:700;font-size:13px;color:var(--navy);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + displayName + '</span>' +
         '<button class="btn btn-sm btn-secondary" style="font-size:11px;padding:4px 8px;display:none" ' +
           'id="admAlbMoreBtn-' + sid + '" ' +
           'onclick="toggleAdminAlbumMore(\'' + sid + '\')">\ub354\ubcf4\uae30 \u25bc</button>' +
