@@ -4105,38 +4105,71 @@ function _notifOutsideClick(e) {
   }
 }
 
-function renderNotifDropdown() {
+var _notifPage = 0; // 현재 알림 페이지 (0-indexed)
+var NOTIF_PER_PAGE = 3;
+
+function renderNotifDropdown(page) {
   var dd = document.getElementById('notifDropdown');
   if (!dd) return;
+  if (page !== undefined) _notifPage = page;
 
   var ICON = { token_gift:'💝', emotion_crisis:'⚡', attendance:'🏫' };
-  var items = _notifications.slice(0, 20);
+  var total = _notifications.length;
+  var totalPages = Math.max(1, Math.ceil(total / NOTIF_PER_PAGE));
+  if (_notifPage >= totalPages) _notifPage = totalPages - 1;
+  if (_notifPage < 0) _notifPage = 0;
 
-  if (!items.length) {
-    dd.innerHTML = '<div style="padding:20px;text-align:center;font-size:13px;color:var(--gray)">새 알림이 없어요 🌱</div>';
+  var start = _notifPage * NOTIF_PER_PAGE;
+  var items = _notifications.slice(start, start + NOTIF_PER_PAGE);
+
+  // 헤더
+  var header =
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px 8px;border-bottom:1px solid var(--lgray)">' +
+      '<span style="font-size:13px;font-weight:700;color:var(--navy)">알림</span>' +
+      (total > 0
+        ? '<button onclick="clearAllNotifs()" style="font-size:11px;color:#e05050;background:none;border:none;cursor:pointer;font-weight:600;padding:0">🗑 알림 비우기</button>'
+        : '') +
+    '</div>';
+
+  if (!total) {
+    dd.innerHTML = header +
+      '<div style="padding:20px;text-align:center;font-size:13px;color:var(--gray)">새 알림이 없어요 🌱</div>';
     return;
   }
 
-  dd.innerHTML =
-    '<div style="padding:12px 14px 8px;font-size:13px;font-weight:700;color:var(--navy);border-bottom:1px solid var(--lgray)">알림</div>' +
-    items.map(function(n) {
-      var icon  = ICON[n.type] || '🔔';
-      var time  = _timeAgo(n.created_at);
-      var bg    = n.is_read ? '#fff' : 'var(--mint4)';
-      return '<div onclick="markNotifRead(\'' + n.notification_uid + '\',this)" style="' +
-        'padding:10px 14px;cursor:pointer;border-bottom:0.5px solid var(--lgray);background:' + bg + ';' +
-        'transition:background .15s">' +
-        '<div style="display:flex;gap:8px;align-items:flex-start">' +
-          '<span style="font-size:18px;flex-shrink:0">' + icon + '</span>' +
-          '<div style="flex:1;min-width:0">' +
-            '<div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:2px">' + n.title + '</div>' +
-            '<div style="font-size:11px;color:var(--gray);line-height:1.4">' + n.body + '</div>' +
-            '<div style="font-size:10px;color:#bbb;margin-top:3px">' + time + '</div>' +
-          '</div>' +
+  // 알림 아이템 3개
+  var rows = items.map(function(n) {
+    var icon = ICON[n.type] || '🔔';
+    var time = _timeAgo(n.created_at);
+    var bg   = n.is_read ? '#fff' : 'var(--mint4)';
+    return '<div onclick="markNotifRead(\'' + n.notification_uid + '\',this)" style="' +
+      'padding:10px 14px;cursor:pointer;border-bottom:0.5px solid var(--lgray);background:' + bg + ';' +
+      'transition:background .15s">' +
+      '<div style="display:flex;gap:8px;align-items:flex-start">' +
+        '<span style="font-size:18px;flex-shrink:0">' + icon + '</span>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:2px">' + n.title + '</div>' +
+          '<div style="font-size:11px;color:var(--gray);line-height:1.4">' + n.body + '</div>' +
+          '<div style="font-size:10px;color:#bbb;margin-top:3px">' + time + '</div>' +
         '</div>' +
-      '</div>';
-    }).join('') +
-    '<div onclick="markAllNotifsRead()" style="padding:10px;text-align:center;font-size:11px;color:var(--mint2);cursor:pointer;font-weight:600">모두 읽음 처리</div>';
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  // 페이지 내비 + 모두 읽음
+  var nav =
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-top:1px solid var(--lgray)">' +
+      '<button onclick="renderNotifDropdown(' + (_notifPage - 1) + ')" ' +
+        'style="background:none;border:1px solid var(--lgray);border-radius:8px;padding:3px 10px;font-size:13px;cursor:pointer;color:' + (_notifPage > 0 ? 'var(--navy)' : '#ccc') + '"' +
+        (_notifPage <= 0 ? ' disabled' : '') + '>◀</button>' +
+      '<span style="font-size:11px;color:var(--gray)">' + (_notifPage+1) + ' / ' + totalPages + '</span>' +
+      '<button onclick="renderNotifDropdown(' + (_notifPage + 1) + ')" ' +
+        'style="background:none;border:1px solid var(--lgray);border-radius:8px;padding:3px 10px;font-size:13px;cursor:pointer;color:' + (_notifPage < totalPages-1 ? 'var(--navy)' : '#ccc') + '"' +
+        (_notifPage >= totalPages-1 ? ' disabled' : '') + '>▶</button>' +
+    '</div>' +
+    '<div onclick="markAllNotifsRead()" style="padding:8px;text-align:center;font-size:11px;color:var(--mint2);cursor:pointer;font-weight:600;border-top:1px solid var(--lgray)">모두 읽음 처리</div>';
+
+  dd.innerHTML = header + rows + nav;
 }
 
 async function markNotifRead(uid, el) {
@@ -4155,6 +4188,17 @@ async function markAllNotifsRead() {
   for (var i = 0; i < unread.length; i++) {
     await api('mark_notification_read', { notification_uid: unread[i].notification_uid });
   }
+}
+
+async function clearAllNotifs() {
+  if (!_notifications.length) return;
+  _notifications = [];
+  _notifPage = 0;
+  updateNotifBadge();
+  renderNotifDropdown();
+  // GAS: 해당 수신자 알림 전체 삭제
+  var uid = STATE.user ? (STATE.user.student_uid || STATE.user.teacher_uid || '') : '';
+  await api('clear_notifications', { recipient_uid: uid });
 }
 
 function _timeAgo(ts) {
