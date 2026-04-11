@@ -73,7 +73,6 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes sparkle{0%{transform:scale(1);filter:brightness(1)}25%{transform:scale(1.18);filter:brightness(1.5)}50%{transform:scale(1);filter:brightness(1)}75%{transform:scale(1.12);filter:brightness(1.4)}100%{transform:scale(1);filter:brightness(1)}}
 @keyframes ping{0%{transform:scale(1);opacity:.9}70%{transform:scale(2.2);opacity:0}100%{transform:scale(2.2);opacity:0}}
-@keyframes attendPing{0%{transform:scale(1);opacity:.7}70%{transform:scale(1.5);opacity:0}100%{transform:scale(1.5);opacity:0}}
 .submit-ping{position:relative;display:inline-block}
 .submit-ping::after{content:'';position:absolute;inset:0;border-radius:50%;background:var(--mint2);animation:ping 1s ease-out 3;opacity:0}
 .modal-title{font-family:'Black Han Sans',sans-serif;font-size:20px;color:var(--mint2);margin-bottom:16px;text-align:center}
@@ -214,14 +213,6 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .nfc-msg{font-family:'Black Han Sans',sans-serif;font-size:18px;color:var(--navy);margin-bottom:24px}
 .nfc-bypass{font-size:13px;color:var(--gray);text-decoration:none;cursor:pointer;background:none;border:none}
 .nfc-settings{position:absolute;top:20px;right:20px;font-size:26px;cursor:pointer;background:none;border:none}
-
-/* ── 연속등교 모드 ── */
-@keyframes attendPing{0%{transform:scale(1);opacity:.7}70%{transform:scale(1.5);opacity:0}100%{transform:scale(1.5);opacity:0}}
-.attend-macro{cursor:pointer;transition:all .18s}
-.attend-macro.selected{transform:scale(1.05)}
-.attend-macro.neg.selected{border-color:#e05050!important;background:#fff0f0!important;box-shadow:0 4px 14px rgba(224,80,80,.2)}
-.attend-macro.neu.selected{border-color:var(--sky)!important;background:#f0f7ff!important;box-shadow:0 4px 14px rgba(128,180,240,.2)}
-.attend-macro.pos.selected{border-color:var(--mint2)!important;background:var(--mint3)!important;box-shadow:0 4px 14px rgba(78,205,180,.25)}
 
 /* ── NFC 입력 숨김 필드 (ACR122U HID 입력용) ── */
 #nfc-input{
@@ -1120,85 +1111,6 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 
 <!-- ══ 모달: 학생 비번변경 ══ -->
 <!-- ══ 모달: 관리자 — 교사 학급 정보 변경 ══ -->
-<!-- ══ 모달: 연속등교 모드 ══ -->
-<div id="modal-attend-mode" class="modal-overlay hidden" style="z-index:600;align-items:flex-start;padding:0;overflow-y:auto">
-  <div style="width:100%;max-width:480px;margin:0 auto;min-height:100vh;background:#fff;position:relative;display:flex;flex-direction:column">
-    <!-- 헤더 -->
-    <div id="attendHeader" style="background:linear-gradient(135deg,#4ecdb4,#2aab90);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1">
-      <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:22px">🏃</span>
-        <div>
-          <div style="font-weight:900;font-size:15px;color:#fff;letter-spacing:-0.3px">연속등교 모드</div>
-          <div style="font-size:11px;color:rgba(255,255,255,.85)" id="attendArrivedCount">도착 0명</div>
-        </div>
-      </div>
-      <button onclick="closeAttendanceMode()" style="background:rgba(255,255,255,.25);border:none;border-radius:20px;padding:7px 16px;color:#fff;font-size:13px;font-weight:700;cursor:pointer">종료 ✕</button>
-    </div>
-
-    <!-- Phase 1: NFC 대기 -->
-    <div id="attendNfcPhase" style="padding:28px 20px 20px;flex:1;text-align:center">
-      <div style="margin:0 auto 20px;width:96px;height:96px;position:relative;display:flex;align-items:center;justify-content:center">
-        <div style="position:absolute;inset:0;border-radius:50%;border:3px solid var(--mint3);animation:attendPing 1.6s ease-out infinite"></div>
-        <div style="position:absolute;inset:-16px;border-radius:50%;border:2px solid var(--mint3);animation:attendPing 1.6s ease-out .5s infinite"></div>
-        <div style="width:96px;height:96px;border-radius:50%;background:linear-gradient(135deg,#e8f8f5,#d4f5ee);display:flex;align-items:center;justify-content:center;font-size:46px;position:relative;z-index:1">🪪</div>
-      </div>
-      <div style="font-size:18px;font-weight:900;color:var(--navy);letter-spacing:-0.5px;margin-bottom:6px">카드를 대주세요</div>
-      <div style="font-size:13px;color:var(--gray);margin-bottom:22px">학생이 NFC 카드를 가져다 대면 자동으로 인식돼요</div>
-      <!-- 수동 검색 -->
-      <div style="text-align:left;margin-bottom:16px">
-        <div style="font-size:11px;font-weight:700;color:var(--gray);margin-bottom:6px;letter-spacing:-0.2px">카드가 없는 학생은 이름으로 찾기</div>
-        <input id="attendSearchInput" class="inp" style="font-size:13px" placeholder="학생 이름 검색..." oninput="attendSearch(this.value)">
-        <div id="attendSearchResult" style="margin-top:6px"></div>
-      </div>
-      <!-- 도착 목록 -->
-      <div style="text-align:left">
-        <div style="font-size:11px;font-weight:700;color:var(--gray);margin-bottom:8px">✅ 도착 완료</div>
-        <div id="attendArrivedList" style="display:flex;flex-wrap:wrap;gap:6px">
-          <div style="font-size:12px;color:var(--gray)">아직 아무도 도착하지 않았어요</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Phase 2: 감정 선택 -->
-    <div id="attendEmotionPhase" class="hidden" style="padding:20px;flex:1">
-      <div style="text-align:center;margin-bottom:20px">
-        <div id="attendStudentEmoji" style="font-size:52px;margin-bottom:8px">😊</div>
-        <div id="attendStudentGreet" style="font-size:19px;font-weight:900;color:var(--navy);letter-spacing:-0.5px"></div>
-        <div style="font-size:13px;color:var(--gray);margin-top:5px">오늘 기분이 어때요?</div>
-      </div>
-      <!-- 대감정 3버튼 -->
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
-        <div class="attend-macro neg" onclick="selectAttendMacro('negative',this)"
-          style="border-radius:14px;padding:16px 6px;text-align:center;border:2px solid #ffd0d0;background:#fff8f8">
-          <div style="font-size:30px">☔</div>
-          <div style="font-size:12px;font-weight:700;color:#c04848;margin-top:5px">힘들어요</div>
-        </div>
-        <div class="attend-macro neu" onclick="selectAttendMacro('neutral',this)"
-          style="border-radius:14px;padding:16px 6px;text-align:center;border:2px solid #dde6ee;background:#f8fafc">
-          <div style="font-size:30px">☁️</div>
-          <div style="font-size:12px;font-weight:700;color:var(--navy);margin-top:5px">그냥그래요</div>
-        </div>
-        <div class="attend-macro pos" onclick="selectAttendMacro('positive',this)"
-          style="border-radius:14px;padding:16px 6px;text-align:center;border:2px solid var(--mint3);background:var(--mint4)">
-          <div style="font-size:30px">☀️</div>
-          <div style="font-size:12px;font-weight:700;color:var(--mint2);margin-top:5px">좋아요!</div>
-        </div>
-      </div>
-      <!-- 소감정 그리드 -->
-      <div id="attendMicroSection" class="hidden" style="margin-bottom:14px">
-        <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">
-          조금 더 자세히 말해봐요
-          <span style="font-size:10px;color:var(--gray);float:right;font-weight:400">선택 안 해도 됩니다</span>
-        </div>
-        <div class="micro-grid" id="attendMicroGrid"></div>
-      </div>
-      <!-- 버튼 -->
-      <button class="btn btn-mint" onclick="submitAttendEmotion()" style="width:100%;margin-bottom:10px;font-size:14px;padding:14px;letter-spacing:-0.3px">저장하고 다음 학생 →</button>
-      <button class="btn btn-secondary" onclick="skipAttendEmotion()" style="width:100%;font-size:13px;color:var(--gray);padding:11px">건너뛰기 (저장 안 함)</button>
-    </div>
-  </div>
-</div>
-
 <!-- ══ 모달: 전국 마음 날씨 지도 (교사용) ══ -->
 <div id="modal-national-map" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-national-map')">
   <div class="modal-box" style="position:relative;max-width:520px;padding:18px 16px 16px">
@@ -1651,12 +1563,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function handleNfcUid(uid) {
   if (!uid) return;
-
-  // 연속등교 모달이 열려있으면 → 등교 처리 (교사 세션 유지)
-  if (!document.getElementById('modal-attend-mode').classList.contains('hidden')) {
-    handleAttendNfc(uid);
-    return;
-  }
 
   // 등록 모달이 열려있으면 → 등록 처리
   if (!document.getElementById('modal-nfc-register').classList.contains('hidden')) {
@@ -2704,12 +2610,9 @@ function dashboardHTML() {
   }
   return '<div class="dashboard-header">' +
     '<div class="dashboard-updated" id="dashUpdatedAt">불러오는 중...</div>' +
-    '<div style="display:flex;gap:6px;align-items:center">' +
-      '<button class="btn-refresh" id="btnRefresh" onclick="refreshDashboard()">' +
-        '<span class="refresh-icon">🔄</span> 새로고침' +
-      '</button>' +
-      '<button onclick="openAttendanceMode()" style="background:linear-gradient(135deg,#4ecdb4,#2aab90);color:#fff;border:none;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:-0.3px">🏃 연속등교</button>' +
-    '</div>' +
+    '<button class="btn-refresh" id="btnRefresh" onclick="refreshDashboard()">' +
+      '<span class="refresh-icon">🔄</span> 새로고침' +
+    '</button>' +
   '</div>' +
   '<div class="class-temp-bar-wrap" style="border:1.5px dashed var(--mint3);background:linear-gradient(135deg,#f5fffe,#fff)">' +
     '<div class="class-temp-header">' +
@@ -2976,7 +2879,16 @@ async function loadDashboard() {
   var teacher_uid = STATE.user?.teacher_uid || '';
   var btnRef = document.getElementById('btnRefresh');
   if (btnRef) btnRef.classList.add('spinning');
-  var res = await api('get_dashboard', { teacher_uid });
+
+  // 교사 대시보드 + 전국 온도 동시 요청 → 스피너가 둘 다 커버
+  var natNeeded = !_nationalMapCache;
+  var results = await Promise.all([
+    api('get_dashboard', { teacher_uid }),
+    natNeeded ? api('get_admin_dashboard', {}) : Promise.resolve(null),
+  ]);
+  var res    = results[0];
+  var natRes = results[1];
+
   if (btnRef) btnRef.classList.remove('spinning');
   if (res.status !== 'ok') return;
 
@@ -3040,8 +2952,14 @@ async function loadDashboard() {
   // 선물 피드 — 오늘 선물 현황
   renderGiftFeed(d.today_gifts || []);
 
-  // 전국 마음 온도 백그라운드 선로드 (첫 로드 시 한 번만)
-  if (!_nationalMapCache) setTimeout(_preloadNationalTemp, 1200);
+  // 전국 마음 온도 — Promise.all로 이미 받아온 결과 즉시 반영
+  if (natNeeded && natRes && natRes.status === 'ok') {
+    _nationalMapCache = natRes.data.schools || [];
+    var avgTemp = natRes.data.nation_temp || 0;
+    setText('nationalTempValue', avgTemp);
+    var natFill = document.getElementById('nationalTempFill');
+    if (natFill) setTimeout(function(){ natFill.style.width = avgTemp + '%'; }, 150);
+  }
 }
 
 // ── 관리자 대시보드 ──
@@ -6314,11 +6232,6 @@ async function testWebNFC() {
       if (!uid) return;
       AUDIO.sfx('nfc');
       if (navigator.vibrate) navigator.vibrate(40);
-      // 연속등교 모드
-      if (!document.getElementById('modal-attend-mode').classList.contains('hidden')) {
-        handleAttendNfc(uid);
-        return;
-      }
       // 로그인 화면이면 즉시 스피너 + 로그인 처리
       if (!document.getElementById('screen-nfc').classList.contains('hidden')) {
         showLoading('카드를 읽는 중이에요 \uD83D\uDCB3');
@@ -6344,284 +6257,6 @@ async function testWebNFC() {
 // ════════════════════════════════════════
 // 시작
 // ════════════════════════════════════════
-// ════════════════════════════════════════
-// 연속등교 모드
-// ════════════════════════════════════════
-var ATTEND = {
-  currentStudent : null,   // { student_uid, student_name, gender, teacher_uid, school_name }
-  arrivedList    : [],     // [{ student_uid, student_name, macro }]
-  selectedMacro  : null,
-  selectedMicro  : null,
-  _searchResults : [],     // 이름 검색 임시 결과
-};
-
-function openAttendanceMode() {
-  if (!STATE.user || (STATE.role !== 'teacher' && STATE.role !== 'admin')) {
-    toast('교사만 사용할 수 있어요'); return;
-  }
-  // 상태 초기화
-  ATTEND.arrivedList    = [];
-  ATTEND.currentStudent = null;
-  ATTEND.selectedMacro  = null;
-  ATTEND.selectedMicro  = null;
-  ATTEND._searchResults = [];
-  document.getElementById('attendArrivedList').innerHTML =
-    '<div style="font-size:12px;color:var(--gray)">아직 아무도 도착하지 않았어요</div>';
-  document.getElementById('attendArrivedCount').textContent = '도착 0명';
-  document.getElementById('attendSearchInput').value = '';
-  document.getElementById('attendSearchResult').innerHTML = '';
-  _showAttendNfcPhase();
-  openModal('modal-attend-mode');
-  focusNfcInput();
-}
-
-function closeAttendanceMode() {
-  closeModal('modal-attend-mode');
-  ATTEND.currentStudent = null;
-  focusNfcInput();
-  // 도착 학생이 있으면 대시보드 갱신 (워드클라우드 반영)
-  if (ATTEND.arrivedList.length > 0) refreshDashboard();
-}
-
-function _showAttendNfcPhase() {
-  document.getElementById('attendNfcPhase').classList.remove('hidden');
-  document.getElementById('attendEmotionPhase').classList.add('hidden');
-  document.getElementById('attendHeader').style.background = 'linear-gradient(135deg,#4ecdb4,#2aab90)';
-  document.getElementById('attendSearchInput').value = '';
-  document.getElementById('attendSearchResult').innerHTML = '';
-  ATTEND.currentStudent = null;
-  ATTEND.selectedMacro  = null;
-  ATTEND.selectedMicro  = null;
-  focusNfcInput();
-}
-
-function _showAttendEmotionPhase(student) {
-  ATTEND.currentStudent = student;
-  ATTEND.selectedMacro  = null;
-  ATTEND.selectedMicro  = null;
-
-  // 성별 이모지
-  var emoji = student.gender === 'F' ? '👧' : '👦';
-  document.getElementById('attendStudentEmoji').textContent = emoji;
-
-  // 이름 + 받침 조사 (아/야)
-  var nm = student.student_name || student.name || '';
-  var code = nm.charCodeAt(nm.length - 1);
-  var postfix = (code >= 0xAC00 && (code - 0xAC00) % 28 !== 0) ? '아' : '야';
-  document.getElementById('attendStudentGreet').textContent = nm + postfix + ', 안녕! 👋';
-
-  // 대감정 버튼 초기화
-  document.querySelectorAll('.attend-macro').forEach(function(b){ b.classList.remove('selected'); });
-  document.getElementById('attendMicroSection').classList.add('hidden');
-  document.getElementById('attendMicroGrid').innerHTML = '';
-
-  // 헤더 색상 → 보라 (감정 선택 중 구분)
-  document.getElementById('attendHeader').style.background = 'linear-gradient(135deg,#c4b0f5,#9a87e0)';
-
-  document.getElementById('attendNfcPhase').classList.add('hidden');
-  document.getElementById('attendEmotionPhase').classList.remove('hidden');
-}
-
-// NFC 카드 태깅 → 학생 조회
-async function handleAttendNfc(uid) {
-  if (!uid) return;
-  showLoading('카드 확인 중 🪪');
-
-  var res = await api('lookup_nfc_student', {
-    nfc_uid    : uid,
-    teacher_uid: STATE.user.teacher_uid,
-  });
-  hideLoading();
-
-  if (res.status !== 'ok') {
-    toast(res.message || '이 학급 학생이 아닙니다');
-    AUDIO.sfx('error');
-    if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
-    focusNfcInput();
-    return;
-  }
-
-  var student = res.data;
-
-  // 이미 도착한 학생
-  if (ATTEND.arrivedList.find(function(s){ return s.student_uid === student.student_uid; })) {
-    toast(student.student_name + '은(는) 이미 도착했어요 ✅');
-    focusNfcInput();
-    return;
-  }
-
-  AUDIO.sfx('nfc');
-  if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
-  _showAttendEmotionPhase(student);
-}
-
-// 대감정 선택
-function selectAttendMacro(cat, el) {
-  ATTEND.selectedMacro = cat;
-  ATTEND.selectedMicro = null;
-  document.querySelectorAll('.attend-macro').forEach(function(b){ b.classList.remove('selected'); });
-  el.classList.add('selected');
-
-  // 소감정 그리드 렌더 (해당 카테고리 최대 6개)
-  var pool = STATE.emotions.filter(function(e){ return e.category === cat; });
-  var shown = shuffle(pool.slice()).slice(0, 6);
-  var grid  = document.getElementById('attendMicroGrid');
-  grid.innerHTML = shown.map(function(e){
-    return '<div class="micro-btn" onclick="selectAttendMicro(this)" data-id="'+e.emotion_id+'" data-word="'+e.word+'">'+e.word+'</div>';
-  }).join('') +
-    '<div class="micro-btn more-btn" onclick="openAttendMoreEmotions(\''+cat+'\')">➕ 더보기</div>';
-  document.getElementById('attendMicroSection').classList.remove('hidden');
-}
-
-// 소감정 선택
-function selectAttendMicro(el) {
-  ATTEND.selectedMicro = { id: el.dataset.id, word: el.dataset.word };
-  document.querySelectorAll('#attendMicroGrid .micro-btn').forEach(function(b){ b.classList.remove('selected'); });
-  el.classList.add('selected');
-}
-
-// 더보기 → 기존 모달 재활용
-function openAttendMoreEmotions(cat) {
-  var pool = STATE.emotions.filter(function(e){ return !cat || e.category === cat; });
-  var el   = document.getElementById('more-emotions-list');
-  el.innerHTML = pool.map(function(e){
-    return '<div class="micro-btn" onclick="selectAttendMicroFromMore(this);closeModal(\'modal-more-emotions\')" data-id="'+e.emotion_id+'" data-word="'+e.word+'" style="margin:0">'+e.word+'</div>';
-  }).join('');
-  openModal('modal-more-emotions');
-}
-
-function selectAttendMicroFromMore(el) {
-  ATTEND.selectedMicro = { id: el.dataset.id, word: el.dataset.word };
-  var grid = document.getElementById('attendMicroGrid');
-  document.querySelectorAll('#attendMicroGrid .micro-btn').forEach(function(b){ b.classList.remove('selected'); });
-  var exist = grid.querySelector('[data-id="'+el.dataset.id+'"]');
-  if (exist) {
-    exist.classList.add('selected');
-  } else {
-    var chip = document.createElement('div');
-    chip.className = 'micro-btn selected';
-    chip.dataset.id   = el.dataset.id;
-    chip.dataset.word = el.dataset.word;
-    chip.textContent  = el.dataset.word;
-    chip.onclick = function(){ selectAttendMicro(chip); };
-    grid.insertBefore(chip, grid.firstChild);
-  }
-}
-
-// 감정 저장 → NFC 대기 화면으로 복귀
-async function submitAttendEmotion() {
-  if (!ATTEND.currentStudent) return;
-  if (!ATTEND.selectedMacro) { toast('감정을 먼저 골라요 ☔☁️☀️'); return; }
-
-  var student  = ATTEND.currentStudent;
-  var micro    = ATTEND.selectedMicro;
-  var scoreMap = { positive: 2, neutral: 0, negative: -2 };
-  var macroEmoji = { positive:'☀️', neutral:'☁️', negative:'☔' };
-
-  showLoading(student.student_name + ' 감정 저장 중 💛');
-
-  var res = await api('save_emotion', {
-    student_uid  : student.student_uid,
-    student_name : student.student_name,
-    teacher_uid  : STATE.user.teacher_uid,
-    school_name  : STATE.user.school_name || '',
-    macro_emotion: ATTEND.selectedMacro,
-    micro_emotion: micro ? micro.word : '',
-    emotion_score: scoreMap[ATTEND.selectedMacro],
-    is_custom    : false,
-    custom_text  : '',
-    type         : 'checkin',
-    is_modify    : false,
-  });
-  hideLoading();
-
-  if (res.status === 'ok' || (res.message && res.message.includes('이미'))) {
-    AUDIO.sfx('save');
-    ATTEND.arrivedList.push({
-      student_uid  : student.student_uid,
-      student_name : student.student_name,
-      macro        : ATTEND.selectedMacro,
-    });
-    _renderAttendArrivedList();
-    toast((macroEmoji[ATTEND.selectedMacro] || '') + ' ' + student.student_name + ' 저장 완료!');
-  } else {
-    toast(res.message || '저장 오류가 발생했어요');
-  }
-  _showAttendNfcPhase();
-}
-
-// 건너뛰기 → 등교만 기록, 감정 없이 복귀
-function skipAttendEmotion() {
-  if (ATTEND.currentStudent) {
-    ATTEND.arrivedList.push({
-      student_uid  : ATTEND.currentStudent.student_uid,
-      student_name : ATTEND.currentStudent.student_name,
-      macro        : 'skip',
-    });
-    _renderAttendArrivedList();
-    toast(ATTEND.currentStudent.student_name + ' 건너뛰었어요');
-  }
-  _showAttendNfcPhase();
-}
-
-// 도착 목록 렌더
-function _renderAttendArrivedList() {
-  var count = ATTEND.arrivedList.length;
-  document.getElementById('attendArrivedCount').textContent = '도착 ' + count + '명';
-  var macroEmoji = { positive:'☀️', neutral:'☁️', negative:'☔', skip:'⏭️' };
-  document.getElementById('attendArrivedList').innerHTML = ATTEND.arrivedList.map(function(s){
-    return '<div style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1.5px solid var(--lgray);border-radius:20px;padding:4px 10px;font-size:12px;font-weight:700;color:var(--navy)">' +
-      (macroEmoji[s.macro] || '') + ' ' + s.student_name +
-    '</div>';
-  }).join('');
-}
-
-// 이름 수동 검색 (카드 없는 학생용 — 감정만 저장, 토큰은 일반 로그인 시 지급)
-function attendSearch(val) {
-  val = (val || '').trim();
-  var result = document.getElementById('attendSearchResult');
-  if (!val) { result.innerHTML = ''; ATTEND._searchResults = []; return; }
-
-  // STATE.students (이미 로드된 교사 학급 학생 목록) 에서 검색
-  var found = (STATE.students || []).filter(function(s){
-    return s.name && s.name.indexOf(val) !== -1;
-  }).slice(0, 4);
-  ATTEND._searchResults = found;
-
-  if (!found.length) {
-    result.innerHTML = '<div style="font-size:12px;color:var(--gray);padding:6px 0">찾을 수 없어요</div>';
-    return;
-  }
-  result.innerHTML = found.map(function(s, i){
-    var g = s.gender === 'F' ? '👧' : '👦';
-    return '<div onclick="_onAttendManualSelect('+i+')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff;border:1.5px solid var(--mint3);border-radius:10px;margin-bottom:6px;cursor:pointer">' +
-      '<span style="font-size:18px">'+g+'</span>' +
-      '<div><div style="font-size:13px;font-weight:700;color:var(--navy)">'+s.name+'</div>' +
-      '<div style="font-size:11px;color:var(--gray)">'+s.num+'번</div></div>' +
-    '</div>';
-  }).join('');
-}
-
-function _onAttendManualSelect(idx) {
-  var s = ATTEND._searchResults[idx];
-  if (!s) return;
-  document.getElementById('attendSearchInput').value = '';
-  document.getElementById('attendSearchResult').innerHTML = '';
-  ATTEND._searchResults = [];
-
-  if (ATTEND.arrivedList.find(function(a){ return a.student_uid === s.student_uid; })) {
-    toast(s.name + '은(는) 이미 도착했어요 ✅'); return;
-  }
-  // 수동 선택은 GAS 조회 없이 바로 감정 화면 (토큰은 학생 본인 로그인 시 지급)
-  _showAttendEmotionPhase({
-    student_uid : s.student_uid,
-    student_name: s.name,
-    gender      : s.gender || '',
-    teacher_uid : STATE.user.teacher_uid,
-    school_name : STATE.user.school_name || '',
-  });
-}
-
 window.addEventListener('load', startLoading);
 </script>
 
