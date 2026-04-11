@@ -2301,18 +2301,23 @@ function previewTeacher() {
       {num:14, name:'정하늘'},{num:17, name:'최지우'},{num:20, name:'윤서준'},
       {num:22, name:'강다은'},{num:25, name:'오준혁'},{num:28, name:'임채원'},
     ], false);
-    // 워드클라우드 더미
+    // 워드클라우드 더미 — 20명 감정 반영 (긍정9·중립5·부정4)
+    // 설레는3·신나는2·기쁜2·뿌듯한1·행복한1 / 그냥그래3·멍한1·심심한1 / 걱정돼2·속상한1·외로운1
     renderWordCloud([
-      {word:'설레는', type:'positive', count:4},
-      {word:'기쁜',   type:'positive', count:3},
-      {word:'신나',   type:'positive', count:3},
-      {word:'행복해', type:'positive', count:2},
-      {word:'그냥그래', type:'neutral', count:3},
-      {word:'피곤해', type:'neutral',  count:2},
-      {word:'심심해', type:'neutral',  count:1},
-      {word:'슬퍼요', type:'negative', count:2},
-      {word:'걱정돼', type:'negative', count:1},
+      {word:'설레는',  type:'positive', count:3},
+      {word:'신나는',  type:'positive', count:2},
+      {word:'기쁜',   type:'positive', count:2},
+      {word:'뿌듯한', type:'positive', count:1},
+      {word:'행복한', type:'positive', count:1},
+      {word:'그냥그래',type:'neutral',  count:3},
+      {word:'멍한',   type:'neutral',  count:1},
+      {word:'심심한', type:'neutral',  count:1},
+      {word:'걱정돼', type:'negative', count:2},
+      {word:'속상한', type:'negative', count:1},
+      {word:'외로운', type:'negative', count:1},
     ]);
+    // 미리보기 전용: 감정 슬라이더 표시
+    setTimeout(function(){ insertPreviewSliders(); }, 400);
     // 더미 학생 목록
     // 20명 더미 (학생 미리보기 '김민준 1번'도 포함)
     STATE.students = [
@@ -2386,6 +2391,122 @@ function previewTeacher() {
 }
 
 // 학생 미리보기 — 더미 데이터로 학생 화면 실행
+// ── 미리보기 감정 슬라이더 ───────────────────────────────
+// 10단계 시나리오 (긍정·중립·부정 / 20명 기준)
+var PREVIEW_STEPS = [
+  // [pos, neu, neg] 합=20 (제출 수)
+  { pos:0,  neu:2,  neg:18, weather:'rainbow',      label:'⚡ 거의 부정' },
+  { pos:2,  neu:3,  neg:15, weather:'rain',          label:'☔ 부정 우세' },
+  { pos:4,  neu:4,  neg:12, weather:'rain',          label:'🌧 부정 많음' },
+  { pos:6,  neu:5,  neg:9,  weather:'cloudy',        label:'☁️ 혼재' },
+  { pos:8,  neu:7,  neg:5,  weather:'cloudy',        label:'🌥 중립 우세' },
+  { pos:10, neu:6,  neg:4,  weather:'partly_cloudy', label:'⛅ 균형' },
+  { pos:12, neu:5,  neg:3,  weather:'partly_cloudy', label:'🌤 긍정 많음' },
+  { pos:14, neu:4,  neg:2,  weather:'sunny',         label:'☀️ 긍정 우세' },
+  { pos:16, neu:3,  neg:1,  weather:'sunny',         label:'☀️ 매우 긍정' },
+  { pos:18, neu:2,  neg:0,  weather:'sunny',         label:'☀️ 거의 긍정' },
+];
+
+// 감정별 단어 풀
+var PREVIEW_WORDS = {
+  positive: [
+    {word:'설레는', count:3},{word:'신나는', count:2},{word:'기쁜', count:2},
+    {word:'뿌듯한', count:1},{word:'행복한', count:1},{word:'두근거리는', count:1},
+    {word:'기대돼', count:1},{word:'즐거워', count:1},
+  ],
+  neutral: [
+    {word:'그냥그래', count:3},{word:'멍한', count:1},{word:'심심한', count:1},
+    {word:'피곤해', count:1},{word:'보통이야', count:1},
+  ],
+  negative: [
+    {word:'걱정돼', count:2},{word:'속상한', count:1},{word:'외로운', count:1},
+    {word:'슬퍼요', count:1},{word:'힘들어', count:1},{word:'두려워', count:1},
+  ],
+};
+
+function insertPreviewSliders() {
+  var wrap = document.getElementById('wordcloudWrap');
+  if (!wrap || document.getElementById('previewSliderBox')) return;
+  var box = document.createElement('div');
+  box.id = 'previewSliderBox';
+  box.style.cssText = 'background:#f0faf7;border-radius:12px;padding:10px 14px;margin-top:10px;font-size:12px';
+  box.innerHTML =
+    '<div style="font-weight:700;color:var(--navy);margin-bottom:8px">🎚 미리보기 감정 조절</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">' +
+      '<span style="color:#1D9E75;font-weight:700;width:28px">긍정</span>' +
+      '<input type="range" id="sliderPos" min="0" max="9" value="6" style="flex:1;accent-color:#1D9E75"' +
+        ' oninput="applyPreviewStep()">' +
+      '<span id="lblPos" style="color:#1D9E75;font-weight:700;width:22px;text-align:right"></span>' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">' +
+      '<span style="color:#888;font-weight:700;width:28px">중립</span>' +
+      '<input type="range" id="sliderNeu" min="0" max="9" value="6" style="flex:1;accent-color:#888" disabled>' +
+      '<span id="lblNeu" style="color:#888;font-weight:700;width:22px;text-align:right"></span>' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;gap:8px">' +
+      '<span style="color:#E24B4A;font-weight:700;width:28px">부정</span>' +
+      '<span id="lblNeg" style="flex:1;font-size:11px;color:var(--gray)" id="previewStepLabel"></span>' +
+    '</div>' +
+    '<div style="text-align:right;font-size:10px;color:var(--gray);margin-top:4px" id="previewStepLabel">단계: 7/10</div>';
+  wrap.parentNode.insertBefore(box, wrap.nextSibling);
+  applyPreviewStep();
+}
+
+function applyPreviewStep() {
+  var sl = document.getElementById('sliderPos');
+  if (!sl) return;
+  var step = parseInt(sl.value, 10);
+  var s = PREVIEW_STEPS[step];
+
+  // 레이블 업데이트
+  var lPos = document.getElementById('lblPos');
+  var lNeu = document.getElementById('lblNeu');
+  var lNeg = document.getElementById('lblNeg');
+  var lStep = document.getElementById('previewStepLabel');
+  if (lPos) lPos.textContent = s.pos + '명';
+  if (lNeu) lNeu.textContent = s.neu + '명';
+  if (lNeg) lNeg.textContent = s.neg + '명 부정 · ' + s.label;
+  if (lStep) lStep.textContent = '단계: ' + (step + 1) + '/10';
+
+  // 날씨 업데이트
+  var box = document.getElementById('weatherBox');
+  if (box) {
+    var wsMap = { sunny:'ws-sunny', partly_cloudy:'ws-partly', cloudy:'ws-cloudy',
+                  rain:'ws-rain', rainbow:'ws-rainbow', none:'ws-none' };
+    box.className = 'weather-box ' + (wsMap[s.weather] || 'ws-none');
+  }
+  var w = WEATHER_MAP[s.weather] || WEATHER_MAP.none;
+  setText('weatherLabel', w.label + ' ' + w.emoji);
+
+  // 감정 분포 업데이트
+  var dist = document.getElementById('emotionDist');
+  if (dist) dist.innerHTML =
+    '<span class="emotion-chip chip-pos">☀️ 긍정 ' + s.pos + '</span>' +
+    '<span class="emotion-chip chip-neu">☁️ 중립 ' + s.neu + '</span>' +
+    '<span class="emotion-chip chip-neg">☔ 부정 ' + s.neg + '</span>';
+
+  // 통계 업데이트
+  var total = s.pos + s.neu + s.neg;
+  setText('statSubmit', total);
+  setText('statMiss',   28 - total);
+
+  // 워드클라우드 갱신 — 비율에 맞게 단어 선택
+  var words = [];
+  var maxPerEmo = 5;
+  [
+    { pool: PREVIEW_WORDS.positive, count: Math.min(s.pos, maxPerEmo), type: 'positive' },
+    { pool: PREVIEW_WORDS.neutral,  count: Math.min(s.neu, maxPerEmo), type: 'neutral'  },
+    { pool: PREVIEW_WORDS.negative, count: Math.min(s.neg, maxPerEmo), type: 'negative' },
+  ].forEach(function(e) {
+    if (e.count === 0) return;
+    var n = Math.max(1, Math.ceil(e.count / 2));
+    e.pool.slice(0, n).forEach(function(w) {
+      words.push({ word: w.word, type: e.type, count: Math.max(1, Math.round(w.count * e.count / 3)) });
+    });
+  });
+  renderWordCloud(words);
+}
+
 function previewStudent() {
   STATE.role = 'student';
   STATE.isPreview = true;
@@ -2884,7 +3005,8 @@ function admRenderSchoolGrid() {
     // 온도에 따라 배지 색상
     var tempColor = temp >= 70 ? '#0F6E56' : temp >= 50 ? '#854F0B' : '#993C1D';
     var tempBg    = temp >= 70 ? '#E1F5EE' : temp >= 50 ? '#FAEEDA' : '#FAECE7';
-    var barColor  = temp >= 70 ? '#1D9E75' : temp >= 50 ? '#EF9F27' : '#D85A30';
+    // 게이지 색상: 감정 분포 기준 (긍정 우세→초록, 부정 우세→빨강, 혼합→주황)
+    var barColor  = negP >= 40 ? '#E24B4A' : negP >= 20 ? '#EF9F27' : '#1D9E75';
 
     var isSelected = (_admSelectedSchool === s.school_name);
     return '<div class="card" style="padding:12px 14px;cursor:pointer;border:' + (isSelected ? '1.5px solid #1D9E75' : '0.5px solid var(--lgray)') + '" ' +
