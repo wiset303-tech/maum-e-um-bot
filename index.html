@@ -2758,6 +2758,11 @@ function previewStudent() {
     setText('tokenEarned', 12);
     setText('tokenSaved', 7);
     updateHeartTempUI(Math.min(100, Math.floor(7/2)));
+    // 2배 저축 뱃지 미리보기 (체험용)
+    var db = document.getElementById('doubleSaveBadge');
+    var sb = document.getElementById('saveTokenBtn');
+    if (db) db.style.display = 'flex';
+    if (sb) sb.innerHTML = '🌟 저축하기 (×2)';
   }, 200);
 }
 
@@ -6157,6 +6162,14 @@ function tokenHTML() {
         '<div style="font-size:11px;color:var(--gray)">개</div>' +
       '</div>' +
     '</div>' +
+    // 2배 저축 가능 뱃지 (can_save_double=true일 때 표시)
+    '<div id="doubleSaveBadge" style="display:none;background:linear-gradient(135deg,#fff8dc,#ffe97a);border-radius:12px;padding:9px 14px;margin-bottom:10px;align-items:center;gap:8px;border:1.5px solid #ffd700">' +
+      '<span style="font-size:20px">🌟</span>' +
+      '<div style="flex:1">' +
+        '<div style="font-size:13px;font-weight:800;color:#7a5500">2배 저축 가능!</div>' +
+        '<div style="font-size:11px;color:#a07000">선물받은 토큰 덕분에 이번 저축은 2개로 적립돼요</div>' +
+      '</div>' +
+    '</div>' +
     // 선물받은 토큰 표시 (gift_balance > 0 일 때만 표시됨 — JS로 제어)
     '<div id="giftBadgeRow" style="display:none;background:linear-gradient(135deg,#fde8f5,#ffe9fb);border-radius:12px;padding:9px 14px;margin-bottom:10px;display:none;align-items:center;gap:8px">' +
       '<span style="font-size:18px">💝</span>' +
@@ -6166,7 +6179,7 @@ function tokenHTML() {
       '</div>' +
     '</div>' +
     '<div class="token-actions">' +
-      '<button class="btn btn-peach" onclick="saveToken()">🪙 저축하기</button>' +
+      '<button class="btn btn-peach" id="saveTokenBtn" onclick="saveToken()">🪙 저축하기</button>' +
       '<button class="btn btn-lav" id="giftBtn" onclick="openGiftSelect()">💌 선물하기</button>' +
     '</div>' +
     '<div class="card card-lemon" style="margin-top:8px">' +
@@ -6191,6 +6204,13 @@ async function loadTokenBalance() {
     setText('tokenSaved',  saved);
     updateHeartTempUI(temp);
     calcBannerMessage(res.data);
+
+    // 2배 저축 뱃지 + 저축 버튼 텍스트
+    var canDouble = res.data.can_save_double === true || res.data.can_save_double === 'TRUE';
+    var doubleBadge = document.getElementById('doubleSaveBadge');
+    var saveBtn     = document.getElementById('saveTokenBtn');
+    if (doubleBadge) doubleBadge.style.display = canDouble ? 'flex' : 'none';
+    if (saveBtn) saveBtn.innerHTML = canDouble ? '🌟 저축하기 (×2)' : '🪙 저축하기';
 
     // 선물받은 토큰 뱃지
     var badge = document.getElementById('giftBadgeRow');
@@ -6296,7 +6316,7 @@ function openGame(type) {
 
 async function saveToken() {
   // 이중 탭 방지: 저축 버튼 즉시 비활성화
-  var saveBtn = document.querySelector('[onclick="saveToken()"]');
+  var saveBtn = document.querySelector('#saveTokenBtn');
   if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = '0.5'; }
   var _restore = function() {
     if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = ''; }
