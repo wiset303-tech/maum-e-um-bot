@@ -6631,15 +6631,16 @@ function renderAlbumStudentPicker() {
     }).join('');
 
   picker.innerHTML =
-    '<div style="display:flex;flex-wrap:nowrap;gap:6px;align-items:center;overflow:hidden">' +
-      allBtn + recentBtns + moreBtn +
+    '<div style="display:flex;align-items:center;gap:0">' +
+      '<div style="display:flex;gap:6px;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;flex:1;min-width:0;scrollbar-width:none">' +
+        allBtn + recentBtns +
+      '</div>' +
+      (allStudentBtns ? '<div style="flex-shrink:0;margin-left:6px">' + moreBtn + '</div>' : '') +
     '</div>' +
-    '<div id="albMoreList" style="display:none;display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">' +
-      allStudentBtns +
-    '</div>';
-  // 초기 숨김 설정 (인라인 display:none 중복 피하기)
+    '<div id="albMoreList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>';
+  // 더보기 목록 초기 숨김 + 내용 채우기
   var moreList = document.getElementById('albMoreList');
-  if (moreList) moreList.style.display = 'none';
+  if (moreList) { moreList.style.display = 'none'; moreList.innerHTML = allStudentBtns; }
 
   if (_teacherAlbumLoaded) { _renderTeacherAlbumGrid(); return; }
   _loadTeacherClassAlbum();
