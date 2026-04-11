@@ -3040,7 +3040,7 @@ function openAttendanceMode() {
   ATTEND.student = null;
   ATTEND.macro   = null;
   var img = document.getElementById('attendModeImg');
-  if (img && !img.src) img.src = ATTEND_IMG;
+  if (img && !img.getAttribute('src')) img.src = ATTEND_IMG;
   _attendShowWaiting();
   openModal('modal-attend-mode');
   updateNfcEnvUI(); // 현재 환경 반영
