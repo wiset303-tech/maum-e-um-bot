@@ -2902,7 +2902,14 @@ function recordsHTML() {
     '</div>' +
     // ② 감정 출석부 (달력 바로 아래)
     '<div class="card" style="margin-top:10px;padding:12px 10px">' +
-      '<div class="card-label" style="margin-bottom:8px">📋 감정 출석부</div>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+        '<div class="card-label" style="margin:0">📋 감정 출석부</div>' +
+        '<div style="display:flex;align-items:center;gap:6px">' +
+          '<button class="btn-icon" style="font-size:14px;padding:2px 6px" onclick="attendMove(-1)">◀</button>' +
+          '<span id="attendWeekLabel" style="font-size:11px;color:var(--gray);white-space:nowrap"></span>' +
+          '<button class="btn-icon" style="font-size:14px;padding:2px 6px" onclick="attendMove(1)">▶</button>' +
+        '</div>' +
+      '</div>' +
       '<div id="attendGridWrap"><div style="color:var(--gray);font-size:12px;text-align:center;padding:16px">데이터를 불러오는 중이에요...</div></div>' +
     '</div>' +
     // ③ 날짜별 감정 제출 기록 (가장 아래)
@@ -3414,7 +3421,10 @@ function renderRegionTable(schools) {
     regionData[r].submitted += s.submitted || 0;
   });
 
-  var regionNames = ADM_PROVINCES.map(function(p) { return p.r; });
+  // 부산 최상단 고정, 나머지 ADM_PROVINCES 순서 유지
+  var regionNames = ['부산'].concat(
+    ADM_PROVINCES.map(function(p){ return p.r; }).filter(function(r){ return r !== '부산'; })
+  );
 
   var rows = regionNames.map(function(r) {
     var d = regionData[r];
@@ -5102,7 +5112,33 @@ function _monthDates() {
   return dates;
 }
 
+function attendMove(dir) {
+  var ws = new Date(CAL.weekStart + 'T12:00:00');
+  ws.setDate(ws.getDate() + dir * 7);
+
+  // 범위 제한: 과거 2026-01, 미래 2027-12
+  var minDate = new Date('2026-01-01T12:00:00');
+  var maxDate = new Date('2027-12-31T12:00:00');
+  if (ws < minDate) ws = minDate;
+  if (ws > maxDate) ws = maxDate;
+  // weekStart는 항상 해당 주의 일요일로 고정
+  ws.setDate(ws.getDate() - ws.getDay());
+
+  var y = ws.getFullYear();
+  var m = String(ws.getMonth()+1).padStart(2,'0');
+  var d = String(ws.getDate()).padStart(2,'0');
+  CAL.weekStart = y + '-' + m + '-' + d;
+  renderAttendanceGrid();
+}
+
 function renderAttendanceGrid() {
+  // 주간 라벨 업데이트 (n/a이면 조용히 스킵)
+  var ws2 = new Date(CAL.weekStart + 'T12:00:00');
+  var we2 = new Date(ws2); we2.setDate(we2.getDate() + 6);
+  var fmtMD = function(dt) { return (dt.getMonth()+1) + '/' + dt.getDate(); };
+  var lbl = document.getElementById('attendWeekLabel');
+  if (lbl) lbl.textContent = fmtMD(ws2) + ' ~ ' + fmtMD(we2);
+
   var wrap = document.getElementById('attendGridWrap');
   if (!wrap) return;
   var students = (STATE.students || []).filter(function(s){ return s.active === 'Y'; });
