@@ -5224,7 +5224,7 @@ function _monthDates() {
     var m  = String(dt.getMonth()+1).padStart(2,'0');
     var d  = String(dt.getDate()).padStart(2,'0');
     var ds = y + '-' + m + '-' + d;
-    if (ds >= schoolStart && ds <= todayStr) dates.push(ds);
+    if (ds >= schoolStart) dates.push(ds);
   }
   return dates;
 }
@@ -5275,19 +5275,25 @@ function renderAttendanceGrid() {
     return;
   }
 
+  var todayStrHdr = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
   // 헤더: 일 번호
   var dayCells = dates.map(function(d) {
     var day = parseInt(d.slice(8), 10);
+    var isFuture = d > todayStrHdr;
     var cls = _isRedDay(d) ? 'attend-th-day hol' : _isSatDay(d) ? 'attend-th-day sat' : 'attend-th-day';
-    return '<th class="' + cls + '">' + day + '</th>';
+    var style = isFuture ? ' style="opacity:.35"' : '';
+    return '<th class="' + cls + '"' + style + '>' + day + '</th>';
   }).join('');
 
+  var todayStr    = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
   // 학생 행
   var rows = students.map(function(s) {
     var cells = dates.map(function(d) {
+      var isFuture = d > todayStr;
       var has = _attendanceMap[d] && _attendanceMap[d][s.student_uid];
       var cls = _isRedDay(d) ? 'attend-cell hol' : _isSatDay(d) ? 'attend-cell sat' : 'attend-cell';
-      return '<td class="' + cls + '">' + (has ? '🩷' : '') + '</td>';
+      var style = isFuture ? ' style="background:#f5f5f5;opacity:.45"' : '';
+      return '<td class="' + cls + '"' + style + '>' + (has ? '🩷' : '') + '</td>';
     }).join('');
     return '<tr>' +
       '<td class="attend-td-name">' + s.num + '번 ' + s.name + '</td>' +
