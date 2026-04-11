@@ -443,8 +443,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .attend-td-name{position:sticky;left:0;background:#fff;z-index:1;min-width:72px;max-width:72px;font-size:11px;color:var(--navy);border-right:1px solid var(--lgray);padding:4px 6px;text-align:left;overflow:hidden;text-overflow:ellipsis}
 .attend-th-month{background:var(--mint3);color:var(--navy);font-weight:700;font-size:10px;padding:3px;border-right:1px solid var(--mint2)}
 .attend-th-day{color:var(--navy);font-size:10px;min-width:26px;max-width:26px}
-.attend-th-day.wk{color:#e05050}.attend-th-day.hol{color:#e05050;background:#fff5f5}
-.attend-cell{font-size:13px;min-width:26px;max-width:26px}.attend-cell.wk{background:#fafafa}.attend-cell.hol{background:#fff5f5}
+.attend-th-day.wk{color:#e05050}.attend-th-day.hol{color:#e05050;background:#fff5f5}.attend-th-day.sat{color:#4080e0;background:#e8f2ff}
+.attend-cell{font-size:13px;min-width:26px;max-width:26px}.attend-cell.wk{background:#fafafa}.attend-cell.hol{background:#fff5f5}.attend-cell.sat{background:#edf4ff}
 .warmth-bar{
   background:#fff;border-radius:var(--r2);padding:14px 16px;
   margin-bottom:14px;box-shadow:var(--shadow2);
@@ -2928,24 +2928,21 @@ function _getWeekSunday(d) {
 }
 
 var _todayKST = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+var _todayDate = new Date(_todayKST + 'T12:00:00');
 var CAL = {
-  weekStart: _getWeekSunday(_todayKST + 'T12:00:00'), // 이번 주 일요일
+  year:      _todayDate.getFullYear(),   // 월력 표시 연도
+  month:     _todayDate.getMonth(),      // 월력 표시 월 (0-indexed)
+  weekStart: _getWeekSunday(_todayKST + 'T12:00:00'), // 출석부용 이번 주 일요일
   data: {},
   _selectedDate: null,
-  // month/year는 하위 호환용
-  get year() { return new Date(this.weekStart + 'T12:00:00').getFullYear(); },
-  get month() { return new Date(this.weekStart + 'T12:00:00').getMonth(); }
 };
 
 function calMove(dir) {
-  var ws = new Date(CAL.weekStart + 'T12:00:00');
-  ws.setDate(ws.getDate() + dir * 7);
-  var y  = ws.getFullYear();
-  var m  = String(ws.getMonth()+1).padStart(2,'0');
-  var d  = String(ws.getDate()).padStart(2,'0');
-  CAL.weekStart = y + '-' + m + '-' + d;
+  CAL.month += dir;
+  if (CAL.month < 0)  { CAL.year--; CAL.month = 11; }
+  if (CAL.month > 11) { CAL.year++; CAL.month = 0; }
   renderCal();
-  if (document.getElementById('attendGridWrap')) renderAttendanceGrid();
+  // 출석부는 weekStart 기준 주간 유지 (별도 내비 없음)
 }
 
 function renderCal() {
@@ -2954,48 +2951,46 @@ function renderCal() {
   if (!title || !grid) return;
 
   var todayStr = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
-  var ws = new Date(CAL.weekStart + 'T12:00:00');
+  var y = CAL.year, m = CAL.month;
 
-  // 주 날짜 7개 (일~토)
-  var weekDates = [];
-  for (var i = 0; i < 7; i++) {
-    var dt = new Date(ws);
-    dt.setDate(dt.getDate() + i);
-    var y  = dt.getFullYear();
-    var m  = String(dt.getMonth()+1).padStart(2,'0');
-    var d  = String(dt.getDate()).padStart(2,'0');
-    weekDates.push(y + '-' + m + '-' + d);
-  }
-
-  // 타이틀: "4월 2주차" 또는 월이 걸치면 "3월 31일 - 4월 6일"
+  // 타이틀: "2026년 4월"
   var monthNames = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
-  var startDt = new Date(weekDates[0] + 'T12:00:00');
-  var endDt   = new Date(weekDates[6] + 'T12:00:00');
-  if (startDt.getMonth() === endDt.getMonth()) {
-    var weekNum = Math.ceil(endDt.getDate() / 7);
-    title.textContent = startDt.getFullYear() + '년 ' + monthNames[startDt.getMonth()] + ' ' + weekNum + '주';
-  } else {
-    title.textContent = (startDt.getMonth()+1) + '/' + startDt.getDate() + ' — ' + (endDt.getMonth()+1) + '/' + endDt.getDate();
+  title.textContent = y + '년 ' + monthNames[m];
+
+  // 이번 달 1일 요일(일=0) 및 마지막 날
+  var firstDow   = new Date(y, m, 1).getDay();   // 0=일
+  var lastDay    = new Date(y, m+1, 0).getDate(); // 말일
+
+  var pad = function(n){ return String(n).padStart(2,'0'); };
+  var cells = '';
+
+  // 앞 빈칸
+  for (var i = 0; i < firstDow; i++) {
+    cells += '<div></div>';
   }
 
-  var dayColors = ['#e05050','var(--navy)','var(--navy)','var(--navy)','var(--navy)','var(--navy)','#4080e0'];
-  var cells = weekDates.map(function(dateStr, idx) {
-    var dt       = new Date(dateStr + 'T12:00:00');
-    var day      = dt.getDate();
-    var count    = CAL.data[dateStr] || 0;
-    var isToday  = (dateStr === todayStr);
+  for (var d = 1; d <= lastDay; d++) {
+    var dateStr   = y + '-' + pad(m+1) + '-' + pad(d);
+    var dow       = new Date(y, m, d).getDay();
+    var isToday   = (dateStr === todayStr);
     var isSelected = (CAL._selectedDate === dateStr) && !isToday;
-    return '<div onclick="selectCalDay(\'' + dateStr + '\')" style="' +
+    var count     = CAL.data[dateStr] || 0;
+    var isSun     = (dow === 0);
+    var isSat     = (dow === 6);
+    var dayColor  = isSun ? '#e05050' : isSat ? '#4080e0' : 'var(--navy)';
+
+    cells += '<div onclick="selectCalDay(\'' + dateStr + '\')" style="' +
       'cursor:pointer;border-radius:10px;padding:4px 2px;text-align:center;' +
       'background:' + (isToday ? 'var(--mint3)' : isSelected ? 'rgba(0,0,0,0.08)' : 'transparent') + ';' +
       'transition:background .2s">' +
-      '<div style="font-size:12px;color:' + dayColors[idx] + ';font-weight:' + (isToday?'700':isSelected?'600':'400') + '">' + day + '</div>' +
+      '<div style="font-size:12px;color:' + dayColor + ';font-weight:' + (isToday?'700':isSelected?'600':'400') + '">' + d + '</div>' +
       (count > 0
         ? '<div style="font-size:10px;color:var(--rose);opacity:0.7;line-height:1.2">♥' +
           (count > 1 ? '<span style="font-size:9px;color:var(--gray);opacity:0.65">' + count + '</span>' : '') + '</div>'
         : '<div style="height:16px"></div>') +
     '</div>';
-  }).join('');
+  }
+
   grid.innerHTML = cells;
 }
 
@@ -3012,7 +3007,8 @@ async function ensureCalData() {
 
   // 미리보기 모드: 7월 더미 달력
   if (STATE.isPreview) {
-    CAL.weekStart = '2026-07-06'; // 7월 첫째 주 일요일
+    CAL.year  = 2026;
+    CAL.month = 6; // 7월 (0-indexed)
     CAL.data = {
       '2026-07-01':3, '2026-07-02':4, '2026-07-03':5, '2026-07-04':4,
       '2026-07-07':6, '2026-07-08':5, '2026-07-09':4, '2026-07-10':3, '2026-07-11':5,
@@ -5080,7 +5076,10 @@ var KR_HOLIDAYS = new Set([
 function _isRedDay(dateStr) {
   var d = new Date(dateStr + 'T00:00:00');
   var dow = d.getDay();
-  return dow === 0 || dow === 6 || KR_HOLIDAYS.has(dateStr);
+  return dow === 0 || KR_HOLIDAYS.has(dateStr); // 일요일 + 공휴일만 (토요일 별도)
+}
+function _isSatDay(dateStr) {
+  return new Date(dateStr + 'T00:00:00').getDay() === 6;
 }
 
 // 현재 CAL.year/month 기준 날짜 배열 (학년도 시작~오늘 범위 안에서)
@@ -5120,7 +5119,7 @@ function renderAttendanceGrid() {
   // 헤더: 일 번호
   var dayCells = dates.map(function(d) {
     var day = parseInt(d.slice(8), 10);
-    var cls = _isRedDay(d) ? 'attend-th-day hol' : 'attend-th-day';
+    var cls = _isRedDay(d) ? 'attend-th-day hol' : _isSatDay(d) ? 'attend-th-day sat' : 'attend-th-day';
     return '<th class="' + cls + '">' + day + '</th>';
   }).join('');
 
@@ -5128,7 +5127,7 @@ function renderAttendanceGrid() {
   var rows = students.map(function(s) {
     var cells = dates.map(function(d) {
       var has = _attendanceMap[d] && _attendanceMap[d][s.student_uid];
-      var cls = _isRedDay(d) ? 'attend-cell hol' : 'attend-cell';
+      var cls = _isRedDay(d) ? 'attend-cell hol' : _isSatDay(d) ? 'attend-cell sat' : 'attend-cell';
       return '<td class="' + cls + '">' + (has ? '🩷' : '') + '</td>';
     }).join('');
     return '<tr>' +
@@ -6519,21 +6518,69 @@ function renderAlbumStudentPicker() {
   if (!picker) return;
   var active = (STATE.students || []).filter(function(s){ return s.active === 'Y'; });
 
-  // 필터 버튼 렌더 (전체 + 학생별)
+  // 이미 앨범 로드 완료 → 최근 3명 계산
+  var recent3 = [];
+  if (_teacherAlbumLoaded && _teacherAlbumAll.length) {
+    // 학생별 최신 앨범 날짜 추출
+    var latestByUid = {};
+    _teacherAlbumAll.forEach(function(a) {
+      var prev = latestByUid[a.student_uid];
+      if (!prev || String(a.date) > String(prev)) latestByUid[a.student_uid] = String(a.date);
+    });
+    // 최신순 정렬 후 상위 3명
+    recent3 = active
+      .filter(function(s){ return latestByUid[s.student_uid]; })
+      .sort(function(a,b){ return String(latestByUid[b.student_uid]).localeCompare(String(latestByUid[a.student_uid])); })
+      .slice(0, 3);
+  }
+
   var allBtn = '<button class="btn btn-sm" id="albFilterAll" ' +
-    'style="font-size:11px;padding:4px 10px;background:var(--mint3);border:1.5px solid var(--mint2);border-radius:20px;font-weight:700;color:var(--navy)" ' +
+    'style="font-size:11px;padding:4px 10px;background:var(--mint3);border:1.5px solid var(--mint2);border-radius:20px;font-weight:700;color:var(--navy);flex-shrink:0" ' +
     'onclick="filterTeacherAlbum(null)">🖼️ 전체</button>';
-  var stuBtns = active.map(function(s) {
+
+  var recentBtns = recent3.map(function(s) {
     return '<button class="btn btn-sm alb-stu-btn" data-uid="' + s.student_uid + '" ' +
-      'style="font-size:11px;padding:4px 10px;background:#f5f5f5;border:1.5px solid var(--lgray);border-radius:20px;color:var(--gray)" ' +
+      'style="font-size:11px;padding:4px 10px;background:#f5f5f5;border:1.5px solid var(--lgray);border-radius:20px;color:var(--gray);flex-shrink:0" ' +
       'onclick="filterTeacherAlbum(\'' + s.student_uid + '\')">' +
       (s.gender === 'F' ? '👧' : '👦') + ' ' + s.num + '번 ' + s.name + '</button>';
   }).join('');
-  picker.innerHTML = allBtn + stuBtns;
 
-  // 이미 로드됐으면 렌더만
+  var moreBtn = '<button class="btn btn-sm" id="albMoreBtn" ' +
+    'style="font-size:11px;padding:4px 12px;background:#f5f5f5;border:1.5px solid var(--lgray);border-radius:20px;color:var(--gray);flex-shrink:0;margin-left:auto" ' +
+    'onclick="toggleAlbumMore()">더보기 ▼</button>';
+
+  // 전체 학생 목록 (번호순, 펼쳐지면 표시)
+  var allStudentBtns = active
+    .slice().sort(function(a,b){ return (parseInt(a.num)||0) - (parseInt(b.num)||0); })
+    .map(function(s) {
+      return '<button class="btn btn-sm alb-stu-btn" data-uid="' + s.student_uid + '" ' +
+        'style="font-size:11px;padding:4px 10px;background:#f5f5f5;border:1.5px solid var(--lgray);border-radius:20px;color:var(--gray)" ' +
+        'onclick="filterTeacherAlbum(\'' + s.student_uid + '\')">' +
+        (s.gender === 'F' ? '👧' : '👦') + ' ' + s.num + '번 ' + s.name + '</button>';
+    }).join('');
+
+  picker.innerHTML =
+    '<div style="display:flex;flex-wrap:nowrap;gap:6px;align-items:center;overflow:hidden">' +
+      allBtn + recentBtns + moreBtn +
+    '</div>' +
+    '<div id="albMoreList" style="display:none;display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">' +
+      allStudentBtns +
+    '</div>';
+  // 초기 숨김 설정 (인라인 display:none 중복 피하기)
+  var moreList = document.getElementById('albMoreList');
+  if (moreList) moreList.style.display = 'none';
+
   if (_teacherAlbumLoaded) { _renderTeacherAlbumGrid(); return; }
   _loadTeacherClassAlbum();
+}
+
+function toggleAlbumMore() {
+  var list = document.getElementById('albMoreList');
+  var btn  = document.getElementById('albMoreBtn');
+  if (!list) return;
+  var open = list.style.display !== 'none';
+  list.style.display = open ? 'none' : 'flex';
+  if (btn) btn.textContent = open ? '더보기 ▼' : '접기 ▲';
 }
 
 async function _loadTeacherClassAlbum() {
@@ -6546,13 +6593,14 @@ async function _loadTeacherClassAlbum() {
   _albumCache = [];
   _teacherAlbumLoaded = true;
   _teacherAlbumFilter = null;
+  renderAlbumStudentPicker(); // 최근 3명 재계산 후 picker 업데이트
   _renderTeacherAlbumGrid();
 }
 
 function filterTeacherAlbum(studentUid) {
   _teacherAlbumFilter = studentUid;
-  // 필터 버튼 활성화 스타일 토글
-  document.querySelectorAll('#albumStudentPicker button').forEach(function(btn) {
+  // 필터 버튼 활성화 스타일 토글 (메인 행 + 더보기 목록 모두)
+  document.querySelectorAll('#albumStudentPicker .alb-stu-btn, #albumStudentPicker #albFilterAll').forEach(function(btn) {
     var isActive = studentUid === null
       ? btn.id === 'albFilterAll'
       : btn.getAttribute('data-uid') === studentUid;
