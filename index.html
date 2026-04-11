@@ -6732,17 +6732,17 @@ async function testWebNFC() {
 // 호출 시점: 페이지 로드, NFC 준비, USB 연결/해제, 연속등교 모달 열기
 // ════════════════════════════════════════
 function _detectEnv() {
-  var ua       = navigator.userAgent;
+  var ua        = navigator.userAgent;
   var isAndroid = /Android/i.test(ua);
   var isIOS     = /iPhone|iPad|iPod/i.test(ua);
   var hasWebNFC = 'NDEFReader' in window;
-  var usbOn     = !!WEBUSB.device;
+  var bridgeOn  = !!(typeof BRIDGE !== 'undefined' && BRIDGE.active);
 
-  if (usbOn)                    return 'usb_ready';      // USB 리더기 연결됨
-  if (hasWebNFC && NFC_READY)   return 'nfc_ready';      // Android NFC 활성
-  if (hasWebNFC)                return 'nfc_available';  // Android NFC 미시작
+  if (bridgeOn)                 return 'usb_ready';
+  if (hasWebNFC && NFC_READY)   return 'nfc_ready';
+  if (hasWebNFC)                return 'nfc_available';
   if (isIOS)                    return 'ios';
-  if (!isAndroid)               return 'pc_no_usb';      // PC, 리더기 없음
+  if (!isAndroid)               return 'pc_no_usb';
   return 'other';
 }
 
@@ -6802,170 +6802,69 @@ function updateNfcEnvUI() {
 }
 
 
-// 갤럭시 Web NFC와 동일하게 handleNfcUid()로 연결
 // ════════════════════════════════════════
-var WEBUSB = {
-  device : null,
-  polling: false,
-  seq    : 0,
-  outEp  : 2,   // Bulk OUT
-  inEp   : 2,   // Bulk IN
-};
+// NFC 브릿지 클라이언트 (PC용 ACR122U)
+// 로컬 Python 브릿지(ws://localhost:9999)와 연결
+// 카드 태그 → UID 수신 → handleNfcUid() — 기존 흐름 그대로
+// ════════════════════════════════════════
+var BRIDGE = { ws: null, active: false, retryTimer: null };
 
-async function connectWebUSBReader() {
-  if (!navigator.usb) {
-    toast('USB를 지원하지 않는 브라우저예요. Chrome을 사용해주세요.');
-    return;
+function connectNfcBridge() {
+  if (BRIDGE.ws && BRIDGE.ws.readyState === WebSocket.OPEN) {
+    toast('이미 연결되어 있어요 🟢'); return;
   }
+  _bridgeConnect();
+}
+
+function _bridgeConnect() {
   try {
-    var device = await navigator.usb.requestDevice({
-      filters: [{ vendorId: 0x072F }]  // ACS 사 전체 (ACR122U 포함)
-    });
-    await _webusbInit(device);
-  } catch(e) {
-    if (e.name !== 'NotFoundError') toast('연결 실패: ' + (e.message || '취소됨'));
-  }
-}
-
-async function _webusbInit(device) {
-  try {
-    await device.open();
-    if (device.configuration === null) await device.selectConfiguration(1);
-
-    // CCID 인터페이스(class 0x0B) 탐색
-    var ifaceNum = 0;
-    outer: for (var conf of device.configurations) {
-      for (var iface of conf.interfaces) {
-        for (var alt of iface.alternates) {
-          if (alt.interfaceClass === 0x0B) {
-            ifaceNum = iface.interfaceNumber;
-            for (var ep of alt.endpoints) {
-              if (ep.type === 'bulk' && ep.direction === 'out') WEBUSB.outEp = ep.endpointNumber;
-              if (ep.type === 'bulk' && ep.direction === 'in')  WEBUSB.inEp  = ep.endpointNumber;
-            }
-            break outer;
-          }
-        }
-      }
-    }
-    await device.claimInterface(ifaceNum);
-
-    WEBUSB.device  = device;
-    WEBUSB.seq     = 0;
-    WEBUSB.polling = true;
-    _webusbUpdateUI(true);
-    _webusbPoll();
-    toast('카드리더기 연결됐어요 🔌 카드를 태그해주세요');
-  } catch(e) {
-    if (e.message && e.message.toLowerCase().includes('access denied')) {
-      // Windows PC/SC 드라이버가 장치를 선점한 경우
-      setTimeout(function(){
-        alert(
-          '❌ 드라이버 충돌 — Windows가 카드리더기를 선점하고 있어요.\n\n' +
-          '해결 방법 (5분):\n' +
-          '1. zadig.akeo.ie 에서 Zadig 다운로드\n' +
-          '2. 실행 → Options → List All Devices 체크\n' +
-          '3. ACR122U 선택 → WinUSB 선택 → Replace Driver\n' +
-          '4. 완료 후 Chrome 새로고침\n\n' +
-          '※ 이 작업은 처음 한 번만 하면 돼요.'
-        );
-      }, 200);
-      return;
-    }
-    toast('초기화 실패: ' + e.message);
-  }
-}
-
-// CCID 메시지 조립
-function _ccidMsg(type, data) {
-  data = data instanceof Uint8Array ? data : new Uint8Array(0);
-  var buf = new Uint8Array(10 + data.length);
-  buf[0] = type;
-  var len = data.length;
-  buf[1] = len & 0xFF; buf[2] = (len>>8)&0xFF;
-  buf[3] = (len>>16)&0xFF; buf[4] = (len>>24)&0xFF;
-  buf[5] = 0x00;                    // slot
-  buf[6] = WEBUSB.seq++ & 0xFF;    // seq
-  // buf[7..9] = 0x00
-  buf.set(data, 10);
-  return buf;
-}
-
-async function _ccidXfer(type, data) {
-  var msg = _ccidMsg(type, data);
-  await WEBUSB.device.transferOut(WEBUSB.outEp, msg);
-  var res = await WEBUSB.device.transferIn(WEBUSB.inEp, 265);
-  return res.data;
-}
-
-async function _webusbPoll() {
-  if (!WEBUSB.device || !WEBUSB.polling) return;
-  try {
-    // 1. IccPowerOn (0x62) → 카드 활성화 + 감지
-    var pr = await _ccidXfer(0x62, null);
-    if (pr.getUint8(7) === 0x00) {            // bStatus = success → 카드 있음
-      // 2. XfrBlock (0x6F) — APDU: FF CA 00 00 00 (Get UID)
-      var apdu = new Uint8Array([0xFF,0xCA,0x00,0x00,0x00]);
-      var ur = await _ccidXfer(0x6F, apdu);
-      var dataLen = ur.getUint32(1, true);
-      if (ur.getUint8(7) === 0x00 && dataLen >= 4) {
-        // 마지막 2바이트(SW1 SW2 = 90 00) 제외하고 UID 조립
-        var uid = '';
-        for (var i = 10; i < 10 + dataLen - 2; i++) {
-          uid += ('0' + ur.getUint8(i).toString(16)).slice(-2);
-        }
-        if (uid) {
-          // IccPowerOff (0x63) — 카드 해제 (같은 카드 재태깅 허용)
-          try { await _ccidXfer(0x63, null); } catch(e) {}
-          AUDIO.sfx('nfc');
-          if (navigator.vibrate) navigator.vibrate(40);
-          handleNfcUid(uid);            // → 기존 로그인/연속등교 분기 그대로
-          setTimeout(_webusbPoll, 1500);
-          return;
-        }
-      }
-    }
-    // 카드 없음 → PowerOff 후 재시도
-    try { await _ccidXfer(0x63, null); } catch(e) {}
-  } catch(e) {
-    if (!WEBUSB.polling) return;
-    if (e.name === 'NotFoundError' || e.name === 'InvalidStateError') {
-      WEBUSB.device  = null;
-      WEBUSB.polling = false;
+    var ws = new WebSocket('ws://localhost:9999');
+    ws.onopen = function() {
+      BRIDGE.ws = ws; BRIDGE.active = true;
+      if (BRIDGE.retryTimer) { clearTimeout(BRIDGE.retryTimer); BRIDGE.retryTimer = null; }
+      toast('카드리더기 연결됐어요 🔌 카드를 태그해주세요');
+      _webusbUpdateUI(true);
+    };
+    ws.onmessage = function(e) {
+      var uid = (e.data || '').trim();
+      if (!uid) return;
+      AUDIO.sfx('nfc');
+      if (navigator.vibrate) navigator.vibrate(40);
+      handleNfcUid(uid);
+    };
+    ws.onclose = function() {
+      var wasActive = BRIDGE.active;
+      BRIDGE.ws = null; BRIDGE.active = false;
       _webusbUpdateUI(false);
-      toast('카드리더기 연결이 끊어졌어요 🔌');
-      return;
-    }
-  }
-  setTimeout(_webusbPoll, 600);
+      if (wasActive) {
+        toast('카드리더기 연결이 끊어졌어요. 재연결 시도 중...');
+        BRIDGE.retryTimer = setTimeout(_bridgeConnect, 3000);
+      }
+    };
+    ws.onerror = function() {};
+  } catch(e) { toast('브릿지 연결 실패: ' + e.message); }
 }
 
 function disconnectWebUSBReader() {
-  WEBUSB.polling = false;
-  if (WEBUSB.device) {
-    try { WEBUSB.device.close(); } catch(e) {}
-    WEBUSB.device = null;
-  }
+  if (BRIDGE.retryTimer) { clearTimeout(BRIDGE.retryTimer); BRIDGE.retryTimer = null; }
+  if (BRIDGE.ws) { BRIDGE.ws.onclose = null; BRIDGE.ws.close(); BRIDGE.ws = null; }
+  BRIDGE.active = false;
   _webusbUpdateUI(false);
   toast('카드리더기 연결 해제됐어요');
 }
 
-function _webusbUpdateUI(connected) {
-  updateNfcEnvUI(); // 환경 재평가 → NFC 화면 + 연속등교 모달 동시 업데이트
-}
+function connectWebUSBReader() { connectNfcBridge(); }
 
-// 페이지 재로드 시 이전 연결 자동 복구
+function _webusbUpdateUI(connected) { updateNfcEnvUI(); }
+
+// 페이지 로드 시 브릿지 자동 연결 시도 (백그라운드, 조용히)
 async function tryAutoReconnectUSB() {
-  if (!navigator.usb) {
-    updateNfcEnvUI(); // USB 없는 환경도 UI 초기화
-    return;
-  }
+  updateNfcEnvUI();
   try {
-    var devs = await navigator.usb.getDevices();
-    var acs  = devs.find(function(d){ return d.vendorId === 0x072F; });
-    if (acs) { await _webusbInit(acs); return; }
+    var probe = new WebSocket('ws://localhost:9999');
+    probe.onopen  = function() { probe.close(); setTimeout(_bridgeConnect, 100); };
+    probe.onerror = function() {};
   } catch(e) {}
-  updateNfcEnvUI(); // 자동 연결 실패해도 환경 표시
 }
 
 // ════════════════════════════════════════
