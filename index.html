@@ -71,6 +71,10 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 @keyframes popupIn{from{opacity:0;transform:scale(.85) translateY(4px)}to{opacity:1;transform:scale(1) translateY(0)}}
 @keyframes popupOut{from{opacity:1;transform:scale(1) translateY(0)}to{opacity:0;transform:scale(.88) translateY(4px)}}
 @keyframes spin{to{transform:rotate(360deg)}}
+@keyframes sparkle{0%{transform:scale(1);filter:brightness(1)}25%{transform:scale(1.18);filter:brightness(1.5)}50%{transform:scale(1);filter:brightness(1)}75%{transform:scale(1.12);filter:brightness(1.4)}100%{transform:scale(1);filter:brightness(1)}}
+@keyframes ping{0%{transform:scale(1);opacity:.9}70%{transform:scale(2.2);opacity:0}100%{transform:scale(2.2);opacity:0}}
+.submit-ping{position:relative;display:inline-block}
+.submit-ping::after{content:'';position:absolute;inset:0;border-radius:50%;background:var(--mint2);animation:ping 1s ease-out 3;opacity:0}
 .modal-title{font-family:'Black Han Sans',sans-serif;font-size:20px;color:var(--mint2);margin-bottom:16px;text-align:center}
 .modal-close{
   position:absolute;top:14px;right:16px;
@@ -852,7 +856,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <div class="app-header-right">
       <div style="position:relative;display:inline-block">
         <button class="btn-icon" id="btnNotif" onclick="toggleNotifDropdown()" style="font-size:20px;position:relative">🔔<span id="notifBadge" style="display:none;position:absolute;top:-2px;right:-2px;background:#e05050;color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 4px;min-width:14px;text-align:center"></span></button>
-        <div id="notifDropdown" style="display:none;position:absolute;right:0;top:38px;width:280px;background:#fff;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.15);z-index:1000;overflow:hidden"></div>
+        <div id="notifDropdown" style="display:none;position:fixed;right:8px;top:62px;width:min(300px,calc(100vw - 16px));background:#fff;border-radius:14px;box-shadow:0 4px 24px rgba(0,0,0,0.18);z-index:2000;overflow:hidden;max-height:70vh;overflow-y:auto"></div>
       </div>
       <button class="btn-icon" onclick="openSettings()">⚙️</button>
       <button class="btn btn-sm btn-secondary" onclick="logout()" style="width:auto;padding:7px 14px">로그아웃</button>
@@ -3267,7 +3271,10 @@ function startDashboardPoll() {
           var diff = submitted - _lastSubmitCount;
           _lastSubmitCount = submitted;
           await loadDashboard();
-          if (diff > 0) toast('새 감정이 ' + diff + '개 제출됐어요 💛');
+          if (diff > 0) {
+            toast('새 감정이 ' + diff + '개 제출됐어요 💛');
+            sparkleWeatherIcon(); // 날씨 아이콘 반짝임
+          }
         }
       }
     } catch(e) {}
@@ -3276,6 +3283,37 @@ function startDashboardPoll() {
 
 function stopDashboardPoll() {
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+}
+
+// 새 감정 제출 감지 시 날씨 아이콘 반짝임
+function sparkleWeatherIcon() {
+  // 교사 대시보드의 날씨 아이콘 또는 제출 현황 숫자에 반짝임 적용
+  var targets = [
+    document.querySelector('.weather-icon'),
+    document.getElementById('dashSubmitted'),
+    document.querySelector('.class-weather-icon'),
+    document.querySelector('[id^="weatherIcon"]'),
+  ].filter(Boolean);
+
+  // 없으면 대시보드 헤더 영역에 핑 뱃지 생성
+  if (!targets.length) {
+    var ref = document.querySelector('.dashboard-header') ||
+              document.querySelector('.class-temp-title');
+    if (ref) {
+      var ping = document.createElement('span');
+      ping.style.cssText = 'display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--mint2);margin-left:6px;animation:ping 1s ease-out 3;vertical-align:middle';
+      ref.appendChild(ping);
+      setTimeout(function(){ ping.remove(); }, 3200);
+    }
+    return;
+  }
+
+  targets.forEach(function(el) {
+    el.style.animation = 'none';
+    el.offsetHeight; // reflow
+    el.style.animation = 'sparkle 0.6s ease-in-out 3';
+    setTimeout(function(){ el.style.animation = ''; }, 2000);
+  });
 }
 
 // ════════════════════════════════════════
@@ -3377,7 +3415,7 @@ async function uploadProfileImage() {
   input.onchange = function() {
     var file = input.files[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast('5MB 이하 이미지만 올릴 수 있어요'); return; }
+    if (file.size > 10 * 1024 * 1024) { toast('10MB 이하 이미지만 올릴 수 있어요'); return; }
     showLoading('프로필 사진을 저장하는 중이에요 📸');
     var reader = new FileReader();
     reader.onload = function(ev) {
@@ -5244,7 +5282,7 @@ async function uploadAlbum() {
   input.onchange = function() {
     var file = input.files[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast('5MB 이하 사진만 올릴 수 있어요'); return; }
+    if (file.size > 10 * 1024 * 1024) { toast('10MB 이하 사진만 올릴 수 있어요'); return; }
     showLoading('사진을 준비하는 중이에요 📸');
     var reader = new FileReader();
     reader.onload = function(ev) {
@@ -5254,6 +5292,11 @@ async function uploadAlbum() {
         // 썸네일 (그리드용: 500px, quality 0.72)
         compressImage(rawData, 500, 0.72, function(thumbUrl) {
           hideLoading();
+          // Sheets 한도 방어 (thumb 기준)
+          if (thumbUrl.length > 49000) {
+            toast('사진이 너무 복잡해요. 다른 사진을 선택해주세요 📷');
+            return;
+          }
           _albumUploadData.imageUrl = imageUrl;
           _albumUploadData.thumbUrl = thumbUrl;
           _albumUploadData.isUpdate = false;
