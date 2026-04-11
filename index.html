@@ -1662,14 +1662,18 @@ async function onLoginSuccess(data) {
     startDashboardPoll();        // 관리자면 60초 전체 폴링
     if (STATE.role === 'teacher') startEmotionSignalPoll(); // 교사면 15초 신호 폴링
 
-    // 달력 데이터는 백그라운드에서 조용히 로드 (기록보기 탭 진입 전 준비)
+    // 달력 + 오늘 기록 백그라운드 선로드 (기록보기 탭 진입 전 준비)
+    var _bgToday = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
     api('get_emotions', { teacher_uid: teacherUid }).then(function(res) {
       if (res.status === 'ok') {
         CAL.data = {};
+        var todayEmotions = [];
         res.data.emotions.forEach(function(e) {
           var d = String(e.timestamp).slice(0,10);
           CAL.data[d] = (CAL.data[d] || 0) + 1;
+          if (d === _bgToday) todayEmotions.push(e);
         });
+        _preloadedTodayRecords = { date: _bgToday, emotions: todayEmotions };
         renderCal();
       }
     });
@@ -1840,9 +1844,24 @@ function switchTab(idx) {
 
   // ── 교사·관리자 탭 액션 ──
   if (STATE.role === 'teacher' || STATE.role === 'admin') {
-    if (idx === 2) ensureCalData();                                          // 기록보기
+    if (idx === 2) {
+      ensureCalData();
+      // 처음 진입 시 오늘 날짜 자동 선택
+      if (!CAL._selectedDate) {
+        var _today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+        CAL._selectedDate = _today;
+        renderCal();
+        // 미리 로드된 오늘 기록이 있으면 즉시 렌더, 없으면 API 호출
+        if (_preloadedTodayRecords && _preloadedTodayRecords.date === _today) {
+          _renderRecordList(_preloadedTodayRecords.emotions);
+        } else {
+          showLoading('기록을 불러오는 중이에요 📖');
+          loadRecords(_today);
+        }
+      }
+    }                                                                         // 기록보기
     if (idx === 3 && STATE.role === 'admin') renderAdminAlbum();             // 관리자 마음앨범
-    if (idx === 3 && STATE.role === 'teacher' && STATE.students.length) renderAlbumStudentPicker(); // 교사 마음앨범
+    if (idx === 3 && STATE.role === 'teacher') loadAlbumIfNeeded();          // 교사 마음앨범
     if (idx === 1 && STATE.role === 'admin') renderAdminAccountMgmt();      // 관리자 계정관리
     if (idx === 4 && STATE.role === 'admin') {                               // 관리자 탭: BGM 상태 동기화
       var admBgm = document.getElementById('adm-set-bgm');
@@ -2616,11 +2635,11 @@ function dashboardHTML() {
   '</div>' +
   '<div class="class-temp-bar-wrap" style="border:1.5px dashed var(--mint3);background:linear-gradient(135deg,#f5fffe,#fff)">' +
     '<div class="class-temp-header">' +
+      '<div class="class-temp-title" style="color:#0F6E56">🌍 전국 마음 온도</div>' +
       '<div style="display:flex;align-items:center;gap:8px">' +
-        '<div class="class-temp-title" style="color:#0F6E56">🌍 전국 마음 온도</div>' +
+        '<div class="class-temp-degree" style="color:#0F6E56"><span id="nationalTempValue">—</span>°</div>' +
         '<button class="btn btn-sm btn-secondary" style="font-size:11px;padding:4px 10px;white-space:nowrap" onclick="openNationalMapModal()">🗺️ 지도 보기</button>' +
       '</div>' +
-      '<div class="class-temp-degree" style="color:#0F6E56"><span id="nationalTempValue">—</span>°</div>' +
     '</div>' +
     '<div class="class-temp-track">' +
       '<div class="class-temp-fill" id="nationalTempFill" style="width:0%;background:linear-gradient(90deg,#81d4fa,#4ecdb4,#1D9E75);transition:width 1.2s cubic-bezier(.4,0,.2,1)"></div>' +
@@ -2656,10 +2675,7 @@ function dashboardHTML() {
     '<div class="stat-card"><div class="num gaegu" id="statMiss">-</div><div class="lbl">미제출</div></div>' +
   '</div>' +
   '<div class="warmth-bar">' +
-    '<div style="display:flex;align-items:center;gap:8px">' +
-      '<div class="warmth-title gaegu">🧡 훈훈습도계</div>' +
-      '<span id="warmthCounter" style="font-size:12px;font-weight:700;color:var(--peach);display:none"></span>' +
-    '</div>' +
+    '<div class="warmth-title gaegu">🧡 훈훈습도계</div>' +
     '<div class="warmth-dots" id="warmthDots">' + warmthDots + '</div>' +
     '<div id="giftFeed" style="margin-top:8px;min-height:0"></div>' +
   '</div>' +
@@ -2926,24 +2942,12 @@ async function loadDashboard() {
     renderStudentList(); // 감정 데이터 반영해서 학생 카드 갱신
   }
 
-  // 훈훈습도계: 5개 단위로 순환, 6개 이상이면 카운터 표시
-  var warmthCount = d.warmth_count || 0;
-  var cyclePos = warmthCount === 0 ? 0 : ((warmthCount - 1) % 5) + 1;
   for (var i=1; i<=5; i++) {
     var dot = document.getElementById('wd'+i);
     if (dot) {
-      var isFilled = i <= cyclePos;
+      var isFilled = i <= (d.warmth_count||0);
       dot.classList.toggle('filled', isFilled);
       dot.textContent = isFilled ? '🧡' : '🤍';
-    }
-  }
-  var warmthCounter = document.getElementById('warmthCounter');
-  if (warmthCounter) {
-    if (warmthCount > 5) {
-      warmthCounter.style.display = 'inline';
-      warmthCounter.textContent = '🧡 × ' + warmthCount + '개';
-    } else {
-      warmthCounter.style.display = 'none';
     }
   }
 
@@ -3093,8 +3097,6 @@ function renderRegionTable(schools) {
   });
 
   var regionNames = ADM_PROVINCES.map(function(p) { return p.r; });
-  // 부산을 첫 번째로 고정
-  regionNames = ['부산'].concat(regionNames.filter(function(r) { return r !== '부산'; }));
 
   var rows = regionNames.map(function(r) {
     var d = regionData[r];
@@ -4701,23 +4703,18 @@ async function resetStudentPw(uid, name) {
 // ════════════════════════════════════════
 // 기록 보기
 // ════════════════════════════════════════
-async function loadRecords(dateStr) {
-  var date = dateStr || new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
-  // 관리자(teacher_uid 없음)는 전체 조회
-  var teacher_uid = (STATE.user && STATE.user.teacher_uid) ? STATE.user.teacher_uid : '';
-  var res  = await api('get_emotions', { teacher_uid: teacher_uid, date: date });
-  hideLoading();
-  var el   = document.getElementById('recordList');
-  if(!el||res.status!=='ok') return;
+var _preloadedTodayRecords = null; // { date:'YYYY-MM-DD', emotions:[...] } 로그인 시 미리 채움
 
-  if(!res.data.emotions.length) {
-    el.innerHTML='<div style="text-align:center;padding:20px;color:var(--gray)" class="gaegu">이날 기록이 없어요</div>';
+function _renderRecordList(emotions) {
+  var el = document.getElementById('recordList');
+  if (!el) return;
+  if (!emotions || !emotions.length) {
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray)" class="gaegu">이날 기록이 없어요</div>';
     return;
   }
-
   var macroLabel = { positive:'☀️', neutral:'☁️', negative:'☔' };
   var isTeacher = (STATE.role === 'teacher' || STATE.role === 'admin');
-  el.innerHTML = res.data.emotions.map(function(e){
+  el.innerHTML = emotions.map(function(e){
     var unlockBtn = (isTeacher && !e.is_modified)
       ? '<button onclick="teacherUnlockEmotion(\'' + e.student_uid + '\',\'' + e.student_name + '\')" ' +
           'style="font-size:11px;background:var(--lemon2);border:1px solid var(--lemon);color:#7a5f00;' +
@@ -4735,6 +4732,15 @@ async function loadRecords(dateStr) {
       unlockBtn +
     '</div>';
   }).join('');
+}
+
+async function loadRecords(dateStr) {
+  var date = dateStr || new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+  var teacher_uid = (STATE.user && STATE.user.teacher_uid) ? STATE.user.teacher_uid : '';
+  var res = await api('get_emotions', { teacher_uid: teacher_uid, date: date });
+  hideLoading();
+  if (!document.getElementById('recordList') || res.status !== 'ok') return;
+  _renderRecordList(res.data.emotions);
 }
 
 async function teacherUnlockEmotion(student_uid, student_name) {
@@ -5836,15 +5842,10 @@ function albumTeacherHTML() {
       '<div id="adminAlbumList"><div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div></div>' +
     '</div>';
   }
-  // 교사: 최근 사진 + 학생별
+  // 교사: 학생 선택
   return '<div id="albumTeacherSection">' +
-    '<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px">📸 최근 마음앨범</div>' +
-    '<div id="albumRecentGrid" class="album-grid"></div>' +
-    '<div id="albumRecentEmpty" style="display:none;font-size:12px;color:var(--gray);padding:10px 0;text-align:center">아직 사진이 없어요 📷</div>' +
-    '<button id="albumRecentMoreBtn" class="btn btn-secondary" style="width:100%;font-size:13px;margin-top:8px;display:none">더보기</button>' +
-    '<hr style="border:none;border-top:1.5px solid var(--lgray);margin:18px 0">' +
-    '<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px">👥 학생별 앨범</div>' +
-    '<div id="albumStudentPicker" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>' +
+    '<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px">학생 선택</div>' +
+    '<div id="albumStudentPicker" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px"></div>' +
     '<div id="albumTeacherGrid" class="album-grid"></div>' +
     '<div id="albumTeacherEmpty" class="album-empty" style="display:none">사진이 없어요 📷</div>' +
   '</div>';
@@ -5900,7 +5901,7 @@ async function loadAlbum(loadAll) {
   var isTeacher = STATE.role === 'teacher';
   var isAdmin   = STATE.role === 'admin';
   if (isAdmin)   { renderAdminAlbum(); return; }
-  if (isTeacher) { renderAlbumStudentPicker(); loadRecentTeacherAlbum(); return; }
+  if (isTeacher) { renderAlbumStudentPicker(); return; }
 
   var grid  = document.getElementById('albumGrid');
   var empty = document.getElementById('albumEmpty');
@@ -5954,6 +5955,8 @@ async function loadAlbum(loadAll) {
 
 function renderAlbumStudentPicker() {
   var picker = document.getElementById('albumStudentPicker');
+  var grid   = document.getElementById('albumTeacherGrid');
+  var empty  = document.getElementById('albumTeacherEmpty');
   if (!picker) return;
   if (!STATE.students.length) {
     picker.innerHTML = '<div style="color:var(--gray);font-size:13px">등록된 학생이 없어요</div>';
@@ -5965,45 +5968,15 @@ function renderAlbumStudentPicker() {
       'onclick="loadTeacherAlbum(\'' + s.student_uid + '\',\'' + s.name + '\')">' +
       (s.gender==='F'?'👧':'👦') + ' ' + s.num + '번 ' + s.name + '</button>';
   }).join('');
-  var grid  = document.getElementById('albumTeacherGrid');
-  var empty = document.getElementById('albumTeacherEmpty');
-  if (grid)  grid.innerHTML = '';
+  if (grid) grid.innerHTML = '';
   if (empty) empty.style.display = 'none';
-}
-
-async function loadRecentTeacherAlbum(loadAll) {
-  var grid    = document.getElementById('albumRecentGrid');
-  var empty   = document.getElementById('albumRecentEmpty');
-  var moreBtn = document.getElementById('albumRecentMoreBtn');
-  if (!grid) return;
-
-  grid.innerHTML = '<div style="color:var(--gray);font-size:12px;text-align:center;padding:16px">불러오는 중 📷</div>';
-
-  var params = { teacher_uid: STATE.user.teacher_uid };
-  if (!loadAll) params.limit = 5;
-
-  var res = await api('get_album', params);
-  if (res.status !== 'ok' || !res.data.album.length) {
-    grid.innerHTML = '';
-    if (empty) empty.style.display = 'block';
-    if (moreBtn) moreBtn.style.display = 'none';
-    return;
-  }
-  var items   = res.data.album;
-  var limited = !loadAll && res.data.limited;
-
-  _albumCache = [];
-  grid.innerHTML = items.map(function(a) { return albumItemHTML(a, false); }).join('');
-
-  if (moreBtn) {
-    if (limited) {
-      var remaining = (res.data.total || 0) - items.length;
-      moreBtn.style.display = 'block';
-      moreBtn.textContent = '더보기 (' + remaining + '장 더)';
-      moreBtn.onclick = function() { loadRecentTeacherAlbum(true); };
-    } else {
-      moreBtn.style.display = 'none';
-    }
+  var section = document.getElementById('albumTeacherSection');
+  if (section && !section.querySelector('#albumTeacherHint')) {
+    var h = document.createElement('div');
+    h.id = 'albumTeacherHint';
+    h.style.cssText = 'font-size:12px;color:var(--gray);margin-bottom:8px';
+    h.textContent = '학생을 선택하면 그 학생의 마음앨범을 볼 수 있어요';
+    section.insertBefore(h, grid);
   }
 }
 
