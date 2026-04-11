@@ -1674,10 +1674,12 @@ document.addEventListener('DOMContentLoaded', () => {
       handleNfcUid(nfcBuffer.trim());
       nfcBuffer = '';
     } else {
-      // 첫 문자 수신 = 카드 접촉 시작 → 즉시 로딩 표시
+      // 첫 문자 수신 = 카드 접촉 시작 → 즉시 로딩 표시 (NFC 대기화면 또는 모달 열린 경우만)
       if (nfcBuffer === '') {
         var isRegister = !document.getElementById('modal-nfc-register').classList.contains('hidden');
-        if (!isRegister) {
+        var isAttend   = !document.getElementById('modal-attend-mode').classList.contains('hidden');
+        var isNfcScreen = !document.getElementById('screen-nfc').classList.contains('hidden');
+        if (!isRegister && (isNfcScreen || isAttend)) {
           showLoading('카드를 읽는 중이에요 🪪');
           if (navigator.vibrate) navigator.vibrate(40);
         }
@@ -1711,6 +1713,13 @@ async function handleNfcUid(uid) {
   // 연속등교 모드 모달이 열려있으면 → 등교 처리
   if (!document.getElementById('modal-attend-mode').classList.contains('hidden')) {
     handleAttendNfc(uid);
+    return;
+  }
+
+  // ── NFC 로그인 게이트 ──
+  // screen-nfc가 실제로 표시 중일 때만 로그인 처리
+  // 앱 사용 중(로그인 완료 후)에 카드리더기가 읽어도 무시
+  if (document.getElementById('screen-nfc').classList.contains('hidden')) {
     return;
   }
 
