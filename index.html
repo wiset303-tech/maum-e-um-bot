@@ -262,8 +262,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .tab-bar::-webkit-scrollbar{display:none}
 .tab-btn{
   flex-shrink:0;background:none;border:none;
-  font-family:'Black Han Sans',sans-serif;font-size:14px;
-  color:var(--gray);padding:10px 16px 8px;cursor:pointer;
+  font-family:'Black Han Sans',sans-serif;font-size:13px;
+  color:var(--gray);padding:10px 10px 8px;cursor:pointer;
   border-bottom:3px solid transparent;margin-bottom:-2px;
   transition:all .2s;white-space:nowrap;
 }
@@ -433,7 +433,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   background:#fff;border-radius:var(--r2);padding:14px 16px;
   margin-bottom:14px;box-shadow:var(--shadow2);
 }
-.warmth-title{font-family:'Black Han Sans',sans-serif;font-size:14px;color:var(--navy);margin-bottom:8px}
+.warmth-title{font-family:'Black Han Sans',sans-serif;font-size:13px;color:var(--navy);margin-bottom:8px}
 .warmth-dots{display:flex;gap:8px}
 .warmth-dot{
   width:32px;height:32px;border-radius:50%;
@@ -1320,6 +1320,7 @@ var STATE = {
   chatHistory: [],     // 봇 대화 기록
   tokenBalance: null,
   tokenBalances: {},     // 교사용: {student_uid: {current_balance, total_saved, temp}}
+  studentEmotions: {},   // 교사용: {student_uid: {macro, micro, score}} 오늘 감정
   selectedGender: null, // 학생 등록 성별 선택
   isPreview: false,    // 관리자 미리보기 중 여부
   adminUser: null,     // 미리보기 복귀용 관리자 정보
@@ -1684,7 +1685,7 @@ function logout() {
   if (STATE.role === 'student') saveChatLogIfNeeded();
   STATE = { role:null, user:null, emotions:[...STATE.emotions], students:[], dashboard:null,
             nfcPending:null, selectedMacro:null, selectedMicro:null, chatHistory:[], tokenBalance:null,
-            tokenBalances:{},
+            tokenBalances:{}, studentEmotions:{},
             isPreview:false, adminUser:null, selectedGender:null,
             settings:{ alarm_checkin:true, alarm_crisis:true, bgm:true,
                        persona_mode_enabled:false, persona_mode_until:'' } };
@@ -2275,6 +2276,18 @@ function previewTeacher() {
       {student_uid:'s4',student_id:'mee264104',name:'최유나',num:4,grade:4,class:1,nfc_uid:'04:11:22:33',active:'Y'},
       {student_uid:'s5',student_id:'mee264105',name:'정태양',num:5,grade:4,class:1,nfc_uid:'',active:'N'},
     ];
+    STATE.studentEmotions = {
+      's1':{ macro:'positive', micro:'설레는', score:8 },
+      's2':{ macro:'neutral',  micro:'그냥그래', score:5 },
+      's3':{ macro:'negative', micro:'걱정돼', score:2 },
+      's4':{ macro:'positive', micro:'신나는', score:9 },
+    };
+    STATE.tokenBalances = {
+      's1':{ temp:18, current_balance:3, can_save_double:false },
+      's2':{ temp:24, current_balance:5, can_save_double:true  },
+      's3':{ temp: 8, current_balance:1, can_save_double:false },
+      's4':{ temp:31, current_balance:7, can_save_double:false },
+    };
     renderStudentList();
   }, 300);
 }
@@ -2620,6 +2633,10 @@ async function loadDashboard() {
   if (fill) setTimeout(function(){ fill.style.width = classTemp + '%'; }, 150);
 
   if (d.token_balances) STATE.tokenBalances = d.token_balances;
+  if (d.student_emotions) {
+    STATE.studentEmotions = d.student_emotions;
+    renderStudentList(); // 감정 데이터 반영해서 학생 카드 갱신
+  }
 
   for (var i=1; i<=5; i++) {
     var dot = document.getElementById('wd'+i);
@@ -3553,32 +3570,54 @@ function renderStudentList() {
 
   var cards = visible.map(function(s) {
     var uid2 = s.student_uid, nm2 = s.name;
+    var emo = STATE.studentEmotions && STATE.studentEmotions[uid2];
+    var EMOJI_MAP = { positive:'😊', neutral:'😐', negative:'😢' };
+    var emoIcon  = emo ? (EMOJI_MAP[emo.macro] || '😶') : '⬜';
+    var emoWord  = emo ? (emo.micro || emo.macro) : '미제출';
+    var emoBg    = emo ? (emo.macro==='positive'?'#e8f8f0':emo.macro==='negative'?'#fdecea':'#f5f5f5') : '#f0f0f0';
+    var emoColor = emo ? (emo.macro==='positive'?'#2d7a4a':emo.macro==='negative'?'#c0392b':'#555') : '#999';
+    var tb = STATE.tokenBalances && STATE.tokenBalances[uid2];
+    var tempTxt  = tb ? tb.temp + '\u00b0' : '\u2014';
+    var tokenTxt = tb ? tb.current_balance + '\uac1c' : '\u2014';
+    var statusRow =
+      '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">'
+        + '<span title="' + emoWord + '" style="display:inline-flex;align-items:center;gap:2px;background:'+emoBg+';color:'+emoColor+';border-radius:20px;padding:3px 8px;font-size:11px;font-weight:700;max-width:82px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'
+            + emoIcon + ' ' + emoWord
+        + '</span>'
+        + '<span style="display:inline-flex;align-items:center;background:#fff3e0;color:#e65100;border-radius:20px;padding:3px 7px;font-size:11px;font-weight:700">'
+            + '\uD83C\uDF21\uFE0F ' + tempTxt
+        + '</span>'
+        + '<span style="display:inline-flex;align-items:center;background:#fffde7;color:#f57f17;border-radius:20px;padding:3px 7px;font-size:11px;font-weight:700">'
+            + '\uD83E\uDE99 ' + tokenTxt
+        + '</span>'
+        + '<span style="display:inline-flex;align-items:center;background:'+(s.nfc_uid?'#e3f6f0':'#f5f5f5')+';color:'+(s.nfc_uid?'#1a7a58':'#bbb')+';border-radius:20px;padding:3px 7px;font-size:11px;font-weight:700">'
+            + (s.nfc_uid ? '\uD83D\uDCB3 NFC' : '\uD83D\uDD32 NFC')
+        + '</span>'
+      + '</div>';
     var actions = s.active==='Y'
-      ? '<div class="stu-menu-wrap">' +
-          '<button class="stu-menu-btn" onclick="toggleStuMenu(this)" title="더보기">⋯</button>' +
-          '<div class="stu-dropdown" style="display:none">' +
-            '<button onclick="openChangePw(\'' + uid2 + '\',\'' + nm2 + '\')">🔑 비번변경</button>' +
-            '<button onclick="resetStudentPw(\'' + uid2 + '\',\'' + nm2 + '\')">🔄 비번초기화</button>' +
-            '<button onclick="replaceCard(this);closeStuMenu()" data-uid="' + uid2 + '" data-name="' + nm2 + '">🪪 카드교체</button>' +
-            '<button onclick="openParentCreate(\'' + uid2 + '\',\'' + nm2 + '\',\'' + (s.student_id||'') + '\')">👨‍👩‍👧 학부모 계정</button>' +
-            '<div class="divider"></div>' +
-            '<button class="danger" onclick="deactivateBtn(this)" data-uid="' + uid2 + '" data-name="' + nm2 + '">🚫 비활성</button>' +
-          '</div>' +
-        '</div>'
-      : '<span style="font-size:11px;color:var(--gray)">비활성</span>';
-    return '<div class="student-item '+(s.active==='Y'?'':'inactive')+'">' +
-      '<div class="student-avatar">'+s.num+'</div>' +
-      '<div class="student-info">' +
-        '<div class="student-name">'+s.name+' <span style="font-size:12px">'+(s.gender==='F'?'👧':s.gender==='M'?'👦':'')+'</span></div>' +
-        '<div class="student-id">ID: '+s.student_id+'</div>' +
-        '<div class="student-nfc">'+(s.nfc_uid?'🪪 NFC 등록됨':'🔲 NFC 없음')+'</div>' +
-        (STATE.tokenBalances && STATE.tokenBalances[uid2]
-          ? '<div style="font-size:11px;color:#ff8c42;margin-top:2px">🌡️ '+STATE.tokenBalances[uid2].temp+'° &nbsp;🪙 '+STATE.tokenBalances[uid2].current_balance+'개</div>'
-          : '') +
-      '</div>' +
-      '<div class="student-actions">'+actions+'</div>' +
-    '</div>';
+      ? '<div class="stu-menu-wrap">'
+          + '<button class="stu-menu-btn" onclick="toggleStuMenu(this)" title="\ub354\ubcf4\uae30">\u22ef</button>'
+          + '<div class="stu-dropdown" style="display:none">'
+            + '<button onclick="openChangePw(\''+uid2+'\',\''+nm2+'\')">&#128273; 비번변경</button>'
+            + '<button onclick="resetStudentPw(\''+uid2+'\',\''+nm2+'\')">\uD83D\uDD04 \ube44\ubc88\ucd08\uae30\ud654</button>'
+            + '<button onclick="replaceCard(this);closeStuMenu()" data-uid="'+uid2+'" data-name="'+nm2+'">\uD83D\uDCB3 \uce74\ub4dc\uad50\uccb4</button>'
+            + '<button onclick="openParentCreate(\''+uid2+'\',\''+nm2+'\',\''+(s.student_id||'')+'\')">\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67 \ud559\ubd80\ubaa8 \uacc4\uc815</button>'
+            + '<div class="divider"></div>'
+            + '<button class="danger" onclick="deactivateBtn(this)" data-uid="'+uid2+'" data-name="'+nm2+'">\uD83D\uDEAB \ube44\ud65c\uc131</button>'
+          + '</div>'
+        + '</div>'
+      : '<span style="font-size:11px;color:var(--gray)">\ube44\ud65c\uc131</span>';
+    return '<div class="student-item '+(s.active==='Y'?'':'inactive')+'">'
+      + '<div class="student-avatar">'+s.num+'</div>'
+      + '<div class="student-info" style="flex:1;min-width:0">'
+          + '<div class="student-name">'+s.name+' <span style="font-size:12px">'+(s.gender==='F'?'\uD83D\uDC67':s.gender==='M'?'\uD83D\uDC66':'')+'</span></div>'
+          + '<div class="student-id">ID: '+s.student_id+'</div>'
+          + statusRow
+      + '</div>'
+      + '<div class="student-actions" style="flex-shrink:0">'+actions+'</div>'
+      + '</div>';
   }).join('');
+
 
   var moreBtn = hasMore
     ? '<button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px" onclick="showMoreStudents()">' +
