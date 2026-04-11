@@ -5951,8 +5951,10 @@ function addPersonaBotMsg(text, name, isSelf) {
 }
 
 async function sendPersonaChat(msg) {
+  if (_chatInFlight) return;
   var u = STATE.user;
   addUserMsg(msg);
+  _chatInFlight = true;
 
   // 타이핑 인디케이터
   var wrap = document.getElementById('chatMessages');
@@ -5974,6 +5976,7 @@ async function sendPersonaChat(msg) {
     is_self     : PERSONA_MODE.isSelf,
   });
 
+  _chatInFlight = false;
   var el = document.getElementById(tmpId);
   if (el) el.remove();
 
@@ -6024,7 +6027,10 @@ async function startBotGreeting() {
   else addBotMsg(u.name + '아, 오늘 <b>' + micro + '</b> 감정이구나 💙<br>더 이야기하고 싶은 게 있으면 말해봐!');
 }
 
+var _chatInFlight = false; // 채팅 전송 중 이중 전송 방지
+
 async function sendChat() {
+  if (_chatInFlight) return; // 응답 대기 중이면 무시
   var inp = document.getElementById('chatInput');
   var msg = inp?.value.trim();
   if(!msg) return;
@@ -6032,6 +6038,7 @@ async function sendChat() {
   // 페르소나 모드면 분기
   if (PERSONA_MODE.active) { sendPersonaChat(msg); return; }
   addUserMsg(msg);
+  _chatInFlight = true;
 
   // 타이핑 인디케이터 추가
   var wrap = document.getElementById('chatMessages');
@@ -6049,6 +6056,7 @@ async function sendChat() {
     history      : STATE.chatHistory.slice(-10),
   });
 
+  _chatInFlight = false;
   // 타이핑 인디케이터 제거
   var typingEl = document.getElementById(typingId);
   if(typingEl) typingEl.remove();
