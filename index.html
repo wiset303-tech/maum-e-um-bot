@@ -1090,7 +1090,30 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <img id="profilePopupImg" src="" alt="프로필" class="profile-popup-img"
       onerror="this.style.display='none'">
     <div id="profilePopupEmpty" style="width:200px;height:200px;border-radius:50%;background:var(--lgray);display:flex;align-items:center;justify-content:center;font-size:60px;margin:0 auto 16px">🙂</div>
-    <button class="btn btn-mint" style="width:100%" onclick="uploadProfileImage()">✏️ 프로필 사진 변경</button>
+    <button class="btn btn-mint" style="width:100%;margin-bottom:8px" onclick="uploadProfileImage()">🖼️ 프로필 사진 변경</button>
+    <!-- 교사 전용: 이름 변경 + 비번 변경 -->
+    <div id="profileTeacherActions" class="hidden">
+      <div style="border-top:1px solid var(--lgray);margin:10px 0 10px"></div>
+      <!-- 이름 변경 -->
+      <div style="text-align:left;margin-bottom:10px">
+        <div class="inp-label">이름 변경</div>
+        <div style="display:flex;gap:6px">
+          <input id="profileNameInput" class="inp" style="flex:1" placeholder="새 이름 입력">
+          <button class="btn btn-secondary" style="width:auto;padding:0 14px;font-size:13px" onclick="submitProfileName()">변경</button>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--lgray);margin:10px 0 10px"></div>
+      <!-- 비밀번호 변경 (새PW 2회 입력, 현재PW 불필요) -->
+      <div style="text-align:left">
+        <div class="inp-label">비밀번호 변경</div>
+        <input id="profilePwNew1" class="inp" type="password" placeholder="새 비밀번호 (4자 이상)" style="margin-bottom:6px"
+          onkeydown="if(event.key==='Enter')submitProfilePw()">
+        <input id="profilePwNew2" class="inp" type="password" placeholder="새 비밀번호 확인"
+          onkeydown="if(event.key==='Enter')submitProfilePw()">
+        <div id="profilePwMsg" style="font-size:11px;color:#e05050;margin-top:4px;min-height:14px"></div>
+        <button class="btn btn-mint" style="width:100%;margin-top:8px" onclick="submitProfilePw()">🔑 비밀번호 변경</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2269,24 +2292,72 @@ function previewTeacher() {
       {word:'걱정돼', type:'negative', count:1},
     ]);
     // 더미 학생 목록
+    // 20명 더미 (학생 미리보기 '김민준 1번'도 포함)
     STATE.students = [
-      {student_uid:'s1',student_id:'mee264101',name:'김민준',num:1,grade:4,class:1,nfc_uid:'04:AA:BB:CC',active:'Y'},
-      {student_uid:'s2',student_id:'mee264102',name:'이서연',num:2,grade:4,class:1,nfc_uid:'04:DD:EE:FF',active:'Y'},
-      {student_uid:'s3',student_id:'mee264103',name:'박지호',num:3,grade:4,class:1,nfc_uid:'',active:'Y'},
-      {student_uid:'s4',student_id:'mee264104',name:'최유나',num:4,grade:4,class:1,nfc_uid:'04:11:22:33',active:'Y'},
-      {student_uid:'s5',student_id:'mee264105',name:'정태양',num:5,grade:4,class:1,nfc_uid:'',active:'N'},
+      {student_uid:'s01',student_id:'mee264101',name:'김민준',  num:1, grade:4,class:1,nfc_uid:'04:AA:BB:11',active:'Y',gender:'M'},
+      {student_uid:'s02',student_id:'mee264102',name:'이서연',  num:2, grade:4,class:1,nfc_uid:'04:AA:BB:22',active:'Y',gender:'F'},
+      {student_uid:'s03',student_id:'mee264103',name:'박지호',  num:3, grade:4,class:1,nfc_uid:'',            active:'Y',gender:'M'},
+      {student_uid:'s04',student_id:'mee264104',name:'최유나',  num:4, grade:4,class:1,nfc_uid:'04:AA:BB:44',active:'Y',gender:'F'},
+      {student_uid:'s05',student_id:'mee264105',name:'정태양',  num:5, grade:4,class:1,nfc_uid:'',            active:'Y',gender:'M'},
+      {student_uid:'s06',student_id:'mee264106',name:'한지수',  num:6, grade:4,class:1,nfc_uid:'04:AA:BB:66',active:'Y',gender:'F'},
+      {student_uid:'s07',student_id:'mee264107',name:'오준혁',  num:7, grade:4,class:1,nfc_uid:'04:AA:BB:77',active:'Y',gender:'M'},
+      {student_uid:'s08',student_id:'mee264108',name:'윤하은',  num:8, grade:4,class:1,nfc_uid:'',            active:'Y',gender:'F'},
+      {student_uid:'s09',student_id:'mee264109',name:'강민재',  num:9, grade:4,class:1,nfc_uid:'04:AA:BB:99',active:'Y',gender:'M'},
+      {student_uid:'s10',student_id:'mee264110',name:'임채원',  num:10,grade:4,class:1,nfc_uid:'04:AA:BB:10',active:'Y',gender:'F'},
+      {student_uid:'s11',student_id:'mee264111',name:'신도윤',  num:11,grade:4,class:1,nfc_uid:'',            active:'Y',gender:'M'},
+      {student_uid:'s12',student_id:'mee264112',name:'백서아',  num:12,grade:4,class:1,nfc_uid:'04:AA:BB:12',active:'Y',gender:'F'},
+      {student_uid:'s13',student_id:'mee264113',name:'남준호',  num:13,grade:4,class:1,nfc_uid:'04:AA:BB:13',active:'Y',gender:'M'},
+      {student_uid:'s14',student_id:'mee264114',name:'류다인',  num:14,grade:4,class:1,nfc_uid:'',            active:'Y',gender:'F'},
+      {student_uid:'s15',student_id:'mee264115',name:'문성훈',  num:15,grade:4,class:1,nfc_uid:'04:AA:BB:15',active:'Y',gender:'M'},
+      {student_uid:'s16',student_id:'mee264116',name:'권아린',  num:16,grade:4,class:1,nfc_uid:'04:AA:BB:16',active:'Y',gender:'F'},
+      {student_uid:'s17',student_id:'mee264117',name:'조현우',  num:17,grade:4,class:1,nfc_uid:'',            active:'Y',gender:'M'},
+      {student_uid:'s18',student_id:'mee264118',name:'장소율',  num:18,grade:4,class:1,nfc_uid:'04:AA:BB:18',active:'Y',gender:'F'},
+      {student_uid:'s19',student_id:'mee264119',name:'전민찬',  num:19,grade:4,class:1,nfc_uid:'04:AA:BB:19',active:'Y',gender:'M'},
+      {student_uid:'s20',student_id:'mee264120',name:'서하늘',  num:20,grade:4,class:1,nfc_uid:'',            active:'Y',gender:'F'},
     ];
+    // 오늘 감정 — 긍정9·중립5·부정4·미제출2 (일부 감정 중복으로 클러스터링 시각화)
     STATE.studentEmotions = {
-      's1':{ macro:'positive', micro:'설레는', score:8 },
-      's2':{ macro:'neutral',  micro:'그냥그래', score:5 },
-      's3':{ macro:'negative', micro:'걱정돼', score:2 },
-      's4':{ macro:'positive', micro:'신나는', score:9 },
+      's01':{ macro:'positive', micro:'설레는',   score:8 },
+      's02':{ macro:'positive', micro:'설레는',   score:8 },  // 중복 ↑ 클러스터
+      's03':{ macro:'positive', micro:'신나는',   score:9 },
+      's04':{ macro:'positive', micro:'뿌듯한',   score:8 },
+      's05':{ macro:'positive', micro:'신나는',   score:9 },  // 중복 ↑
+      's06':{ macro:'positive', micro:'기쁜',     score:7 },
+      's07':{ macro:'positive', micro:'행복한',   score:9 },
+      's08':{ macro:'positive', micro:'기쁜',     score:7 },  // 중복 ↑
+      's09':{ macro:'positive', micro:'설레는',   score:8 },  // 중복 ↑ (3명)
+      's10':{ macro:'neutral',  micro:'그냥그래', score:5 },
+      's11':{ macro:'neutral',  micro:'그냥그래', score:5 },  // 중복 ↑
+      's12':{ macro:'neutral',  micro:'멍한',     score:5 },
+      's13':{ macro:'neutral',  micro:'심심한',   score:4 },
+      's14':{ macro:'neutral',  micro:'그냥그래', score:5 },  // 중복 ↑ (3명)
+      's15':{ macro:'negative', micro:'걱정돼',   score:2 },
+      's16':{ macro:'negative', micro:'속상한',   score:2 },
+      's17':{ macro:'negative', micro:'걱정돼',   score:2 },  // 중복 ↑
+      's18':{ macro:'negative', micro:'외로운',   score:1 },
+      // s19, s20 미제출
     };
     STATE.tokenBalances = {
-      's1':{ temp:18, current_balance:3, can_save_double:false },
-      's2':{ temp:24, current_balance:5, can_save_double:true  },
-      's3':{ temp: 8, current_balance:1, can_save_double:false },
-      's4':{ temp:31, current_balance:7, can_save_double:false },
+      's01':{ temp:18, current_balance:3, can_save_double:false },
+      's02':{ temp:24, current_balance:5, can_save_double:true  },
+      's03':{ temp:31, current_balance:7, can_save_double:false },
+      's04':{ temp:12, current_balance:2, can_save_double:false },
+      's05':{ temp:36, current_balance:9, can_save_double:true  },
+      's06':{ temp:22, current_balance:4, can_save_double:false },
+      's07':{ temp:44, current_balance:6, can_save_double:false },
+      's08':{ temp:16, current_balance:3, can_save_double:true  },
+      's09':{ temp:28, current_balance:5, can_save_double:false },
+      's10':{ temp:10, current_balance:1, can_save_double:false },
+      's11':{ temp:20, current_balance:4, can_save_double:false },
+      's12':{ temp: 6, current_balance:1, can_save_double:false },
+      's13':{ temp:14, current_balance:2, can_save_double:false },
+      's14':{ temp:30, current_balance:6, can_save_double:true  },
+      's15':{ temp: 8, current_balance:1, can_save_double:false },
+      's16':{ temp:18, current_balance:3, can_save_double:false },
+      's17':{ temp: 4, current_balance:0, can_save_double:false },
+      's18':{ temp:10, current_balance:2, can_save_double:false },
+      's19':{ temp:26, current_balance:5, can_save_double:false },
+      's20':{ temp:34, current_balance:7, can_save_double:true  },
     };
     renderStudentList();
   }, 300);
@@ -2308,12 +2379,15 @@ function previewStudent() {
   };
   document.getElementById('headerUser').textContent = '김민준 (학생 미리보기)';
   document.getElementById('btnBackAdmin').classList.remove('hidden');
-  // 반 친구 더미 (선물하기 목록 테스트용)
+  // 반 친구: 교사 미리보기 20명 중 김민준(s01) 제외한 나머지 (선물하기 테스트용)
   STATE.students = [
-    {student_uid:'ps1',student_id:'mee264102',name:'이서연',num:2,grade:4,class:1,gender:'F',active:'Y'},
-    {student_uid:'ps2',student_id:'mee264103',name:'박지호',num:3,grade:4,class:1,gender:'M',active:'Y'},
-    {student_uid:'ps3',student_id:'mee264104',name:'최유나',num:4,grade:4,class:1,gender:'F',active:'Y'},
-    {student_uid:'ps4',student_id:'mee264105',name:'정태양',num:5,grade:4,class:1,gender:'M',active:'Y'},
+    {student_uid:'s02',student_id:'mee264102',name:'이서연',num:2, grade:4,class:1,gender:'F',active:'Y'},
+    {student_uid:'s03',student_id:'mee264103',name:'박지호',num:3, grade:4,class:1,gender:'M',active:'Y'},
+    {student_uid:'s04',student_id:'mee264104',name:'최유나',num:4, grade:4,class:1,gender:'F',active:'Y'},
+    {student_uid:'s05',student_id:'mee264105',name:'정태양',num:5, grade:4,class:1,gender:'M',active:'Y'},
+    {student_uid:'s06',student_id:'mee264106',name:'한지수',num:6, grade:4,class:1,gender:'F',active:'Y'},
+    {student_uid:'s07',student_id:'mee264107',name:'오준혁',num:7, grade:4,class:1,gender:'M',active:'Y'},
+    {student_uid:'s08',student_id:'mee264108',name:'윤하은',num:8, grade:4,class:1,gender:'F',active:'Y'},
   ];
   // 토큰 더미 (2배 저축 가능 케이스 포함)
   STATE.tokenBalance = { current_balance: 5, total_earned: 12, total_saved: 7, can_save_double: true };
@@ -3471,9 +3545,10 @@ function openProfilePopup() {
   var u = STATE.user;
   if (!u) return;
   var imgUrl = u.profile_image_url || '';
-  var nameEl = document.getElementById('profilePopupName');
-  var imgEl  = document.getElementById('profilePopupImg');
-  var emptyEl= document.getElementById('profilePopupEmpty');
+  var nameEl  = document.getElementById('profilePopupName');
+  var imgEl   = document.getElementById('profilePopupImg');
+  var emptyEl = document.getElementById('profilePopupEmpty');
+  var teacherActions = document.getElementById('profileTeacherActions');
 
   if (nameEl) nameEl.textContent = u.name + (STATE.role === 'teacher' ? ' 선생님' : '');
 
@@ -3487,7 +3562,62 @@ function openProfilePopup() {
       emptyEl.textContent = u.gender === 'F' ? '👧' : u.gender === 'M' ? '👦' : '🙂';
     }
   }
+
+  // 교사 전용: 이름변경 + 비번변경 섹션 표시
+  if (teacherActions) {
+    if (STATE.role === 'teacher') {
+      teacherActions.classList.remove('hidden');
+      var nameInput = document.getElementById('profileNameInput');
+      if (nameInput) nameInput.value = u.name || '';
+      var pw1 = document.getElementById('profilePwNew1');
+      var pw2 = document.getElementById('profilePwNew2');
+      var msg = document.getElementById('profilePwMsg');
+      if (pw1) pw1.value = '';
+      if (pw2) pw2.value = '';
+      if (msg) msg.textContent = '';
+    } else {
+      teacherActions.classList.add('hidden');
+    }
+  }
+
   openModal('modal-profile-popup');
+}
+
+// 교사 프로필: 이름 변경
+async function submitProfileName() {
+  var input = document.getElementById('profileNameInput');
+  var newName = input ? input.value.trim() : '';
+  if (!newName) { toast('이름을 입력해주세요'); return; }
+  if (newName === STATE.user.name) { toast('현재 이름과 동일해요'); return; }
+  showLoading('이름을 변경하는 중이에요 ✏️');
+  var res = await api('update_teacher_name', { teacher_uid: STATE.user.teacher_uid, name: newName });
+  hideLoading();
+  if (res.status === 'ok') {
+    STATE.user.name = newName;
+    document.getElementById('headerUser').textContent = newName + ' 선생님';
+    document.getElementById('profilePopupName').textContent = newName + ' 선생님';
+    toast('이름이 변경됐어요 ✅');
+  } else toast(res.message || '오류가 발생했어요');
+}
+
+// 교사 프로필: 비밀번호 변경 (새PW 2회 입력, 현재PW 불필요)
+async function submitProfilePw() {
+  var pw1 = (document.getElementById('profilePwNew1') || {}).value || '';
+  var pw2 = (document.getElementById('profilePwNew2') || {}).value || '';
+  var msg = document.getElementById('profilePwMsg');
+  if (msg) msg.textContent = '';
+  if (pw1.length < 4) { if (msg) msg.textContent = '비밀번호는 4자 이상이어야 해요'; return; }
+  if (pw1 !== pw2)    { if (msg) msg.textContent = '두 비밀번호가 일치하지 않아요'; return; }
+  showLoading('비밀번호를 변경하는 중이에요 🔑');
+  var res = await api('change_teacher_password', { teacher_uid: STATE.user.teacher_uid, new_pw: pw1 });
+  hideLoading();
+  if (res.status === 'ok') {
+    document.getElementById('profilePwNew1').value = '';
+    document.getElementById('profilePwNew2').value = '';
+    toast('비밀번호가 변경됐어요 🔑');
+  } else {
+    if (msg) msg.textContent = res.message || '오류가 발생했어요';
+  }
 }
 
 async function uploadProfileImage() {
@@ -4366,9 +4496,25 @@ function selectMicro(id, word, el) {
 }
 
 function openCustomEmotion() {
-  document.getElementById('customEmotionInput').value = '';
+  var PLACEHOLDER = {
+    positive: '예) 설레는, 뿌듯한, 두근거리는, 기대되는...',
+    neutral:  '예) 그냥그래, 멍한, 심심한, 모르겠어...',
+    negative: '예) 억울한, 두려운, 외로운, 속상한...',
+  };
+  var DESC = {
+    positive: '기쁘고 좋은 감정을 직접 써봐요 ☀️',
+    neutral:  '딱히 뭐라 하기 어려운 기분을 써봐요 ☁️',
+    negative: '힘들거나 속상한 마음을 써봐요 🌧',
+  };
+  var macro = STATE.selectedMacro;
+  var ph  = PLACEHOLDER[macro] || '예) 설레요, 뭔가 이상해요...';
+  var desc = DESC[macro] || '지금 내 기분을 직접 써봐요';
+  var inp  = document.getElementById('customEmotionInput');
+  var descEl = document.querySelector('#modal-custom-emotion p');
+  if (inp)   { inp.value = ''; inp.placeholder = ph; }
+  if (descEl) descEl.textContent = desc;
   openModal('modal-custom-emotion');
-  setTimeout(function(){ document.getElementById('customEmotionInput').focus(); }, 150);
+  setTimeout(function(){ if (inp) inp.focus(); }, 150);
 }
 
 function submitCustomEmotion() {
