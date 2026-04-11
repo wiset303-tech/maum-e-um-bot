@@ -1095,11 +1095,13 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
         </div>
       </div>
       <div style="border-top:1px solid var(--lgray);margin:10px 0 10px"></div>
-      <!-- 비밀번호 변경 (새PW 2회 입력, 현재PW 불필요) -->
+      <!-- 비밀번호 변경 (현재PW 확인 + 새PW 2회 입력) -->
       <div style="text-align:left">
         <div class="inp-label">비밀번호 변경</div>
+        <input id="profilePwCurrent" class="inp" type="password" placeholder="현재 비밀번호" style="margin-bottom:6px"
+          onkeydown="if(event.key==='Enter')document.getElementById('profilePwNew1').focus()">
         <input id="profilePwNew1" class="inp" type="password" placeholder="새 비밀번호 (4자 이상)" style="margin-bottom:6px"
-          onkeydown="if(event.key==='Enter')submitProfilePw()">
+          onkeydown="if(event.key==='Enter')document.getElementById('profilePwNew2').focus()">
         <input id="profilePwNew2" class="inp" type="password" placeholder="새 비밀번호 확인"
           onkeydown="if(event.key==='Enter')submitProfilePw()">
         <div id="profilePwMsg" style="font-size:11px;color:#e05050;margin-top:4px;min-height:14px"></div>
@@ -1194,6 +1196,12 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <button class="modal-close" onclick="closeModal('modal-change-pw')">✕</button>
     <div class="modal-title">🔑 비밀번호 변경</div>
     <p id="changePwDesc" style="font-size:13px;color:var(--gray);margin-bottom:14px;text-align:center"></p>
+    <!-- 현재 PW (teacher_self 모드에서만 표시) -->
+    <div id="changePwCurrentWrap" style="display:none;margin-bottom:10px">
+      <div class="inp-label">현재 비밀번호 <span style="color:#e05050">*</span></div>
+      <input class="inp" id="changePwCurrentInput" type="password" placeholder="현재 비밀번호 입력"
+        onkeydown="if(event.key==='Enter')document.getElementById('changePwInput').focus()" style="margin-bottom:0">
+    </div>
     <div class="inp-label">새 비밀번호 <span style="color:#e05050">*</span></div>
     <input class="inp" id="changePwInput" type="password" placeholder="4자 이상 입력하세요"
       onkeydown="if(event.key==='Enter')confirmChangePw()" style="margin-bottom:6px">
@@ -2230,28 +2238,15 @@ function openChangeTeacherPw(uid, name) {
   _teacherPwTargetUid = uid;
   document.getElementById('changePwDesc').textContent = name + ' 선생님의 새 비밀번호를 입력하세요';
   document.getElementById('changePwInput').value = '';
-  // 확인 함수를 교사용으로 임시 교체
   document.getElementById('changePwInput').dataset.mode = 'teacher';
+  var cwrap = document.getElementById('changePwCurrentWrap');
+  if (cwrap) cwrap.style.display = 'none';
   openModal('modal-change-pw');
   setTimeout(function(){ document.getElementById('changePwInput').focus(); }, 300);
 }
 
-async function confirmChangePw() {
-  var newPw = document.getElementById('changePwInput').value.trim();
-  if (!newPw) { toast('비밀번호를 입력하세요'); return; }
-  if (newPw.length < 4) { toast('4자 이상 입력해주세요'); return; }
-  var isTeacher = document.getElementById('changePwInput').dataset.mode === 'teacher';
-  closeModal('modal-change-pw');
-  showLoading('비밀번호를 변경하는 중이에요 🔑');
-  var res;
-  if (isTeacher) {
-    res = await api('change_teacher_password', { teacher_uid: _teacherPwTargetUid, new_pw: newPw });
-  } else {
-    res = await api('change_student_password', { student_uid: _pwTargetUid, new_pw: newPw });
-  }
-  hideLoading();
-  toast(res.status === 'ok' ? res.data.message : res.message);
-}
+// ── 비밀번호 변경 확인 (모든 모드 통합: teacher_self / teacher / student)
+async function _confirmChangePwAdmin() { confirmChangePw(); } // 하위 호환용 alias
 
 // 교사 NFC 교체
 function replaceTeacherCardUI(uid, name) {
@@ -3676,12 +3671,7 @@ function admMapRegionClick(region, pinEl) {
 // 🔔 알림 시스템
 // ══════════════════════════════════════════════
 async function loadNotifications() {
-  // 역할별로 올바른 자신의 uid 사용 (teacher_uid는 학생도 갖고 있으므로 || 방식 금지)
-  var uid;
-  var role = STATE.role || (STATE.user && STATE.user.role);
-  if (role === 'teacher' || role === 'admin') uid = STATE.user && STATE.user.teacher_uid;
-  else if (role === 'student')                uid = STATE.user && STATE.user.student_uid;
-  else if (role === 'parent')                 uid = STATE.user && STATE.user.parent_uid;
+  var uid = STATE.user && (STATE.user.teacher_uid || STATE.user.student_uid || STATE.user.parent_uid);
   if (!uid) return;
   var res = await api('get_notifications', { recipient_uid: uid });
   if (res.status === 'ok') {
@@ -4092,18 +4082,25 @@ async function submitProfileName() {
   } else toast(res.message || '오류가 발생했어요');
 }
 
-// 교사 프로필: 비밀번호 변경 (새PW 2회 입력, 현재PW 불필요)
+// 교사 프로필: 비밀번호 변경 (현재PW 확인 + 새PW 2회 입력)
 async function submitProfilePw() {
+  var cur = (document.getElementById('profilePwCurrent') || {}).value || '';
   var pw1 = (document.getElementById('profilePwNew1') || {}).value || '';
   var pw2 = (document.getElementById('profilePwNew2') || {}).value || '';
   var msg = document.getElementById('profilePwMsg');
   if (msg) msg.textContent = '';
-  if (pw1.length < 4) { if (msg) msg.textContent = '비밀번호는 4자 이상이어야 해요'; return; }
-  if (pw1 !== pw2)    { if (msg) msg.textContent = '두 비밀번호가 일치하지 않아요'; return; }
+  if (!cur)            { if (msg) msg.textContent = '현재 비밀번호를 입력해주세요'; return; }
+  if (pw1.length < 4)  { if (msg) msg.textContent = '새 비밀번호는 4자 이상이어야 해요'; return; }
+  if (pw1 !== pw2)     { if (msg) msg.textContent = '두 비밀번호가 일치하지 않아요'; return; }
   showLoading('비밀번호를 변경하는 중이에요 🔑');
-  var res = await api('change_teacher_password', { teacher_uid: STATE.user.teacher_uid, new_pw: pw1 });
+  var res = await api('change_teacher_password', {
+    teacher_uid: STATE.user.teacher_uid,
+    current_pw: cur,
+    new_pw: pw1,
+  });
   hideLoading();
   if (res.status === 'ok') {
+    document.getElementById('profilePwCurrent').value = '';
     document.getElementById('profilePwNew1').value = '';
     document.getElementById('profilePwNew2').value = '';
     toast('비밀번호가 변경됐어요 🔑');
@@ -4641,11 +4638,15 @@ async function confirmChangeTeacherName() {
 
 // ── 교사 본인 비밀번호 변경 (설정 탭) ──
 function openChangePwSelf() {
-  document.getElementById('changePwDesc').textContent = '새 비밀번호를 입력하세요';
+  document.getElementById('changePwDesc').textContent = '현재 비밀번호를 먼저 입력해주세요';
   document.getElementById('changePwInput').value = '';
   document.getElementById('changePwInput').dataset.mode = 'teacher_self';
+  var cwrap = document.getElementById('changePwCurrentWrap');
+  var cinput = document.getElementById('changePwCurrentInput');
+  if (cwrap) cwrap.style.display = 'block';
+  if (cinput) cinput.value = '';
   openModal('modal-change-pw');
-  setTimeout(function(){ document.getElementById('changePwInput').focus(); }, 300);
+  setTimeout(function(){ if (cinput) cinput.focus(); }, 300);
 }
 
 function openChangePw(uid, name) {
@@ -4653,6 +4654,9 @@ function openChangePw(uid, name) {
   _pwTargetUid = uid;
   document.getElementById('changePwDesc').textContent = name + ' 학생의 새 비밀번호를 입력하세요';
   document.getElementById('changePwInput').value = '';
+  document.getElementById('changePwInput').dataset.mode = 'student';
+  var cwrap = document.getElementById('changePwCurrentWrap');
+  if (cwrap) cwrap.style.display = 'none';
   openModal('modal-change-pw');
   setTimeout(function(){ document.getElementById('changePwInput').focus(); }, 300);
 }
@@ -4661,16 +4665,31 @@ async function confirmChangePw() {
   if (!newPw) { toast('비밀번호를 입력하세요'); return; }
   if (newPw.length < 4) { toast('4자 이상 입력해주세요'); return; }
   var mode = document.getElementById('changePwInput').dataset.mode;
-  closeModal('modal-change-pw');
-  showLoading('비밀번호를 변경하는 중이에요 🔑');
   var res;
   if (mode === 'teacher_self') {
-    res = await api('change_teacher_password', { teacher_uid: STATE.user.teacher_uid, new_pw: newPw });
+    // 교사 본인 변경 — 현재PW 검증
+    var currentPw = (document.getElementById('changePwCurrentInput') || {}).value || '';
+    if (!currentPw) { toast('현재 비밀번호를 입력하세요'); return; }
+    closeModal('modal-change-pw');
+    showLoading('비밀번호를 변경하는 중이에요 🔑');
+    res = await api('change_teacher_password', {
+      teacher_uid: STATE.user.teacher_uid,
+      current_pw: currentPw,
+      new_pw: newPw,
+    });
+  } else if (mode === 'teacher') {
+    // 관리자가 교사 PW 변경 — 현재PW 불필요
+    closeModal('modal-change-pw');
+    showLoading('비밀번호를 변경하는 중이에요 🔑');
+    res = await api('change_teacher_password', { teacher_uid: _teacherPwTargetUid, new_pw: newPw });
   } else {
+    // 학생 PW 변경
+    closeModal('modal-change-pw');
+    showLoading('비밀번호를 변경하는 중이에요 🔑');
     res = await api('change_student_password', { student_uid: _pwTargetUid, new_pw: newPw });
   }
   hideLoading();
-  toast(res.status === 'ok' ? res.data.message : res.message);
+  toast(res.status === 'ok' ? (res.data ? res.data.message : '변경 완료') : res.message);
 }
 
 async function resetStudentPw(uid, name) {
@@ -4727,11 +4746,7 @@ async function loadRecords(dateStr) {
 
 async function teacherUnlockEmotion(student_uid, student_name) {
   showLoading(student_name + '의 감정 수정을 허용하는 중이에요 🔓');
-  var res = await api('unlock_emotion', {
-    student_uid:  student_uid,
-    student_name: student_name,
-    teacher_name: STATE.user ? STATE.user.name : '선생님',
-  });
+  var res = await api('unlock_emotion', { student_uid: student_uid });
   hideLoading();
   if (res.status === 'ok') {
     toast(student_name + ' 학생이 다시 감정을 수정할 수 있어요');
