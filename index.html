@@ -70,6 +70,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 @keyframes popIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
 @keyframes popupIn{from{opacity:0;transform:scale(.85) translateY(4px)}to{opacity:1;transform:scale(1) translateY(0)}}
 @keyframes popupOut{from{opacity:1;transform:scale(1) translateY(0)}to{opacity:0;transform:scale(.88) translateY(4px)}}
+@keyframes attendModalIn{from{opacity:0;transform:translateY(28px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes overlayFadeIn{from{opacity:0}to{opacity:1}}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes sparkle{0%{transform:scale(1);filter:brightness(1)}25%{transform:scale(1.18);filter:brightness(1.5)}50%{transform:scale(1);filter:brightness(1)}75%{transform:scale(1.12);filter:brightness(1.4)}100%{transform:scale(1);filter:brightness(1)}}
 @keyframes ping{0%{transform:scale(1);opacity:.9}70%{transform:scale(2.2);opacity:0}100%{transform:scale(2.2);opacity:0}}
@@ -200,7 +202,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .nfc-ripple:nth-child(3){width:160px;height:160px;animation-delay:1.2s}
 .nfc-ripple:nth-child(4){width:180px;height:180px;animation-delay:1.8s}
 @keyframes ripple{
-  0%{opacity:.7;transform:scale(.8)}
+  0%{opacity:.85;transform:scale(.7)}
   100%{opacity:0;transform:scale(1)}
 }
 .nfc-icon{
@@ -429,7 +431,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .btn-refresh.spinning .refresh-icon{animation:spin .6s linear infinite}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
-.attend-ripple{position:absolute;border-radius:50%;border:3px solid rgba(78,205,180,.55);opacity:0;animation:ripple 2.6s ease-out infinite;pointer-events:none}
+.attend-ripple{position:absolute;border-radius:50%;border:3.5px solid rgba(78,205,180,.75);opacity:0;animation:ripple 2.6s ease-out infinite;pointer-events:none}
 .attend-ripple:nth-child(1){width:90px;height:90px;animation-delay:0s}
 .attend-ripple:nth-child(2){width:150px;height:150px;animation-delay:.85s}
 .attend-ripple:nth-child(3){width:210px;height:210px;animation-delay:1.7s}
@@ -1129,8 +1131,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 </div>
 
 <!-- ══ 모달: 연속등교 모드 ══ -->
-<div id="modal-attend-mode" class="modal-overlay hidden">
-  <div style="background:linear-gradient(160deg,#c2ede4,#cde6f8,#e8e0fc);border-radius:24px;width:calc(100% - 32px);max-width:420px;overflow:hidden;position:relative;max-height:92vh;overflow-y:auto">
+<div id="modal-attend-mode" class="modal-overlay hidden" style="animation:overlayFadeIn .22s ease">
+  <div style="background:linear-gradient(160deg,#c2ede4,#cde6f8,#e8e0fc);border-radius:24px;width:calc(100% - 32px);max-width:420px;overflow:hidden;position:relative;max-height:92vh;overflow-y:auto;animation:attendModalIn .32s cubic-bezier(.22,.8,.36,1) both">
     <button class="modal-close" style="position:absolute;top:12px;right:14px;z-index:10;background:rgba(255,255,255,.55);border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;font-size:14px" onclick="closeAttendanceMode()">✕</button>
 
     <!-- NFC 대기 화면 -->
@@ -1140,8 +1142,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
         <img id="attendModeImg" src="" alt="연속등교" style="width:100%;display:block;object-fit:contain;background:#e8f5f2">
         <!-- 하단 페이드 — 이미지→배너 자연스럽게 연결 -->
         <div style="position:absolute;bottom:0;left:0;right:0;height:80px;background:linear-gradient(to bottom,transparent,rgba(100,160,200,0.6))"></div>
-        <!-- 리플 링 — 이미지 중앙 하단에 오버레이 -->
-        <div style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);width:0;height:0;display:flex;align-items:center;justify-content:center">
+        <!-- 리플 링 — 이미지 중앙 상단쪽에 오버레이 -->
+        <div style="position:absolute;bottom:38%;left:50%;transform:translateX(-50%);width:0;height:0;display:flex;align-items:center;justify-content:center">
           <div class="attend-ripple"></div>
           <div class="attend-ripple"></div>
           <div class="attend-ripple"></div>
