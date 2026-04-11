@@ -5195,28 +5195,33 @@ async function resetStudentPw(uid, name) {
 var _preloadedTodayRecords = null; // { date:'YYYY-MM-DD', emotions:[...] } 로그인 시 채움
 // ── 감정 색상 맵 (소감정 → 색, 하드코딩) ─────────────────────
 var EMOTION_COLOR_MAP = {
-  // 긍정
-  '기쁨':'#FFD93D','행복':'#FF9F1C','설렘':'#FF8FAB','뿌듯함':'#06D6A0',
-  '감사':'#F4A261','평온':'#48CAE4','안도':'#95D5B2','만족':'#52B788',
-  '기대':'#FFB347','신남':'#EF476F','흥분':'#FF6B6B','열정':'#E63946',
-  '자신감':'#4CC9F0','사랑':'#FF85A1','즐거움':'#FFBE0B','편안함':'#90E0EF',
-  '활기참':'#F72585','재미있음':'#F8961E','신기함':'#B5E48C','두근두근':'#FF6B9D',
-  '설레는':'#FF8FAB','뿌듯한':'#06D6A0','신나는':'#EF476F','좋음':'#FFD166',
-  // 중립
-  '그냥그래':'#ADB5BD','멍한':'#CED4DA','심심한':'#DEE2E6','모르겠어':'#B0C4DE',
-  '보통':'#C5C5C5','별로':'#A8A8A8','그냥':'#BDBDBD','피곤한':'#9E9E9E',
-  '지루한':'#B8B8B8','평범한':'#D4D4D4','무감각':'#CFCFCF','덤덤한':'#C8C8C8',
-  '그저그래':'#BCBCBC',
-  // 부정
-  '슬픔':'#4895EF','외로움':'#5E60CE','그리움':'#7B68EE','억울함':'#F07167',
-  '화남':'#FF4D6D','짜증':'#FF6B35','불안':'#9B5DE5','걱정':'#6A4C93',
-  '두려움':'#3D405B','부끄러움':'#F4845F','창피함':'#E07A5F','실망':'#74B9FF',
-  '속상함':'#A29BFE','무서움':'#2D3436','힘든':'#6C757D','우울':'#3A86FF',
-  '서운함':'#8ECAE6','미움':'#D62828','질투':'#43AA8B','부러움':'#90BE6D',
-  '슬픈':'#4895EF','외로운':'#5E60CE','화난':'#FF4D6D','불안한':'#9B5DE5',
-  '걱정되는':'#6A4C93','억울한':'#F07167','부끄러운':'#F4845F',
+  // 긍정 — 짙은 다홍·주황·산호 계열
+  '기쁨'    :'#FF5C5C','행복'    :'#FF8C00','설렘'    :'#FF4F72',
+  '뿌듯함'  :'#FF7043','감사'    :'#FFA726','기대'    :'#FF6D00',
+  '신남'    :'#F4511E','사랑'    :'#E91E63','즐거움'  :'#FF9800',
+  '활기참'  :'#FF5722','자신감'  :'#FF6F61','편안함'  :'#FFB300',
+  '만족'    :'#FF8F00','안도'    :'#FFA040','평온'    :'#FF7C80',
+  '열정'    :'#D50000','재미있음':'#FF6E40','신기함'  :'#FF8C42',
+  '두근두근':'#FF4081','흥분'    :'#FF1744','뿌듯한'  :'#FF7043',
+  '신나는'  :'#F4511E','좋음'    :'#FFC107','설레는'  :'#FF4F72',
+  // 중립 — 민트·연회색·밝은 무채색 계열
+  '그냥그래':'#B2DFDB','멍한'    :'#E0E0E0','심심한'  :'#F5F5F5',
+  '모르겠어':'#CFD8DC','보통'    :'#ECEFF1','별로'    :'#D7CCC8',
+  '그냥'    :'#E0F7FA','피곤한'  :'#B2EBF2','지루한'  :'#E8F5E9',
+  '평범한'  :'#F0F4F8','덤덤한'  :'#E1F5FE','무감각'  :'#DCEDC8',
+  '그저그래':'#E3F2FD',
+  // 부정 — 남색·무거운 무채색 계열
+  '슬픔'    :'#1A237E','외로움'  :'#283593','그리움'  :'#3949AB',
+  '억울함'  :'#37474F','화남'    :'#4E342E','짜증'    :'#546E7A',
+  '불안'    :'#4527A0','걱정'    :'#2E3A59','두려움'  :'#212121',
+  '부끄러움':'#4A148C','창피함'  :'#3E2723','실망'    :'#455A64',
+  '속상함'  :'#311B92','무서움'  :'#263238','힘든'    :'#37474F',
+  '우울'    :'#0D47A1','서운함'  :'#607D8B','미움'    :'#4E0D0D',
+  '질투'    :'#2D3561','부러움'  :'#33461A','슬픈'    :'#1A237E',
+  '외로운'  :'#283593','화난'    :'#4E342E','불안한'  :'#4527A0',
+  '걱정되는':'#2E3A59','억울한'  :'#37474F','부끄러운':'#4A148C',
 };
-var MACRO_COLOR_FB = { positive:'#FFD93D', neutral:'#ADB5BD', negative:'#4895EF' };
+var MACRO_COLOR_FB = { positive:'#FF7043', neutral:'#B2DFDB', negative:'#37474F' };
 function getEmotionColor(micro, macro) {
   if (micro) {
     if (EMOTION_COLOR_MAP[micro]) return EMOTION_COLOR_MAP[micro];
@@ -5315,7 +5320,7 @@ function renderEmotionBarcode() {
 
   var bars = students.map(function(s) {
     var emo   = STATE.studentEmotions && STATE.studentEmotions[s.student_uid];
-    var color = emo ? getEmotionColor(emo.micro_emotion, emo.macro_emotion) : '#e0dfd6';
+    var color = emo ? getEmotionColor(emo.micro, emo.macro) : '#e0dfd6';
     var submitted = !!emo;
     var tip = submitted
       ? (s.num+'번 '+s.name+' · '+(emo.micro_emotion||emo.macro_emotion||''))
