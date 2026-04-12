@@ -2582,8 +2582,7 @@ function previewTeacher() {
     ]);
     // 미리보기 전용: 감정 슬라이더 표시
     setTimeout(function(){ insertPreviewSliders(); }, 400);
-    // 더미 학생 목록
-    // 20명 더미 (학생 미리보기 '김민준 1번'도 포함)
+    // 더미 학생 목록 — 28명 (전체:28, 제출:20, 미제출:8)
     STATE.students = [
       {student_uid:'s01',student_id:'mee264101',name:'김민준',  num:1, grade:4,class:1,nfc_uid:'04:AA:BB:11',active:'Y',gender:'M'},
       {student_uid:'s02',student_id:'mee264102',name:'이서연',  num:2, grade:4,class:1,nfc_uid:'04:AA:BB:22',active:'Y',gender:'F'},
@@ -2605,6 +2604,15 @@ function previewTeacher() {
       {student_uid:'s18',student_id:'mee264118',name:'장소율',  num:18,grade:4,class:1,nfc_uid:'04:AA:BB:18',active:'Y',gender:'F'},
       {student_uid:'s19',student_id:'mee264119',name:'전민찬',  num:19,grade:4,class:1,nfc_uid:'04:AA:BB:19',active:'Y',gender:'M'},
       {student_uid:'s20',student_id:'mee264120',name:'서하늘',  num:20,grade:4,class:1,nfc_uid:'',            active:'Y',gender:'F'},
+      // 21~28번: 미제출 학생들
+      {student_uid:'s21',student_id:'mee264121',name:'김서준',  num:21,grade:4,class:1,nfc_uid:'04:AA:BB:21',active:'Y',gender:'M'},
+      {student_uid:'s22',student_id:'mee264122',name:'박지은',  num:22,grade:4,class:1,nfc_uid:'',            active:'Y',gender:'F'},
+      {student_uid:'s23',student_id:'mee264123',name:'이도현',  num:23,grade:4,class:1,nfc_uid:'04:AA:BB:23',active:'Y',gender:'M'},
+      {student_uid:'s24',student_id:'mee264124',name:'최수빈',  num:24,grade:4,class:1,nfc_uid:'04:AA:BB:24',active:'Y',gender:'F'},
+      {student_uid:'s25',student_id:'mee264125',name:'정우진',  num:25,grade:4,class:1,nfc_uid:'',            active:'Y',gender:'M'},
+      {student_uid:'s26',student_id:'mee264126',name:'한예린',  num:26,grade:4,class:1,nfc_uid:'04:AA:BB:26',active:'Y',gender:'F'},
+      {student_uid:'s27',student_id:'mee264127',name:'오시온',  num:27,grade:4,class:1,nfc_uid:'04:AA:BB:27',active:'Y',gender:'M'},
+      {student_uid:'s28',student_id:'mee264128',name:'윤채영',  num:28,grade:4,class:1,nfc_uid:'',            active:'Y',gender:'F'},
     ];
     // 오늘 감정 — 긍정9·중립5·부정4·미제출2 (일부 감정 중복으로 클러스터링 시각화)
     STATE.studentEmotions = {
@@ -2651,6 +2659,16 @@ function previewTeacher() {
       's20':{ temp:34, current_balance:7, can_save_double:true  },
     };
     renderStudentList();
+    // 바코드: 학생 목록 + 감정 데이터 세팅 후 렌더
+    renderEmotionBarcode();
+    // 대시보드 업데이트 시각 표시
+    setText('dashUpdatedAt', '미리보기 기준');
+    // 훈훈습도계 선물 피드 더미
+    renderGiftFeed([
+      { from_name:'김민준', to_name:'이서연' },
+      { from_name:'한지수', to_name:'박지호' },
+      { from_name:'백서아', to_name:'강민재' },
+    ]);
   }, 300);
 }
 
@@ -2786,18 +2804,47 @@ function previewStudent() {
   };
   document.getElementById('headerUser').textContent = '김민준 (학생 미리보기)';
   document.getElementById('btnBackAdmin').classList.remove('hidden');
-  // 반 친구: 교사 미리보기 20명 중 김민준(s01) 제외한 나머지 (선물하기 테스트용)
+
+  // 반 친구: 교사 미리보기 28명 중 김민준(s01) 제외 (선물하기 테스트용)
   STATE.students = [
-    {student_uid:'s02',student_id:'mee264102',name:'이서연',num:2, grade:4,class:1,gender:'F',active:'Y'},
-    {student_uid:'s03',student_id:'mee264103',name:'박지호',num:3, grade:4,class:1,gender:'M',active:'Y'},
-    {student_uid:'s04',student_id:'mee264104',name:'최유나',num:4, grade:4,class:1,gender:'F',active:'Y'},
-    {student_uid:'s05',student_id:'mee264105',name:'정태양',num:5, grade:4,class:1,gender:'M',active:'Y'},
-    {student_uid:'s06',student_id:'mee264106',name:'한지수',num:6, grade:4,class:1,gender:'F',active:'Y'},
-    {student_uid:'s07',student_id:'mee264107',name:'오준혁',num:7, grade:4,class:1,gender:'M',active:'Y'},
-    {student_uid:'s08',student_id:'mee264108',name:'윤하은',num:8, grade:4,class:1,gender:'F',active:'Y'},
+    {student_uid:'s02',student_id:'mee264102',name:'이서연',  num:2, grade:4,class:1,gender:'F',active:'Y'},
+    {student_uid:'s03',student_id:'mee264103',name:'박지호',  num:3, grade:4,class:1,gender:'M',active:'Y'},
+    {student_uid:'s04',student_id:'mee264104',name:'최유나',  num:4, grade:4,class:1,gender:'F',active:'Y'},
+    {student_uid:'s05',student_id:'mee264105',name:'정태양',  num:5, grade:4,class:1,gender:'M',active:'Y'},
+    {student_uid:'s06',student_id:'mee264106',name:'한지수',  num:6, grade:4,class:1,gender:'F',active:'Y'},
+    {student_uid:'s07',student_id:'mee264107',name:'오준혁',  num:7, grade:4,class:1,gender:'M',active:'Y'},
+    {student_uid:'s08',student_id:'mee264108',name:'윤하은',  num:8, grade:4,class:1,gender:'F',active:'Y'},
+    {student_uid:'s09',student_id:'mee264109',name:'강민재',  num:9, grade:4,class:1,gender:'M',active:'Y'},
+    {student_uid:'s10',student_id:'mee264110',name:'임채원',  num:10,grade:4,class:1,gender:'F',active:'Y'},
+    {student_uid:'s11',student_id:'mee264111',name:'신도윤',  num:11,grade:4,class:1,gender:'M',active:'Y'},
+    {student_uid:'s12',student_id:'mee264112',name:'백서아',  num:12,grade:4,class:1,gender:'F',active:'Y'},
+    {student_uid:'s13',student_id:'mee264113',name:'남준호',  num:13,grade:4,class:1,gender:'M',active:'Y'},
+    {student_uid:'s14',student_id:'mee264114',name:'류다인',  num:14,grade:4,class:1,gender:'F',active:'Y'},
+    {student_uid:'s15',student_id:'mee264115',name:'문성훈',  num:15,grade:4,class:1,gender:'M',active:'Y'},
+    {student_uid:'s16',student_id:'mee264116',name:'권아린',  num:16,grade:4,class:1,gender:'F',active:'Y'},
+    {student_uid:'s17',student_id:'mee264117',name:'조현우',  num:17,grade:4,class:1,gender:'M',active:'Y'},
+    {student_uid:'s18',student_id:'mee264118',name:'장소율',  num:18,grade:4,class:1,gender:'F',active:'Y'},
+    {student_uid:'s19',student_id:'mee264119',name:'전민찬',  num:19,grade:4,class:1,gender:'M',active:'Y'},
+    {student_uid:'s20',student_id:'mee264120',name:'서하늘',  num:20,grade:4,class:1,gender:'F',active:'Y'},
+    {student_uid:'s21',student_id:'mee264121',name:'김서준',  num:21,grade:4,class:1,gender:'M',active:'Y'},
+    {student_uid:'s22',student_id:'mee264122',name:'박지은',  num:22,grade:4,class:1,gender:'F',active:'Y'},
+    {student_uid:'s23',student_id:'mee264123',name:'이도현',  num:23,grade:4,class:1,gender:'M',active:'Y'},
+    {student_uid:'s24',student_id:'mee264124',name:'최수빈',  num:24,grade:4,class:1,gender:'F',active:'Y'},
+    {student_uid:'s25',student_id:'mee264125',name:'정우진',  num:25,grade:4,class:1,gender:'M',active:'Y'},
+    {student_uid:'s26',student_id:'mee264126',name:'한예린',  num:26,grade:4,class:1,gender:'F',active:'Y'},
+    {student_uid:'s27',student_id:'mee264127',name:'오시온',  num:27,grade:4,class:1,gender:'M',active:'Y'},
+    {student_uid:'s28',student_id:'mee264128',name:'윤채영',  num:28,grade:4,class:1,gender:'F',active:'Y'},
   ];
-  // 토큰 더미 (2배 저축 가능 케이스 포함)
+
+  // 토큰 더미 (일반 3개 + 선물 2개)
   STATE.tokenBalance = { current_balance: 5, total_earned: 12, total_saved: 7, can_save_double: true, gift_balance: 2 };
+
+  // 감정: 미제출 상태로 시작 (체크인 경험 체험용)
+  STATE.todayEmotionSubmitted = false;
+  STATE.todayEmotionModified  = false;
+  STATE.selectedMacro = null;
+  STATE.selectedMicro = null;
+
   // 알림 더미
   _notifications = [
     { notification_uid:'pn1', type:'token_gift', title:'💝 마음토큰 선물 도착!',
@@ -2807,25 +2854,16 @@ function previewStudent() {
       body:'오늘도 학교에 잘 도착했어요', sender_name:'',
       is_read: true, created_at: new Date(Date.now()-3600000).toISOString() },
   ];
+
   buildStudentUI();
+  hideLoading(); // 스피너 해제
   updateNotifBadge();
+  updateEmotionSubmittedBanner(); // 감정 배너 초기 상태 반영
+
   setTimeout(function() {
-    setText('tokenAmount', 5);
-    setText('tokenGift',   2);
-    setText('tokenEarned', 12);
-    setText('tokenSaved', 7);
+    // 토큰 카드 전체 상태를 _refreshTokenCards로 일괄 반영
+    _refreshTokenCards(STATE.tokenBalance);
     updateHeartTempUI(Math.min(100, Math.floor(7/2)));
-    // 카드 상태 (border는 CSS hover가 담당 — 여기서 세팅 안 함)
-    var cardMy   = document.getElementById('cardMyToken');
-    var cardGift = document.getElementById('cardGiftToken');
-    var hintEl   = document.getElementById('giftCardHint');
-    if (cardMy)   { cardMy.style.opacity = '1'; cardMy.style.cursor = 'pointer'; }
-    if (cardGift) { cardGift.style.opacity = '1'; cardGift.style.cursor = 'pointer'; }
-    if (hintEl)   { hintEl.textContent = '탭 → 저축'; }
-    var saveAllBtn = document.getElementById('saveAllBtn');
-    if (saveAllBtn) saveAllBtn.textContent = '🪙 모두 저축하기';
-    var saveAllDetail = document.getElementById('saveAllDetail');
-    if (saveAllDetail) saveAllDetail.textContent = '(일반 3개, 선물 2개 × 2)';
   }, 200);
 }
 
@@ -4479,9 +4517,9 @@ function renderWordCloud(words) {
   var W = wrap.offsetWidth  || 340;
   var H = wrap.offsetHeight || 220;
 
-  // 빈도 기반 폰트 크기 계산
+  // 빈도 기반 폰트 크기 계산 — 상한 낮춰 오버플로우 방지
   var maxCount = d3.max(words, function(d){ return d.count; }) || 1;
-  var fontScale = d3.scaleLinear().domain([1, maxCount]).range([13, 36]);
+  var fontScale = d3.scaleLinear().domain([1, maxCount]).range([12, 28]);
 
   // D3 Cloud 레이아웃
   d3.layout.cloud()
@@ -4489,17 +4527,24 @@ function renderWordCloud(words) {
     .words(words.map(function(w){
       return { text: w.word, size: fontScale(w.count), type: w.type, count: w.count };
     }))
-    .padding(5)
+    .padding(4)
     .rotate(function(){ return (Math.random() > 0.8) ? 90 : 0; })
     .font('Noto Sans KR')
     .fontSize(function(d){ return d.size; })
     .on('end', function(computed){
       // SVG 초기화
       d3.select('#wordcloudSvg').selectAll('*').remove();
-      d3.select('#wordcloudSvg')
+      var svgSel = d3.select('#wordcloudSvg')
         .attr('width', W)
         .attr('height', H)
+        .style('overflow', 'hidden');
+      // clipPath으로 경계 보장
+      svgSel.append('defs').append('clipPath')
+        .attr('id', 'wcClip')
+        .append('rect').attr('width', W).attr('height', H);
+      svgSel
         .append('g')
+        .attr('clip-path', 'url(#wcClip)')
         .attr('transform', 'translate('+W/2+','+H/2+')')
         .selectAll('text')
         .data(computed)
