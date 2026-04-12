@@ -314,7 +314,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .weather-box.ws-none     { background:linear-gradient(180deg,#b8eaf5 0%,#d4f5ee 100%); }
 
 /* 날씨 레이어들 */
-.wx-layer{ position:absolute;inset:0;pointer-events:none; }
+.wx-layer{ position:absolute;inset:0;pointer-events:none;z-index:1; }
 
 /* ☀️ 태양 */
 .wx-sun{
@@ -394,6 +394,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .wx-wordcloud{
   position:absolute;inset:0;
   display:flex;align-items:center;justify-content:center;
+  z-index:2; /* wx-layer(z-index:1 기본) 위에 렌더 */
 }
 .wx-wordcloud svg{ width:100%;height:100%; }
 .wx-label{
@@ -2710,17 +2711,17 @@ function previewTeacher() {
 // ── 미리보기 감정 슬라이더 ───────────────────────────────
 // 10단계 시나리오 (긍정·중립·부정 / 20명 기준)
 var PREVIEW_STEPS = [
-  // [pos, neu, neg] 합=20 (제출 수)
-  { pos:0,  neu:2,  neg:18, weather:'rainbow',      label:'⚡ 거의 부정' },
-  { pos:2,  neu:3,  neg:15, weather:'rain',          label:'☔ 부정 우세' },
-  { pos:4,  neu:4,  neg:12, weather:'rain',          label:'🌧 부정 많음' },
-  { pos:6,  neu:5,  neg:9,  weather:'cloudy',        label:'☁️ 혼재' },
-  { pos:8,  neu:7,  neg:5,  weather:'cloudy',        label:'🌥 중립 우세' },
-  { pos:10, neu:6,  neg:4,  weather:'partly_cloudy', label:'⛅ 균형' },
-  { pos:12, neu:5,  neg:3,  weather:'partly_cloudy', label:'🌤 긍정 많음' },
-  { pos:14, neu:4,  neg:2,  weather:'sunny',         label:'☀️ 긍정 우세' },
-  { pos:16, neu:3,  neg:1,  weather:'sunny',         label:'☀️ 매우 긍정' },
-  { pos:18, neu:2,  neg:0,  weather:'sunny',         label:'☀️ 거의 긍정' },
+  // 합계 20명 기준, GAS calcWeather: posR≥0.3 AND negR≥0.3 → rainbow / negR≥0.25 → rain / posR≥0.55 → partly / posR≥0.6 → sunny
+  { pos:0,  neu:2,  neg:18, weather:'rain',          label:'🌧 거의 부정' },     // negR=0.9 → rain
+  { pos:2,  neu:3,  neg:15, weather:'rain',          label:'☔ 부정 우세' },      // negR=0.75 → rain
+  { pos:4,  neu:4,  neg:12, weather:'rain',          label:'🌧 부정 많음' },      // negR=0.6 → rain
+  { pos:6,  neu:5,  neg:9,  weather:'rainbow',       label:'🌈 혼재' },            // posR=0.3, negR=0.45 → rainbow
+  { pos:8,  neu:7,  neg:5,  weather:'rainbow',       label:'🌈 중립 우세' },       // posR=0.4, negR=0.25 → rainbow
+  { pos:10, neu:6,  neg:4,  weather:'partly_cloudy', label:'⛅ 균형' },           // posR=0.5 → partly
+  { pos:12, neu:5,  neg:3,  weather:'partly_cloudy', label:'🌤 긍정 많음' },       // posR=0.6 → sunny/partly
+  { pos:14, neu:4,  neg:2,  weather:'sunny',         label:'☀️ 긍정 우세' },      // posR=0.7 → sunny
+  { pos:16, neu:3,  neg:1,  weather:'sunny',         label:'☀️ 매우 긍정' },      // posR=0.8 → sunny
+  { pos:18, neu:2,  neg:0,  weather:'sunny',         label:'☀️ 거의 긍정' },      // posR=0.9 → sunny
 ];
 
 // 감정별 단어 풀
@@ -3996,6 +3997,7 @@ async function loadAdminDashboard() {
 
   var d = res.data;
   _admSchools = d.schools || [];
+  _nationalMapCache = _admSchools; // 교사 전국 지도 팝업에서도 재활용
 
   var now = new Date();
   var hh = ('0'+now.getHours()).slice(-2);
@@ -6012,14 +6014,16 @@ function renderAttendanceGrid() {
 function renderAdminAttendance() {
   var wrap = document.getElementById('adminAttendTable');
   if (!wrap) return;
-  // _nationalMapCache 또는 STATE.dashboard 에서 데이터 재활용
-  var schools = _nationalMapCache || [];
+
+  // 로그인 시 loadAdminDashboard()가 이미 _admSchools를 채움 → 바로 사용
+  var schools = _admSchools && _admSchools.length ? _admSchools
+              : (_nationalMapCache && _nationalMapCache.length ? _nationalMapCache : []);
+
   if (!schools.length) {
     wrap.innerHTML = '<div style="color:var(--gray);font-size:12px;text-align:center;padding:20px">데이터를 불러오는 중이에요</div>';
-    // 비동기 로드
     api('get_admin_dashboard', {}).then(function(res) {
       if (res.status === 'ok') {
-        _nationalMapCache = res.data.schools || [];
+        _admSchools = res.data.schools || [];
         renderAdminAttendance();
       }
     });
