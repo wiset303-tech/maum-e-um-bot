@@ -2694,7 +2694,7 @@ function previewTeacher() {
       {word:'속상한',    type:'negative', count:1},
       {word:'외로운',    type:'negative', count:1},
     ]);
-    setTimeout(function(){ insertPreviewSliders(); }, 300);
+    setTimeout(function(){ insertPreviewButtons(); }, 300);
     renderStudentList();
     renderEmotionBarcode();
     setText('dashUpdatedAt', '미리보기 기준');
@@ -2712,128 +2712,121 @@ function previewTeacher() {
 // 학생 미리보기 — 더미 데이터로 학생 화면 실행
 // ── 미리보기 감정 슬라이더 ───────────────────────────────
 // 10단계 시나리오 (긍정·중립·부정 / 20명 기준)
-var PREVIEW_STEPS = [
-  // 합계 20명 기준, GAS calcWeather: posR≥0.3 AND negR≥0.3 → rainbow / negR≥0.25 → rain / posR≥0.55 → partly / posR≥0.6 → sunny
-  { pos:0,  neu:2,  neg:18, weather:'rain',          label:'🌧 거의 부정' },     // negR=0.9 → rain
-  { pos:2,  neu:3,  neg:15, weather:'rain',          label:'☔ 부정 우세' },      // negR=0.75 → rain
-  { pos:4,  neu:4,  neg:12, weather:'rain',          label:'🌧 부정 많음' },      // negR=0.6 → rain
-  { pos:6,  neu:5,  neg:9,  weather:'rainbow',       label:'🌈 혼재' },            // posR=0.3, negR=0.45 → rainbow
-  { pos:8,  neu:7,  neg:5,  weather:'rainbow',       label:'🌈 중립 우세' },       // posR=0.4, negR=0.25 → rainbow
-  { pos:10, neu:6,  neg:4,  weather:'partly_cloudy', label:'⛅ 균형' },           // posR=0.5 → partly
-  { pos:12, neu:5,  neg:3,  weather:'partly_cloudy', label:'🌤 긍정 많음' },       // posR=0.6 → sunny/partly
-  { pos:14, neu:4,  neg:2,  weather:'sunny',         label:'☀️ 긍정 우세' },      // posR=0.7 → sunny
-  { pos:16, neu:3,  neg:1,  weather:'sunny',         label:'☀️ 매우 긍정' },      // posR=0.8 → sunny
-  { pos:18, neu:2,  neg:0,  weather:'sunny',         label:'☀️ 거의 긍정' },      // posR=0.9 → sunny
-];
-
-// 감정별 단어 풀
-var PREVIEW_WORDS = {
-  positive: [
-    {word:'설레는', count:3},{word:'신나는', count:2},{word:'기쁜', count:2},
-    {word:'뿌듯한', count:1},{word:'행복한', count:1},{word:'두근거리는', count:1},
-    {word:'기대돼', count:1},{word:'즐거워', count:1},
-  ],
-  neutral: [
-    {word:'그냥그래', count:3},{word:'멍한', count:1},{word:'심심한', count:1},
-    {word:'피곤해', count:1},{word:'보통이야', count:1},
-  ],
-  negative: [
-    {word:'걱정돼', count:2},{word:'속상한', count:1},{word:'외로운', count:1},
-    {word:'슬퍼요', count:1},{word:'힘들어', count:1},{word:'두려워', count:1},
-  ],
+// 미리보기 날씨 프리셋 — 버튼 4개
+var PREVIEW_PRESETS = {
+  negative: {
+    pos:2, neu:3, neg:15, weather:'rain',
+    label:'☔ 부정 우세',
+    words: [
+      {word:'걱정돼',   type:'negative', count:5},
+      {word:'속상한',   type:'negative', count:4},
+      {word:'외로운',   type:'negative', count:3},
+      {word:'힘들어',   type:'negative', count:2},
+      {word:'슬퍼요',   type:'negative', count:2},
+      {word:'그냥그래', type:'neutral',  count:3},
+      {word:'멍한',     type:'neutral',  count:2},
+      {word:'설레는',   type:'positive', count:1},
+    ]
+  },
+  neutral: {
+    pos:7, neu:9, neg:4, weather:'cloudy',
+    label:'☁️ 중립 우세',
+    words: [
+      {word:'그냥그래', type:'neutral',  count:5},
+      {word:'멍한',     type:'neutral',  count:4},
+      {word:'심심한',   type:'neutral',  count:3},
+      {word:'피곤해',   type:'neutral',  count:2},
+      {word:'보통이야', type:'neutral',  count:2},
+      {word:'설레는',   type:'positive', count:3},
+      {word:'기쁜',     type:'positive', count:2},
+      {word:'걱정돼',   type:'negative', count:3},
+    ]
+  },
+  positive: {
+    pos:15, neu:3, neg:2, weather:'sunny',
+    label:'☀️ 긍정 우세',
+    words: [
+      {word:'설레는',   type:'positive', count:5},
+      {word:'신나는',   type:'positive', count:4},
+      {word:'기쁜',     type:'positive', count:3},
+      {word:'뿌듯한',   type:'positive', count:3},
+      {word:'행복한',   type:'positive', count:2},
+      {word:'두근거리는',type:'positive',count:2},
+      {word:'그냥그래', type:'neutral',  count:2},
+      {word:'걱정돼',   type:'negative', count:1},
+    ]
+  },
+  rainbow: {
+    pos:7, neu:6, neg:7, weather:'rainbow',
+    label:'🌈 감정 다양',
+    words: [
+      {word:'설레는',   type:'positive', count:4},
+      {word:'기쁜',     type:'positive', count:3},
+      {word:'그냥그래', type:'neutral',  count:4},
+      {word:'멍한',     type:'neutral',  count:3},
+      {word:'걱정돼',   type:'negative', count:4},
+      {word:'속상한',   type:'negative', count:3},
+      {word:'외로운',   type:'negative', count:2},
+    ]
+  }
 };
 
-function insertPreviewSliders() {
+function insertPreviewButtons() {
   var weatherBox = document.getElementById('weatherBox');
   if (!weatherBox || document.getElementById('previewSliderBox')) return;
   var box = document.createElement('div');
   box.id = 'previewSliderBox';
-  box.style.cssText = 'background:#f0faf7;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;border:1px solid var(--mint3)';
+  box.style.cssText = 'background:#f0faf7;border-radius:12px;padding:9px 12px;margin-bottom:12px;border:1px solid var(--mint3)';
   box.innerHTML =
-    '<div style="font-weight:700;color:var(--navy);margin-bottom:8px">🎚 미리보기 감정 조절</div>' +
-    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">' +
-      '<span style="color:#1D9E75;font-weight:700;width:28px">긍정</span>' +
-      '<input type="range" id="sliderPos" min="0" max="9" value="6" style="flex:1;accent-color:#1D9E75"' +
-        ' oninput="applyPreviewStep()">' +
-      '<span id="lblPos" style="color:#1D9E75;font-weight:700;width:22px;text-align:right"></span>' +
-    '</div>' +
-    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">' +
-      '<span style="color:#888;font-weight:700;width:28px">중립</span>' +
-      '<input type="range" id="sliderNeu" min="0" max="9" value="6" style="flex:1;accent-color:#888" disabled>' +
-      '<span id="lblNeu" style="color:#888;font-weight:700;width:22px;text-align:right"></span>' +
-    '</div>' +
-    '<div style="display:flex;align-items:center;gap:8px">' +
-      '<span style="color:#E24B4A;font-weight:700;width:28px">부정</span>' +
-      '<span id="lblNeg" style="flex:1;font-size:11px;color:var(--gray)"></span>' +
-    '</div>' +
-    '<div style="text-align:right;font-size:10px;color:var(--gray);margin-top:4px" id="previewStepLabel">단계: 7/10</div>';
-  // weather-box 바로 뒤(위)에 삽입 — 날씨 애니메이션과 겹치지 않게
+    '<div style="font-size:11px;font-weight:700;color:var(--gray);margin-bottom:7px">🎚 미리보기 날씨</div>' +
+    '<div style="display:flex;gap:6px">' +
+      '<button onclick="applyPreviewPreset(\'negative\')" id="pvBtn-negative" ' +
+        'style="flex:1;padding:6px 0;border-radius:10px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:#e3eaf5;color:#37474F;transition:all .15s">☔ 부정</button>' +
+      '<button onclick="applyPreviewPreset(\'neutral\')"  id="pvBtn-neutral"  ' +
+        'style="flex:1;padding:6px 0;border-radius:10px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:#e3eaf5;color:#546E7A;transition:all .15s">☁️ 중립</button>' +
+      '<button onclick="applyPreviewPreset(\'positive\')" id="pvBtn-positive" ' +
+        'style="flex:1;padding:6px 0;border-radius:10px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:#e3eaf5;color:#1D9E75;transition:all .15s">☀️ 긍정</button>' +
+      '<button onclick="applyPreviewPreset(\'rainbow\')"  id="pvBtn-rainbow"  ' +
+        'style="flex:1;padding:6px 0;border-radius:10px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:#e3eaf5;color:#9575cd;transition:all .15s">🌈 무지개</button>' +
+    '</div>';
   weatherBox.parentNode.insertBefore(box, weatherBox);
-  applyPreviewStep();
+  applyPreviewPreset('positive'); // 기본값: 긍정
 }
 
-var _applyPreviewTimer = null;
-function applyPreviewStep() {
-  // 디바운스: 슬라이더 빠른 드래그 시 마지막 값만 처리
-  if (_applyPreviewTimer) clearTimeout(_applyPreviewTimer);
-  _applyPreviewTimer = setTimeout(_doApplyPreviewStep, 80);
-}
-function _doApplyPreviewStep() {
-  var sl = document.getElementById('sliderPos');
-  if (!sl) return;
-  var step = parseInt(sl.value, 10);
-  var s = PREVIEW_STEPS[step];
+function applyPreviewPreset(key) {
+  var p = PREVIEW_PRESETS[key];
+  if (!p) return;
 
-  // 레이블 업데이트
-  var lPos = document.getElementById('lblPos');
-  var lNeu = document.getElementById('lblNeu');
-  var lNeg = document.getElementById('lblNeg');
-  var lStep = document.getElementById('previewStepLabel');
-  if (lPos) lPos.textContent = s.pos + '명';
-  if (lNeu) lNeu.textContent = s.neu + '명';
-  if (lNeg) lNeg.textContent = s.neg + '명 부정 · ' + s.label;
-  if (lStep) lStep.textContent = '단계: ' + (step + 1) + '/10';
+  // 버튼 활성화 표시
+  ['negative','neutral','positive','rainbow'].forEach(function(k) {
+    var b = document.getElementById('pvBtn-' + k);
+    if (!b) return;
+    b.style.background = (k === key) ? 'var(--mint2)' : '#e3eaf5';
+    b.style.color      = (k === key) ? '#fff'         : ({negative:'#37474F',neutral:'#546E7A',positive:'#1D9E75',rainbow:'#9575cd'}[k]);
+  });
 
   // 날씨 업데이트
+  var wsMap = { sunny:'ws-sunny', partly_cloudy:'ws-partly', cloudy:'ws-cloudy',
+                rain:'ws-rain', rainbow:'ws-rainbow', none:'ws-none' };
   var box = document.getElementById('weatherBox');
-  if (box) {
-    var wsMap = { sunny:'ws-sunny', partly_cloudy:'ws-partly', cloudy:'ws-cloudy',
-                  rain:'ws-rain', rainbow:'ws-rainbow', none:'ws-none' };
-    box.className = 'weather-box ' + (wsMap[s.weather] || 'ws-none');
-  }
-  var w = WEATHER_MAP[s.weather] || WEATHER_MAP.none;
+  if (box) box.className = 'weather-box ' + (wsMap[p.weather] || 'ws-none');
+  var w = WEATHER_MAP[p.weather] || WEATHER_MAP.none;
   setText('weatherLabel', w.label + ' ' + w.emoji);
 
-  // 감정 분포 업데이트
+  // 감정 분포
   var dist = document.getElementById('emotionDist');
   if (dist) dist.innerHTML =
-    '<span class="emotion-chip chip-pos">☀️ 긍정 ' + s.pos + '</span>' +
-    '<span class="emotion-chip chip-neu">☁️ 중립 ' + s.neu + '</span>' +
-    '<span class="emotion-chip chip-neg">☔ 부정 ' + s.neg + '</span>';
+    '<span class="emotion-chip chip-pos">☀️ 긍정 ' + p.pos + '</span>' +
+    '<span class="emotion-chip chip-neu">☁️ 중립 ' + p.neu + '</span>' +
+    '<span class="emotion-chip chip-neg">☔ 부정 ' + p.neg + '</span>';
 
-  // 통계 업데이트
-  var total = s.pos + s.neu + s.neg;
+  // 통계
+  var total = p.pos + p.neu + p.neg;
   setText('statSubmit', total);
   setText('statMiss',   28 - total);
 
-  // 워드클라우드 — 풀에서 단어 선택, count 차등화로 폰트 크기 다양화
-  var words = [];
-  var maxPerEmo = 5;
-  var rankBoost = [3, 2, 1, 1, 1]; // 순위별 카운트 가중치 → 폰트 다양해짐
-  [
-    { pool: PREVIEW_WORDS.positive, count: Math.min(s.pos, maxPerEmo), type: 'positive' },
-    { pool: PREVIEW_WORDS.neutral,  count: Math.min(s.neu, maxPerEmo), type: 'neutral'  },
-    { pool: PREVIEW_WORDS.negative, count: Math.min(s.neg, maxPerEmo), type: 'negative' },
-  ].forEach(function(e) {
-    if (e.count === 0) return;
-    var n = Math.max(1, Math.ceil(e.count / 2));
-    e.pool.slice(0, n).forEach(function(w, i) {
-      // 순위 가중치 적용 → 모든 단어가 다른 크기
-      var boost = rankBoost[i] || 1;
-      words.push({ word: w.word, type: e.type, count: Math.max(1, boost * e.count) });
-    });
-  });
-  renderWordCloud(words);
+  // 워드클라우드
+  renderWordCloud(p.words);
 }
 
 function previewStudent() {
