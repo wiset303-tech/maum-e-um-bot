@@ -376,30 +376,34 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 @keyframes rain-fall { 0%{transform:translate(0,0)} 100%{transform:translate(-15px,40px)} }
 .ws-rain .wx-rain-layer{ opacity:1; }
 
-/* 🌈 무지개 — 박스 하단 중앙에서 넓은 반원호 */
+/* 🌈 무지개 — radial-gradient 아치형 (참고: rainbow-arch-bg 방식) */
 .wx-rainbow{
-  position:absolute;
-  /* 아래 절반을 박스 밖으로 내려서 위쪽만 호가 보이게 */
-  bottom:-55%;
-  left:50%;
-  transform:translateX(-50%);
-  width:180%;      /* 박스보다 넓게 → 양 끝까지 호가 닿음 */
-  padding-top:90%; /* 정사각형에 가까운 비율로 큰 원 */
-  border-radius:50%;
-  /* 동심원 box-shadow로 무지개 띠 표현 */
-  box-shadow:
-    0 0 0  8px rgba(139, 0,211,.25),   /* 보라 */
-    0 0 0 16px rgba( 75, 0,130,.28),   /* 남색 */
-    0 0 0 24px rgba( 30,136,229,.30),  /* 파랑 */
-    0 0 0 32px rgba( 67,160, 71,.30),  /* 초록 */
-    0 0 0 40px rgba(253,216, 53,.30),  /* 노랑 */
-    0 0 0 48px rgba(251,140,  0,.28),  /* 주황 */
-    0 0 0 56px rgba(229, 57, 53,.25);  /* 빨강 */
-  background:transparent;
-  opacity:0;transition:opacity 1.5s ease;
-  filter:blur(2.5px);
+  position:absolute;inset:0;
+  /* 박스 바닥 중앙(50% 115%)을 원점으로 → 위쪽에 반원호만 노출 */
+  background: radial-gradient(
+    circle at 50% 115%,
+    transparent              30%,
+    rgba(139,  0,211,.60)   35%,   /* 보라 */
+    rgba( 75,  0,130,.60)   41%,   /* 남색 */
+    rgba( 30,136,229,.58)   47%,   /* 파랑 */
+    rgba( 67,160, 71,.55)   53%,   /* 초록 */
+    rgba(253,216, 53,.55)   59%,   /* 노랑 */
+    rgba(251,140,  0,.52)   65%,   /* 주황 */
+    rgba(229, 57, 53,.48)   71%,   /* 빨강 */
+    transparent              77%
+  );
+  opacity:0;
+  transform:translateY(25%) scale(0.9);
+  /* 기본 상태: 숨겨진 채로 대기 */
+  filter:blur(1.5px);
 }
-.ws-rainbow .wx-rainbow{ opacity:0.85; }
+.ws-rainbow .wx-rainbow{
+  animation: rainbowRise 2.2s cubic-bezier(0.25,1,0.5,1) forwards;
+}
+@keyframes rainbowRise {
+  0%   { opacity:0;    transform:translateY(25%) scale(0.9); }
+  100% { opacity:0.88; transform:translateY(0)   scale(1);   }
+}
 
 /* 워드클라우드 영역 — 날씨 애니메이션 위에 렌더 */
 .wx-wordcloud{
