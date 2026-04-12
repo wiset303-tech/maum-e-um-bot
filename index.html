@@ -5820,6 +5820,7 @@ function openMoreEmotions(cat) {
 
 async function submitEmotion() {
   if(!STATE.selectedMacro) { toast('감정을 먼저 골라요'); return; }
+  if(!STATE.selectedMicro) { toast('세부 감정도 골라줘야 저장할 수 있어요 😊'); return; }
 
   // 이중 탭 방지
   var submitBtn = document.querySelector('[onclick="submitEmotion()"]');
@@ -6082,7 +6083,9 @@ async function sendPersonaChat(msg) {
 
 async function startBotGreeting() {
   var u = STATE.user;
-  var micro = STATE.selectedMicro?.word || STATE.selectedMacro || '';
+  // macro 영어 raw값 → 한국어 감정어 변환 (절대 영어 그대로 노출 금지)
+  var macroKo = { positive:'기쁜', neutral:'그저그런', negative:'힘든' };
+  var micro = STATE.selectedMicro?.word || macroKo[STATE.selectedMacro] || '그저그런';
   var today = new Date(Date.now() + 9*3600000).toISOString().slice(0, 10);
   var greetKey = 'bot_greeted_' + (u.student_uid || '') + '_' + today;
 
@@ -6120,7 +6123,7 @@ async function startBotGreeting() {
   if (tmpEl) tmpEl.remove();
 
   if (res.status === 'ok') addBotMsg(res.data.reply);
-  else addBotMsg(u.name + '아, 오늘 <b>' + micro + '</b> 감정이구나 💙<br>더 이야기하고 싶은 게 있으면 말해봐!');
+  else addBotMsg(u.name + '아, 오늘 <b>' + micro + '</b> 마음이구나 💙<br>더 이야기하고 싶은 게 있으면 말해봐!');
 }
 
 var _chatInFlight = false; // 채팅 전송 중 이중 전송 방지
