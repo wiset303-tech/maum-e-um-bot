@@ -381,10 +381,9 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   filter:blur(8px);
   animation:wxDriftCloud linear infinite;
 }
-/* 날씨별 구름 색 */
-.ws-cloudy  .wx-cloud-blur{ background:rgba(176,190,197,0.75); }
-.ws-rain    .wx-cloud-blur{ background:rgba(120,144,156,0.7);  }
-.ws-rainbow .wx-cloud-blur{ background:rgba(255,255,255,0.55); }
+/* 날씨별 구름 색 — cloudy는 JS 인라인 색(흰/연회색 랜덤)에 위임 */
+.ws-rain    .wx-cloud-blur{ background:rgba(120,144,156,0.72) !important; }
+.ws-rainbow .wx-cloud-blur{ background:rgba(255,255,255,0.55) !important; }
 
 @keyframes wxDriftCloud{
   0%  { transform:translateX(-350px); }
@@ -1772,14 +1771,33 @@ function initBlurClouds() {
   var layer = document.getElementById('wxCloudLayer');
   if (!layer || layer.dataset.init === '1') return;
   layer.dataset.init = '1';
-  for (var i = 0; i < 6; i++) {
+
+  var count = 10;
+  // 흰 구름·연회색 구름 랜덤 (중립 날씨용; rain/rainbow는 CSS !important가 덮어씀)
+  var cloudColors = [
+    'rgba(255,255,255,0.78)',   // 새하얀 구름
+    'rgba(255,255,255,0.65)',   // 흰 구름 (살짝 투명)
+    'rgba(218,226,232,0.74)',   // 연회색
+    'rgba(200,212,220,0.70)',   // 중간 연회색
+  ];
+
+  for (var i = 0; i < count; i++) {
     var c = document.createElement('div');
     c.className = 'wx-cloud-blur';
-    c.style.width    = (Math.random() * 180 + 130).toFixed(0) + 'px';
-    c.style.height   = (Math.random() * 55 + 50).toFixed(0)  + 'px';
-    c.style.top      = (Math.random() * 65).toFixed(1) + '%';
-    c.style.animationDuration = (Math.random() * 22 + 18).toFixed(0) + 's';
-    c.style.animationDelay    = '-' + (Math.random() * 30).toFixed(1) + 's';
+
+    // 0.8배 속도 = 1.25배 시간 → 기존 18~40s → 22.5~50s
+    var dur = ((Math.random() * 22 + 18) * 1.25).toFixed(1);
+
+    c.style.width    = (Math.random() * 200 + 120).toFixed(0) + 'px';
+    c.style.height   = (Math.random() * 60  + 45).toFixed(0)  + 'px';
+    c.style.top      = (Math.random() * 68).toFixed(1) + '%';
+    c.style.background = cloudColors[Math.floor(Math.random() * cloudColors.length)];
+    c.style.animationDuration = dur + 's';
+
+    // 균등 분배 딜레이 — i번째 구름은 애니메이션 사이클의 i/count 지점에서 시작
+    // → 어느 순간에도 3~4개가 항상 화면 안에 있음
+    c.style.animationDelay = '-' + (parseFloat(dur) * i / count).toFixed(1) + 's';
+
     layer.appendChild(c);
   }
 }
