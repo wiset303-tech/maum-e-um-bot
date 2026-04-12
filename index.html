@@ -355,26 +355,26 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .ws-rain .wx-cloud{ background:#78909c; }
 .ws-rain .wx-cloud::before,.ws-rain .wx-cloud::after{ background:#78909c; }
 
-/* 🌧 빗줄기 — 40px 너비 타일로 대각선 빗줄기 (5px 협소 타일은 수평줄무늬로 보임) */
+/* 🌧 빗방울 — DOM div 방식 (gradient 각도 줄무늬 문제 없음) */
 .wx-rain-layer{
-  position:absolute;top:-60px;left:-10px;right:-10px;bottom:0;
+  position:absolute;top:0;left:0;right:0;bottom:0;
   opacity:0;transition:opacity 1.5s ease;
-  /* 160° (수직에서 20°) 빗줄기 2 레이어 */
-  background-image:
-    repeating-linear-gradient(160deg,
-      transparent           0px, transparent           26px,
-      rgba(174,214,241,.85) 26px, rgba(174,214,241,.85) 30px,
-      transparent           30px, transparent           40px),
-    repeating-linear-gradient(158deg,
-      transparent           0px, transparent           14px,
-      rgba(174,214,241,.50) 14px, rgba(174,214,241,.50) 17px,
-      transparent           17px, transparent           28px);
-  background-size: 40px 40px, 60px 28px;
-  /* tan(20°) ≈ 0.36 → 40px * 0.36 ≈ 15px 왼쪽 이동 */
-  animation: rain-fall 0.5s linear infinite;
+  pointer-events:none;overflow:hidden;
 }
-@keyframes rain-fall { 0%{transform:translate(0,0)} 100%{transform:translate(-15px,40px)} }
 .ws-rain .wx-rain-layer{ opacity:1; }
+.raindrop{
+  position:absolute;
+  bottom:100%;
+  width:2px;
+  height:18px;
+  background:linear-gradient(to bottom, rgba(255,255,255,0), rgba(174,214,241,0.85));
+  border-radius:2px;
+  animation:rainFallDrop linear infinite;
+}
+@keyframes rainFallDrop{
+  0%  { transform:translateY(0);   opacity:1; }
+  100%{ transform:translateY(600px); opacity:0.3; }
+}
 
 /* 🌈 무지개 — radial-gradient 아치형 (참고: rainbow-arch-bg 방식) */
 .wx-rainbow{
@@ -1695,6 +1695,25 @@ function hideLoading() {
 }
 
 
+function initRainDrops() {
+  var layer = document.getElementById('rainLayer');
+  if (!layer || layer.dataset.init === '1') return;
+  layer.dataset.init = '1';
+  var count = 55;
+  for (var i = 0; i < count; i++) {
+    var d = document.createElement('div');
+    d.className = 'raindrop';
+    d.style.left = (Math.random() * 105) + '%';
+    var dur = (Math.random() * 0.8 + 0.5).toFixed(2);
+    var delay = (Math.random() * 2).toFixed(2);
+    d.style.animationDuration = dur + 's';
+    d.style.animationDelay = '-' + delay + 's'; // 음수 딜레이로 즉시 분산
+    d.style.height = (14 + Math.random() * 10) + 'px';
+    d.style.opacity = (0.5 + Math.random() * 0.5).toFixed(2);
+    layer.appendChild(d);
+  }
+}
+
 function showWarmthBonus() {
   var emojis = ['💕','❤️','🧡','💛','💚','💙','💜','🩷','🤍'];
   var count = 10;
@@ -2885,7 +2904,7 @@ function applyPreviewPreset(key) {
   var wsMap = { sunny:'ws-sunny', partly_cloudy:'ws-partly', cloudy:'ws-cloudy',
                 rain:'ws-rain', rainbow:'ws-rainbow', none:'ws-none' };
   var box = document.getElementById('weatherBox');
-  if (box) box.className = 'weather-box ' + (wsMap[p.weather] || 'ws-none');
+  if (box) { box.className = 'weather-box ' + (wsMap[p.weather] || 'ws-none'); if (p.weather === 'rain') initRainDrops(); }
   var w = WEATHER_MAP[p.weather] || WEATHER_MAP.none;
   setText('weatherLabel', w.label + ' ' + w.emoji);
 
@@ -3043,7 +3062,7 @@ function dashboardHTML() {
       '<div class="wx-cloud wx-cloud-2"></div>' +
       '<div class="wx-cloud wx-cloud-3"></div>' +
     '</div>' +
-    '<div class="wx-layer"><div class="wx-rain-layer"></div></div>' +
+    '<div class="wx-layer"><div class="wx-rain-layer" id="rainLayer"></div></div>' +
     '<div class="wx-layer"><div class="wx-rainbow"></div></div>' +
     '<div class="wx-wordcloud" id="wordcloudWrap">' +
       '<div class="wx-empty" id="wordcloudEmpty"><span style="font-size:28px">🌥</span><span>아직 감정 기록이 없어요</span></div>' +
@@ -3582,7 +3601,7 @@ async function loadDashboard() {
   if (box) {
     var wsMap = { sunny:'ws-sunny', partly_cloudy:'ws-partly', cloudy:'ws-cloudy',
                   rain:'ws-rain', rainbow:'ws-rainbow', none:'ws-none' };
-    box.className = 'weather-box ' + (wsMap[d.weather] || 'ws-none');
+    box.className = 'weather-box ' + (wsMap[d.weather] || 'ws-none'); if (d.weather === 'rain') initRainDrops();
   }
   var w = WEATHER_MAP[d.weather] || WEATHER_MAP.none;
   setText('weatherLabel', w.label + ' ' + w.emoji);
