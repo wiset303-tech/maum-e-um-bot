@@ -6528,7 +6528,7 @@ function tokenHTML() {
       '</div>' +
     '</div>' +
     '<div class="token-actions">' +
-      '<button class="btn btn-peach" id="saveAllBtn" onclick="saveAllTokens()">🪙 모두 저축하기</button>' +
+      '<button class="btn btn-peach" id="saveAllBtn" onclick="confirmSaveAll()">🪙 모두 저축하기</button>' +
       '<button class="btn btn-lav" id="giftBtn" onclick="openGiftSelect()">💌 선물하기</button>' +
     '</div>' +
     '<div id="saveAllDetail" style="font-size:11px;color:var(--gray);text-align:center;margin-top:-8px;margin-bottom:6px;min-height:16px"></div>' +
@@ -6840,6 +6840,44 @@ async function saveGiftToken(count) {
 // ─────────────────────────────────────────
 // 모두 저축하기 — 일반(×1) + 선물(×2) 전체
 // ─────────────────────────────────────────
+// ─────────────────────────────────────────
+// 모두 저축하기 — 확인 후 실행
+// ─────────────────────────────────────────
+function confirmSaveAll() {
+  var tb = STATE.tokenBalance || {};
+  var balance = tb.current_balance || 0;
+  var giftBal = tb.gift_balance    || 0;
+  if (balance < 1) { toast('저축할 토큰이 없어요'); return; }
+
+  var regularBal    = Math.max(0, balance - giftBal);
+  var totalWillSave = regularBal + giftBal * 2;
+  var parts = [];
+  if (regularBal > 0) parts.push('일반 ' + regularBal + '개');
+  if (giftBal > 0)    parts.push('선물 ' + giftBal + '개 × 2');
+  var detail = parts.join(', ');
+
+  var confirmEl = document.getElementById('modal-confirm-save-all');
+  if (!confirmEl) {
+    confirmEl = document.createElement('div');
+    confirmEl.id = 'modal-confirm-save-all';
+    confirmEl.className = 'modal-overlay';
+    confirmEl.onclick = function(e){ if(e.target===confirmEl) closeModal('modal-confirm-save-all'); };
+    document.body.appendChild(confirmEl);
+  }
+  confirmEl.innerHTML =
+    '<div class="modal-box" style="position:relative;text-align:center">' +
+      '<div style="font-size:36px;margin-bottom:10px">🪙</div>' +
+      '<div style="font-size:16px;font-weight:800;color:var(--navy);margin-bottom:6px">토큰을 모두 저축할까요?</div>' +
+      '<div style="font-size:13px;color:var(--gray);margin-bottom:4px">' + detail + '</div>' +
+      '<div style="font-size:12px;color:var(--mint2);font-weight:700;margin-bottom:20px">마음온도 약 ' + Math.floor(totalWillSave / 2) + '° 올라요 🌡️</div>' +
+      '<div style="display:flex;gap:10px">' +
+        '<button class="btn btn-secondary" style="flex:1;width:auto" onclick="closeModal(\'modal-confirm-save-all\')">아니요</button>' +
+        '<button class="btn btn-peach" style="flex:1" onclick="closeModal(\'modal-confirm-save-all\');saveAllTokens()">모두 저축할게요!</button>' +
+      '</div>' +
+    '</div>';
+  openModal('modal-confirm-save-all');
+}
+
 async function saveAllTokens() {
   var tb = STATE.tokenBalance || {};
   var balance = tb.current_balance || 0;
@@ -7580,6 +7618,9 @@ var NFC_READY   = false;
 function nfcLog(msg) {
   var box = document.getElementById('nfcDebugLog');
   if (!box) return;
+  // USB 브릿지 또는 NFC 준비됐으면 debug log 숨김 — 불필요한 혼란 방지
+  var bridgeOn = typeof BRIDGE !== 'undefined' && BRIDGE.active;
+  if (bridgeOn) { box.style.display = 'none'; return; }
   box.style.display = 'block';
   var line = document.createElement('div');
   line.textContent = msg;
@@ -7589,12 +7630,22 @@ function nfcLog(msg) {
 
 // WebNFC 초기화 — 버튼 누르기 전에 자동 준비
 async function initWebNFC() {
-  nfcLog('🔍 NFC 카드 기능을 확인하고 있어요...');
+  var bridgeOn = typeof BRIDGE !== 'undefined' && BRIDGE.active;
+  var ua = navigator.userAgent;
+  var isAndroid = /Android/i.test(ua);
+  var isIOS = /iPhone|iPad|iPod/i.test(ua);
+
   if (!('NDEFReader' in window)) {
-    nfcLog('😢 이 기기는 NFC 카드를 읽을 수 없어요');
+    // USB 연결돼 있으면 조용히 종료 — 상충 메시지 방지
+    if (bridgeOn) return;
+    // Android인데 NDEFReader 없으면: NFC 비활성화 안내
+    if (isAndroid) {
+      nfcLog('📱 NFC가 꺼져 있어요. 설정에서 켜주세요');
+    }
+    // iOS / PC는 환경 UI가 이미 안내하므로 로그 생략
     return;
   }
-  nfcLog('👍 NFC 기능이 있어요!');
+  nfcLog('🔍 NFC 카드 기능을 확인하고 있어요...');
   try {
     NDEF_READER = new NDEFReader();
     nfcLog('📡 카드 읽기를 준비하고 있어요...');
@@ -7792,6 +7843,9 @@ function _bridgeConnect(isUserClick) {
       BRIDGE.ws = ws; BRIDGE.active = true;
       if (BRIDGE.retryTimer) { clearTimeout(BRIDGE.retryTimer); BRIDGE.retryTimer = null; }
       toast('카드리더기 연결됐어요 🔌 카드를 태그해주세요');
+      // USB 연결 시 NFC 디버그 로그 숨김 (상충 메시지 방지)
+      var logBox = document.getElementById('nfcDebugLog');
+      if (logBox) logBox.style.display = 'none';
       _webusbUpdateUI(true);
     };
     ws.onmessage = function(e) {
