@@ -322,7 +322,9 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   position:absolute;inset:0;pointer-events:none;
   opacity:0;transition:opacity 1s ease;
 }
-.ws-sunny .wx-sun-layer,.ws-partly .wx-sun-layer{ opacity:1; }
+.ws-sunny .wx-sun-layer{ opacity:1; }
+.ws-partly .wx-sun-layer{ opacity:0.85; }
+.ws-none   .wx-sun-layer{ opacity:0.75; }   /* 기본 화면: 작은 해 표시 */
 
 /* 둥근 햇님 — 가장자리 자연스럽게 풀림 */
 .wx-sun-orb{
@@ -332,6 +334,9 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   box-shadow:0 0 40px rgba(255,215,0,0.6),0 0 80px rgba(255,170,0,0.3);
   animation:wxSunPulse 3s infinite alternate ease-in-out;
 }
+/* 기본·구름조금: 햇님 절반 크기 */
+.ws-none   .wx-sun-orb,
+.ws-partly .wx-sun-orb{ width:50px;height:50px; }
 @keyframes wxSunPulse{
   0%  { transform:scale(1);   box-shadow:0 0 30px rgba(255,215,0,0.5),0 0 60px rgba(255,170,0,0.2); }
   100%{ transform:scale(1.05);box-shadow:0 0 50px rgba(255,215,0,0.8),0 0 100px rgba(255,170,0,0.4); }
@@ -349,13 +354,18 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   0%  { transform:scale(0.8); opacity:1; }
   100%{ transform:scale(3.5); opacity:0; }
 }
+/* 기본·구름조금: 빛무리 파동 숨김 */
+.ws-none   .wx-sun-rays,
+.ws-partly .wx-sun-rays{ display:none; }
 
-/* 둥둥 떠오르는 보케 입자 */
+/* 둥둥 떠오르는 보케 — ws-sunny(화창)일 때만 표시 */
 .wx-bokeh{
   position:absolute;border-radius:50%;
   background:radial-gradient(circle,rgba(255,255,255,0.9) 0%,rgba(255,255,255,0) 70%);
   animation:wxFloatUp linear infinite;
+  display:none;   /* 기본 숨김 */
 }
+.ws-sunny .wx-bokeh{ display:block; }   /* 화창할 때만 등장 */
 @keyframes wxFloatUp{
   0%  { transform:translateY(0) scale(0.8);    opacity:0; }
   20% { opacity:0.8; }
@@ -1790,7 +1800,7 @@ function initBlurClouds() {
 
     c.style.width    = (Math.random() * 90 + 120).toFixed(0) + 'px';  /* 120~210px — 긴 구름 제거 */
     c.style.height   = (Math.random() * 60  + 45).toFixed(0)  + 'px';
-    c.style.top      = (Math.random() * 68).toFixed(1) + '%';
+    c.style.top      = (Math.random() * 28).toFixed(1) + '%';
     c.style.background = cloudColors[Math.floor(Math.random() * cloudColors.length)];
     c.style.animationDuration = dur + 's';
 
@@ -2995,7 +3005,7 @@ function applyPreviewPreset(key) {
   if (box) {
     box.className = 'weather-box ' + (wsMap[p.weather] || 'ws-none');
     if (p.weather === 'rain') initRainDrops();
-    if (p.weather === 'sunny' || p.weather === 'partly_cloudy') initSunBokeh();
+    if (p.weather === 'sunny' || p.weather === 'partly_cloudy' || p.weather === 'none' || !p.weather) initSunBokeh();
     initBlurClouds();
   }
   var w = WEATHER_MAP[p.weather] || WEATHER_MAP.none;
@@ -3692,7 +3702,7 @@ async function loadDashboard() {
                   rain:'ws-rain', rainbow:'ws-rainbow', none:'ws-none' };
     box.className = 'weather-box ' + (wsMap[d.weather] || 'ws-none');
     if (d.weather === 'rain') initRainDrops();
-    if (d.weather === 'sunny' || d.weather === 'partly_cloudy') initSunBokeh();
+    if (d.weather === 'sunny' || d.weather === 'partly_cloudy' || d.weather === 'none' || !d.weather) initSunBokeh();
     initBlurClouds();
   }
   var w = WEATHER_MAP[d.weather] || WEATHER_MAP.none;
