@@ -733,14 +733,24 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .token-balance .lbl{font-size:13px;color:var(--navy);opacity:.7}
 .token-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
 
-/* 토큰 카드 호버 */
-#cardMyToken:hover,#cardGiftToken:hover{
-  transform:translateY(-3px);
-  box-shadow:0 6px 20px rgba(0,0,0,.13);
+/* 토큰 카드 호버 — 배경 파스텔 채우기 */
+#cardMyToken,#cardGiftToken{
+  transition:background .2s ease,transform .18s ease,box-shadow .18s ease;
 }
-#cardMyToken:hover{ border-color:var(--mint)!important; }
-#cardGiftToken:hover{ border-color:#e91e8c!important; }
-#cardMyToken:active,#cardGiftToken:active{ transform:scale(.96); }
+#cardMyToken:hover{
+  background:linear-gradient(135deg,#eafaf6,#d4f5ee)!important;
+  transform:translateY(-3px);
+  box-shadow:0 8px 24px rgba(78,205,180,.2);
+}
+#cardGiftToken:hover{
+  background:linear-gradient(135deg,#fde8f5,#ffe4f9)!important;
+  transform:translateY(-3px);
+  box-shadow:0 8px 24px rgba(233,30,140,.15);
+}
+#cardMyToken:active,#cardGiftToken:active{
+  transform:scale(.96);
+  box-shadow:none;
+}
 
 /* ════════════════════════════════════════
    마음앨범
@@ -2792,13 +2802,13 @@ function previewStudent() {
     setText('tokenEarned', 12);
     setText('tokenSaved', 7);
     updateHeartTempUI(Math.min(100, Math.floor(7/2)));
-    // 카드 하이라이트 (미리보기: 일반 3개 + 선물 2개)
+    // 카드 상태 (border는 CSS hover가 담당 — 여기서 세팅 안 함)
     var cardMy   = document.getElementById('cardMyToken');
     var cardGift = document.getElementById('cardGiftToken');
     var hintEl   = document.getElementById('giftCardHint');
-    if (cardMy)   { cardMy.style.borderColor = 'var(--mint)'; }
-    if (cardGift) { cardGift.style.borderColor = '#e91e8c'; }
-    if (hintEl)   { hintEl.textContent = '탭 → 2배 저축'; }
+    if (cardMy)   { cardMy.style.opacity = '1'; cardMy.style.cursor = 'pointer'; }
+    if (cardGift) { cardGift.style.opacity = '1'; cardGift.style.cursor = 'pointer'; }
+    if (hintEl)   { hintEl.textContent = '탭 → 저축'; }
     var saveAllBtn = document.getElementById('saveAllBtn');
     if (saveAllBtn) saveAllBtn.textContent = '🪙 모두 저축하기';
     var saveAllDetail = document.getElementById('saveAllDetail');
@@ -5276,22 +5286,34 @@ async function resetStudentPw(uid, name) {
 var _preloadedTodayRecords = null; // { date:'YYYY-MM-DD', emotions:[...] } 로그인 시 채움
 // ── 감정 색상 맵 (소감정 → 색, 하드코딩) ─────────────────────
 var EMOTION_COLOR_MAP = {
-  // 긍정 — 짙은 다홍·주황·산호 계열
-  '기쁨'    :'#FF5C5C','행복'    :'#FF8C00','설렘'    :'#FF4F72',
-  '뿌듯함'  :'#FF7043','감사'    :'#FFA726','기대'    :'#FF6D00',
-  '신남'    :'#F4511E','사랑'    :'#E91E63','즐거움'  :'#FF9800',
-  '활기참'  :'#FF5722','자신감'  :'#FF6F61','편안함'  :'#FFB300',
-  '만족'    :'#FF8F00','안도'    :'#FFA040','평온'    :'#FF7C80',
-  '열정'    :'#D50000','재미있음':'#FF6E40','신기함'  :'#FF8C42',
-  '두근두근':'#FF4081','흥분'    :'#FF1744','뿌듯한'  :'#FF7043',
-  '신나는'  :'#F4511E','좋음'    :'#FFC107','설레는'  :'#FF4F72',
-  // 중립 — 민트·연회색·밝은 무채색 계열
-  '그냥그래':'#B2DFDB','멍한'    :'#E0E0E0','심심한'  :'#F5F5F5',
-  '모르겠어':'#CFD8DC','보통'    :'#ECEFF1','별로'    :'#D7CCC8',
-  '그냥'    :'#E0F7FA','피곤한'  :'#B2EBF2','지루한'  :'#E8F5E9',
-  '평범한'  :'#F0F4F8','덤덤한'  :'#E1F5FE','무감각'  :'#DCEDC8',
-  '그저그래':'#E3F2FD',
-  // 부정 — 남색·무거운 무채색 계열
+  // 긍정 ① 강렬 — 빨강·산호·핑크 (에너지, 열정, 흥분)
+  '기쁨'    :'#FF5C5C','설렘'    :'#FF4F72','사랑'    :'#E91E63',
+  '두근두근':'#FF4081','흥분'    :'#FF1744','열정'    :'#D50000',
+  '신남'    :'#F4511E','활기참'  :'#FF5722','신나는'  :'#F4511E',
+  '설레는'  :'#FF4F72',
+  // 긍정 ② 따뜻 — 주황·살구·산호 (따뜻함, 활력, 기대)
+  '행복'    :'#FF8C00','뿌듯함'  :'#FF7043','감사'    :'#FFA726',
+  '기대'    :'#FF6D00','즐거움'  :'#FF9800','자신감'  :'#FF6F61',
+  '재미있음':'#FF6E40','신기함'  :'#FF8C42','뿌듯한'  :'#FF7043',
+  '좋음'    :'#FFA040',
+  // 긍정 ③ 부드러움 — 노랑·황금·황색 (편안, 만족, 따뜻한 여유)
+  '편안함'  :'#FFD700','안도'    :'#FFCC02','만족'    :'#FFB703',
+  '평온'    :'#FFE066','따뜻한'  :'#FFC857','포근한'  :'#FFD166',
+  '행복한'  :'#FFE57F','여유로운':'#F9E04B','기분좋음':'#FFE082',
+  '상쾌한'  :'#FFF176','가벼운'  :'#FFEE58','평화로운':'#FFD54F',
+  // 중립 ① 회색 계열 (무감각, 멍함, 무표정)
+  '멍한'    :'#E0E0E0','심심한'  :'#F5F5F5','모르겠어':'#CFD8DC',
+  '보통'    :'#ECEFF1','별로'    :'#D7CCC8','무감각'  :'#DCEDC8',
+  '피곤한'  :'#B2EBF2','덤덤한'  :'#E1F5FE','그저그래':'#E3F2FD',
+  '평범한'  :'#F0F4F8',
+  // 중립 ② 민트 계열 (그냥, 차분, 쉬고싶은)
+  '그냥그래':'#80CBC4','그냥'    :'#80DEEA','지루한'  :'#E0F2F1',
+  '심심함'  :'#B2DFDB',
+  // 중립 ③ 초록 계열 (차분한 생기, 여유, 균형)
+  '차분한'  :'#81C784','생기있는':'#66BB6A','안정된'  :'#A5D6A7',
+  '담담한'  :'#C5E1A5','괜찮음'  :'#AED581','나쁘지않음':'#DCE775',
+  '편한'    :'#8BC34A','집중'    :'#7CB342','고요한'  :'#9CCC65',
+  // 부정 — 남색·무거운 무채색 계열 (기존 유지)
   '슬픔'    :'#1A237E','외로움'  :'#283593','그리움'  :'#3949AB',
   '억울함'  :'#37474F','화남'    :'#4E342E','짜증'    :'#546E7A',
   '불안'    :'#4527A0','걱정'    :'#2E3A59','두려움'  :'#212121',
@@ -5302,7 +5324,7 @@ var EMOTION_COLOR_MAP = {
   '외로운'  :'#283593','화난'    :'#4E342E','불안한'  :'#4527A0',
   '걱정되는':'#2E3A59','억울한'  :'#37474F','부끄러운':'#4A148C',
 };
-var MACRO_COLOR_FB = { positive:'#FF7043', neutral:'#B2DFDB', negative:'#37474F' };
+var MACRO_COLOR_FB = { positive:'#FF7043', neutral:'#80CBC4', negative:'#37474F' };
 function getEmotionColor(micro, macro) {
   if (micro) {
     if (EMOTION_COLOR_MAP[micro]) return EMOTION_COLOR_MAP[micro];
@@ -6530,24 +6552,27 @@ function _refreshTokenCards(tb) {
   setText('tokenSaved',  saved);
   updateHeartTempUI(temp);
 
-  // 현재 마음토큰 카드
+  // 현재 마음토큰 카드 — border는 항상 transparent (호버 시만 CSS로 반응)
   var cardMy = document.getElementById('cardMyToken');
   if (cardMy) {
-    cardMy.style.borderColor    = regularBal > 0 ? 'var(--mint)' : 'transparent';
+    cardMy.style.borderColor    = 'transparent';
+    cardMy.style.background     = '#fff';
     cardMy.style.opacity        = regularBal > 0 ? '1' : '0.55';
     cardMy.style.cursor         = regularBal > 0 ? 'pointer' : 'default';
-    cardMy.style.pointerEvents  = '';  // 이전 비활성 해제
+    cardMy.style.pointerEvents  = regularBal > 0 ? '' : 'none';
   }
 
   // 선물받은 토큰 카드
   var cardGift = document.getElementById('cardGiftToken');
   var hintEl   = document.getElementById('giftCardHint');
   if (cardGift) {
-    cardGift.style.borderColor = giftBal > 0 ? '#e91e8c' : 'transparent';
-    cardGift.style.opacity     = giftBal > 0 ? '1' : '0.55';
-    cardGift.style.cursor      = giftBal > 0 ? 'pointer' : 'default';
+    cardGift.style.borderColor  = 'transparent';
+    cardGift.style.background   = '#fff';
+    cardGift.style.opacity      = giftBal > 0 ? '1' : '0.55';
+    cardGift.style.cursor       = giftBal > 0 ? 'pointer' : 'default';
+    cardGift.style.pointerEvents= giftBal > 0 ? '' : 'none';
   }
-  if (hintEl) hintEl.textContent = giftBal > 0 ? '탭 → 2배 저축' : '없어요';
+  if (hintEl) hintEl.textContent = giftBal > 0 ? '탭 → 저축' : '없어요';
 
   // 모두 저축하기 버튼 + 아래 내역 줄
   var saveAllBtn    = document.getElementById('saveAllBtn');
