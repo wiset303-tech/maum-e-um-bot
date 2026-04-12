@@ -96,7 +96,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   box-shadow:0 4px 16px rgba(78,205,180,.4);width:100%;
 }
 .btn-secondary{
-  background:var(--lgray);color:var(--navy);font-size:14px;padding:11px 18px;width:100%;
+  background:var(--lgray);color:var(--navy);font-size:14px;padding:13px 18px;width:100%;
 }
 .btn-peach{background:linear-gradient(135deg,#ffcba0,var(--peach));color:#fff;font-size:14px;font-weight:700;padding:12px 18px}
 .btn-lav{background:linear-gradient(135deg,#d4c0f8,var(--lav));color:#fff;font-size:14px;font-weight:700;padding:12px 18px}
@@ -440,11 +440,11 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .maeum-pulse{animation:maeumGlow 2.8s ease-in-out infinite,maeumFloat 3.2s ease-in-out infinite;display:inline-block}
 .attend-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:12px;border-radius:12px;border:1px solid var(--lgray)}
 .attend-table{border-collapse:collapse;font-size:11px;width:max-content;min-width:100%}
-.attend-table th,.attend-table td{padding:4px 3px;text-align:center;border-bottom:.5px solid var(--lgray);white-space:nowrap}
-.attend-th-name{position:sticky;left:0;background:#fff;z-index:2;min-width:72px;max-width:72px;font-weight:700;color:var(--navy);border-right:1px solid var(--lgray);padding:4px 6px;text-align:left}
-.attend-td-name{position:sticky;left:0;background:#fff;z-index:1;min-width:72px;max-width:72px;font-size:11px;color:var(--navy);border-right:1px solid var(--lgray);padding:4px 6px;text-align:left;overflow:hidden;text-overflow:ellipsis}
-.attend-th-month{background:var(--mint3);color:var(--navy);font-weight:700;font-size:10px;padding:3px;border-right:1px solid var(--mint2)}
-.attend-th-day{color:var(--navy);font-size:10px;min-width:26px;max-width:26px}
+.attend-table th,.attend-table td{padding:0 3px;text-align:center;border-bottom:.5px solid var(--lgray);white-space:nowrap;height:32px;vertical-align:middle}
+.attend-th-name{position:sticky;left:0;background:#fff;z-index:2;min-width:72px;max-width:72px;font-weight:700;color:var(--navy);border-right:1px solid var(--lgray);padding:0 6px;text-align:left;height:32px;vertical-align:middle}
+.attend-td-name{position:sticky;left:0;background:#fff;z-index:1;min-width:72px;max-width:72px;font-size:11px;color:var(--navy);border-right:1px solid var(--lgray);padding:0 6px;text-align:left;overflow:hidden;text-overflow:ellipsis;height:32px;vertical-align:middle}
+.attend-th-month{background:var(--mint3);color:var(--navy);font-weight:700;font-size:10px;padding:0 3px;border-right:1px solid var(--mint2);height:32px;vertical-align:middle}
+.attend-th-day{color:var(--navy);font-size:10px;min-width:26px;max-width:26px;height:32px;vertical-align:middle}
 .attend-th-day.wk{color:#e05050}.attend-th-day.hol{color:#e05050;background:#fff5f5}.attend-th-day.sat{color:#4080e0;background:#e8f2ff}
 .attend-cell{font-size:13px;min-width:26px;max-width:26px}.attend-cell.wk{background:#fafafa}.attend-cell.hol{background:#fff5f5}.attend-cell.sat{background:#edf4ff}
 .warmth-bar{
@@ -732,6 +732,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .token-balance .amount{font-family:'Black Han Sans',sans-serif;font-size:52px;color:var(--navy)}
 .token-balance .lbl{font-size:13px;color:var(--navy);opacity:.7}
 .token-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+
+/* 토큰 카드 호버 */
+#cardMyToken:hover,#cardGiftToken:hover{
+  transform:translateY(-3px);
+  box-shadow:0 6px 20px rgba(0,0,0,.13);
+}
+#cardMyToken:hover{ border-color:var(--mint)!important; }
+#cardGiftToken:hover{ border-color:#e91e8c!important; }
+#cardMyToken:active,#cardGiftToken:active{ transform:scale(.96); }
 
 /* ════════════════════════════════════════
    마음앨범
@@ -1140,12 +1149,13 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <div style="font-size:15px;font-weight:800;color:#9b2368" id="giftSaveModalCount">선물받은 토큰 0개</div>
       <div style="font-size:12px;color:#b5569a;margin-top:4px">선물받은 토큰은 저축하면 <b>2배</b>로 마음온도가 올라요!</div>
     </div>
+    <div style="font-size:13px;color:var(--navy);font-weight:700;margin-bottom:10px;text-align:center">어떻게 저축할까요?</div>
     <div style="display:flex;flex-direction:column;gap:10px">
       <button class="btn" style="background:linear-gradient(135deg,#f06292,#e91e8c);color:#fff;font-size:14px;padding:14px" onclick="saveGiftToken('one')">
-        🌟 1개 저축하기 <span style="font-size:12px;opacity:.85">(마음온도 1° ↑)</span>
+        🌟 1개만 두 배로 저축할게요 <span style="font-size:12px;opacity:.85">(마음온도 1° ↑)</span>
       </button>
       <button class="btn" id="giftSaveAllBtn" style="background:linear-gradient(135deg,#9b2368,#c2185b);color:#fff;font-size:14px;padding:14px" onclick="saveGiftToken('all')">
-        💝 선물받은 토큰 모두 저축하기
+        💝 선물받은 토큰 모두 두 배로 저축할게요
       </button>
     </div>
     <div style="margin-top:12px;font-size:11px;color:var(--gray);text-align:center">선물받은 토큰은 다시 선물할 수 없어요</div>
@@ -1838,6 +1848,7 @@ async function onLoginSuccess(data) {
           }
         }),
       ]);
+      renderEmotionBarcode(); // 학생 목록 + 감정 데이터 모두 준비된 뒤 바코드 확정 렌더
     }
 
     hideLoading();
@@ -1876,30 +1887,30 @@ async function onLoginSuccess(data) {
     // 학생: 헤더 설정 버튼 표시 (탭에 설정 없으므로 BGM 접근용)
     var btnSet = document.getElementById('btnSettings');
     if (btnSet) btnSet.classList.remove('hidden');
-    // 스피너를 유지한 채 UI 구성 → 핵심 데이터 로드 완료 후 해제
     showLoading('잠깐만요, 화면 준비 중이에요 💚');
     buildStudentUI();
-    await loadTokenBalance(); // 마음온도·토큰 로드 완료 → 스피너 해제
+    // 토큰잔액 + 오늘 감정 제출 여부 — 둘 다 준비된 뒤 스피너 해제
+    var today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+    await Promise.all([
+      loadTokenBalance(),
+      api('get_emotions', { student_uid: data.student_uid, date: today }).then(function(res) {
+        if (res.status === 'ok' && res.data.emotions.length) {
+          var e = res.data.emotions[0];
+          STATE.todayEmotionSubmitted = true;
+          STATE.todayEmotionModified  = !!(e.is_modified === true || e.is_modified === 'TRUE');
+          STATE.selectedMacro = e.macro_emotion;
+          STATE.selectedMicro = { word: e.micro_emotion, id: e.is_custom ? 'custom' : '' };
+          updateEmotionSubmittedBanner();
+        }
+      }),
+    ]);
     hideLoading();
-    startPersonaPoll(); // 페르소나 모드 실시간 감지 시작
+    startPersonaPoll();
     if (data.teacher_uid) {
       api('get_students', { teacher_uid: data.teacher_uid }).then(function(res) {
         if (res.status === 'ok') STATE.students = res.data.students;
       });
     }
-    // 오늘 감정 제출 여부 확인 (이미 제출했으면 배너 표시)
-    var today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
-    api('get_emotions', { student_uid: data.student_uid, date: today }).then(function(res) {
-      if (res.status === 'ok' && res.data.emotions.length) {
-        var e = res.data.emotions[0];
-        STATE.todayEmotionSubmitted = true;
-        STATE.todayEmotionModified  = !!(e.is_modified === true || e.is_modified === 'TRUE');
-        // 이미 제출한 감정으로 STATE 복원
-        STATE.selectedMacro = e.macro_emotion;
-        STATE.selectedMicro = { word: e.micro_emotion, id: e.is_custom ? 'custom' : '' };
-        updateEmotionSubmittedBanner();
-      }
-    });
   }
 }
 
@@ -2093,8 +2104,8 @@ function settingsHTML() {
       '<div class="card-label">계정 정보</div>' +
       '<div style="font-size:13px;color:var(--gray);line-height:1.8" id="teacherInfoBox"></div>' +
       '<div style="font-size:11px;color:var(--gray);margin-top:8px;padding:8px 10px;background:var(--lgray);border-radius:8px">🔒 학교·학년·반 정보는 관리자만 변경할 수 있어요</div>' +
-      '<button class="btn btn-secondary" style="margin-top:10px;width:100%;font-size:13px" onclick="openChangeTeacherName()">✏️ 이름 변경</button>' +
-      '<button class="btn btn-secondary" style="margin-top:6px;width:100%;font-size:13px" onclick="openChangePwSelf()">🔑 비밀번호 변경</button>' +
+      '<button class="btn btn-secondary" style="margin-top:10px;width:100%;font-size:13px;padding:13px 18px" onclick="openChangeTeacherName()">✏️ 이름 변경</button>' +
+      '<button class="btn btn-secondary" style="margin-top:8px;width:100%;font-size:13px;padding:13px 18px" onclick="openChangePwSelf()">🔑 비밀번호 변경</button>' +
     '</div>' +
     '<button class="btn btn-secondary" style="margin-top:8px" onclick="logout()">로그아웃</button>';
 }
@@ -2789,7 +2800,9 @@ function previewStudent() {
     if (cardGift) { cardGift.style.borderColor = '#e91e8c'; }
     if (hintEl)   { hintEl.textContent = '탭 → 2배 저축'; }
     var saveAllBtn = document.getElementById('saveAllBtn');
-    if (saveAllBtn) saveAllBtn.textContent = '🪙 모두 저축하기 (일반 3개 + 선물 2개×2)';
+    if (saveAllBtn) saveAllBtn.textContent = '🪙 모두 저축하기';
+    var saveAllDetail = document.getElementById('saveAllDetail');
+    if (saveAllDetail) saveAllDetail.textContent = '(일반 3개, 선물 2개 × 2)';
   }, 200);
 }
 
@@ -5507,8 +5520,8 @@ function openBraceletModal() {
         '🖨️ &nbsp;PNG를 다운받아 A4 용지에 인쇄하면 <b>9개</b>가 한 장에 나와요.' +
       '</div>' +
       '<div style="display:flex;gap:10px;justify-content:flex-end">' +
-        '<button class="btn btn-secondary" onclick="closeModal(&quot;modal-bracelet&quot;)">닫기</button>' +
-        '<button class="btn btn-mint" onclick="downloadBraceletPng()" style="white-space:nowrap">🖼 PNG 다운로드<br><span style="font-size:10px;opacity:.85">A4 × 9개</span></button>' +
+        '<button class="btn btn-secondary" style="width:auto;padding:13px 22px" onclick="closeModal(&quot;modal-bracelet&quot;)">닫기</button>' +
+        '<button class="btn btn-mint" style="padding:13px 22px;font-size:14px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--mint),var(--mint2))" onclick="downloadBraceletPng()">🖼 PNG 다운로드 &nbsp;<span style="font-size:11px;opacity:.85">A4 · 9개</span></button>' +
       '</div>' +
     '</div>';
   openModal('modal-bracelet');
@@ -6465,13 +6478,13 @@ function tokenHTML() {
     // 4-칸 그리드 (2×2) — 위쪽 2칸은 클릭 가능
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">' +
       // [1] 현재 마음토큰 — 탭하면 1개 저축
-      '<div id="cardMyToken" onclick="saveRegularToken()" style="background:#fff;border-radius:12px;padding:12px 10px;text-align:center;box-shadow:var(--shadow2);cursor:pointer;border:2px solid transparent;transition:border-color .15s,opacity .15s;-webkit-tap-highlight-color:transparent">' +
+      '<div id="cardMyToken" onclick="confirmSaveRegular()" style="background:#fff;border-radius:12px;padding:12px 10px;text-align:center;box-shadow:var(--shadow2);cursor:pointer;border:2px solid transparent;transition:border-color .15s,opacity .15s,transform .15s,box-shadow .15s;-webkit-tap-highlight-color:transparent">' +
         '<div style="font-size:11px;color:var(--gray);margin-bottom:2px">현재 마음토큰 🪙</div>' +
         '<div class="gaegu" style="font-size:26px;color:var(--navy)" id="tokenAmount">...</div>' +
         '<div style="font-size:10px;color:var(--mint2);font-weight:700;margin-top:2px">탭 → 1개 저축</div>' +
       '</div>' +
       // [2] 선물받은 토큰 — 탭하면 2배 저축 모달
-      '<div id="cardGiftToken" onclick="openGiftSaveModal()" style="background:#fff;border-radius:12px;padding:12px 10px;text-align:center;box-shadow:var(--shadow2);cursor:pointer;border:2px solid transparent;transition:border-color .15s,opacity .15s;-webkit-tap-highlight-color:transparent">' +
+      '<div id="cardGiftToken" onclick="openGiftSaveModal()" style="background:#fff;border-radius:12px;padding:12px 10px;text-align:center;box-shadow:var(--shadow2);cursor:pointer;border:2px solid transparent;transition:border-color .15s,opacity .15s,transform .15s,box-shadow .15s;-webkit-tap-highlight-color:transparent">' +
         '<div style="font-size:11px;color:var(--gray);margin-bottom:2px">선물받은 토큰 💝</div>' +
         '<div class="gaegu" style="font-size:26px;color:#c2185b" id="tokenGift">...</div>' +
         '<div style="font-size:10px;color:#e91e8c;font-weight:700;margin-top:2px" id="giftCardHint">탭 → 2배 저축</div>' +
@@ -6493,6 +6506,7 @@ function tokenHTML() {
       '<button class="btn btn-peach" id="saveAllBtn" onclick="saveAllTokens()">🪙 모두 저축하기</button>' +
       '<button class="btn btn-lav" id="giftBtn" onclick="openGiftSelect()">💌 선물하기</button>' +
     '</div>' +
+    '<div id="saveAllDetail" style="font-size:11px;color:var(--gray);text-align:center;margin-top:-8px;margin-bottom:6px;min-height:16px"></div>' +
     '<div class="card card-lemon" style="margin-top:8px">' +
       '<div class="card-label gaegu">마음토큰이란?</div>' +
       '<div style="font-size:13px;line-height:1.7;color:var(--gray)">매일 로그인하면 토큰 1개를 받아요.<br>토큰을 <b>저축</b>하면 마음 온도가 올라가요 🌡️<br>토큰 2개 저축 = 마음 온도 1°<br>선물받은 토큰은 저축 시 <b>2배</b>로 적립돼요 💝<br>최대 100°까지 올릴 수 있어요!</div>' +
@@ -6535,18 +6549,22 @@ function _refreshTokenCards(tb) {
   }
   if (hintEl) hintEl.textContent = giftBal > 0 ? '탭 → 2배 저축' : '없어요';
 
-  // 모두 저축하기 버튼
-  var saveAllBtn = document.getElementById('saveAllBtn');
+  // 모두 저축하기 버튼 + 아래 내역 줄
+  var saveAllBtn    = document.getElementById('saveAllBtn');
+  var saveAllDetail = document.getElementById('saveAllDetail');
   if (saveAllBtn) {
     saveAllBtn.disabled      = balance < 1;
     saveAllBtn.style.opacity = balance < 1 ? '0.45' : '1';
+    saveAllBtn.textContent   = '🪙 모두 저축하기';
+  }
+  if (saveAllDetail) {
     if (balance > 0) {
       var parts = [];
       if (regularBal > 0) parts.push('일반 ' + regularBal + '개');
-      if (giftBal > 0)    parts.push('선물 ' + giftBal + '개×2');
-      saveAllBtn.textContent = '🪙 모두 저축하기 (' + parts.join(' + ') + ')';
+      if (giftBal > 0)    parts.push('선물 ' + giftBal + '개 × 2');
+      saveAllDetail.textContent = '(' + parts.join(', ') + ')';
     } else {
-      saveAllBtn.textContent = '🪙 모두 저축하기';
+      saveAllDetail.textContent = '';
     }
   }
 
@@ -6656,7 +6674,41 @@ function openGame(type) {
 }
 
 // ─────────────────────────────────────────
-// 현재 마음토큰 카드 탭 → 일반 1개 저축
+// 현재 마음토큰 카드 탭 → 저축 확인 후 실행
+// ─────────────────────────────────────────
+function confirmSaveRegular() {
+  var tb = STATE.tokenBalance || {};
+  var giftBal    = tb.gift_balance    || 0;
+  var balance    = tb.current_balance || 0;
+  var regularBal = Math.max(0, balance - giftBal);
+  if (regularBal < 1) {
+    toast(giftBal > 0 ? '💝 선물받은 토큰은 아래 카드를 눌러 저축해요!' : '저축할 마음토큰이 없어요');
+    return;
+  }
+  // 확인 모달 열기
+  var confirmEl = document.getElementById('modal-confirm-save');
+  if (!confirmEl) {
+    confirmEl = document.createElement('div');
+    confirmEl.id = 'modal-confirm-save';
+    confirmEl.className = 'modal-overlay';
+    confirmEl.onclick = function(e){ if(e.target===confirmEl) closeModal('modal-confirm-save'); };
+    confirmEl.innerHTML =
+      '<div class="modal-box" style="position:relative;text-align:center">' +
+        '<div style="font-size:36px;margin-bottom:10px">🪙</div>' +
+        '<div style="font-size:16px;font-weight:800;color:var(--navy);margin-bottom:6px">마음토큰 1개를<br>저축할까요?</div>' +
+        '<div style="font-size:13px;color:var(--gray);margin-bottom:20px">저축하면 마음 온도가 올라가요 🌡️</div>' +
+        '<div style="display:flex;gap:10px">' +
+          '<button class="btn btn-secondary" style="flex:1;width:auto" onclick="closeModal(\'modal-confirm-save\')">아니요</button>' +
+          '<button class="btn btn-peach" style="flex:1" onclick="closeModal(\'modal-confirm-save\');saveRegularToken()">저축할게요!</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(confirmEl);
+  }
+  openModal('modal-confirm-save');
+}
+
+// ─────────────────────────────────────────
+// 현재 마음토큰 카드 탭 → 일반 1개 저축 (실행)
 // ─────────────────────────────────────────
 async function saveRegularToken() {
   var tb = STATE.tokenBalance || {};
@@ -7080,6 +7132,19 @@ function previewHashtags() {
 }
 
 // Canvas 이미지 압축
+// 단계적 압축 — Sheets 셀 한도(49,000자)에 맞을 때까지 quality·해상도 낮춤
+function compressToLimit(rawData, maxChars, configs, callback) {
+  function tryNext(idx) {
+    if (idx >= configs.length) { callback(null); return; } // 모든 시도 실패
+    var c = configs[idx];
+    compressImage(rawData, c.size, c.q, function(result) {
+      if (result.length <= maxChars) { callback(result); }
+      else { tryNext(idx + 1); }
+    });
+  }
+  tryNext(0);
+}
+
 function compressImage(dataUrl, maxSide, quality, callback) {
   var img = new Image();
   img.onload = function() {
@@ -7375,17 +7440,32 @@ async function uploadAlbum() {
     var reader = new FileReader();
     reader.onload = function(ev) {
       var rawData = ev.target.result;
-      // 고화질 (팝업용: 1000px, quality 0.82)
-      compressImage(rawData, 1000, 0.82, function(imageUrl) {
-        // 썸네일 (그리드용: 500px, quality 0.72)
-        compressImage(rawData, 500, 0.72, function(thumbUrl) {
-          hideLoading();
-          // Sheets 한도 방어 (thumb 기준)
-          if (thumbUrl.length > 49000) {
-            toast('사진이 너무 복잡해요. 다른 사진을 선택해주세요 📷');
-            return;
-          }
-          _albumUploadData.imageUrl = imageUrl;
+      var LIMIT = 49000;
+      // 썸네일: 복잡한 사진도 수용하도록 단계적 압축
+      var thumbConfigs = [
+        { size:500, q:0.72 },
+        { size:500, q:0.55 },
+        { size:400, q:0.55 },
+        { size:400, q:0.40 },
+        { size:300, q:0.45 },
+        { size:300, q:0.32 },
+      ];
+      // 고화질 (팝업용): 썸네일보다 먼저 한도 도달 가능성 낮으나 동일하게 방어
+      var imgConfigs = [
+        { size:1000, q:0.82 },
+        { size:800,  q:0.75 },
+        { size:700,  q:0.65 },
+        { size:600,  q:0.55 },
+      ];
+      compressToLimit(rawData, LIMIT, thumbConfigs, function(thumbUrl) {
+        hideLoading();
+        if (!thumbUrl) {
+          toast('사진을 올릴 수 없어요. 더 작은 사진을 선택해주세요 📷');
+          return;
+        }
+        compressToLimit(rawData, LIMIT * 2, imgConfigs, function(imageUrl) {
+          // imageUrl은 Sheets에 저장 안 하고 Drive URL로 대체될 수도 있어 LIMIT * 2로 여유 있게
+          _albumUploadData.imageUrl = imageUrl || thumbUrl; // fallback
           _albumUploadData.thumbUrl = thumbUrl;
           _albumUploadData.isUpdate = false;
           document.getElementById('albumPreviewImg').src = thumbUrl;
