@@ -355,26 +355,17 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .ws-rain .wx-cloud{ background:#78909c; }
 .ws-rain .wx-cloud::before,.ws-rain .wx-cloud::after{ background:#78909c; }
 
-/* 🌧 빗줄기 — 40px 너비 타일로 대각선 빗줄기 (5px 협소 타일은 수평줄무늬로 보임) */
-.wx-rain-layer{
-  position:absolute;top:-60px;left:-10px;right:-10px;bottom:0;
-  opacity:0;transition:opacity 1.5s ease;
-  /* 160° (수직에서 20°) 빗줄기 2 레이어 */
-  background-image:
-    repeating-linear-gradient(160deg,
-      transparent           0px, transparent           26px,
-      rgba(174,214,241,.85) 26px, rgba(174,214,241,.85) 30px,
-      transparent           30px, transparent           40px),
-    repeating-linear-gradient(158deg,
-      transparent           0px, transparent           14px,
-      rgba(174,214,241,.50) 14px, rgba(174,214,241,.50) 17px,
-      transparent           17px, transparent           28px);
-  background-size: 40px 40px, 60px 28px;
-  /* tan(20°) ≈ 0.36 → 40px * 0.36 ≈ 15px 왼쪽 이동 */
-  animation: rain-fall 0.5s linear infinite;
+/* 🌧 빗줄기 — SVG 개별 빗방울 (JS _initRainSVG로 생성, 각기 다른 속도·딜레이) */
+.wx-rain-svg{
+  position:absolute;inset:0;width:100%;height:100%;
+  opacity:0;transition:opacity 0.8s ease;
+  pointer-events:none;z-index:1;overflow:hidden;
 }
-@keyframes rain-fall { 0%{transform:translate(0,0)} 100%{transform:translate(-15px,40px)} }
-.ws-rain .wx-rain-layer{ opacity:1; }
+.ws-rain .wx-rain-svg{ opacity:1; }
+@keyframes wxRainFall {
+  0%   { transform:translateY(0); }
+  100% { transform:translateY(280px); }
+}
 
 /* 🌈 무지개 — radial-gradient 아치형 (참고: rainbow-arch-bg 방식) */
 .wx-rainbow{
@@ -2249,11 +2240,33 @@ function buildTeacherUI() {
     var btns = document.querySelectorAll('.tab-btn');
     var last = btns[btns.length - 1];
     if (last) last.style.color = 'var(--lav)';
-    renderAdminAccountMgmt();  // 계정관리 탭 초기 로드
+    renderAdminAccountMgmt();
   } else {
-    // 교사 설정 로드
     loadSettings();
   }
+  // SVG 빗방울 초기화 (DOM 준비 후 즉시)
+  setTimeout(_initRainSVG, 0);
+}
+
+// 🌧 SVG 개별 빗방울 생성 — 각기 다른 x위치·길이·속도·딜레이로 자연스러운 비
+function _initRainSVG() {
+  var svg = document.getElementById('wxRainSvg');
+  if (!svg || svg.childElementCount > 0) return; // 이미 생성됨
+  var html = '';
+  for (var i = 0; i < 40; i++) {
+    var x    = (Math.random() * 94 + 2).toFixed(1) + '%';
+    var xEnd = (parseFloat(x) - 2.5).toFixed(1) + '%'; // 약 15° 기울기
+    var len  = ((Math.random() * 14 + 7) | 0);          // 7~21px 길이
+    var dur  = (Math.random() * 0.35 + 0.40).toFixed(2); // 0.40~0.75s 속도
+    var del  = -(Math.random() * 1.8).toFixed(2);         // 랜덤 시작 위치
+    var op   = (Math.random() * 0.35 + 0.50).toFixed(2); // 0.50~0.85 불투명도
+    var sw   = (Math.random() < 0.3 ? 1 : 1.5);          // 굵기 변화
+    html += '<line x1="' + x    + '" y1="-20"' +
+                 ' x2="' + xEnd + '" y2="' + (-20 + len) + '"' +
+            ' stroke="rgba(174,214,241,' + op + ')" stroke-width="' + sw + '" stroke-linecap="round"' +
+            ' style="animation:wxRainFall ' + dur + 's linear ' + del + 's infinite"></line>';
+  }
+  svg.innerHTML = html;
 }
 
 function adminHTML() {
@@ -2968,7 +2981,7 @@ function dashboardHTML() {
       '<div class="wx-cloud wx-cloud-2"></div>' +
       '<div class="wx-cloud wx-cloud-3"></div>' +
     '</div>' +
-    '<div class="wx-layer"><div class="wx-rain-layer"></div></div>' +
+    '<div class="wx-layer"><svg class="wx-rain-svg" id="wxRainSvg"></svg></div>' +
     '<div class="wx-layer"><div class="wx-rainbow"></div></div>' +
     '<div class="wx-wordcloud" id="wordcloudWrap">' +
       '<div class="wx-empty" id="wordcloudEmpty"><span style="font-size:28px">🌥</span><span>아직 감정 기록이 없어요</span></div>' +
