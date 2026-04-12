@@ -355,25 +355,26 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .ws-rain .wx-cloud{ background:#78909c; }
 .ws-rain .wx-cloud::before,.ws-rain .wx-cloud::after{ background:#78909c; }
 
-/* 🌧 빗방울 — div 개별 요소 방식 (참고: raindrop approach) */
-.wx-rain-container{
-  position:absolute;inset:0;
-  pointer-events:none;z-index:1;
-  opacity:0;transition:opacity 0.8s ease;
+/* 🌧 빗줄기 — 40px 너비 타일로 대각선 빗줄기 (5px 협소 타일은 수평줄무늬로 보임) */
+.wx-rain-layer{
+  position:absolute;top:-60px;left:-10px;right:-10px;bottom:0;
+  opacity:0;transition:opacity 1.5s ease;
+  /* 160° (수직에서 20°) 빗줄기 2 레이어 */
+  background-image:
+    repeating-linear-gradient(160deg,
+      transparent           0px, transparent           26px,
+      rgba(174,214,241,.85) 26px, rgba(174,214,241,.85) 30px,
+      transparent           30px, transparent           40px),
+    repeating-linear-gradient(158deg,
+      transparent           0px, transparent           14px,
+      rgba(174,214,241,.50) 14px, rgba(174,214,241,.50) 17px,
+      transparent           17px, transparent           28px);
+  background-size: 40px 40px, 60px 28px;
+  /* tan(20°) ≈ 0.36 → 40px * 0.36 ≈ 15px 왼쪽 이동 */
+  animation: rain-fall 0.5s linear infinite;
 }
-.ws-rain .wx-rain-container{ opacity:1; }
-.wx-raindrop{
-  position:absolute;
-  bottom:100%; /* 컨테이너 위에서 시작 */
-  width:2px;
-  border-radius:50%;
-  background:linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.82));
-  animation:wxRainFall linear infinite;
-}
-@keyframes wxRainFall {
-  0%   { transform:translateY(0)      scaleY(1);   opacity:1;   }
-  100% { transform:translateY(400px)  scaleY(1.5); opacity:0.2; }
-}
+@keyframes rain-fall { 0%{transform:translate(0,0)} 100%{transform:translate(-15px,40px)} }
+.ws-rain .wx-rain-layer{ opacity:1; }
 
 /* 🌈 무지개 — radial-gradient 아치형 (참고: rainbow-arch-bg 방식) */
 .wx-rainbow{
@@ -861,6 +862,50 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 @media(min-width:640px){
   #app{max-width:480px;left:50%;transform:translateX(-50%);box-shadow:0 0 60px rgba(0,0,0,.15)}
   #screen-nfc,#screen-loading{max-width:480px;left:50%;transform:translateX(-50%)}
+}
+
+/* ── 훈훈습도계 하트 애니메이션 ── */
+.warmth-heart {
+  position: fixed;
+  bottom: 80px;
+  font-size: 28px;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0;
+  animation: heartFloat 2.2s ease-out forwards;
+}
+@keyframes heartFloat {
+  0%   { opacity: 0;   transform: translateY(0)    scale(0.6); }
+  15%  { opacity: 1;   transform: translateY(-30px) scale(1.1); }
+  80%  { opacity: 0.9; transform: translateY(-180px) scale(1); }
+  100% { opacity: 0;   transform: translateY(-240px) scale(0.8); }
+}
+.warmth-banner {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.7);
+  background: linear-gradient(135deg, #ff6b9d, #ff9a3c);
+  color: white;
+  border-radius: 24px;
+  padding: 20px 32px;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 900;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: 0 8px 32px rgba(255,107,157,0.45);
+  animation: bannerPop 2.8s ease-out forwards;
+  white-space: nowrap;
+}
+@keyframes bannerPop {
+  0%   { opacity: 0; transform: translate(-50%,-50%) scale(0.7); }
+  12%  { opacity: 1; transform: translate(-50%,-50%) scale(1.08); }
+  22%  { transform: translate(-50%,-50%) scale(0.97); }
+  30%  { transform: translate(-50%,-50%) scale(1); }
+  70%  { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(1); }
 }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
@@ -1649,6 +1694,37 @@ function hideLoading() {
   overlay.style.display = 'none';
 }
 
+
+function showWarmthBonus() {
+  var emojis = ['💕','❤️','🧡','💛','💚','💙','💜','🩷','🤍'];
+  var count = 10;
+  var container = document.getElementById('app') || document.body;
+  var rect = container.getBoundingClientRect();
+  var centerX = rect.left + rect.width / 2;
+
+  for (var k = 0; k < count; k++) {
+    (function(idx) {
+      setTimeout(function() {
+        var el = document.createElement('div');
+        el.className = 'warmth-heart';
+        el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+        var spread = (Math.random() - 0.5) * Math.min(rect.width * 0.7, 200);
+        el.style.left = (centerX + spread) + 'px';
+        el.style.animationDuration = (1.8 + Math.random() * 0.8) + 's';
+        el.style.fontSize = (22 + Math.random() * 16) + 'px';
+        document.body.appendChild(el);
+        setTimeout(function() { el.remove(); }, 3000);
+      }, idx * 140);
+    })(k);
+  }
+
+  var banner = document.createElement('div');
+  banner.className = 'warmth-banner';
+  banner.innerHTML = '🌡️ 훈훈습도계 달성!<br><span style="font-size:13px;font-weight:600;opacity:0.92">학급 전원에게 보너스 토큰이 지급됐어요 💝</span>';
+  document.body.appendChild(banner);
+  setTimeout(function() { banner.remove(); }, 3200);
+}
+
 function toast(msg, dur=2500) {
   var t = document.getElementById('toast');
   // \n 포함 시 두 줄로 표시
@@ -2248,28 +2324,10 @@ function buildTeacherUI() {
     var btns = document.querySelectorAll('.tab-btn');
     var last = btns[btns.length - 1];
     if (last) last.style.color = 'var(--lav)';
-    renderAdminAccountMgmt();
+    renderAdminAccountMgmt();  // 계정관리 탭 초기 로드
   } else {
+    // 교사 설정 로드
     loadSettings();
-  }
-  // 빗방울 div 초기화 (DOM 준비 후 즉시)
-  setTimeout(_initRainDrops, 0);
-}
-
-// 🌧 개별 빗방울 div 생성 — 참고 코드(raindrop div) 방식
-function _initRainDrops() {
-  var container = document.getElementById('wxRainContainer');
-  if (!container || container.childElementCount > 0) return;
-  var DROP_COUNT = 65;
-  for (var i = 0; i < DROP_COUNT; i++) {
-    var drop = document.createElement('div');
-    drop.className = 'wx-raindrop';
-    drop.style.left     = (Math.random() * 100).toFixed(1) + '%';
-    drop.style.height   = ((Math.random() * 14 + 10) | 0) + 'px'; // 10~24px
-    var dur             = (Math.random() * 0.6 + 0.45).toFixed(2); // 0.45~1.05s
-    drop.style.animationDuration = dur + 's';
-    drop.style.animationDelay   = -(Math.random() * 2).toFixed(2) + 's';
-    container.appendChild(drop);
   }
 }
 
@@ -2985,7 +3043,7 @@ function dashboardHTML() {
       '<div class="wx-cloud wx-cloud-2"></div>' +
       '<div class="wx-cloud wx-cloud-3"></div>' +
     '</div>' +
-    '<div class="wx-layer"><div class="wx-rain-container" id="wxRainContainer"></div></div>' +
+    '<div class="wx-layer"><div class="wx-rain-layer"></div></div>' +
     '<div class="wx-layer"><div class="wx-rainbow"></div></div>' +
     '<div class="wx-wordcloud" id="wordcloudWrap">' +
       '<div class="wx-empty" id="wordcloudEmpty"><span style="font-size:28px">🌥</span><span>아직 감정 기록이 없어요</span></div>' +
@@ -7374,6 +7432,7 @@ async function giftToken(friend) {
   });
   hideLoading();
   if (res.status === 'ok') {
+    if (res.data.class_bonus) { showWarmthBonus(); }
     toast((res.data.message || '선물 완료!') + '\n잔액을 불러오는 중이에요 💌');
     loadTokenBalance();
   } else {
