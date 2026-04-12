@@ -2558,6 +2558,7 @@ function previewTeacher() {
 
   // ── 폴링 중지 — 미리보기 중 실 API 호출 방지 ─────────────
   stopEmotionSignalPoll();
+  _preloadedTodayRecords = null; // 관리자 실데이터 캐시 제거 → 출석부 탭에서 더미 loadRecords 사용
 
   // ── 학생 목록 + 감정 — 탭 전환 전에 동기적으로 준비 ──────
   STATE.students = [
