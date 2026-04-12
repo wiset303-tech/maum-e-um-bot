@@ -355,25 +355,25 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .ws-rain .wx-cloud{ background:#78909c; }
 .ws-rain .wx-cloud::before,.ws-rain .wx-cloud::after{ background:#78909c; }
 
-/* 🌧 빗줄기 — 40px 너비 타일로 대각선 빗줄기 표현 */
+/* 🌧 빗줄기 — transform 기반으로 진짜 위에서 아래로 떨어지는 효과 */
 .wx-rain-layer{
+  /* 상단을 -60px까지 연장해서 빗줄기가 위에서 자연스럽게 시작 */
   position:absolute;top:-60px;left:-10px;right:-10px;bottom:0;
   opacity:0;transition:opacity 1.5s ease;
-  /* 160° (수직에서 20° 기울기) 빗줄기 2 레이어 */
+  /* 172deg (약 8° 기울기) 짧은 빗방울 × 2 레이어 */
   background-image:
-    repeating-linear-gradient(160deg,
-      transparent           0px, transparent           26px,
-      rgba(174,214,241,.85) 26px, rgba(174,214,241,.85) 30px,
-      transparent           30px, transparent           40px),
-    repeating-linear-gradient(158deg,
-      transparent           0px, transparent           14px,
-      rgba(174,214,241,.50) 14px, rgba(174,214,241,.50) 17px,
-      transparent           17px, transparent           28px);
-  background-size: 40px 40px, 60px 28px;
-  /* tan(20°) ≈ 0.36 → 40px * 0.36 ≈ 15px 왼쪽 이동 */
-  animation: rain-fall 0.5s linear infinite;
+    repeating-linear-gradient(172deg,
+      transparent 0px, transparent 28px,
+      rgba(174,214,241,.70) 28px, rgba(174,214,241,.70) 32px),
+    repeating-linear-gradient(170deg,
+      transparent 0px, transparent 18px,
+      rgba(174,214,241,.40) 18px, rgba(174,214,241,.40) 21px);
+  background-size: 5px 36px, 9px 24px;
+  /* translateY로 이동 → 타일 경계 없이 끊김없이 낙하 */
+  animation: rain-drops-a 0.55s linear infinite, rain-drops-b 0.38s linear infinite;
 }
-@keyframes rain-fall { 0%{transform:translate(0,0)} 100%{transform:translate(-15px,40px)} }
+@keyframes rain-drops-a { 0%{transform:translateY(0)} 100%{transform:translateY(36px)} }
+@keyframes rain-drops-b { 0%{background-position:0 0,0 0} 100%{background-position:0 0,4px 24px} }
 .ws-rain .wx-rain-layer{ opacity:1; }
 
 /* 🌈 무지개 — 박스 하단 중앙에서 넓은 반원호 */
@@ -2558,7 +2558,7 @@ function previewTeacher() {
 
   // ── 폴링 중지 — 미리보기 중 실 API 호출 방지 ─────────────
   stopEmotionSignalPoll();
-  _preloadedTodayRecords = null; // 관리자 실데이터 캐시 제거 → 출석부 탭에서 더미 loadRecords 사용
+  _preloadedTodayRecords = null; // 관리자 실데이터 캐시 제거 (출석부 탭 진입 시 loadRecords 우회 방지)
 
   // ── 학생 목록 + 감정 — 탭 전환 전에 동기적으로 준비 ──────
   STATE.students = [
@@ -2650,8 +2650,8 @@ function previewTeacher() {
   CAL.data = {};
   var _yr = 2026;
   var _holidays = new Set(['2026-03-01','2026-05-05','2026-05-24','2026-06-06']);
-  for (var _mo = 2; _mo <= 7; _mo++) {
-    var _dim = (_mo === 7) ? 10 : new Date(_yr, _mo+1, 0).getDate(); // 8월은 10일까지
+  for (var _mo = 2; _mo <= 6; _mo++) {
+    var _dim = new Date(_yr, _mo+1, 0).getDate();
     for (var _dy = 1; _dy <= _dim; _dy++) {
       var _dt = new Date(_yr, _mo, _dy), _dow = _dt.getDay();
       if (_dow === 0 || _dow === 6) continue;
@@ -2675,10 +2675,10 @@ function previewTeacher() {
     setText('statTotal', 28);
     setText('statSubmit', 20);
     setText('statMiss', 8);
-    setText('nationalTempValue', 45);
+    setText('nationalTempValue', 27);
     setText('classTempValue', 27);  // 학급 마음 온도 (미리보기)
     var nFill = document.getElementById('nationalTempFill');
-    if (nFill) setTimeout(function(){ nFill.style.width = '45%'; }, 200);
+    if (nFill) setTimeout(function(){ nFill.style.width = '27%'; }, 200);
     var cFill = document.getElementById('classTempFill');
     if (cFill) setTimeout(function(){ cFill.style.width = '27%'; }, 200);
     var box = document.getElementById('weatherBox');
@@ -3667,27 +3667,6 @@ async function openGiftHistory() {
   }
   openModal('modal-gift-history');
   _giftHistoryPage = 0;
-
-  // 미리보기: 더미 선물 기록
-  if (STATE.isPreview) {
-    _giftHistoryAll = [
-      { from_name:'김민준', to_name:'이서연',  created_at:'2026-04-12' },
-      { from_name:'한지수', to_name:'박지호',  created_at:'2026-04-12' },
-      { from_name:'백서아', to_name:'강민재',  created_at:'2026-04-11' },
-      { from_name:'이서연', to_name:'김민준',  created_at:'2026-04-11' },
-      { from_name:'정하늘', to_name:'최수아',  created_at:'2026-04-10' },
-      { from_name:'강민재', to_name:'윤서준',  created_at:'2026-04-10' },
-      { from_name:'윤서준', to_name:'한지수',  created_at:'2026-04-09' },
-      { from_name:'박지호', to_name:'정하늘',  created_at:'2026-04-09' },
-      { from_name:'최수아', to_name:'백서아',  created_at:'2026-04-08' },
-      { from_name:'김민준', to_name:'강민재',  created_at:'2026-04-08' },
-      { from_name:'이서연', to_name:'정하늘',  created_at:'2026-04-07' },
-      { from_name:'한지수', to_name:'최수아',  created_at:'2026-04-07' },
-    ];
-    _renderGiftHistoryPage(0);
-    return;
-  }
-
   document.getElementById('giftHistoryList').innerHTML =
     '<div style="text-align:center;color:var(--gray);font-size:13px;padding:20px">불러오는 중...</div>';
 
@@ -3936,28 +3915,18 @@ async function openNationalMapModal() {
   var svgEl = document.getElementById('national-map-svg');
   var legEl = document.getElementById('national-map-legend');
 
-  // 미리보기 모드: 더미 데이터 (전국 16개 시도, 전국 평균 45°, 부산 최고)
+  // 미리보기 모드: 더미 데이터
   if (STATE.isPreview) {
     var dummySchools = [
-      { region:'부산', positive:15, neutral:4,  negative:1,  temp:60, submitted:20 },
-      { region:'서울', positive:14, neutral:5,  negative:1,  temp:56, submitted:21 },
-      { region:'광주', positive:13, neutral:5,  negative:2,  temp:52, submitted:20 },
-      { region:'인천', positive:12, neutral:6,  negative:2,  temp:50, submitted:20 },
-      { region:'경기', positive:11, neutral:7,  negative:2,  temp:48, submitted:20 },
-      { region:'제주', positive:11, neutral:7,  negative:2,  temp:47, submitted:20 },
-      { region:'대전', positive:10, neutral:8,  negative:2,  temp:46, submitted:20 },
-      { region:'강원', positive:10, neutral:7,  negative:3,  temp:45, submitted:20 },
-      { region:'대구', positive:9,  neutral:7,  negative:4,  temp:44, submitted:20 },
-      { region:'울산', positive:9,  neutral:7,  negative:4,  temp:43, submitted:20 },
-      { region:'충북', positive:8,  neutral:7,  negative:5,  temp:42, submitted:20 },
-      { region:'경북', positive:7,  neutral:7,  negative:6,  temp:40, submitted:20 },
-      { region:'충남', positive:7,  neutral:8,  negative:5,  temp:39, submitted:20 },
-      { region:'전남', positive:6,  neutral:8,  negative:6,  temp:38, submitted:20 },
-      { region:'전북', positive:6,  neutral:7,  negative:7,  temp:37, submitted:20 },
-      { region:'경남', positive:5,  neutral:6,  negative:9,  temp:33, submitted:20 },
+      { region:'서울', positive:12, neutral:5, negative:3 },
+      { region:'경기', positive:18, neutral:8, negative:4 },
+      { region:'부산', positive:9,  neutral:4, negative:2 },
+      { region:'경남', positive:7,  neutral:5, negative:5 },
+      { region:'전남', positive:5,  neutral:3, negative:6 },
+      { region:'강원', positive:10, neutral:6, negative:1 },
+      { region:'충남', positive:8,  neutral:5, negative:3 },
+      { region:'충북', positive:6,  neutral:4, negative:2 },
     ];
-    // 시도별 현황 탭에서도 사용할 수 있도록 캐시에 저장
-    _nationalMapCache = dummySchools;
     renderNationalMap(svgEl, legEl, dummySchools);
     return;
   }
@@ -6144,10 +6113,10 @@ function _renderRecordList(emotions) {
 async function loadRecords(dateStr) {
   var date = dateStr || new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
 
-  // 미리보기: 실제 API 호출 없이 더미 기록 반환
+  // 미리보기: API 호출 없이 더미 기록 표시
   if (STATE.isPreview) {
     hideLoading();
-    var _previewEmotions = [
+    _renderRecordList([
       { student_uid:'s01', student_name:'김민준', timestamp: date+'T08:32:00', macro_emotion:'positive', micro_emotion:'기대되는',  is_modified:false },
       { student_uid:'s02', student_name:'이서연', timestamp: date+'T08:35:00', macro_emotion:'positive', micro_emotion:'설레는',    is_modified:true  },
       { student_uid:'s03', student_name:'박지호', timestamp: date+'T08:41:00', macro_emotion:'neutral',  micro_emotion:'그냥그래',  is_modified:false },
@@ -6156,8 +6125,7 @@ async function loadRecords(dateStr) {
       { student_uid:'s06', student_name:'윤서준', timestamp: date+'T08:52:00', macro_emotion:'positive', micro_emotion:'기쁜',      is_modified:false },
       { student_uid:'s07', student_name:'한지수', timestamp: date+'T09:01:00', macro_emotion:'negative', micro_emotion:'속상한',    is_modified:true  },
       { student_uid:'s08', student_name:'강민재', timestamp: date+'T09:03:00', macro_emotion:'neutral',  micro_emotion:'심심한',    is_modified:false },
-    ];
-    _renderRecordList(_previewEmotions);
+    ]);
     return;
   }
 
@@ -6183,6 +6151,7 @@ async function teacherUnlockEmotion(student_uid, student_name) {
   hideLoading();
   if (res.status === 'ok') {
     toast(student_name + ' 학생이 다시 감정을 수정할 수 있어요');
+    // 현재 날짜 기록 새로고침
     var activeDate = CAL._selectedDate;
     if (activeDate) loadRecords(activeDate);
   } else {
