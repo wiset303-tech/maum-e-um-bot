@@ -2552,7 +2552,6 @@ function previewTeacher() {
       '<span class="emotion-chip chip-pos">☀️ 긍정 12</span>' +
       '<span class="emotion-chip chip-neu">☁️ 중립 5</span>' +
       '<span class="emotion-chip chip-neg">☔ 부정 3</span>';
-    var warmth = document.getElementById('warmthDots');
     if (warmth) {
       for (var i=1; i<=5; i++) {
         var dot = document.getElementById('wd'+i);
@@ -2561,24 +2560,26 @@ function previewTeacher() {
     }
     var miss = document.getElementById('notSubmitList');
     if (miss) renderNotSubmitList([
-      {num:5, name:'김서연'},{num:8, name:'박민준'},{num:11, name:'이수아'},
-      {num:14, name:'정하늘'},{num:17, name:'최지우'},{num:20, name:'윤서준'},
-      {num:22, name:'강다은'},{num:25, name:'오준혁'},{num:28, name:'임채원'},
+      {num:21, name:'김서준'},{num:22, name:'박지은'},{num:23, name:'이도현'},
+      {num:24, name:'최수빈'},{num:25, name:'정우진'},{num:26, name:'한예린'},
+      {num:27, name:'오시온'},{num:28, name:'윤채영'},
     ], false);
-    // 워드클라우드 더미 — 20명 감정 반영 (긍정9·중립5·부정4)
-    // 설레는3·신나는2·기쁜2·뿌듯한1·행복한1 / 그냥그래3·멍한1·심심한1 / 걱정돼2·속상한1·외로운1
+    // 워드클라우드 더미 — 20명 감정 반영 (긍정12·중립5·부정3)
     renderWordCloud([
-      {word:'설레는',  type:'positive', count:3},
-      {word:'신나는',  type:'positive', count:2},
-      {word:'기쁜',   type:'positive', count:2},
-      {word:'뿌듯한', type:'positive', count:1},
-      {word:'행복한', type:'positive', count:1},
-      {word:'그냥그래',type:'neutral',  count:3},
-      {word:'멍한',   type:'neutral',  count:1},
-      {word:'심심한', type:'neutral',  count:1},
-      {word:'걱정돼', type:'negative', count:2},
-      {word:'속상한', type:'negative', count:1},
-      {word:'외로운', type:'negative', count:1},
+      {word:'설레는',     type:'positive', count:3},
+      {word:'신나는',     type:'positive', count:2},
+      {word:'기쁜',      type:'positive', count:2},
+      {word:'뿌듯한',    type:'positive', count:1},
+      {word:'행복한',    type:'positive', count:1},
+      {word:'활기참',    type:'positive', count:1},
+      {word:'두근거리는', type:'positive', count:1},
+      {word:'즐거워',    type:'positive', count:1},
+      {word:'그냥그래',  type:'neutral',  count:3},
+      {word:'멍한',      type:'neutral',  count:1},
+      {word:'심심한',    type:'neutral',  count:1},
+      {word:'걱정돼',    type:'negative', count:1},
+      {word:'속상한',    type:'negative', count:1},
+      {word:'외로운',    type:'negative', count:1},
     ]);
     // 미리보기 전용: 감정 슬라이더 표시
     setTimeout(function(){ insertPreviewSliders(); }, 400);
@@ -2614,27 +2615,29 @@ function previewTeacher() {
       {student_uid:'s27',student_id:'mee264127',name:'오시온',  num:27,grade:4,class:1,nfc_uid:'04:AA:BB:27',active:'Y',gender:'M'},
       {student_uid:'s28',student_id:'mee264128',name:'윤채영',  num:28,grade:4,class:1,nfc_uid:'',            active:'Y',gender:'F'},
     ];
-    // 오늘 감정 — 긍정9·중립5·부정4·미제출2 (일부 감정 중복으로 클러스터링 시각화)
+    // 오늘 감정 — 1~20번 제출(긍정12·중립5·부정3), 21~28번 미제출
     STATE.studentEmotions = {
       's01':{ macro:'positive', micro:'설레는',   score:8 },
-      's02':{ macro:'positive', micro:'설레는',   score:8 },  // 중복 ↑ 클러스터
+      's02':{ macro:'positive', micro:'설레는',   score:8 },
       's03':{ macro:'positive', micro:'신나는',   score:9 },
       's04':{ macro:'positive', micro:'뿌듯한',   score:8 },
-      's05':{ macro:'positive', micro:'신나는',   score:9 },  // 중복 ↑
+      's05':{ macro:'positive', micro:'신나는',   score:9 },
       's06':{ macro:'positive', micro:'기쁜',     score:7 },
       's07':{ macro:'positive', micro:'행복한',   score:9 },
-      's08':{ macro:'positive', micro:'기쁜',     score:7 },  // 중복 ↑
-      's09':{ macro:'positive', micro:'설레는',   score:8 },  // 중복 ↑ (3명)
-      's10':{ macro:'neutral',  micro:'그냥그래', score:5 },
-      's11':{ macro:'neutral',  micro:'그냥그래', score:5 },  // 중복 ↑
-      's12':{ macro:'neutral',  micro:'멍한',     score:5 },
-      's13':{ macro:'neutral',  micro:'심심한',   score:4 },
-      's14':{ macro:'neutral',  micro:'그냥그래', score:5 },  // 중복 ↑ (3명)
-      's15':{ macro:'negative', micro:'걱정돼',   score:2 },
-      's16':{ macro:'negative', micro:'속상한',   score:2 },
-      's17':{ macro:'negative', micro:'걱정돼',   score:2 },  // 중복 ↑
-      's18':{ macro:'negative', micro:'외로운',   score:1 },
-      // s19, s20 미제출
+      's08':{ macro:'positive', micro:'기쁜',     score:7 },
+      's09':{ macro:'positive', micro:'설레는',   score:8 },
+      's10':{ macro:'positive', micro:'활기참',   score:8 },
+      's11':{ macro:'positive', micro:'즐거워',   score:7 },
+      's12':{ macro:'positive', micro:'두근거리는',score:8 },
+      's13':{ macro:'neutral',  micro:'그냥그래', score:5 },
+      's14':{ macro:'neutral',  micro:'그냥그래', score:5 },
+      's15':{ macro:'neutral',  micro:'멍한',     score:5 },
+      's16':{ macro:'neutral',  micro:'심심한',   score:4 },
+      's17':{ macro:'neutral',  micro:'그냥그래', score:5 },
+      's18':{ macro:'negative', micro:'걱정돼',   score:2 },
+      's19':{ macro:'negative', micro:'속상한',   score:2 },
+      's20':{ macro:'negative', micro:'외로운',   score:1 },
+      // s21~s28: 미제출 (STATE.studentEmotions에 없으면 바코드 회색)
     };
     STATE.tokenBalances = {
       's01':{ temp:18, current_balance:3, can_save_double:false },
@@ -2707,11 +2710,11 @@ var PREVIEW_WORDS = {
 };
 
 function insertPreviewSliders() {
-  var wrap = document.getElementById('wordcloudWrap');
-  if (!wrap || document.getElementById('previewSliderBox')) return;
+  var weatherBox = document.getElementById('weatherBox');
+  if (!weatherBox || document.getElementById('previewSliderBox')) return;
   var box = document.createElement('div');
   box.id = 'previewSliderBox';
-  box.style.cssText = 'background:#f0faf7;border-radius:12px;padding:10px 14px;margin-top:10px;font-size:12px';
+  box.style.cssText = 'background:#f0faf7;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;border:1px solid var(--mint3)';
   box.innerHTML =
     '<div style="font-weight:700;color:var(--navy);margin-bottom:8px">🎚 미리보기 감정 조절</div>' +
     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">' +
@@ -2727,10 +2730,11 @@ function insertPreviewSliders() {
     '</div>' +
     '<div style="display:flex;align-items:center;gap:8px">' +
       '<span style="color:#E24B4A;font-weight:700;width:28px">부정</span>' +
-      '<span id="lblNeg" style="flex:1;font-size:11px;color:var(--gray)" id="previewStepLabel"></span>' +
+      '<span id="lblNeg" style="flex:1;font-size:11px;color:var(--gray)"></span>' +
     '</div>' +
     '<div style="text-align:right;font-size:10px;color:var(--gray);margin-top:4px" id="previewStepLabel">단계: 7/10</div>';
-  wrap.parentNode.insertBefore(box, wrap.nextSibling);
+  // weather-box 바로 뒤(위)에 삽입 — 날씨 애니메이션과 겹치지 않게
+  weatherBox.parentNode.insertBefore(box, weatherBox);
   applyPreviewStep();
 }
 
