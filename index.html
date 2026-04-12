@@ -1307,14 +1307,21 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
         📋 시도별 현황
       </button>
     </div>
-    <!-- 지도 뷰 -->
-    <div id="nat-map-view">
-      <div id="national-map-svg"></div>
-      <div id="national-map-legend" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px"></div>
+    <!-- 고정 높이 컨텐츠 영역 — 탭 전환해도 높이 불변 -->
+    <div style="height:68vw;max-height:400px;min-height:260px;position:relative;overflow:hidden">
+      <!-- 지도 뷰 -->
+      <div id="nat-map-view" style="position:absolute;inset:0;overflow-y:auto;transition:opacity .18s ease">
+        <div id="national-map-svg"></div>
+        <div id="national-map-legend" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;padding-bottom:2px"></div>
+      </div>
+      <!-- 시도별 표 뷰 -->
+      <div id="nat-table-view" style="position:absolute;inset:0;display:none;overflow-y:auto;transition:opacity .18s ease">
+        <div id="nat-region-table" style="border-radius:10px;border:1px solid #f0f0f0"></div>
+      </div>
     </div>
-    <!-- 시도별 표 뷰 -->
-    <div id="nat-table-view" style="display:none">
-      <div id="nat-region-table" style="max-height:60vh;overflow-y:auto;border-radius:10px;border:1px solid #f0f0f0"></div>
+    <!-- 하단 날짜 -->
+    <div style="display:flex;justify-content:flex-end;margin-top:8px">
+      <span id="natMapDate" style="font-size:11px;color:var(--gray)"></span>
     </div>
   </div>
 </div>
@@ -3609,8 +3616,16 @@ function switchNatTab(tab) {
   if (!mapView) return;
 
   var isMap = (tab === 'map');
-  mapView.style.display   = isMap ? '' : 'none';
-  tableView.style.display = isMap ? 'none' : '';
+
+  // 부드러운 전환 — opacity fade
+  var hideEl = isMap ? tableView : mapView;
+  var showEl = isMap ? mapView   : tableView;
+  if (hideEl) { hideEl.style.opacity = '0'; setTimeout(function(){ hideEl.style.display = 'none'; }, 160); }
+  if (showEl) {
+    showEl.style.display  = '';
+    showEl.style.opacity  = '0';
+    setTimeout(function(){ showEl.style.opacity = '1'; }, 20);
+  }
 
   if (tabMap) {
     tabMap.style.background = isMap ? 'var(--mint2)' : '#fff';
@@ -3754,6 +3769,15 @@ function _natDetailStat(icon, val, lbl, color) {
 async function openNationalMapModal() {
   openModal('modal-national-map');
   switchNatTab('map'); // 항상 지도 탭으로 시작
+
+  // 오늘 날짜 표시
+  (function() {
+    var d = new Date(Date.now() + 9*3600000);
+    var days = ['일','월','화','수','목','금','토'];
+    var dateStr = d.getFullYear() + '. ' + (d.getMonth()+1) + '. ' + d.getDate() + '. (' + days[d.getDay()] + ')';
+    var el = document.getElementById('natMapDate');
+    if (el) el.textContent = dateStr;
+  })();
 
   var svgEl = document.getElementById('national-map-svg');
   var legEl = document.getElementById('national-map-legend');
