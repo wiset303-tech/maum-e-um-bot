@@ -4323,6 +4323,8 @@ function toggleNotifDropdown() {
 }
 
 function _notifOutsideClick(e) {
+  // innerHTML 교체 후 타겟 DOM이 사라지므로 렌더링 직후 클릭은 무시
+  if (_notifRendering) return;
   var dd = document.getElementById('notifDropdown');
   var btn = document.getElementById('btnNotif');
   if (dd && !dd.contains(e.target) && btn && !btn.contains(e.target)) {
@@ -4334,8 +4336,11 @@ function _notifOutsideClick(e) {
 
 var _notifPage = 0; // 현재 알림 페이지 (0-indexed)
 var NOTIF_PER_PAGE = 3;
+var _notifRendering = false; // innerHTML 교체 중 외부클릭 오인 방지
 
 function renderNotifDropdown(page) {
+  _notifRendering = true;
+  setTimeout(function(){ _notifRendering = false; }, 50); // 이벤트 버블 완료 후 해제
   var dd = document.getElementById('notifDropdown');
   if (!dd) return;
   if (page !== undefined) _notifPage = page;
