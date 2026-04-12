@@ -6169,6 +6169,11 @@ async function loadRecords(dateStr) {
 }
 
 async function teacherUnlockEmotion(student_uid, student_name) {
+  // 미리보기: 스피너·API 없이 안내 토스트만
+  if (STATE.isPreview) {
+    toast('실제 선생님은 실행할 수 있습니다.');
+    return;
+  }
   showLoading(student_name + '의 감정 수정을 허용하는 중이에요 🔓');
   var res = await api('unlock_emotion', {
     student_uid:  student_uid,
@@ -6178,7 +6183,6 @@ async function teacherUnlockEmotion(student_uid, student_name) {
   hideLoading();
   if (res.status === 'ok') {
     toast(student_name + ' 학생이 다시 감정을 수정할 수 있어요');
-    // 현재 날짜 기록 새로고침
     var activeDate = CAL._selectedDate;
     if (activeDate) loadRecords(activeDate);
   } else {
