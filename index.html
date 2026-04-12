@@ -355,16 +355,24 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .ws-rain .wx-cloud{ background:#78909c; }
 .ws-rain .wx-cloud::before,.ws-rain .wx-cloud::after{ background:#78909c; }
 
-/* 🌧 빗줄기 — SVG 개별 빗방울 (JS _initRainSVG로 생성, 각기 다른 속도·딜레이) */
-.wx-rain-svg{
-  position:absolute;inset:0;width:100%;height:100%;
+/* 🌧 빗방울 — div 개별 요소 방식 (참고: raindrop approach) */
+.wx-rain-container{
+  position:absolute;inset:0;
+  pointer-events:none;z-index:1;
   opacity:0;transition:opacity 0.8s ease;
-  pointer-events:none;z-index:1;overflow:hidden;
 }
-.ws-rain .wx-rain-svg{ opacity:1; }
+.ws-rain .wx-rain-container{ opacity:1; }
+.wx-raindrop{
+  position:absolute;
+  bottom:100%; /* 컨테이너 위에서 시작 */
+  width:2px;
+  border-radius:50%;
+  background:linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.82));
+  animation:wxRainFall linear infinite;
+}
 @keyframes wxRainFall {
-  0%   { transform:translateY(0); }
-  100% { transform:translateY(280px); }
+  0%   { transform:translateY(0)      scaleY(1);   opacity:1;   }
+  100% { transform:translateY(400px)  scaleY(1.5); opacity:0.2; }
 }
 
 /* 🌈 무지개 — radial-gradient 아치형 (참고: rainbow-arch-bg 방식) */
@@ -2244,29 +2252,25 @@ function buildTeacherUI() {
   } else {
     loadSettings();
   }
-  // SVG 빗방울 초기화 (DOM 준비 후 즉시)
-  setTimeout(_initRainSVG, 0);
+  // 빗방울 div 초기화 (DOM 준비 후 즉시)
+  setTimeout(_initRainDrops, 0);
 }
 
-// 🌧 SVG 개별 빗방울 생성 — 각기 다른 x위치·길이·속도·딜레이로 자연스러운 비
-function _initRainSVG() {
-  var svg = document.getElementById('wxRainSvg');
-  if (!svg || svg.childElementCount > 0) return; // 이미 생성됨
-  var html = '';
-  for (var i = 0; i < 40; i++) {
-    var x    = (Math.random() * 94 + 2).toFixed(1) + '%';
-    var xEnd = (parseFloat(x) - 2.5).toFixed(1) + '%'; // 약 15° 기울기
-    var len  = ((Math.random() * 14 + 7) | 0);          // 7~21px 길이
-    var dur  = (Math.random() * 0.35 + 0.40).toFixed(2); // 0.40~0.75s 속도
-    var del  = -(Math.random() * 1.8).toFixed(2);         // 랜덤 시작 위치
-    var op   = (Math.random() * 0.35 + 0.50).toFixed(2); // 0.50~0.85 불투명도
-    var sw   = (Math.random() < 0.3 ? 1 : 1.5);          // 굵기 변화
-    html += '<line x1="' + x    + '" y1="-20"' +
-                 ' x2="' + xEnd + '" y2="' + (-20 + len) + '"' +
-            ' stroke="rgba(174,214,241,' + op + ')" stroke-width="' + sw + '" stroke-linecap="round"' +
-            ' style="animation:wxRainFall ' + dur + 's linear ' + del + 's infinite"></line>';
+// 🌧 개별 빗방울 div 생성 — 참고 코드(raindrop div) 방식
+function _initRainDrops() {
+  var container = document.getElementById('wxRainContainer');
+  if (!container || container.childElementCount > 0) return;
+  var DROP_COUNT = 65;
+  for (var i = 0; i < DROP_COUNT; i++) {
+    var drop = document.createElement('div');
+    drop.className = 'wx-raindrop';
+    drop.style.left     = (Math.random() * 100).toFixed(1) + '%';
+    drop.style.height   = ((Math.random() * 14 + 10) | 0) + 'px'; // 10~24px
+    var dur             = (Math.random() * 0.6 + 0.45).toFixed(2); // 0.45~1.05s
+    drop.style.animationDuration = dur + 's';
+    drop.style.animationDelay   = -(Math.random() * 2).toFixed(2) + 's';
+    container.appendChild(drop);
   }
-  svg.innerHTML = html;
 }
 
 function adminHTML() {
@@ -2981,7 +2985,7 @@ function dashboardHTML() {
       '<div class="wx-cloud wx-cloud-2"></div>' +
       '<div class="wx-cloud wx-cloud-3"></div>' +
     '</div>' +
-    '<div class="wx-layer"><svg class="wx-rain-svg" id="wxRainSvg"></svg></div>' +
+    '<div class="wx-layer"><div class="wx-rain-container" id="wxRainContainer"></div></div>' +
     '<div class="wx-layer"><div class="wx-rainbow"></div></div>' +
     '<div class="wx-wordcloud" id="wordcloudWrap">' +
       '<div class="wx-empty" id="wordcloudEmpty"><span style="font-size:28px">🌥</span><span>아직 감정 기록이 없어요</span></div>' +
