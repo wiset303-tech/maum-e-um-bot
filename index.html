@@ -5307,6 +5307,40 @@ function attendMove(dir) {
 }
 
 
+function renderEmotionBarcode() {
+  var track = document.getElementById('barcodeTrack');
+  var nums  = document.getElementById('barcodeNums');
+  var tag   = document.getElementById('barcodeDateTag');
+  if (!track) return;
+
+  var students = (STATE.students || []).filter(function(s){ return s.active === 'Y'; });
+  if (!students.length) { track.innerHTML = ''; if (nums) nums.innerHTML = ''; return; }
+
+  students = students.slice().sort(function(a,b){ return (parseInt(a.num)||0)-(parseInt(b.num)||0); });
+  var today = new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+  if (tag) tag.textContent = today.slice(5).replace('-','/');
+
+  var bars = students.map(function(s) {
+    var emo   = STATE.studentEmotions && STATE.studentEmotions[s.student_uid];
+    var color = emo ? getEmotionColor(emo.micro, emo.macro) : '#e0dfd6';
+    var submitted = !!emo;
+    var tip = submitted
+      ? (s.num+'번 '+s.name+' · '+(emo.micro || emo.macro || ''))
+      : (s.num+'번 '+s.name+' · 미제출');
+    return '<div title="'+tip+'" style="flex:1;background:'+color+';height:100%;transition:background .5s ease;cursor:default;'+(submitted?'':'opacity:.35')+';border-radius:1px"></div>';
+  }).join('');
+
+  var large = students.length > 30;
+  var numLabels = students.map(function(s) {
+    var n = parseInt(s.num);
+    var show = students.length <= 15 || n === 1 || n % 5 === 0 || n === students[students.length-1].num;
+    return '<div style="flex:1;text-align:center;font-size:'+(large?7:9)+'px;color:var(--gray)">'+(show?n:'')+'</div>';
+  }).join('');
+
+  track.innerHTML = bars;
+  if (nums) nums.innerHTML = numLabels;
+}
+
 // ── 감정팔찌 ──────────────────────────────────────────────────
 function _braceletStudents() {
   return (STATE.students || [])
