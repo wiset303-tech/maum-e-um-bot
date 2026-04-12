@@ -2834,10 +2834,11 @@ function dashboardHTML() {
     '</div>' +
     '<div class="wx-label" id="weatherLabel"></div>' +
   '</div>' +
-  '<div id="emotionBarcodeSection" style="padding:0 16px 4px">' +
+  '<div id="emotionBarcodeSection" style="padding:0 16px 4px;cursor:pointer" onclick="openBraceletModal()" title="클릭하면 감정팔찌를 만들 수 있어요 🌈">' +
     '<div style="font-size:11px;font-weight:700;color:var(--gray);margin-bottom:5px;display:flex;align-items:center;gap:6px">' +
       '🌈 우리반 감정 바코드' +
       '<span id="barcodeDateTag" style="font-size:10px;color:var(--lgray);font-weight:400"></span>' +
+      '<span style="font-size:9px;color:var(--lgray);margin-left:auto">✂️ 팔찌 만들기</span>' +
     '</div>' +
     '<div id="barcodeTrack" style="display:flex;height:56px;border-radius:8px;overflow:hidden;gap:1px;background:#f0ede8"></div>' +
     '<div id="barcodeNums" style="display:flex;gap:1px;margin-top:3px"></div>' +
@@ -5305,39 +5306,158 @@ function attendMove(dir) {
   renderAttendanceGrid();
 }
 
-function renderEmotionBarcode() {
-  var track = document.getElementById('barcodeTrack');
-  var nums  = document.getElementById('barcodeNums');
-  var tag   = document.getElementById('barcodeDateTag');
-  if (!track) return;
 
-  var students = (STATE.students || []).filter(function(s){ return s.active === 'Y'; });
-  if (!students.length) { track.innerHTML = ''; if (nums) nums.innerHTML = ''; return; }
+// ── 감정팔찌 ──────────────────────────────────────────────────
+function _braceletStudents() {
+  return (STATE.students || [])
+    .filter(function(s){ return s.active === 'Y'; })
+    .sort(function(a,b){ return (parseInt(a.num)||0)-(parseInt(b.num)||0); });
+}
 
-  // 번호순 정렬
-  students = students.slice().sort(function(a,b){ return (parseInt(a.num)||0)-(parseInt(b.num)||0); });
-  var today = new Date(Date.now()+9*3600000).toISOString().slice(0,10);
-  if (tag) tag.textContent = today.slice(5).replace('-','/');
+function _rrectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
 
-  var bars = students.map(function(s) {
-    var emo   = STATE.studentEmotions && STATE.studentEmotions[s.student_uid];
+function _drawOneBracelet(canvas, students) {
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  var n = students.length || 1;
+  var r = H / 2;
+  var gapPx = Math.max(0.8, W / n * 0.04);
+  ctx.save();
+  _rrectPath(ctx, 0, 0, W, H, r);
+  ctx.clip();
+  ctx.fillStyle = '#f0ede8';
+  ctx.fillRect(0, 0, W, H);
+  students.forEach(function(s, i) {
+    var emo = STATE.studentEmotions && STATE.studentEmotions[s.student_uid];
     var color = emo ? getEmotionColor(emo.micro, emo.macro) : '#e0dfd6';
-    var submitted = !!emo;
-    var tip = submitted
-      ? (s.num+'번 '+s.name+' · '+(emo.micro || emo.macro || ''))
-      : (s.num+'번 '+s.name+' · 미제출');
-    return '<div title="'+tip+'" style="flex:1;background:'+color+';height:100%;transition:background .5s ease;cursor:default;'+(submitted?'':'opacity:.35')+';border-radius:1px"></div>';
-  }).join('');
+    ctx.globalAlpha = emo ? 1 : 0.5;
+    ctx.fillStyle = color;
+    var x = (i / n) * W;
+    var bw = W / n;
+    var lGap = i > 0   ? gapPx / 2 : 0;
+    var rGap = i < n-1 ? gapPx / 2 : 0;
+    ctx.fillRect(x + lGap, 0, bw - lGap - rGap, H);
+  });
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  var shine = ctx.createLinearGradient(0, 0, 0, H * 0.5);
+  shine.addColorStop(0, 'rgba(255,255,255,0.26)');
+  shine.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = shine;
+  _rrectPath(ctx, 0, 0, W, H, r);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(120,120,120,0.5)';
+  ctx.lineWidth = Math.max(1, H / 25);
+  var dashLen = H * 0.55;
+  ctx.setLineDash([dashLen, dashLen * 0.45]);
+  _rrectPath(ctx, ctx.lineWidth / 2, ctx.lineWidth / 2,
+             W - ctx.lineWidth, H - ctx.lineWidth, r);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
 
-  var large = students.length > 30;
-  var numLabels = students.map(function(s) {
-    var n = parseInt(s.num);
-    var show = students.length <= 15 || n === 1 || n % 5 === 0 || n === students[students.length-1].num;
-    return '<div style="flex:1;text-align:center;font-size:'+(large?7:9)+'px;color:var(--gray)">'+(show?n:'')+'</div>';
-  }).join('');
+function openBraceletModal() {
+  var students = _braceletStudents();
+  if (!students.length) { toast('학생 정보를 먼저 불러와주세요 😊'); return; }
+  var today = new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+  var dateStr = today.replace(/-/g, '. ');
+  var submitted = students.filter(function(s){
+    return STATE.studentEmotions && STATE.studentEmotions[s.student_uid];
+  }).length;
+  var modal = document.getElementById('modal-bracelet');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-bracelet';
+    modal.className = 'modal';
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML =
+    '<div class="modal-content" style="max-width:660px;padding:28px 24px 22px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">' +
+        '<div>' +
+          '<div style="font-size:20px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px">🌈 오늘의 감정팔찌</div>' +
+          '<div style="font-size:12px;color:var(--gray)">' + dateStr + ' &nbsp;·&nbsp; ' + students.length + '명 중 ' + submitted + '명 제출</div>' +
+        '</div>' +
+        '<button onclick="closeModal(&quot;modal-bracelet&quot;)" style="font-size:20px;background:none;border:none;cursor:pointer;color:var(--lgray);line-height:1">✕</button>' +
+      '</div>' +
+      '<div style="font-size:13px;color:var(--sub);margin-bottom:14px;line-height:1.7">출력 후 오려서 팔찌로 만들어요. 각 칸의 색깔이 친구의 오늘 감정이에요.</div>' +
+      '<div style="background:#f5f3ee;border-radius:14px;padding:18px;margin-bottom:16px">' +
+        '<div style="font-size:10px;color:var(--lgray);margin-bottom:10px;font-weight:700;letter-spacing:.04em">미리보기</div>' +
+        '<canvas id="braceletPreviewCanvas" style="width:100%;display:block"></canvas>' +
+      '</div>' +
+      '<div style="font-size:11.5px;color:var(--gray);background:var(--bg2);border-radius:8px;padding:10px 14px;margin-bottom:18px;line-height:1.85">' +
+        '✂️ &nbsp;가위로 점선을 따라 자른 뒤, 손목에 감아 테이프로 붙여요.<br>' +
+        '🖨️ &nbsp;PNG를 다운받아 A4 용지에 인쇄하면 <b>9개</b>가 한 장에 나와요.' +
+      '</div>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end">' +
+        '<button class="btn btn-secondary" onclick="closeModal(&quot;modal-bracelet&quot;)">닫기</button>' +
+        '<button class="btn btn-mint" onclick="downloadBraceletPng()">🖼 PNG 다운로드 (A4 × 9개)</button>' +
+      '</div>' +
+    '</div>';
+  openModal('modal-bracelet');
+  setTimeout(function() {
+    var canvas = document.getElementById('braceletPreviewCanvas');
+    if (!canvas) return;
+    var cw = canvas.parentElement.clientWidth - 36;
+    var ch = Math.round(cw * 30 / 210);
+    canvas.width  = cw * 2;
+    canvas.height = ch * 2;
+    canvas.style.height = ch + 'px';
+    _drawOneBracelet(canvas, students);
+  }, 60);
+}
 
-  track.innerHTML = bars;
-  if (nums) nums.innerHTML = numLabels;
+function downloadBraceletPng() {
+  var students = _braceletStudents();
+  if (!students.length) { toast('학생 정보가 없어요'); return; }
+  toast('이미지를 만드는 중이에요 🌈');
+  var PX      = 6;
+  var PAGE_W  = 210 * PX;
+  var PAGE_H  = 297 * PX;
+  var STRIP_H = 30  * PX;
+  var COUNT   = 9;
+  var LABEL_H = 24;
+  var M_TOP   = 30;
+  var M_BOT   = 30;
+  var usable  = PAGE_H - M_TOP - M_BOT - LABEL_H;
+  var gap     = Math.floor((usable - COUNT * STRIP_H) / (COUNT - 1));
+  var page    = document.createElement('canvas');
+  page.width  = PAGE_W;
+  page.height = PAGE_H;
+  var ctx = page.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, PAGE_W, PAGE_H);
+  var today = new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+  ctx.fillStyle = '#aaaaaa';
+  ctx.font = 'bold ' + (3 * PX) + 'px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('오늘의 감정팔찌 · ' + today + ' · ' + students.length + '명', PAGE_W / 2, M_TOP + LABEL_H * 0.75);
+  for (var i = 0; i < COUNT; i++) {
+    var sy  = M_TOP + LABEL_H + i * (STRIP_H + gap);
+    var tmp = document.createElement('canvas');
+    tmp.width  = PAGE_W;
+    tmp.height = STRIP_H;
+    _drawOneBracelet(tmp, students);
+    ctx.drawImage(tmp, 0, sy, PAGE_W, STRIP_H);
+  }
+  var link = document.createElement('a');
+  link.download = '감정팔찌_' + today.replace(/-/g, '') + '.png';
+  link.href = page.toDataURL('image/png');
+  link.click();
+  setTimeout(function(){ toast('감정팔찌 이미지 다운로드 완료 🌈'); }, 200);
 }
 
 function renderAttendanceGrid() {
