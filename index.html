@@ -5415,11 +5415,12 @@ function openBraceletModal() {
   if (!modal) {
     modal = document.createElement('div');
     modal.id = 'modal-bracelet';
-    modal.className = 'modal';
+    modal.className = 'modal-overlay hidden';
+    modal.onclick = function(e){ if(e.target===modal) closeModal('modal-bracelet'); };
     document.body.appendChild(modal);
   }
   modal.innerHTML =
-    '<div class="modal-content" style="max-width:660px;padding:28px 24px 22px">' +
+    '<div class="modal-box" style="width:min(660px,94vw);padding:28px 24px 22px;border-radius:20px">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">' +
         '<div>' +
           '<div style="font-size:20px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px">🌈 오늘의 감정팔찌</div>' +
