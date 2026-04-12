@@ -3052,8 +3052,8 @@ function adminDashboardHTML() {
         '📋 시도별 현황' +
       '</button>' +
     '</div>' +
-    '<div style="height:68vw;max-height:400px;min-height:260px;position:relative;overflow:hidden">' +
-      '<div id="adm-nat-map-view" style="position:absolute;inset:0;overflow-y:auto;transition:opacity .18s ease">' +
+    '<div id="adm-nat-container" style="position:relative;overflow:hidden">' +
+      '<div id="adm-nat-map-view" style="transition:opacity .18s ease">' +
         '<div id="adm-map-svg"></div>' +
         '<div id="adm-map-legend" style="display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px"></div>' +
       '</div>' +
@@ -4308,22 +4308,39 @@ function admMapBgClick(e) {
 
 // 관리자 전국 날씨 탭 전환
 function admSwitchNatTab(tab) {
+  var container = document.getElementById('adm-nat-container');
   var mapView   = document.getElementById('adm-nat-map-view');
   var tableView = document.getElementById('adm-nat-table-view');
   var tabMap    = document.getElementById('adm-nat-tab-map');
   var tabTable  = document.getElementById('adm-nat-tab-table');
   if (!mapView) return;
   var isMap = (tab === 'map');
-  var hideEl = isMap ? tableView : mapView;
-  var showEl = isMap ? mapView   : tableView;
 
-  // 숨길 뷰 즉시 display:none, 보일 뷰 opacity fade-in
-  if (hideEl) { hideEl.style.opacity = '0'; hideEl.style.display = 'none'; }
-  if (showEl) {
-    showEl.style.display = '';
-    showEl.style.opacity = '0';
+  if (!isMap) {
+    // 지도 → 시도별: 지도 높이 측정 후 컨테이너 고정 → 테이블이 그 안에 스크롤
+    var mapH = mapView.offsetHeight || 300;
+    if (container) { container.style.height = mapH + 'px'; }
+    mapView.style.display  = 'none';
+    mapView.style.opacity  = '0';
+    tableView.style.display = '';
+    tableView.style.opacity = '0';
     requestAnimationFrame(function() {
-      requestAnimationFrame(function() { showEl.style.opacity = '1'; });
+      requestAnimationFrame(function() { tableView.style.opacity = '1'; });
+    });
+  } else {
+    // 시도별 → 지도: 테이블 숨기고 지도 복원, 높이 잠금 해제
+    tableView.style.display = 'none';
+    tableView.style.opacity = '0';
+    mapView.style.display = '';
+    mapView.style.opacity = '0';
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        mapView.style.opacity = '1';
+        // 지도가 다시 그려진 후 높이 잠금 해제
+        setTimeout(function() {
+          if (container) container.style.height = '';
+        }, 200);
+      });
     });
   }
 
