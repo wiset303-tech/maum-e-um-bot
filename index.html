@@ -355,41 +355,51 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .ws-rain .wx-cloud{ background:#78909c; }
 .ws-rain .wx-cloud::before,.ws-rain .wx-cloud::after{ background:#78909c; }
 
-/* 🌧 빗줄기 */
+/* 🌧 빗줄기 — transform 기반으로 진짜 위에서 아래로 떨어지는 효과 */
 .wx-rain-layer{
-  position:absolute;inset:0;opacity:0;
-  transition:opacity 1.5s ease;
+  /* 상단을 -60px까지 연장해서 빗줄기가 위에서 자연스럽게 시작 */
+  position:absolute;top:-60px;left:-10px;right:-10px;bottom:0;
+  opacity:0;transition:opacity 1.5s ease;
+  /* 172deg (약 8° 기울기) 짧은 빗방울 × 2 레이어 */
   background-image:
-    repeating-linear-gradient(
-      100deg,
-      transparent 0px, transparent 14px,
-      rgba(150,200,255,0.45) 14px, rgba(150,200,255,0.45) 15px
-    );
-  background-size:18px 18px;
-  animation:rain-fall 0.5s linear infinite;
+    repeating-linear-gradient(172deg,
+      transparent 0px, transparent 28px,
+      rgba(174,214,241,.70) 28px, rgba(174,214,241,.70) 32px),
+    repeating-linear-gradient(170deg,
+      transparent 0px, transparent 18px,
+      rgba(174,214,241,.40) 18px, rgba(174,214,241,.40) 21px);
+  background-size: 5px 36px, 9px 24px;
+  /* translateY로 이동 → 타일 경계 없이 끊김없이 낙하 */
+  animation: rain-drops-a 0.55s linear infinite, rain-drops-b 0.38s linear infinite;
 }
-@keyframes rain-fall{ from{background-position:0 0} to{background-position:6px 18px} }
+@keyframes rain-drops-a { 0%{transform:translateY(0)} 100%{transform:translateY(36px)} }
+@keyframes rain-drops-b { 0%{background-position:0 0,0 0} 100%{background-position:0 0,4px 24px} }
 .ws-rain .wx-rain-layer{ opacity:1; }
 
-/* 🌈 무지개 */
+/* 🌈 무지개 — 박스 하단 중앙에서 넓은 반원호 */
 .wx-rainbow{
-  position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
-  width:180px;height:90px;
-  border-radius:90px 90px 0 0;
-  background:conic-gradient(
-    from 0deg at 50% 100%,
-    #e53935 0deg 20deg,
-    #fb8c00 20deg 40deg,
-    #fdd835 40deg 60deg,
-    #43a047 60deg 80deg,
-    #1e88e5 80deg 100deg,
-    #8e24aa 100deg 120deg,
-    transparent 120deg
-  );
+  position:absolute;
+  /* 아래 절반을 박스 밖으로 내려서 위쪽만 호가 보이게 */
+  bottom:-55%;
+  left:50%;
+  transform:translateX(-50%);
+  width:180%;      /* 박스보다 넓게 → 양 끝까지 호가 닿음 */
+  padding-top:90%; /* 정사각형에 가까운 비율로 큰 원 */
+  border-radius:50%;
+  /* 동심원 box-shadow로 무지개 띠 표현 */
+  box-shadow:
+    0 0 0  8px rgba(139, 0,211,.25),   /* 보라 */
+    0 0 0 16px rgba( 75, 0,130,.28),   /* 남색 */
+    0 0 0 24px rgba( 30,136,229,.30),  /* 파랑 */
+    0 0 0 32px rgba( 67,160, 71,.30),  /* 초록 */
+    0 0 0 40px rgba(253,216, 53,.30),  /* 노랑 */
+    0 0 0 48px rgba(251,140,  0,.28),  /* 주황 */
+    0 0 0 56px rgba(229, 57, 53,.25);  /* 빨강 */
+  background:transparent;
   opacity:0;transition:opacity 1.5s ease;
-  filter:blur(3px);
+  filter:blur(2.5px);
 }
-.ws-rainbow .wx-rainbow{ opacity:0.7; }
+.ws-rainbow .wx-rainbow{ opacity:0.85; }
 
 /* 워드클라우드 영역 — 날씨 애니메이션 위에 렌더 */
 .wx-wordcloud{
@@ -2665,8 +2675,11 @@ function previewTeacher() {
     setText('statSubmit', 20);
     setText('statMiss', 8);
     setText('nationalTempValue', 27);
+    setText('classTempValue', 27);  // 학급 마음 온도 (미리보기)
     var nFill = document.getElementById('nationalTempFill');
     if (nFill) setTimeout(function(){ nFill.style.width = '27%'; }, 200);
+    var cFill = document.getElementById('classTempFill');
+    if (cFill) setTimeout(function(){ cFill.style.width = '27%'; }, 200);
     var box = document.getElementById('weatherBox');
     if (box) box.className = 'weather-box ws-partly';
     setText('weatherLabel', '구름 조금 🌤');
@@ -4700,12 +4713,14 @@ function renderWordCloud(words) {
   var myGen = ++_wcGen;
 
   // 폰트 크기: 단어 수·count에 따라 12~22px
-  var maxFont = n >= 12 ? 15 : n >= 8 ? 17 : n >= 5 ? 19 : 21;
+  var maxFont = n >= 12 ? 18 : n >= 8 ? 20 : n >= 5 ? 22 : 24;
+  var minFont = n >= 12 ? 11 : 12;
+  // count → 폰트: 많이 나온 단어일수록 크게 → 시각적으로 명확한 차이
 
   sorted.forEach(function(word, i) {
     if (myGen !== _wcGen) return; // 구형 렌더 폐기
     var p   = POS[i] || [50, 50];
-    var sz  = Math.round(12 + (word.count / maxCount) * (maxFont - 12));
+    var sz  = Math.round(minFont + (word.count / maxCount) * (maxFont - minFont));
     var pal = colorMap[word.type] || colorMap.neutral;
     var col = pal[i % pal.length];
 
