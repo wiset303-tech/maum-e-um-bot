@@ -2672,6 +2672,43 @@ function previewTeacher() {
       { from_name:'한지수', to_name:'박지호' },
       { from_name:'백서아', to_name:'강민재' },
     ]);
+
+    // ── 출석부 더미 데이터 (3월~7월, 28명) ──────────
+    // 수업일(평일): 학생별 약 90% 출석 확률로 생성 → 가볍게 랜덤 시드 방식
+    _attendanceMap = {};
+    CAL.data = {};
+    var yr = 2026;
+    // 3~7월 학교 수업일 (월~금, 공휴일 제외한 대략적 수업일)
+    var schoolDays = [];
+    var holidays = new Set(['2026-03-01','2026-05-05','2026-05-24','2026-06-06']);
+    for (var mo = 2; mo <= 6; mo++) { // 0-indexed: 2=3월 ... 6=7월
+      var daysInMonth = new Date(yr, mo+1, 0).getDate();
+      for (var dy = 1; dy <= daysInMonth; dy++) {
+        var dt = new Date(yr, mo, dy);
+        var dow = dt.getDay();
+        if (dow === 0 || dow === 6) continue; // 주말 제외
+        var ds = yr + '-' + ('0'+(mo+1)).slice(-2) + '-' + ('0'+dy).slice(-2);
+        if (holidays.has(ds)) continue;
+        schoolDays.push(ds);
+      }
+    }
+    // 28명 × 수업일: 각 학생 시드 기반으로 92~98% 출석
+    var stuIds = STATE.students.map(function(s){ return s.student_uid; });
+    schoolDays.forEach(function(ds, di) {
+      stuIds.forEach(function(uid, si) {
+        // 간단한 결정론적 출석 패턴 (해시 없이 인덱스 기반)
+        var absent = (si * 7 + di * 3) % 17 === 0; // ~6% 결석
+        if (!absent) {
+          if (!_attendanceMap[ds]) _attendanceMap[ds] = {};
+          _attendanceMap[ds][uid] = true;
+        }
+      });
+      // CAL.data: 해당 날 출석 인원 수
+      CAL.data[ds] = _attendanceMap[ds] ? Object.keys(_attendanceMap[ds]).length : 0;
+    });
+    // 출석부 탭이 열려있으면 즉시 렌더
+    var activeTab = document.querySelector('.tab-btn.active');
+    if (activeTab && activeTab.textContent.includes('출석부')) renderAttendanceGrid();
   }, 300);
 }
 
@@ -3043,8 +3080,14 @@ function studentMgmtHTML() {
       '<div id="adminTeacherList"><div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div></div>' +
     '</div>';
   }
-  return '<button class="btn btn-primary" style="margin-bottom:14px" onclick="openNfcRegister()">🪪 + 학생 NFC 카드 등록</button>' +
-    '<div id="studentList"></div>';
+  return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">' +
+    '<button class="btn btn-primary" style="flex-shrink:0" onclick="openNfcRegister()">🪪 + 학생 NFC 카드 등록</button>' +
+    '<div style="display:flex;gap:6px;margin-left:auto">' +
+      '<button id="stu-sort-num"  class="btn btn-sm btn-secondary adm-sort-btn active-sort" onclick="stuSortBy(\'num\')">번호순</button>' +
+      '<button id="stu-sort-name" class="btn btn-sm btn-secondary adm-sort-btn" onclick="stuSortBy(\'name\')">이름순</button>' +
+    '</div>' +
+  '</div>' +
+  '<div id="studentList"></div>';
 }
 
 function recordsHTML() {
@@ -4914,6 +4957,17 @@ async function loadStudents() {
 
 var _studentShowCount = 5;
 
+var _stuSortMode = 'num'; // 'num' | 'name'
+
+function stuSortBy(mode) {
+  _stuSortMode = mode;
+  document.querySelectorAll('.adm-sort-btn').forEach(function(b){ b.classList.remove('active-sort'); });
+  var btn = document.getElementById('stu-sort-' + mode);
+  if (btn) btn.classList.add('active-sort');
+  _studentShowCount = 5;
+  renderStudentList();
+}
+
 function renderStudentList() {
   var el = document.getElementById('studentList');
   if (!el) return;
@@ -4925,8 +4979,16 @@ function renderStudentList() {
 
   // 교사: 5명씩 더보기 (관리자는 renderAdminAccountMgmt 에서 처리)
   _studentShowCount = _studentShowCount || 5;
-  var visible = STATE.students.slice(0, _studentShowCount);
-  var hasMore = STATE.students.length > _studentShowCount;
+
+  // 정렬 적용 — 기본 번호순
+  var sorted = STATE.students.slice();
+  if (_stuSortMode === 'name') {
+    sorted.sort(function(a,b){ return (a.name||'').localeCompare(b.name||'','ko'); });
+  } else {
+    sorted.sort(function(a,b){ return (parseInt(a.num)||0) - (parseInt(b.num)||0); });
+  }
+  var visible = sorted.slice(0, _studentShowCount);
+  var hasMore = sorted.length > _studentShowCount;
 
   var cards = visible.map(function(s) {
     var uid2 = s.student_uid, nm2 = s.name;
@@ -4982,7 +5044,7 @@ function renderStudentList() {
 
   var moreBtn = hasMore
     ? '<button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px" onclick="showMoreStudents()">' +
-        '더보기 ('+(STATE.students.length - _studentShowCount)+'명 더)' +
+        '더보기 ('+(sorted.length - _studentShowCount)+'명 더)' +
       '</button>'
     : (_studentShowCount > 5
         ? '<button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px" onclick="showLessStudents()">접기</button>'
