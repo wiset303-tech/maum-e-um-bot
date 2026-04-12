@@ -2772,7 +2772,13 @@ function insertPreviewSliders() {
   applyPreviewStep();
 }
 
+var _applyPreviewTimer = null;
 function applyPreviewStep() {
+  // 디바운스: 슬라이더 빠른 드래그 시 마지막 값만 처리
+  if (_applyPreviewTimer) clearTimeout(_applyPreviewTimer);
+  _applyPreviewTimer = setTimeout(_doApplyPreviewStep, 80);
+}
+function _doApplyPreviewStep() {
   var sl = document.getElementById('sliderPos');
   if (!sl) return;
   var step = parseInt(sl.value, 10);
@@ -2810,9 +2816,10 @@ function applyPreviewStep() {
   setText('statSubmit', total);
   setText('statMiss',   28 - total);
 
-  // 워드클라우드 갱신 — 비율에 맞게 단어 선택
+  // 워드클라우드 — 풀에서 단어 선택, count 차등화로 폰트 크기 다양화
   var words = [];
   var maxPerEmo = 5;
+  var rankBoost = [3, 2, 1, 1, 1]; // 순위별 카운트 가중치 → 폰트 다양해짐
   [
     { pool: PREVIEW_WORDS.positive, count: Math.min(s.pos, maxPerEmo), type: 'positive' },
     { pool: PREVIEW_WORDS.neutral,  count: Math.min(s.neu, maxPerEmo), type: 'neutral'  },
@@ -2820,8 +2827,10 @@ function applyPreviewStep() {
   ].forEach(function(e) {
     if (e.count === 0) return;
     var n = Math.max(1, Math.ceil(e.count / 2));
-    e.pool.slice(0, n).forEach(function(w) {
-      words.push({ word: w.word, type: e.type, count: Math.max(1, Math.round(w.count * e.count / 3)) });
+    e.pool.slice(0, n).forEach(function(w, i) {
+      // 순위 가중치 적용 → 모든 단어가 다른 크기
+      var boost = rankBoost[i] || 1;
+      words.push({ word: w.word, type: e.type, count: Math.max(1, boost * e.count) });
     });
   });
   renderWordCloud(words);
@@ -4647,6 +4656,8 @@ function _timeAgo(ts) {
   return Math.floor(diff/86400) + '일 전';
 }
 
+var _wcGen = 0; // 세대 카운터 — 구형 비동기 렌더 자동 폐기
+
 function renderWordCloud(words) {
   var svg    = document.getElementById('wordcloudSvg');
   var empty  = document.getElementById('wordcloudEmpty');
@@ -4661,7 +4672,6 @@ function renderWordCloud(words) {
   svg.style.display = 'block';
   empty.style.display = 'none';
 
-  // 색상 매핑
   var colorMap = {
     positive: ['#2aab90','#4ecdb4','#00897b','#26c6da','#43a047'],
     neutral:  ['#f9a825','#fb8c00','#8d6e63','#78909c','#546e7a'],
@@ -4671,36 +4681,38 @@ function renderWordCloud(words) {
   var W = wrap.offsetWidth  || 340;
   var H = wrap.offsetHeight || 220;
 
-  // 빈도 기반 폰트 크기 — 단어 수에 따라 동적 조정
+  // 폰트 크기: 단어 수에 반비례하여 작게 — d3-cloud 배치 성공률 향상
   var maxCount = d3.max(words, function(d){ return d.count; }) || 1;
-  var wordCount = words.length;
-  var maxFont = wordCount > 10 ? 22 : wordCount > 6 ? 26 : 28; // 단어 많을수록 작게
-  var fontScale = d3.scaleLinear().domain([1, maxCount]).range([11, maxFont]);
+  var n = words.length;
+  var maxFont = n >= 10 ? 16 : n >= 7 ? 18 : n >= 4 ? 20 : 22;
+  var minFont = 11;
+  var fontScale = d3.scaleLinear().domain([1, maxCount]).range([minFont, maxFont]);
 
-  // D3 Cloud: 레이아웃 영역을 SVG보다 10% 작게 → 가장자리 클리핑 방지
-  var margin = Math.min(W, H) * 0.08;
+  // 세대 카운터 — 이전 비동기 렌더가 완료되어도 SVG를 건드리지 않게 함
+  var myGen = ++_wcGen;
+
+  // 전체 W×H로 배치 — 공간 최대화로 배치 실패 방지, clipPath로 경계 보장
   d3.layout.cloud()
-    .size([W - margin * 2, H - margin * 2])
+    .size([W, H])
     .words(words.map(function(w){
       return { text: w.word, size: fontScale(w.count), type: w.type, count: w.count };
     }))
-    .padding(5)
-    .rotate(function(){ return (Math.random() > 0.8) ? 90 : 0; })
+    .padding(6)
+    .rotate(function(){ return (Math.random() > 0.85) ? 90 : 0; })
     .font('Noto Sans KR')
     .fontSize(function(d){ return d.size; })
     .on('end', function(computed){
-      // SVG 초기화
+      if (myGen !== _wcGen) return; // 구형 렌더 폐기
+      if (!computed.length) return;
       d3.select('#wordcloudSvg').selectAll('*').remove();
       var svgSel = d3.select('#wordcloudSvg')
         .attr('width', W)
         .attr('height', H)
         .style('overflow', 'hidden');
-      // clipPath에 margin 포함 — 가장자리 단어 보호
+      // clipPath: 경계 밖 단어 차단
       svgSel.append('defs').append('clipPath')
         .attr('id', 'wcClip')
-        .append('rect')
-          .attr('x', margin * 0.5).attr('y', margin * 0.5)
-          .attr('width', W - margin).attr('height', H - margin);
+        .append('rect').attr('width', W).attr('height', H);
       svgSel
         .append('g')
         .attr('clip-path', 'url(#wcClip)')
@@ -4721,16 +4733,15 @@ function renderWordCloud(words) {
           })
           .attr('font-size', function(d){ return d.size+'px'; })
           .text(function(d){ return d.text; })
-          // 단어 하나씩 떠오르는 애니메이션
           .transition()
-          .delay(function(_, i){ return i * 80; })
-          .duration(500)
+          .delay(function(_, i){ return i * 60; })
+          .duration(400)
           .style('opacity', 1)
           .attr('transform', function(d){
-            return 'translate('+[d.x, d.y-8]+') rotate('+d.rotate+')';
+            return 'translate('+[d.x, d.y-6]+') rotate('+d.rotate+')';
           })
           .transition()
-          .duration(200)
+          .duration(150)
           .attr('transform', function(d){
             return 'translate('+[d.x, d.y]+') rotate('+d.rotate+')';
           });
