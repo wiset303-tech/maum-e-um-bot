@@ -1786,9 +1786,9 @@ function initBlurClouds() {
     c.className = 'wx-cloud-blur';
 
     // 0.8배 속도 = 1.25배 시간 → 기존 18~40s → 22.5~50s
-    var dur = ((Math.random() * 22 + 18) * 1.25).toFixed(1);
+    var dur = ((Math.random() * 22 + 18) / 0.7).toFixed(1);
 
-    c.style.width    = (Math.random() * 200 + 120).toFixed(0) + 'px';
+    c.style.width    = (Math.random() * 90 + 120).toFixed(0) + 'px';  /* 120~210px — 긴 구름 제거 */
     c.style.height   = (Math.random() * 60  + 45).toFixed(0)  + 'px';
     c.style.top      = (Math.random() * 68).toFixed(1) + '%';
     c.style.background = cloudColors[Math.floor(Math.random() * cloudColors.length)];
