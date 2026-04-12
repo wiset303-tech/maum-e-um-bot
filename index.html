@@ -6499,75 +6499,83 @@ function tokenHTML() {
     '</div>';
 }
 
+// ── 토큰 카드 UI 동기화 (STATE.tokenBalance 기반) ──────────────
+// loadTokenBalance 성공 시와 preview mock 경로 모두 이 함수 호출
+function _refreshTokenCards(tb) {
+  var balance    = tb.current_balance || 0;
+  var earned     = tb.total_earned   || 0;
+  var saved      = tb.total_saved    || 0;
+  var giftBal    = tb.gift_balance   || 0;
+  var regularBal = Math.max(0, balance - giftBal);
+  var giftable   = regularBal; // 선물 가능량 = 일반 토큰만
+  var temp       = Math.min(100, Math.floor(saved / 2));
+
+  setText('tokenAmount', balance);
+  setText('tokenGift',   giftBal);
+  setText('tokenEarned', earned);
+  setText('tokenSaved',  saved);
+  updateHeartTempUI(temp);
+
+  // 현재 마음토큰 카드
+  var cardMy = document.getElementById('cardMyToken');
+  if (cardMy) {
+    cardMy.style.borderColor    = regularBal > 0 ? 'var(--mint)' : 'transparent';
+    cardMy.style.opacity        = regularBal > 0 ? '1' : '0.55';
+    cardMy.style.cursor         = regularBal > 0 ? 'pointer' : 'default';
+    cardMy.style.pointerEvents  = '';  // 이전 비활성 해제
+  }
+
+  // 선물받은 토큰 카드
+  var cardGift = document.getElementById('cardGiftToken');
+  var hintEl   = document.getElementById('giftCardHint');
+  if (cardGift) {
+    cardGift.style.borderColor = giftBal > 0 ? '#e91e8c' : 'transparent';
+    cardGift.style.opacity     = giftBal > 0 ? '1' : '0.55';
+    cardGift.style.cursor      = giftBal > 0 ? 'pointer' : 'default';
+  }
+  if (hintEl) hintEl.textContent = giftBal > 0 ? '탭 → 2배 저축' : '없어요';
+
+  // 모두 저축하기 버튼
+  var saveAllBtn = document.getElementById('saveAllBtn');
+  if (saveAllBtn) {
+    saveAllBtn.disabled      = balance < 1;
+    saveAllBtn.style.opacity = balance < 1 ? '0.45' : '1';
+    if (balance > 0) {
+      var parts = [];
+      if (regularBal > 0) parts.push('일반 ' + regularBal + '개');
+      if (giftBal > 0)    parts.push('선물 ' + giftBal + '개×2');
+      saveAllBtn.textContent = '🪙 모두 저축하기 (' + parts.join(' + ') + ')';
+    } else {
+      saveAllBtn.textContent = '🪙 모두 저축하기';
+    }
+  }
+
+  // 선물하기 버튼 — 직접 획득한 토큰 없으면 비활성
+  var giftBtn = document.getElementById('giftBtn');
+  if (giftBtn) {
+    if (giftable < 1) {
+      giftBtn.disabled      = true;
+      giftBtn.style.opacity = '0.45';
+      giftBtn.title = giftBal > 0
+        ? '선물받은 토큰은 다시 선물할 수 없어요 💝'
+        : '선물할 토큰이 부족해요';
+    } else {
+      giftBtn.disabled      = false;
+      giftBtn.style.opacity = '1';
+      giftBtn.title         = '';
+    }
+  }
+}
+
 async function loadTokenBalance() {
   var res = await api('get_token_balance', { student_uid: STATE.user.student_uid });
-  if(res.status==='ok') {
+  if (res.status === 'ok') {
     STATE.tokenBalance = res.data;
-    var balance   = res.data.current_balance || 0;
-    var earned    = res.data.total_earned   || 0;
-    var saved     = res.data.total_saved    || 0;
-    var giftBal   = res.data.gift_balance   || 0;
-    var giftable  = Math.max(0, balance - giftBal); // 선물 가능량 (일반 토큰만)
-    var temp      = Math.min(100, Math.floor(saved / 2));
-
-    setText('tokenAmount', balance);
-    setText('tokenGift',   giftBal);
-    setText('tokenEarned', earned);
-    setText('tokenSaved',  saved);
-    updateHeartTempUI(temp);
+    _refreshTokenCards(res.data);
     calcBannerMessage(res.data);
-
-    // 현재 마음토큰 카드 하이라이트 (잔액 있을 때)
-    var cardMy = document.getElementById('cardMyToken');
-    var regularBal = Math.max(0, balance - giftBal);
-    if (cardMy) {
-      cardMy.style.borderColor = regularBal > 0 ? 'var(--mint)' : 'transparent';
-      cardMy.style.opacity = regularBal > 0 ? '1' : '0.55';
-      cardMy.style.cursor  = regularBal > 0 ? 'pointer' : 'default';
-    }
-
-    // 선물받은 토큰 카드 하이라이트
-    var cardGift = document.getElementById('cardGiftToken');
-    var hintEl   = document.getElementById('giftCardHint');
-    if (cardGift) {
-      cardGift.style.borderColor = giftBal > 0 ? '#e91e8c' : 'transparent';
-      cardGift.style.opacity = giftBal > 0 ? '1' : '0.55';
-      cardGift.style.cursor  = giftBal > 0 ? 'pointer' : 'default';
-    }
-    if (hintEl) hintEl.textContent = giftBal > 0 ? '탭 → 2배 저축' : '없어요';
-
-    // 모두 저축하기 버튼 상태
-    var saveAllBtn = document.getElementById('saveAllBtn');
-    if (saveAllBtn) {
-      var regularSave = regularBal;
-      var totalWillSave = regularSave + giftBal * 2;
-      saveAllBtn.disabled = balance < 1;
-      saveAllBtn.style.opacity = balance < 1 ? '0.45' : '1';
-      if (balance > 0) {
-        var parts = [];
-        if (regularBal > 0) parts.push('일반 ' + regularBal + '개');
-        if (giftBal > 0)    parts.push('선물 ' + giftBal + '개×2');
-        saveAllBtn.textContent = '🪙 모두 저축하기 (' + parts.join(' + ') + ')';
-      } else {
-        saveAllBtn.textContent = '🪙 모두 저축하기';
-      }
-    }
-
-    // 선물하기 버튼 — 직접 획득한 토큰 없으면 비활성
-    var giftBtn = document.getElementById('giftBtn');
-    if (giftBtn) {
-      if (giftable < 1) {
-        giftBtn.disabled = true;
-        giftBtn.style.opacity = '0.45';
-        giftBtn.title = giftBal > 0
-          ? '선물받은 토큰은 다시 선물할 수 없어요 💝'
-          : '선물할 토큰이 부족해요';
-      } else {
-        giftBtn.disabled = false;
-        giftBtn.style.opacity = '1';
-        giftBtn.title = '';
-      }
-    }
+  } else {
+    // BUG-05: 에러 무음 처리 수정
+    toast('잔액 정보를 불러오지 못했어요. 잠시 후 다시 시도해요 🙏');
   }
 }
 
@@ -6731,12 +6739,7 @@ async function saveGiftToken(count) {
       gift_balance   : Math.max(0, giftBal - usedGift),
       can_save_double: (giftBal - usedGift) > 0,
     });
-    setTimeout(function(){
-      setText('tokenAmount', STATE.tokenBalance.current_balance);
-      setText('tokenGift',   STATE.tokenBalance.gift_balance);
-      setText('tokenSaved',  STATE.tokenBalance.total_saved);
-      loadTokenBalance && loadTokenBalance();
-    }, 400);
+    setTimeout(function(){ _refreshTokenCards(STATE.tokenBalance); }, 400);
     return;
   }
   showLoading('선물받은 토큰을 저축하는 중이에요 💝');
@@ -6780,11 +6783,8 @@ async function saveAllTokens() {
       can_save_double: false,
     });
     setTimeout(function(){
-      setText('tokenAmount', 0);
-      setText('tokenGift',   0);
-      setText('tokenSaved',  STATE.tokenBalance.total_saved);
       _restore();
-      loadTokenBalance && loadTokenBalance();
+      _refreshTokenCards(STATE.tokenBalance);
     }, 400);
     return;
   }
