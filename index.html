@@ -1626,7 +1626,8 @@ function hideLoading() {
 
 function toast(msg, dur=2500) {
   var t = document.getElementById('toast');
-  t.textContent = msg;
+  // \n 포함 시 두 줄로 표시
+  t.innerHTML = msg.replace(/\n/g, '<br>');
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), dur);
 }
@@ -3043,11 +3044,30 @@ function adminDashboardHTML() {
       '<div class="lbl">⚠️ 위기 신호</div>' +
     '</div>' +
   '</div>' +
-  // 전국 마음 날씨 지도 (위로 이동)
+  // 전국 마음 날씨 지도 (탭: 지도 / 시도별 현황)
   '<div class="card" style="margin-bottom:14px;padding:12px 14px">' +
-    '<div class="card-label" style="margin-bottom:10px">🗺️ 전국 마음 날씨 지도</div>' +
-    '<div id="adm-map-svg"></div>' +
-    '<div id="adm-map-legend" style="display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px"></div>' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">' +
+      '<div class="card-label" style="margin:0">🗺️ 전국 마음 날씨</div>' +
+    '</div>' +
+    '<div style="display:flex;gap:6px;margin-bottom:10px">' +
+      '<button id="adm-nat-tab-map" onclick="admSwitchNatTab(\'map\')" ' +
+        'style="flex:1;padding:6px 0;border-radius:20px;border:none;font-size:11px;font-weight:700;cursor:pointer;background:var(--mint2);color:#fff;transition:all .2s">' +
+        '🗺️ 지도' +
+      '</button>' +
+      '<button id="adm-nat-tab-table" onclick="admSwitchNatTab(\'table\')" ' +
+        'style="flex:1;padding:6px 0;border-radius:20px;border:1.5px solid var(--mint3);font-size:11px;font-weight:700;cursor:pointer;background:#fff;color:var(--mint2);transition:all .2s">' +
+        '📋 시도별 현황' +
+      '</button>' +
+    '</div>' +
+    '<div style="position:relative;min-height:200px">' +
+      '<div id="adm-nat-map-view" style="transition:opacity .18s ease">' +
+        '<div id="adm-map-svg"></div>' +
+        '<div id="adm-map-legend" style="display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px"></div>' +
+      '</div>' +
+      '<div id="adm-nat-table-view" style="display:none;transition:opacity .18s ease">' +
+        '<div id="adm-region-table" style="border-radius:10px;border:1px solid #f0f0f0"></div>' +
+      '</div>' +
+    '</div>' +
   '</div>' +
   // 학교별 현황 (아래로 이동)
   '<div class="card" style="padding:12px 14px">' +
@@ -3734,8 +3754,8 @@ function switchNatTab(tab) {
 }
 
 // ── 시도별 현황 표 렌더링 ──
-function renderRegionTable(schools) {
-  var container = document.getElementById('nat-region-table');
+function renderRegionTable(schools, containerId) {
+  var container = document.getElementById(containerId || 'nat-region-table');
   if (!container) return;
 
   // 지역별 집계
@@ -4286,6 +4306,40 @@ function admMapBgClick(e) {
   admMapClosePopup();
 }
 
+// 관리자 전국 날씨 탭 전환
+function admSwitchNatTab(tab) {
+  var mapView   = document.getElementById('adm-nat-map-view');
+  var tableView = document.getElementById('adm-nat-table-view');
+  var tabMap    = document.getElementById('adm-nat-tab-map');
+  var tabTable  = document.getElementById('adm-nat-tab-table');
+  if (!mapView) return;
+  var isMap = (tab === 'map');
+  // fade 전환
+  var hideEl = isMap ? tableView : mapView;
+  var showEl = isMap ? mapView   : tableView;
+  if (hideEl) { hideEl.style.opacity = '0'; setTimeout(function(){ hideEl.style.display = 'none'; }, 160); }
+  if (showEl) { showEl.style.display = ''; showEl.style.opacity = '0'; setTimeout(function(){ showEl.style.opacity = '1'; }, 20); }
+  if (tabMap) {
+    tabMap.style.background = isMap ? 'var(--mint2)' : '#fff';
+    tabMap.style.color      = isMap ? '#fff' : 'var(--mint2)';
+    tabMap.style.border     = isMap ? 'none' : '1.5px solid var(--mint3)';
+  }
+  if (tabTable) {
+    tabTable.style.background = isMap ? '#fff' : 'var(--mint2)';
+    tabTable.style.color      = isMap ? 'var(--mint2)' : '#fff';
+    tabTable.style.border     = isMap ? '1.5px solid var(--mint3)' : 'none';
+  }
+  // 시도별 현황 탭: 데이터 렌더
+  if (!isMap) {
+    var tc = document.getElementById('adm-region-table');
+    if (tc && _admSchools && _admSchools.length) {
+      renderRegionTable(_admSchools, 'adm-region-table');
+    } else if (tc) {
+      tc.innerHTML = '<div style="padding:20px;text-align:center;color:var(--gray);font-size:12px">데이터를 불러오는 중이에요</div>';
+    }
+  }
+}
+
 function admMapClosePopup() {
   var popup = document.getElementById('adm-map-popup');
   if (!popup || popup.style.display === 'none') return;
@@ -4316,24 +4370,46 @@ function admMapRegionClick(region, pinEl) {
   var inner = document.getElementById('adm-map-inner');
   if (!popup || !inner) return;
 
-  // 해당 지역 데이터 찾기
-  var school = _admSchools.find(function(s){ return s.region === region; });
-  var pos = 0, neu = 0, neg = 0;
-  if (school) { pos = school.positive||0; neu = school.neutral||0; neg = school.negative||0; }
+  // 해당 지역 데이터 찾기 (_admSchools: 여러 학교가 같은 region일 수 있음)
+  var pos = 0, neu = 0, neg = 0, totalSubmit = 0;
+  _admSchools.forEach(function(s) {
+    if (s.region !== region) return;
+    pos += s.positive || 0;
+    neu += s.neutral  || 0;
+    neg += s.negative || 0;
+    totalSubmit += s.submitted || 0;
+  });
+  var total = pos + neu + neg;
   var w = admRegionWeather(pos, neu, neg);
-  var msg = admWeatherMessage(region, w.type);
 
-  // 팝업 내용
+  // 퍼센트 계산 — 제출한 학생 기준
+  var posP = total > 0 ? Math.round(pos / total * 100) : 0;
+  var neuP = total > 0 ? Math.round(neu / total * 100) : 0;
+  var negP = total > 0 ? Math.round(neg / total * 100) : 0;
+
+  var weatherEmoji = { sunny:'☀️', partly:'⛅', cloud:'☁️', rain:'🌧', thunder:'⚡', nodata:'🌱' };
+  var weatherLabel = { sunny:'맑음', partly:'구름 조금', cloud:'구름 많음', rain:'비', thunder:'폭풍', nodata:'데이터 없음' };
+
+  // 팝업 내용: 제출 학생 기준 퍼센트 표시
   popup.innerHTML =
     '<div style="' +
-      'background:#fff;border-radius:12px;padding:10px 13px;' +
+      'background:#fff;border-radius:12px;padding:11px 14px;' +
       'box-shadow:0 4px 16px rgba(0,0,0,0.15);' +
-      'border:1.5px solid #4ecdb4;max-width:180px;' +
+      'border:1.5px solid #4ecdb4;min-width:150px;max-width:190px;' +
       'animation:popupIn 0.18s cubic-bezier(.34,1.56,.64,1)' +
     '">' +
-      '<div style="font-size:12px;font-weight:700;color:#1a1a1a;margin-bottom:3px;line-height:1.4">' + msg.main + '</div>' +
-      '<div style="font-size:10px;color:#888;line-height:1.4">' + msg.sub + '</div>' +
-      (school ? '<div style="font-size:9px;color:#4ecdb4;margin-top:4px;font-weight:600">' + school.school_name + '</div>' : '') +
+      '<div style="font-size:13px;font-weight:800;color:var(--navy);margin-bottom:6px">' +
+        weatherEmoji[w.type] + ' ' + region + ' · ' + weatherLabel[w.type] +
+      '</div>' +
+      (total > 0
+        ? '<div style="font-size:11px;color:var(--gray);margin-bottom:5px">제출 학생 ' + total + '명 기준</div>' +
+          '<div style="display:flex;flex-direction:column;gap:3px">' +
+            _pctBar('긍정 ☀️', posP, '#4ecdb4') +
+            _pctBar('중립 ☁️', neuP, '#aaa') +
+            _pctBar('부정 🌧', negP, '#7986cb') +
+          '</div>'
+        : '<div style="font-size:11px;color:#ccc;margin-top:2px">아직 감정 데이터가 없어요</div>'
+      ) +
     '</div>';
 
   // 팝업 위치: 핀 기준
@@ -4342,20 +4418,23 @@ function admMapRegionClick(region, pinEl) {
 
   var innerRect = inner.getBoundingClientRect();
   var pinRect   = pin.getBoundingClientRect();
-
-  // inner 컨테이너 기준 상대 좌표 (%)
   var pxPct = (pinRect.left + pinRect.width/2 - innerRect.left) / innerRect.width * 100;
   var pyPct = (pinRect.top - innerRect.top) / innerRect.height * 100;
 
   popup.style.display = 'block';
   popup.style.top     = pyPct + '%';
   popup.style.left    = pxPct + '%';
-  // 오른쪽 넘침 방지: 60% 이상이면 오른쪽 정렬
-  if (pxPct > 55) {
-    popup.style.transform = 'translate(-100%, -110%)';
-  } else {
-    popup.style.transform = 'translate(-10%, -110%)';
-  }
+  popup.style.transform = pxPct > 55 ? 'translate(-100%, -110%)' : 'translate(-10%, -110%)';
+}
+
+function _pctBar(label, pct, color) {
+  return '<div style="display:flex;align-items:center;gap:5px;font-size:10px">' +
+    '<span style="width:38px;color:var(--gray)">' + label + '</span>' +
+    '<div style="flex:1;background:#f0f0f0;border-radius:4px;height:6px;overflow:hidden">' +
+      '<div style="width:' + pct + '%;background:' + color + ';height:100%;border-radius:4px"></div>' +
+    '</div>' +
+    '<span style="width:24px;text-align:right;font-weight:700;color:' + color + '">' + pct + '%</span>' +
+  '</div>';
 }
 
 // ══════════════════════════════════════════════
@@ -7180,7 +7259,7 @@ async function giftToken(friend) {
 
   // 미리보기 모드: mock 성공
   if (STATE.isPreview) {
-    toast(friend.name + '에게 마음토큰을 선물했어요 💝 잔액을 불러오는 중이에요 💌');
+    toast(friend.name + '님께 선물했어요 💝\n잔액을 불러오는 중이에요 💌');
     var tb = STATE.tokenBalance || {};
     STATE.tokenBalance = Object.assign({}, tb, {
       current_balance: Math.max(0, (tb.current_balance || 0) - 1)
@@ -7199,7 +7278,7 @@ async function giftToken(friend) {
   });
   hideLoading();
   if (res.status === 'ok') {
-    toast((res.data.message || '선물 완료!') + ' 잔액을 불러오는 중이에요 💌');
+    toast((res.data.message || '선물 완료!') + '\n잔액을 불러오는 중이에요 💌');
     loadTokenBalance();
   } else {
     toast(res.message);
