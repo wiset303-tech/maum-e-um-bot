@@ -4667,17 +4667,20 @@ function renderWordCloud(words) {
   var W = wrap.offsetWidth  || 340;
   var H = wrap.offsetHeight || 220;
 
-  // 빈도 기반 폰트 크기 계산 — 상한 낮춰 오버플로우 방지
+  // 빈도 기반 폰트 크기 — 단어 수에 따라 동적 조정
   var maxCount = d3.max(words, function(d){ return d.count; }) || 1;
-  var fontScale = d3.scaleLinear().domain([1, maxCount]).range([12, 28]);
+  var wordCount = words.length;
+  var maxFont = wordCount > 10 ? 22 : wordCount > 6 ? 26 : 28; // 단어 많을수록 작게
+  var fontScale = d3.scaleLinear().domain([1, maxCount]).range([11, maxFont]);
 
-  // D3 Cloud 레이아웃
+  // D3 Cloud: 레이아웃 영역을 SVG보다 10% 작게 → 가장자리 클리핑 방지
+  var margin = Math.min(W, H) * 0.08;
   d3.layout.cloud()
-    .size([W, H])
+    .size([W - margin * 2, H - margin * 2])
     .words(words.map(function(w){
       return { text: w.word, size: fontScale(w.count), type: w.type, count: w.count };
     }))
-    .padding(4)
+    .padding(5)
     .rotate(function(){ return (Math.random() > 0.8) ? 90 : 0; })
     .font('Noto Sans KR')
     .fontSize(function(d){ return d.size; })
@@ -4688,10 +4691,12 @@ function renderWordCloud(words) {
         .attr('width', W)
         .attr('height', H)
         .style('overflow', 'hidden');
-      // clipPath으로 경계 보장
+      // clipPath에 margin 포함 — 가장자리 단어 보호
       svgSel.append('defs').append('clipPath')
         .attr('id', 'wcClip')
-        .append('rect').attr('width', W).attr('height', H);
+        .append('rect')
+          .attr('x', margin * 0.5).attr('y', margin * 0.5)
+          .attr('width', W - margin).attr('height', H - margin);
       svgSel
         .append('g')
         .attr('clip-path', 'url(#wcClip)')
@@ -6021,13 +6026,14 @@ function renderAdminAttendance() {
     return;
   }
   // 제출률 낮은 순 정렬
-  var sorted = schools.slice().sort(function(a,b){ return (a.submission_rate||0)-(b.submission_rate||0); });
+  var sorted = schools.slice().sort(function(a,b){ return (a.submitted/(a.student_count||1))-(b.submitted/(b.student_count||1)); });
   var rows = sorted.map(function(s) {
-    var rate = Math.round((s.submission_rate||0)*100);
+    var total = s.student_count || s.total_students || 0;
+    var rate  = total > 0 ? Math.round(s.submitted / total * 100) : (s.submission_rate ? Math.round(s.submission_rate*100) : 0);
     var color = rate>=70?'var(--mint2)':rate>=40?'#f59e0b':'var(--rose)';
     return '<tr style="border-bottom:.5px solid var(--lgray)">' +
       '<td style="padding:8px 6px;font-size:12px;color:var(--navy)">' + s.school_name + '</td>' +
-      '<td style="padding:8px 4px;font-size:12px;text-align:center;color:var(--gray)">' + (s.total_students||0) + '</td>' +
+      '<td style="padding:8px 4px;font-size:12px;text-align:center;color:var(--gray)">' + total + '</td>' +
       '<td style="padding:8px 4px;font-size:12px;text-align:center;color:var(--gray)">' + (s.submitted||0) + '</td>' +
       '<td style="padding:8px 6px;font-size:13px;font-weight:700;text-align:right;color:'+color+'">' + rate + '%</td>' +
     '</tr>';
