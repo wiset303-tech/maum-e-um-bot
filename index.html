@@ -4675,8 +4675,9 @@ function renderStudentList() {
     var uid2 = s.student_uid, nm2 = s.name;
     var emo = STATE.studentEmotions && STATE.studentEmotions[uid2];
     var EMOJI_MAP = { positive:'😊', neutral:'😐', negative:'😢' };
+    var _macroKo  = { positive:'기쁜 마음', neutral:'그저그런 마음', negative:'힘든 마음' };
     var emoIcon  = emo ? (EMOJI_MAP[emo.macro] || '😶') : '⬜';
-    var emoWord  = emo ? (emo.micro || emo.macro) : '미제출';
+    var emoWord  = emo ? (emo.micro || _macroKo[emo.macro] || '제출') : '미제출';
     var emoBg    = emo ? (emo.macro==='positive'?'#e8f8f0':emo.macro==='negative'?'#fdecea':'#f5f5f5') : '#f0f0f0';
     var emoColor = emo ? (emo.macro==='positive'?'#2d7a4a':emo.macro==='negative'?'#c0392b':'#555') : '#999';
     var tb = STATE.tokenBalances && STATE.tokenBalances[uid2];
@@ -5323,7 +5324,7 @@ function renderEmotionBarcode() {
     var color = emo ? getEmotionColor(emo.micro, emo.macro) : '#e0dfd6';
     var submitted = !!emo;
     var tip = submitted
-      ? (s.num+'번 '+s.name+' · '+(emo.micro_emotion||emo.macro_emotion||''))
+      ? (s.num+'번 '+s.name+' · '+(emo.micro || emo.macro || ''))
       : (s.num+'번 '+s.name+' · 미제출');
     return '<div title="'+tip+'" style="flex:1;background:'+color+';height:100%;transition:background .5s ease;cursor:default;'+(submitted?'':'opacity:.35')+';border-radius:1px"></div>';
   }).join('');
@@ -6205,13 +6206,14 @@ async function saveChatLogIfNeeded() {
   var analysis = analyzeChatStyle(history);
   if (!analysis) return;
   try {
+    var _macroKoLog = { positive:'기쁜', neutral:'그저그런', negative:'힘든' };
     await api('save_chat_log', {
       student_uid  : u.student_uid,
       student_name : u.name,
       teacher_uid  : u.teacher_uid,
       date         : new Date(Date.now() + 9*3600000).toISOString().slice(0,10),
       turn_count   : analysis.turn_count,
-      macro_emotion: STATE.selectedMacro || '',
+      macro_emotion: _macroKoLog[STATE.selectedMacro] || STATE.selectedMacro || '',
       micro_emotion: (STATE.selectedMicro && STATE.selectedMicro.word) || '',
       keywords     : analysis.keywords,
       emoji_used   : analysis.emoji_used,
@@ -7046,6 +7048,7 @@ async function uploadAlbum() {
 }
 
 async function submitAlbumUpload() {
+  if (!_albumUploadData.imageUrl) { toast('사진을 먼저 선택해주세요 📷'); return; }
   var caption  = document.getElementById('albumCaptionInput').value.trim();
   var rawTags  = document.getElementById('albumHashtagInput').value;
   var tags     = parseHashtags(rawTags);
