@@ -3052,12 +3052,12 @@ function adminDashboardHTML() {
         '📋 시도별 현황' +
       '</button>' +
     '</div>' +
-    '<div style="position:relative;min-height:200px">' +
-      '<div id="adm-nat-map-view" style="transition:opacity .18s ease">' +
+    '<div style="height:68vw;max-height:400px;min-height:260px;position:relative;overflow:hidden">' +
+      '<div id="adm-nat-map-view" style="position:absolute;inset:0;overflow-y:auto;transition:opacity .18s ease">' +
         '<div id="adm-map-svg"></div>' +
         '<div id="adm-map-legend" style="display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px"></div>' +
       '</div>' +
-      '<div id="adm-nat-table-view" style="display:none;transition:opacity .18s ease">' +
+      '<div id="adm-nat-table-view" style="position:absolute;inset:0;display:none;overflow-y:auto;transition:opacity .18s ease">' +
         '<div id="adm-region-table" style="border-radius:10px;border:1px solid #f0f0f0"></div>' +
       '</div>' +
     '</div>' +
@@ -3715,15 +3715,21 @@ function switchNatTab(tab) {
   if (!mapView) return;
 
   var isMap = (tab === 'map');
-
-  // 부드러운 전환 — opacity fade
   var hideEl = isMap ? tableView : mapView;
   var showEl = isMap ? mapView   : tableView;
-  if (hideEl) { hideEl.style.opacity = '0'; setTimeout(function(){ hideEl.style.display = 'none'; }, 160); }
+
+  // 1) 숨길 뷰 즉시 display:none (absolute 이므로 레이아웃 영향 없음)
+  if (hideEl) {
+    hideEl.style.opacity = '0';
+    hideEl.style.display = 'none';
+  }
+  // 2) 보일 뷰 display 열고 opacity fade-in
   if (showEl) {
-    showEl.style.display  = '';
-    showEl.style.opacity  = '0';
-    setTimeout(function(){ showEl.style.opacity = '1'; }, 20);
+    showEl.style.display = '';
+    showEl.style.opacity = '0';
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() { showEl.style.opacity = '1'; });
+    });
   }
 
   if (tabMap) {
@@ -4308,11 +4314,19 @@ function admSwitchNatTab(tab) {
   var tabTable  = document.getElementById('adm-nat-tab-table');
   if (!mapView) return;
   var isMap = (tab === 'map');
-  // fade 전환
   var hideEl = isMap ? tableView : mapView;
   var showEl = isMap ? mapView   : tableView;
-  if (hideEl) { hideEl.style.opacity = '0'; setTimeout(function(){ hideEl.style.display = 'none'; }, 160); }
-  if (showEl) { showEl.style.display = ''; showEl.style.opacity = '0'; setTimeout(function(){ showEl.style.opacity = '1'; }, 20); }
+
+  // 숨길 뷰 즉시 display:none, 보일 뷰 opacity fade-in
+  if (hideEl) { hideEl.style.opacity = '0'; hideEl.style.display = 'none'; }
+  if (showEl) {
+    showEl.style.display = '';
+    showEl.style.opacity = '0';
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() { showEl.style.opacity = '1'; });
+    });
+  }
+
   if (tabMap) {
     tabMap.style.background = isMap ? 'var(--mint2)' : '#fff';
     tabMap.style.color      = isMap ? '#fff' : 'var(--mint2)';
@@ -4323,7 +4337,6 @@ function admSwitchNatTab(tab) {
     tabTable.style.color      = isMap ? 'var(--mint2)' : '#fff';
     tabTable.style.border     = isMap ? '1.5px solid var(--mint3)' : 'none';
   }
-  // 시도별 현황 탭: 데이터 렌더
   if (!isMap) {
     var tc = document.getElementById('adm-region-table');
     if (tc && _admSchools && _admSchools.length) {
