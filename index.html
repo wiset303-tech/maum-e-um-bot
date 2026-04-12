@@ -2838,7 +2838,14 @@ function dashboardHTML() {
     '<div style="font-size:11px;font-weight:700;color:var(--gray);margin-bottom:5px;display:flex;align-items:center;gap:6px">' +
       '🌈 우리반 감정 바코드' +
       '<span id="barcodeDateTag" style="font-size:10px;color:var(--lgray);font-weight:400"></span>' +
-      '<span style="font-size:9px;color:var(--lgray);margin-left:auto">✂️ 팔찌 만들기</span>' +
+      '<span style="font-size:9px;font-weight:800;margin-left:auto;letter-spacing:.5px">✂️ ' +
+        '<span style="color:#FF5C5C">팔</span>' +
+        '<span style="color:#FF8C00">찌</span>' +
+        '<span style="color:#FFCE00"> </span>' +
+        '<span style="color:#3DBE6C">만</span>' +
+        '<span style="color:#1D9E75">들</span>' +
+        '<span style="color:#4A90D9">기</span>' +
+      '</span>' +
     '</div>' +
     '<div id="barcodeTrack" style="display:flex;height:56px;border-radius:8px;overflow:hidden;gap:1px;background:#f0ede8"></div>' +
     '<div id="barcodeNums" style="display:flex;gap:1px;margin-top:3px"></div>' +
@@ -5454,7 +5461,7 @@ function openBraceletModal() {
       '</div>' +
       '<div style="display:flex;gap:10px;justify-content:flex-end">' +
         '<button class="btn btn-secondary" onclick="closeModal(&quot;modal-bracelet&quot;)">닫기</button>' +
-        '<button class="btn btn-mint" onclick="downloadBraceletPng()">🖼 PNG 다운로드 (A4 × 9개)</button>' +
+        '<button class="btn btn-mint" onclick="downloadBraceletPng()" style="white-space:nowrap">🖼 PNG 다운로드<br><span style="font-size:10px;opacity:.85">A4 × 9개</span></button>' +
       '</div>' +
     '</div>';
   openModal('modal-bracelet');
