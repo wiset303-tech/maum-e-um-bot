@@ -399,6 +399,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   transform:translateZ(0); /* GPU 컴포지팅 레이어 강제 → animation 레이어 위로 */
 }
 .wx-wordcloud svg{ width:100%;height:100%; }
+/* CSS 워드클라우드 단어 — SVG 없이 position:absolute로 배치 */
+.wc-word{
+  position:absolute;
+  font-weight:700;
+  font-family:'Noto Sans KR',sans-serif;
+  white-space:nowrap;
+  pointer-events:none;
+  user-select:none;
+}
 .wx-label{
   position:absolute;bottom:8px;right:12px;
   font-size:11px;color:rgba(44,74,90,0.5);font-weight:600;
@@ -4649,97 +4658,81 @@ function _timeAgo(ts) {
   return Math.floor(diff/86400) + '일 전';
 }
 
-var _wcGen = 0; // 세대 카운터 — 구형 비동기 렌더 자동 폐기
+var _wcGen = 0; // 세대 카운터
 
 function renderWordCloud(words) {
-  var svg    = document.getElementById('wordcloudSvg');
-  var empty  = document.getElementById('wordcloudEmpty');
   var wrap   = document.getElementById('wordcloudWrap');
-  if (!svg || !empty || !wrap) return;
+  var svgEl  = document.getElementById('wordcloudSvg');
+  var empty  = document.getElementById('wordcloudEmpty');
+  if (!wrap) return;
+
+  // 이전 CSS 단어 제거
+  wrap.querySelectorAll('.wc-word').forEach(function(el){ el.remove(); });
 
   if (!words.length) {
-    svg.style.display = 'none';
-    empty.style.display = 'flex';
+    if (svgEl)  svgEl.style.display  = 'none';
+    if (empty) empty.style.display = 'flex';
     return;
   }
-  svg.style.display = 'block';
-  empty.style.display = 'none';
+  if (svgEl)  svgEl.style.display  = 'none';
+  if (empty) empty.style.display = 'none';
 
   var colorMap = {
-    positive: ['#2aab90','#4ecdb4','#00897b','#26c6da','#43a047'],
-    neutral:  ['#f9a825','#fb8c00','#8d6e63','#78909c','#546e7a'],
-    negative: ['#c4b0f5','#9575cd','#7986cb','#8e24aa','#d81b60'],
+    positive: ['#2aab90','#43a047','#4ecdb4','#00897b','#26c6da'],
+    neutral:  ['#f9a825','#fb8c00','#8d6e63','#78909c'],
+    negative: ['#c4b0f5','#d81b60','#9575cd','#7986cb'],
   };
 
-  var W = wrap.offsetWidth  || 340;
-  var H = wrap.offsetHeight || 220;
+  // ── 위치 풀 (40개, 전체 박스에 고르게 분포) ────────────────
+  // 값: [left%, top%] — 중앙 기준 흩어지게 배치
+  var POS = [
+    [50,50],[28,35],[72,42],[38,65],[63,28],[20,55],[78,60],[46,22],
+    [56,75],[30,48],[68,30],[22,70],[80,38],[42,80],[60,18],
+    [35,25],[66,68],[24,42],[76,22],[50,82],[15,30],[84,55],[40,58],
+    [55,38],[26,62],[72,75],[45,12],[62,85],[18,78],[82,18],
+    [50,65],[34,50],[68,50],[28,18],[72,82],[15,55],[85,42],[48,38],[55,62],[32,72],
+  ];
 
-  // 폰트 크기: 단어 수에 반비례하여 작게 — d3-cloud 배치 성공률 향상
-  var maxCount = d3.max(words, function(d){ return d.count; }) || 1;
+  var maxCount = Math.max.apply(null, words.map(function(w){ return w.count; })) || 1;
   var n = words.length;
-  var maxFont = n >= 10 ? 16 : n >= 7 ? 18 : n >= 4 ? 20 : 22;
-  var minFont = 11;
-  var fontScale = d3.scaleLinear().domain([1, maxCount]).range([minFont, maxFont]);
-
-  // 세대 카운터 — 이전 비동기 렌더가 완료되어도 SVG를 건드리지 않게 함
+  // count 내림차순 정렬
+  var sorted = words.slice().sort(function(a,b){ return b.count - a.count; });
   var myGen = ++_wcGen;
 
-  // 전체 W×H로 배치 — 공간 최대화로 배치 실패 방지, clipPath로 경계 보장
-  d3.layout.cloud()
-    .size([W, H])
-    .words(words.map(function(w){
-      return { text: w.word, size: fontScale(w.count), type: w.type, count: w.count };
-    }))
-    .padding(6)
-    .rotate(function(){ return (Math.random() > 0.85) ? 90 : 0; })
-    .font('Noto Sans KR')
-    .fontSize(function(d){ return d.size; })
-    .on('end', function(computed){
-      if (myGen !== _wcGen) return; // 구형 렌더 폐기
-      if (!computed.length) return;
-      d3.select('#wordcloudSvg').selectAll('*').remove();
-      var svgSel = d3.select('#wordcloudSvg')
-        .attr('width', W)
-        .attr('height', H)
-        .style('overflow', 'hidden');
-      // clipPath: 경계 밖 단어 차단
-      svgSel.append('defs').append('clipPath')
-        .attr('id', 'wcClip')
-        .append('rect').attr('width', W).attr('height', H);
-      svgSel
-        .append('g')
-        .attr('clip-path', 'url(#wcClip)')
-        .attr('transform', 'translate('+W/2+','+H/2+')')
-        .selectAll('text')
-        .data(computed)
-        .enter().append('text')
-          .style('font-family', 'Noto Sans KR, sans-serif')
-          .style('font-weight', '700')
-          .style('fill', function(d){
-            var palette = colorMap[d.type] || colorMap.neutral;
-            return palette[Math.floor(Math.random() * palette.length)];
-          })
-          .style('opacity', 0)
-          .attr('text-anchor', 'middle')
-          .attr('transform', function(d){
-            return 'translate('+[d.x,d.y]+') rotate('+d.rotate+')';
-          })
-          .attr('font-size', function(d){ return d.size+'px'; })
-          .text(function(d){ return d.text; })
-          .transition()
-          .delay(function(_, i){ return i * 60; })
-          .duration(400)
-          .style('opacity', 1)
-          .attr('transform', function(d){
-            return 'translate('+[d.x, d.y-6]+') rotate('+d.rotate+')';
-          })
-          .transition()
-          .duration(150)
-          .attr('transform', function(d){
-            return 'translate('+[d.x, d.y]+') rotate('+d.rotate+')';
-          });
-    })
-    .start();
+  // 폰트 크기: 단어 수·count에 따라 12~22px
+  var maxFont = n >= 12 ? 15 : n >= 8 ? 17 : n >= 5 ? 19 : 21;
+
+  sorted.forEach(function(word, i) {
+    if (myGen !== _wcGen) return; // 구형 렌더 폐기
+    var p   = POS[i] || [50, 50];
+    var sz  = Math.round(12 + (word.count / maxCount) * (maxFont - 12));
+    var pal = colorMap[word.type] || colorMap.neutral;
+    var col = pal[i % pal.length];
+
+    var el = document.createElement('span');
+    el.className = 'wc-word';
+    el.textContent = word.word;
+    el.style.cssText =
+      'position:absolute;' +
+      'left:' + p[0] + '%;top:' + p[1] + '%;' +
+      'transform:translate(-50%,-50%) translateY(6px);' +
+      'font-size:' + sz + 'px;font-weight:700;' +
+      'font-family:"Noto Sans KR",sans-serif;' +
+      'color:' + col + ';white-space:nowrap;' +
+      'opacity:0;pointer-events:none;' +
+      'transition:opacity .4s ease ' + (i*0.07) + 's,' +
+                 'transform .35s ease ' + (i*0.07) + 's;';
+    wrap.appendChild(el);
+
+    // 부드럽게 떠오르며 등장
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        if (myGen !== _wcGen) { el.remove(); return; }
+        el.style.opacity = '1';
+        el.style.transform = 'translate(-50%,-50%)';
+      });
+    });
+  });
 }
 
 // 수동 새로고침 — 현재 활성 탭 내용을 갱신
