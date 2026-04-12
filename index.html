@@ -1403,7 +1403,10 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <input class="inp" id="albumHashtagInput" type="text" placeholder="오늘 행복 친구 (# 없이 입력)"
       oninput="previewHashtags()" style="margin-bottom:6px">
     <div id="albumHashtagPreview" style="min-height:24px;margin-bottom:16px"></div>
-    <button class="btn btn-mint" style="width:100%" onclick="submitAlbumUpload()">💾 저장하기</button>
+    <div style="display:flex;justify-content:flex-end;gap:10px">
+      <button class="btn btn-secondary" style="width:auto;padding:13px 22px" onclick="closeModal('modal-album-upload')">취소</button>
+      <button class="btn btn-mint" style="width:auto;padding:13px 24px;font-size:14px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--mint),var(--mint2))" onclick="submitAlbumUpload()">💾 저장하기</button>
+    </div>
   </div>
 </div>
 
