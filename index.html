@@ -1130,6 +1130,28 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   </div>
 </div>
 
+<!-- ══ 모달: 선물받은 토큰 저축 ══ -->
+<div id="modal-gift-save" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-gift-save')">
+  <div class="modal-box" style="position:relative">
+    <button class="modal-close" onclick="closeModal('modal-gift-save')">✕</button>
+    <div class="modal-title">💝 선물받은 토큰 저축</div>
+    <div style="background:linear-gradient(135deg,#fde8f5,#ffe9fb);border-radius:14px;padding:14px;margin-bottom:16px;text-align:center">
+      <div style="font-size:32px;margin-bottom:6px">💝</div>
+      <div style="font-size:15px;font-weight:800;color:#9b2368" id="giftSaveModalCount">선물받은 토큰 0개</div>
+      <div style="font-size:12px;color:#b5569a;margin-top:4px">선물받은 토큰은 저축하면 <b>2배</b>로 마음온도가 올라요!</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn" style="background:linear-gradient(135deg,#f06292,#e91e8c);color:#fff;font-size:14px;padding:14px" onclick="saveGiftToken('one')">
+        🌟 1개 저축하기 <span style="font-size:12px;opacity:.85">(마음온도 1° ↑)</span>
+      </button>
+      <button class="btn" id="giftSaveAllBtn" style="background:linear-gradient(135deg,#9b2368,#c2185b);color:#fff;font-size:14px;padding:14px" onclick="saveGiftToken('all')">
+        💝 선물받은 토큰 모두 저축하기
+      </button>
+    </div>
+    <div style="margin-top:12px;font-size:11px;color:var(--gray);text-align:center">선물받은 토큰은 다시 선물할 수 없어요</div>
+  </div>
+</div>
+
 <!-- ══ 모달: 연속등교 모드 ══ -->
 <div id="modal-attend-mode" class="modal-overlay hidden" style="animation:overlayFadeIn .22s ease">
   <div style="background:linear-gradient(160deg,#c2ede4,#cde6f8,#e8e0fc);border-radius:24px;width:calc(100% - 32px);max-width:420px;overflow:hidden;position:relative;max-height:92vh;overflow-y:auto;animation:attendModalIn .32s cubic-bezier(.22,.8,.36,1) both">
@@ -2741,7 +2763,7 @@ function previewStudent() {
     {student_uid:'s08',student_id:'mee264108',name:'윤하은',num:8, grade:4,class:1,gender:'F',active:'Y'},
   ];
   // 토큰 더미 (2배 저축 가능 케이스 포함)
-  STATE.tokenBalance = { current_balance: 5, total_earned: 12, total_saved: 7, can_save_double: true };
+  STATE.tokenBalance = { current_balance: 5, total_earned: 12, total_saved: 7, can_save_double: true, gift_balance: 2 };
   // 알림 더미
   _notifications = [
     { notification_uid:'pn1', type:'token_gift', title:'💝 마음토큰 선물 도착!',
@@ -2755,14 +2777,19 @@ function previewStudent() {
   updateNotifBadge();
   setTimeout(function() {
     setText('tokenAmount', 5);
+    setText('tokenGift',   2);
     setText('tokenEarned', 12);
     setText('tokenSaved', 7);
     updateHeartTempUI(Math.min(100, Math.floor(7/2)));
-    // 2배 저축 뱃지 미리보기 (체험용)
-    var db = document.getElementById('doubleSaveBadge');
-    var sb = document.getElementById('saveTokenBtn');
-    if (db) db.style.display = 'flex';
-    if (sb) sb.innerHTML = '🌟 저축하기 (×2)';
+    // 카드 하이라이트 (미리보기: 일반 3개 + 선물 2개)
+    var cardMy   = document.getElementById('cardMyToken');
+    var cardGift = document.getElementById('cardGiftToken');
+    var hintEl   = document.getElementById('giftCardHint');
+    if (cardMy)   { cardMy.style.borderColor = 'var(--mint)'; }
+    if (cardGift) { cardGift.style.borderColor = '#e91e8c'; }
+    if (hintEl)   { hintEl.textContent = '탭 → 2배 저축'; }
+    var saveAllBtn = document.getElementById('saveAllBtn');
+    if (saveAllBtn) saveAllBtn.textContent = '🪙 모두 저축하기 (일반 3개 + 선물 2개×2)';
   }, 200);
 }
 
@@ -6435,46 +6462,40 @@ function tokenHTML() {
         '</div>' +
       '</div>' +
     '</div>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">' +
-      '<div style="background:#fff;border-radius:12px;padding:10px;text-align:center;box-shadow:var(--shadow2)">' +
-        '<div style="font-size:11px;color:var(--gray);margin-bottom:2px">현재 잔액</div>' +
-        '<div class="gaegu" style="font-size:24px;color:var(--navy)" id="tokenAmount">...</div>' +
-        '<div style="font-size:11px;color:var(--gray)">개</div>' +
+    // 4-칸 그리드 (2×2) — 위쪽 2칸은 클릭 가능
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">' +
+      // [1] 현재 마음토큰 — 탭하면 1개 저축
+      '<div id="cardMyToken" onclick="saveRegularToken()" style="background:#fff;border-radius:12px;padding:12px 10px;text-align:center;box-shadow:var(--shadow2);cursor:pointer;border:2px solid transparent;transition:border-color .15s,opacity .15s;-webkit-tap-highlight-color:transparent">' +
+        '<div style="font-size:11px;color:var(--gray);margin-bottom:2px">현재 마음토큰 🪙</div>' +
+        '<div class="gaegu" style="font-size:26px;color:var(--navy)" id="tokenAmount">...</div>' +
+        '<div style="font-size:10px;color:var(--mint2);font-weight:700;margin-top:2px">탭 → 1개 저축</div>' +
       '</div>' +
-      '<div style="background:#fff;border-radius:12px;padding:10px;text-align:center;box-shadow:var(--shadow2)">' +
+      // [2] 선물받은 토큰 — 탭하면 2배 저축 모달
+      '<div id="cardGiftToken" onclick="openGiftSaveModal()" style="background:#fff;border-radius:12px;padding:12px 10px;text-align:center;box-shadow:var(--shadow2);cursor:pointer;border:2px solid transparent;transition:border-color .15s,opacity .15s;-webkit-tap-highlight-color:transparent">' +
+        '<div style="font-size:11px;color:var(--gray);margin-bottom:2px">선물받은 토큰 💝</div>' +
+        '<div class="gaegu" style="font-size:26px;color:#c2185b" id="tokenGift">...</div>' +
+        '<div style="font-size:10px;color:#e91e8c;font-weight:700;margin-top:2px" id="giftCardHint">탭 → 2배 저축</div>' +
+      '</div>' +
+      // [3] 누적 획득 (정보용)
+      '<div style="background:#fff;border-radius:12px;padding:12px 10px;text-align:center;box-shadow:var(--shadow2)">' +
         '<div style="font-size:11px;color:var(--gray);margin-bottom:2px">누적 획득</div>' +
-        '<div class="gaegu" style="font-size:24px;color:var(--mint2)" id="tokenEarned">...</div>' +
+        '<div class="gaegu" style="font-size:26px;color:var(--mint2)" id="tokenEarned">...</div>' +
         '<div style="font-size:11px;color:var(--gray)">개</div>' +
       '</div>' +
-      '<div style="background:#fff;border-radius:12px;padding:10px;text-align:center;box-shadow:var(--shadow2)">' +
+      // [4] 누적 저축 (정보용)
+      '<div style="background:#fff;border-radius:12px;padding:12px 10px;text-align:center;box-shadow:var(--shadow2)">' +
         '<div style="font-size:11px;color:var(--gray);margin-bottom:2px">누적 저축</div>' +
-        '<div class="gaegu" style="font-size:24px;color:#ff8c42" id="tokenSaved">...</div>' +
+        '<div class="gaegu" style="font-size:26px;color:#ff8c42" id="tokenSaved">...</div>' +
         '<div style="font-size:11px;color:var(--gray)">개</div>' +
-      '</div>' +
-    '</div>' +
-    // 2배 저축 가능 뱃지 (can_save_double=true일 때 표시)
-    '<div id="doubleSaveBadge" style="display:none;background:linear-gradient(135deg,#fff8dc,#ffe97a);border-radius:12px;padding:9px 14px;margin-bottom:10px;align-items:center;gap:8px;border:1.5px solid #ffd700">' +
-      '<span style="font-size:20px">🌟</span>' +
-      '<div style="flex:1">' +
-        '<div style="font-size:13px;font-weight:800;color:#7a5500">2배 저축 가능!</div>' +
-        '<div style="font-size:11px;color:#a07000">선물받은 토큰 덕분에 이번 저축은 2개로 적립돼요</div>' +
-      '</div>' +
-    '</div>' +
-    // 선물받은 토큰 표시 (gift_balance > 0 일 때만 표시됨 — JS로 제어)
-    '<div id="giftBadgeRow" style="display:none;background:linear-gradient(135deg,#fde8f5,#ffe9fb);border-radius:12px;padding:9px 14px;margin-bottom:10px;display:none;align-items:center;gap:8px">' +
-      '<span style="font-size:18px">💝</span>' +
-      '<div style="flex:1">' +
-        '<div style="font-size:12px;font-weight:700;color:#9b2368">선물받은 토큰 <span id="giftBalAmount">0</span>개</div>' +
-        '<div style="font-size:11px;color:#b5569a">선물받은 토큰은 저축만 가능해요 — 다시 선물할 수 없어요</div>' +
       '</div>' +
     '</div>' +
     '<div class="token-actions">' +
-      '<button class="btn btn-peach" id="saveTokenBtn" onclick="saveToken()">🪙 저축하기</button>' +
+      '<button class="btn btn-peach" id="saveAllBtn" onclick="saveAllTokens()">🪙 모두 저축하기</button>' +
       '<button class="btn btn-lav" id="giftBtn" onclick="openGiftSelect()">💌 선물하기</button>' +
     '</div>' +
     '<div class="card card-lemon" style="margin-top:8px">' +
       '<div class="card-label gaegu">마음토큰이란?</div>' +
-      '<div style="font-size:13px;line-height:1.7;color:var(--gray)">매일 로그인하면 토큰 1개를 받아요.<br>토큰을 <b>저축</b>하면 마음 온도가 올라가요 🌡️<br>토큰 2개 저축 = 마음 온도 1°<br>최대 100°까지 올릴 수 있어요!</div>' +
+      '<div style="font-size:13px;line-height:1.7;color:var(--gray)">매일 로그인하면 토큰 1개를 받아요.<br>토큰을 <b>저축</b>하면 마음 온도가 올라가요 🌡️<br>토큰 2개 저축 = 마음 온도 1°<br>선물받은 토큰은 저축 시 <b>2배</b>로 적립돼요 💝<br>최대 100°까지 올릴 수 있어요!</div>' +
     '</div>';
 }
 
@@ -6486,29 +6507,51 @@ async function loadTokenBalance() {
     var earned    = res.data.total_earned   || 0;
     var saved     = res.data.total_saved    || 0;
     var giftBal   = res.data.gift_balance   || 0;
-    var giftable  = Math.max(0, balance - giftBal); // 선물 가능량
+    var giftable  = Math.max(0, balance - giftBal); // 선물 가능량 (일반 토큰만)
     var temp      = Math.min(100, Math.floor(saved / 2));
 
     setText('tokenAmount', balance);
+    setText('tokenGift',   giftBal);
     setText('tokenEarned', earned);
     setText('tokenSaved',  saved);
     updateHeartTempUI(temp);
     calcBannerMessage(res.data);
 
-    // 2배 저축 뱃지 + 저축 버튼 텍스트
-    var canDouble = res.data.can_save_double === true || res.data.can_save_double === 'TRUE';
-    var doubleBadge = document.getElementById('doubleSaveBadge');
-    var saveBtn     = document.getElementById('saveTokenBtn');
-    if (doubleBadge) doubleBadge.style.display = canDouble ? 'flex' : 'none';
-    if (saveBtn) saveBtn.innerHTML = canDouble ? '🌟 저축하기 (×2)' : '🪙 저축하기';
-
-    // 선물받은 토큰 뱃지
-    var badge = document.getElementById('giftBadgeRow');
-    var giftAmtEl = document.getElementById('giftBalAmount');
-    if (badge) {
-      badge.style.display = giftBal > 0 ? 'flex' : 'none';
+    // 현재 마음토큰 카드 하이라이트 (잔액 있을 때)
+    var cardMy = document.getElementById('cardMyToken');
+    var regularBal = Math.max(0, balance - giftBal);
+    if (cardMy) {
+      cardMy.style.borderColor = regularBal > 0 ? 'var(--mint)' : 'transparent';
+      cardMy.style.opacity = regularBal > 0 ? '1' : '0.55';
+      cardMy.style.cursor  = regularBal > 0 ? 'pointer' : 'default';
     }
-    if (giftAmtEl) giftAmtEl.textContent = giftBal;
+
+    // 선물받은 토큰 카드 하이라이트
+    var cardGift = document.getElementById('cardGiftToken');
+    var hintEl   = document.getElementById('giftCardHint');
+    if (cardGift) {
+      cardGift.style.borderColor = giftBal > 0 ? '#e91e8c' : 'transparent';
+      cardGift.style.opacity = giftBal > 0 ? '1' : '0.55';
+      cardGift.style.cursor  = giftBal > 0 ? 'pointer' : 'default';
+    }
+    if (hintEl) hintEl.textContent = giftBal > 0 ? '탭 → 2배 저축' : '없어요';
+
+    // 모두 저축하기 버튼 상태
+    var saveAllBtn = document.getElementById('saveAllBtn');
+    if (saveAllBtn) {
+      var regularSave = regularBal;
+      var totalWillSave = regularSave + giftBal * 2;
+      saveAllBtn.disabled = balance < 1;
+      saveAllBtn.style.opacity = balance < 1 ? '0.45' : '1';
+      if (balance > 0) {
+        var parts = [];
+        if (regularBal > 0) parts.push('일반 ' + regularBal + '개');
+        if (giftBal > 0)    parts.push('선물 ' + giftBal + '개×2');
+        saveAllBtn.textContent = '🪙 모두 저축하기 (' + parts.join(' + ') + ')';
+      } else {
+        saveAllBtn.textContent = '🪙 모두 저축하기';
+      }
+    }
 
     // 선물하기 버튼 — 직접 획득한 토큰 없으면 비활성
     var giftBtn = document.getElementById('giftBtn');
@@ -6604,29 +6647,34 @@ function openGame(type) {
   toast('✨ 곧 오픈해요! 기대해줘 😊');
 }
 
-async function saveToken() {
-  // 이중 탭 방지: 저축 버튼 즉시 비활성화
-  var saveBtn = document.querySelector('#saveTokenBtn');
-  if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = '0.5'; }
-  var _restore = function() {
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = ''; }
-  };
+// ─────────────────────────────────────────
+// 현재 마음토큰 카드 탭 → 일반 1개 저축
+// ─────────────────────────────────────────
+async function saveRegularToken() {
+  var tb = STATE.tokenBalance || {};
+  var giftBal    = tb.gift_balance    || 0;
+  var balance    = tb.current_balance || 0;
+  var regularBal = Math.max(0, balance - giftBal);
+  if (regularBal < 1) {
+    toast(giftBal > 0 ? '💝 선물받은 토큰은 아래 카드를 눌러 저축해요!' : '저축할 마음토큰이 없어요');
+    return;
+  }
+  // 중복 탭 방지 — 카드 즉시 비활성화
+  var card = document.getElementById('cardMyToken');
+  if (card) { card.style.pointerEvents = 'none'; card.style.opacity = '0.5'; }
+  var _restore = function() { if (card) { card.style.pointerEvents = ''; loadTokenBalance(); } };
 
-  // 미리보기 모드: mock 성공
   if (STATE.isPreview) {
-    var tb = STATE.tokenBalance || {};
-    var canDouble = tb.can_save_double;
-    toast((canDouble ? '2배 저축 완료! 🌟' : '저축 완료!') + ' 잔액을 불러오는 중이에요 🌡️');
+    toast('저축 완료! 🌡️ 마음온도가 올라갈 거예요');
     STATE.tokenBalance = Object.assign({}, tb, {
-      current_balance : Math.max(0, (tb.current_balance || 0) - 1),
-      total_saved     : (tb.total_saved || 0) + (canDouble ? 2 : 1),
-      can_save_double : false
+      current_balance: Math.max(0, balance - 1),
+      total_saved    : (tb.total_saved || 0) + 1,
     });
     setTimeout(function(){
       setText('tokenAmount', STATE.tokenBalance.current_balance);
       setText('tokenSaved',  STATE.tokenBalance.total_saved);
-    }, 300);
-    _restore();
+      if (card) { card.style.pointerEvents = ''; card.style.opacity = '1'; }
+    }, 400);
     return;
   }
   showLoading('마음토큰을 저축하는 중이에요 🪙');
@@ -6635,11 +6683,123 @@ async function saveToken() {
     student_name: STATE.user.name,
     teacher_uid : STATE.user.teacher_uid,
     school_name : STATE.user.school_name || '',
+    save_type   : 'regular',
+  });
+  hideLoading();
+  if (res.status === 'ok') {
+    toast((res.data.message || '저축 완료!') + ' 🌡️');
+  } else toast(res.message);
+  _restore();
+}
+
+// ─────────────────────────────────────────
+// 선물받은 토큰 카드 탭 → 2배 저축 모달 열기
+// ─────────────────────────────────────────
+function openGiftSaveModal() {
+  var tb = STATE.tokenBalance || {};
+  var giftBal = tb.gift_balance || 0;
+  if (giftBal < 1) {
+    toast('선물받은 토큰이 없어요 💝');
+    return;
+  }
+  var countEl = document.getElementById('giftSaveModalCount');
+  if (countEl) countEl.textContent = '선물받은 토큰 ' + giftBal + '개';
+  var allBtn = document.getElementById('giftSaveAllBtn');
+  if (allBtn) allBtn.textContent = '💝 선물 토큰 ' + giftBal + '개 모두 저축 → 온도 ' + giftBal + '° ↑';
+  openModal('modal-gift-save');
+}
+
+// ─────────────────────────────────────────
+// 선물 토큰 저축 ('one' = 1개, 'all' = 전체)
+// ─────────────────────────────────────────
+async function saveGiftToken(count) {
+  closeModal('modal-gift-save');
+  var tb = STATE.tokenBalance || {};
+  var giftBal = tb.gift_balance    || 0;
+  var balance = tb.current_balance || 0;
+  if (giftBal < 1) { toast('선물받은 토큰이 없어요 💝'); return; }
+
+  var usedGift   = (count === 'all') ? giftBal : 1;
+  var savedAmt   = usedGift * 2;
+  var saveType   = (count === 'all') ? 'gift_all' : 'gift_one';
+
+  if (STATE.isPreview) {
+    toast('선물 토큰 ' + usedGift + '개 → ' + savedAmt + '개 저축! 🌟');
+    STATE.tokenBalance = Object.assign({}, tb, {
+      current_balance: Math.max(0, balance - usedGift),
+      total_saved    : (tb.total_saved || 0) + savedAmt,
+      gift_balance   : Math.max(0, giftBal - usedGift),
+      can_save_double: (giftBal - usedGift) > 0,
+    });
+    setTimeout(function(){
+      setText('tokenAmount', STATE.tokenBalance.current_balance);
+      setText('tokenGift',   STATE.tokenBalance.gift_balance);
+      setText('tokenSaved',  STATE.tokenBalance.total_saved);
+      loadTokenBalance && loadTokenBalance();
+    }, 400);
+    return;
+  }
+  showLoading('선물받은 토큰을 저축하는 중이에요 💝');
+  var res = await api('save_token', {
+    student_uid : STATE.user.student_uid,
+    student_name: STATE.user.name,
+    teacher_uid : STATE.user.teacher_uid,
+    school_name : STATE.user.school_name || '',
+    save_type   : saveType,
+  });
+  hideLoading();
+  if (res.status === 'ok') {
+    toast((res.data.message || '선물 저축 완료!') + ' 🌟');
+    loadTokenBalance();
+  } else toast(res.message);
+}
+
+// ─────────────────────────────────────────
+// 모두 저축하기 — 일반(×1) + 선물(×2) 전체
+// ─────────────────────────────────────────
+async function saveAllTokens() {
+  var tb = STATE.tokenBalance || {};
+  var balance = tb.current_balance || 0;
+  var giftBal = tb.gift_balance    || 0;
+  if (balance < 1) { toast('저축할 토큰이 없어요'); return; }
+
+  // 중복 탭 방지
+  var btn = document.getElementById('saveAllBtn');
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+  var _restore = function() { if (btn) { btn.disabled = false; btn.style.opacity = ''; } };
+
+  var regularBal   = Math.max(0, balance - giftBal);
+  var totalWillSave= regularBal + giftBal * 2;
+
+  if (STATE.isPreview) {
+    toast('전체 저축 완료! 🌡️ 온도 약 ' + Math.floor(totalWillSave / 2) + '° 올라요');
+    STATE.tokenBalance = Object.assign({}, tb, {
+      current_balance: 0,
+      total_saved    : (tb.total_saved || 0) + totalWillSave,
+      gift_balance   : 0,
+      can_save_double: false,
+    });
+    setTimeout(function(){
+      setText('tokenAmount', 0);
+      setText('tokenGift',   0);
+      setText('tokenSaved',  STATE.tokenBalance.total_saved);
+      _restore();
+      loadTokenBalance && loadTokenBalance();
+    }, 400);
+    return;
+  }
+  showLoading('마음토큰을 모두 저축하는 중이에요 🪙');
+  var res = await api('save_token', {
+    student_uid : STATE.user.student_uid,
+    student_name: STATE.user.name,
+    teacher_uid : STATE.user.teacher_uid,
+    school_name : STATE.user.school_name || '',
+    save_type   : 'all',
   });
   hideLoading();
   _restore();
-  if(res.status==='ok') {
-    toast((res.data.message || '저축 완료!') + ' 잔액을 불러오는 중이에요 🌡️');
+  if (res.status === 'ok') {
+    toast((res.data.message || '전체 저축 완료!') + ' 🌡️');
     loadTokenBalance();
   } else toast(res.message);
 }
