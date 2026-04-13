@@ -2135,6 +2135,7 @@ async function onLoginSuccess(data) {
     var today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
     await Promise.all([
       loadTokenBalance(),
+      loadTokenLog(),
       api('get_emotions', { student_uid: data.student_uid, date: today }).then(function(res) {
         if (res.status === 'ok' && res.data.emotions.length) {
           var e = res.data.emotions[0];
@@ -3801,23 +3802,19 @@ function renderNotSubmitList(students, showAll) {
 function renderGiftFeed(gifts) {
   var el = document.getElementById('giftFeed');
   if (!el) return;
-  if (!gifts || !gifts.length) {
-    el.innerHTML = '<div style="font-size:11px;color:var(--lgray);padding-top:4px">오늘 선물 없음</div>';
-    return;
-  }
-  // 최신 3개만 표시 (도트 높이와 맞춤)
-  var preview = gifts.slice(0, 3);
+  var rows = (!gifts || !gifts.length)
+    ? '<div style="font-size:11px;color:var(--lgray);padding:2px 0 4px">아직 선물 기록이 없어요</div>'
+    : gifts.slice(0,3).map(function(g) {
+        return '<div style="font-size:11px;color:var(--gray);padding:1px 0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">' +
+          '<span style="color:var(--navy);font-weight:700">' + g.from_name + '</span>' +
+          '<span style="color:var(--peach);margin:0 3px">→</span>' +
+          '<span style="color:var(--navy);font-weight:700">' + g.to_name + '</span>' +
+          ' 💝</div>';
+      }).join('');
   el.innerHTML =
-    '<div style="font-size:11px;font-weight:700;color:var(--gray);margin-bottom:5px">💝 오늘의 선물</div>' +
-    preview.map(function(g) {
-      return '<div style="font-size:11px;color:var(--gray);padding:1px 0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">' +
-        '<span style="color:var(--navy);font-weight:700">' + g.from_name + '</span>' +
-        '<span style="color:var(--peach);margin:0 3px">→</span>' +
-        '<span style="color:var(--navy);font-weight:700">' + g.to_name + '</span>' +
-        ' 💝' +
-      '</div>';
-    }).join('') +
-    '<button onclick="openGiftHistory()" style="margin-top:5px;font-size:10px;color:var(--mint2);font-weight:700;background:none;border:none;cursor:pointer;padding:0">더 보기 ›</button>';
+    '<div style="font-size:11px;font-weight:700;color:var(--gray);margin-bottom:4px">💝 최근 선물</div>' +
+    rows +
+    '<button onclick="openGiftHistory()" style="margin-top:4px;font-size:10px;color:var(--mint2);font-weight:700;background:none;border:none;cursor:pointer;padding:0">더 보기 ›</button>';
 }
 
 // ── 선물 기록 전체 팝업 ──────────────────────────────
@@ -4829,10 +4826,16 @@ function renderNotifDropdown(page) {
 
 async function markNotifRead(uid, el) {
   // 로컬 즉시 반영
-  _notifications.forEach(function(n){ if (n.notification_uid === uid) n.is_read = true; });
+  var notif = null;
+  _notifications.forEach(function(n){ if (n.notification_uid === uid) { n.is_read = true; notif = n; } });
   if (el) el.style.background = '#fff';
   updateNotifBadge();
   await api('mark_notification_read', { notification_uid: uid });
+  // 선물 알림 클릭 시 토큰 탭 내역 갱신
+  if (notif && notif.type === 'token_gift') {
+    loadTokenBalance();
+    loadTokenLog();
+  }
 }
 
 async function markAllNotifsRead() {
@@ -7125,6 +7128,14 @@ function tokenHTML() {
     '<div class="card card-lemon" style="margin-top:8px">' +
       '<div class="card-label gaegu">마음토큰이란?</div>' +
       '<div style="font-size:13px;line-height:1.7;color:var(--gray)">매일 로그인하면 토큰 1개를 받아요.<br>토큰을 <b>저축</b>하면 마음 온도가 올라가요 🌡️<br>토큰 2개 저축 = 마음 온도 1°<br>선물받은 토큰은 저축 시 <b>2배</b>로 적립돼요 💝<br>최대 100°까지 올릴 수 있어요!</div>' +
+    '</div>' +
+    '<div class="card" style="margin-top:10px;padding:14px 16px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+        '<div style="font-size:13px;font-weight:800;color:var(--navy)">🪙 내 토큰 기록</div>' +
+      '</div>' +
+      '<div id="tokenLogList" style="font-size:12px;color:var(--gray);min-height:32px">' +
+        '<div style="color:var(--lgray);text-align:center;padding:8px 0">불러오는 중...</div>' +
+      '</div>' +
     '</div>';
 }
 
@@ -7228,6 +7239,34 @@ function updateHeartTempUI(temp) {
   if (v2) v2.textContent = temp;
   if (b2) setTimeout(function(){ b2.style.width = pct; }, 100);
 }
+
+// ── 학생 토큰 내역 로드 & 렌더 ──────────────────────────────
+async function loadTokenLog() {
+  var el = document.getElementById('tokenLogList');
+  if (!el) return;
+  var res = await api('get_token_log', { student_uid: STATE.studentUid });
+  if (!res || res.status !== 'ok') return;
+  var logs = res.data.logs || [];
+  if (!logs.length) {
+    el.innerHTML = '<div style="color:var(--lgray);text-align:center;padding:8px 0">아직 기록이 없어요</div>';
+    return;
+  }
+  el.innerHTML = logs.map(function(log) {
+    var color = log.gain ? 'var(--mint2)' : '#ff8c42';
+    var sign  = log.gain ? '+' : '';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;' +
+           'padding:6px 0;border-bottom:1px solid var(--lgray2)">' +
+      '<div>' +
+        '<span style="color:var(--lgray);font-size:11px;margin-right:6px">' + log.date + '</span>' +
+        '<span>' + log.label + '</span>' +
+      '</div>' +
+      '<span style="font-weight:800;color:' + color + ';flex-shrink:0;margin-left:8px">' +
+        log.amount + ' 🪙' +
+      '</span>' +
+    '</div>';
+  }).join('');
+}
+
 
 // 배너 프로필 사진 갱신
 function updateBannerProfile() {
