@@ -7169,8 +7169,8 @@ function _refreshTokenCards(tb) {
     cardGift.style.borderColor  = 'transparent';
     cardGift.style.background   = '#fff';
     cardGift.style.opacity      = giftBal > 0 ? '1' : '0.55';
-    cardGift.style.cursor       = giftBal > 0 ? 'pointer' : 'default';
-    cardGift.style.pointerEvents= giftBal > 0 ? '' : 'none';
+    cardGift.style.cursor       = 'pointer';
+    cardGift.style.pointerEvents= '';   // 항상 hover 가능 — 없을 땐 탭 시 토스트로 안내
   }
   if (hintEl) hintEl.textContent = giftBal > 0 ? '탭 → 저축' : '없어요';
 
@@ -7266,7 +7266,7 @@ function renderTokenLogPage() {
     var color = log.gain ? 'var(--mint2)' : '#ff8c42';
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--lgray2)">' +
       '<div><span style="color:var(--lgray);font-size:11px;margin-right:6px">' + log.date + '</span><span>' + log.label + '</span></div>' +
-      '<span style="font-weight:800;color:' + color + ';flex-shrink:0;margin-left:8px">' + log.amount + ' 🪙</span>' +
+      '<span style="font-weight:800;color:' + color + ';flex-shrink:0;margin-left:8px">' + log.amount + ' ' + (log.icon || '🪙') + '</span>' +
     '</div>';
   }).join('');
   var nav = '';
