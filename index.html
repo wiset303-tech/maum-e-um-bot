@@ -1144,6 +1144,36 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   </div>
 </div>
 
+<!-- ══ 모달: 학생 정보 수정 ══ -->
+<div id="modal-student-edit" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-student-edit')">
+  <div class="modal-box" style="position:relative;max-height:90vh;overflow-y:auto">
+    <div class="modal-title" id="se-modal-title">✏️ 학생 정보 수정</div>
+    <button class="modal-close" onclick="closeModal('modal-student-edit')">✕</button>
+    <input type="hidden" id="se-student-uid">
+    <!-- NFC 카드 상태 -->
+    <div id="se-nfc-status" style="background:var(--mint4);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <span id="se-nfc-label" style="font-size:13px;color:var(--mint2);font-weight:700">🔲 마음카드 없음</span>
+      <button id="se-nfc-btn" onclick="triggerNfcFromEdit()" style="background:var(--mint3);border:1.5px solid var(--mint2);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;color:var(--navy);cursor:pointer;white-space:nowrap;flex-shrink:0">🪪 마음카드 등록</button>
+    </div>
+    <!-- 이름 -->
+    <div class="inp-label">이름 <span style="color:#e05050">*</span></div>
+    <input class="inp" id="se-name" placeholder="학생 이름" style="margin-bottom:10px">
+    <!-- 성별 -->
+    <div class="inp-label">성별</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button type="button" id="se-gender-m" class="btn btn-secondary" style="width:50%;padding:11px 0;font-size:14px;font-weight:600;border:2px solid var(--lgray);border-radius:12px;transition:all .2s" onclick="seSelectGender('M')">👦 남학생</button>
+      <button type="button" id="se-gender-f" class="btn btn-secondary" style="width:50%;padding:11px 0;font-size:14px;font-weight:600;border:2px solid var(--lgray);border-radius:12px;transition:all .2s" onclick="seSelectGender('F')">👧 여학생</button>
+    </div>
+    <!-- 번호 -->
+    <div class="inp-label">번호 <span style="color:#e05050">*</span></div>
+    <input class="inp" id="se-num" type="number" placeholder="출석번호" style="margin-bottom:10px">
+    <!-- 비밀번호 변경 (선택사항) -->
+    <div class="inp-label">새 비밀번호 <span style="font-size:11px;color:var(--gray);font-weight:400">(변경 시에만 입력)</span></div>
+    <input class="inp" id="se-pw" type="password" placeholder="변경하지 않으려면 비워두세요" style="margin-bottom:16px">
+    <button class="btn btn-primary" onclick="submitStudentEdit()">💾 저장하기</button>
+  </div>
+</div>
+
 <!-- ══ 모달: 소감정 더보기 ══ -->
 <div id="modal-more-emotions" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-more-emotions')">
   <div class="modal-box" style="position:relative;max-height:80vh;overflow-y:auto">
@@ -1670,6 +1700,7 @@ var STATE = {
   students: [],        // 학생 목록
   dashboard: null,     // 대시보드 데이터
   nfcPending: null,    // NFC 등록 대기 UID
+  _seGender: '',       // 학생 편집 모달 성별 선택
   selectedMacro: null, // 감정 선택
   selectedMicro: null,
   chatHistory: [],     // 봇 대화 기록
@@ -2643,8 +2674,8 @@ async function toggleAdminStudents(btn, teacherUid) {
           '<button onclick="openChangePw(\'' + uid2 + '\',\'' + nm2 + '\')">🔑 비번변경</button>' +
           '<button onclick="resetStudentPw(\'' + uid2 + '\',\'' + nm2 + '\')">🔄 비번초기화</button>' +
           (s.nfc_uid
-            ? '<button onclick="replaceCard(this,\'replace\');closeStuMenu()" data-uid="' + uid2 + '" data-name="' + nm2 + '">🪪 카드교체</button>'
-            : '<button onclick="replaceCard(this,\'register\');closeStuMenu()" data-uid="' + uid2 + '" data-name="' + nm2 + '">🪪 NFC 등록</button>') +
+            ? '<button onclick="openStudentEditById(\'' + uid2 + '\',\'' + nm2 + '\',\'replace\');closeStuMenu()" data-uid="' + uid2 + '" data-name="' + nm2 + '">🪪 마음카드 교체</button>'
+            : '<button onclick="openStudentEditById(\'' + uid2 + '\',\'' + nm2 + '\',\'register\');closeStuMenu()" data-uid="' + uid2 + '" data-name="' + nm2 + '">🪪 마음카드 등록</button>') +
           '<div class="divider"></div>' +
           '<button class="danger" onclick="deactivateBtn(this)" data-uid="' + uid2 + '" data-name="' + nm2 + '">🚫 비활성</button>' +
         '</div>' +
@@ -3292,7 +3323,7 @@ function studentMgmtHTML() {
     '</div>';
   }
   return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">' +
-    '<button class="btn btn-primary" style="flex-shrink:0;font-size:12px;padding:9px 12px" onclick="openNfcRegister()">🪪 NFC 등록</button>' +
+    '<button class="btn btn-primary" style="flex-shrink:0;font-size:12px;padding:9px 12px" onclick="openNfcRegister()">🪪 마음카드 등록</button>' +
     '<div style="display:flex;gap:5px;margin-left:auto">' +
       '<button id="stu-sort-num"  class="btn btn-sm btn-secondary adm-sort-btn active-sort" onclick="stuSortBy(\'num\')" style="font-size:11px;padding:5px 10px;white-space:nowrap">번호순</button>' +
       '<button id="stu-sort-name" class="btn btn-sm btn-secondary adm-sort-btn" onclick="stuSortBy(\'name\')" style="font-size:11px;padding:5px 10px;white-space:nowrap">이름순</button>' +
@@ -5353,7 +5384,7 @@ function renderStudentList() {
           + '<div class="stu-dropdown" style="display:none">'
             + '<button onclick="openChangePw(\''+uid2+'\',\''+nm2+'\')">&#128273; 비번변경</button>'
             + '<button onclick="resetStudentPw(\''+uid2+'\',\''+nm2+'\')">\uD83D\uDD04 \ube44\ubc88\ucd08\uae30\ud654</button>'
-            + (s.nfc_uid ? '<button onclick="replaceCard(this,\'replace\');closeStuMenu()" data-uid="'+uid2+'" data-name="'+nm2+'">\uD83E\uDE9E \uce74\ub4dc\uad50\uccb4</button>' : '<button onclick="replaceCard(this,\'register\');closeStuMenu()" data-uid="'+uid2+'" data-name="'+nm2+'">\uD83E\uDE9E NFC \ub4f1\ub85d</button>')
+            + (s.nfc_uid ? '<button onclick="openStudentEditById(\''+uid2+'\',\''+nm2+'\',\'replace\');closeStuMenu()" data-uid="'+uid2+'" data-name="'+nm2+'">🪪 마음카드 교체</button>' : '<button onclick="openStudentEditById(\''+uid2+'\',\''+nm2+'\',\'register\');closeStuMenu()" data-uid="'+uid2+'" data-name="'+nm2+'">🪪 마음카드 등록</button>')
             + '<button onclick="openParentCreate(\''+uid2+'\',\''+nm2+'\',\''+(s.student_id||'')+'\')">\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67 \ud559\ubd80\ubaa8 \uacc4\uc815</button>'
             + '<div class="divider"></div>'
             + '<button class="danger" onclick="deactivateBtn(this)" data-uid="'+uid2+'" data-name="'+nm2+'">\uD83D\uDEAB \ube44\ud65c\uc131</button>'
@@ -5495,6 +5526,7 @@ async function handleRegisterNfc(uid) {
   // 학생 카드 교체 모드
   if (STATE.nfcPending && STATE.nfcPending.mode === 'replace') {
     var p = STATE.nfcPending;
+    var fromEdit = p.fromEdit;
     STATE.nfcPending = null;
     showLoading('카드를 교체하는 중이에요 🪪');
     var res = await api('replace_card', { student_uid: p.student_uid, new_nfc_uid: uid });
@@ -5502,8 +5534,17 @@ async function handleRegisterNfc(uid) {
     if (res.status === 'ok') {
       toast(res.data.message);
       await loadStudents();
+      // 편집 모달에서 왔으면 NFC 상태 업데이트 후 편집 모달 복귀
+      if (fromEdit) {
+        var nfcLabel = document.getElementById('se-nfc-label');
+        var nfcBtn   = document.getElementById('se-nfc-btn');
+        if (nfcLabel) { nfcLabel.textContent = '🪪 마음카드 등록됨 (' + uid + ')'; nfcLabel.style.color = 'var(--mint2)'; }
+        if (nfcBtn)   { nfcBtn.textContent = '🔄 마음카드 교체'; }
+        openModal('modal-student-edit');
+      }
     } else {
       toast(res.message);
+      if (fromEdit) openModal('modal-student-edit');
     }
     return;
   }
@@ -5706,6 +5747,94 @@ function replaceCard(btn, mode) {
   var name = btn.getAttribute('data-name');
   if (!uid) return;
   replaceCardById(uid, name, mode || 'replace');
+}
+
+// ────────────────────────────────────────
+// 학생 정보 수정 모달
+// ────────────────────────────────────────
+function openStudentEditById(uid, name, mode) {
+  var s = (STATE.students || []).filter(function(x){ return x.student_uid === uid; })[0];
+  // STATE에 없으면 이름/uid만으로 기본값 세팅
+  var numVal    = s ? (s.num || '') : '';
+  var genderVal = s ? (s.gender || '') : '';
+  var nfcUid    = s ? (s.nfc_uid || '') : '';
+
+  document.getElementById('se-student-uid').value = uid;
+  document.getElementById('se-modal-title').textContent = '✏️ ' + name + ' 정보 수정';
+  document.getElementById('se-name').value = name;
+  document.getElementById('se-num').value  = numVal;
+  document.getElementById('se-pw').value   = '';
+
+  // NFC 상태 표시
+  var nfcLabel = document.getElementById('se-nfc-label');
+  var nfcBtn   = document.getElementById('se-nfc-btn');
+  if (nfcUid) {
+    nfcLabel.textContent = '🪪 마음카드 등록됨 (' + nfcUid + ')';
+    nfcLabel.style.color = 'var(--mint2)';
+    nfcBtn.textContent = '🔄 마음카드 교체';
+  } else {
+    nfcLabel.textContent = '🔲 마음카드 없음';
+    nfcLabel.style.color = 'var(--gray)';
+    nfcBtn.textContent = '🪪 마음카드 등록';
+  }
+  // nfcPending에 학생 uid 저장 (NFC 태그 시 교체 처리)
+  STATE.nfcPending = { mode: 'replace', student_uid: uid, name: name, fromEdit: true };
+
+  // 성별 버튼 초기화
+  seSelectGender(genderVal);
+
+  openModal('modal-student-edit');
+}
+
+function seSelectGender(g) {
+  STATE._seGender = g;
+  var m = document.getElementById('se-gender-m');
+  var f = document.getElementById('se-gender-f');
+  if (!m || !f) return;
+  var reset = 'var(--lgray)';
+  m.style.background = reset; m.style.color = 'var(--navy)'; m.style.borderColor = reset;
+  f.style.background = reset; f.style.color = 'var(--navy)'; f.style.borderColor = reset;
+  if (!g) return;
+  var sel = g === 'M' ? m : f;
+  sel.style.background = 'linear-gradient(135deg,var(--mint),var(--mint2))';
+  sel.style.color = '#fff';
+  sel.style.borderColor = 'var(--mint2)';
+}
+
+function triggerNfcFromEdit() {
+  // 현재 모달 닫지 않고 NFC 모달 열기 — 태그 후 fromEdit 플래그로 돌아옴
+  var uid  = document.getElementById('se-student-uid').value;
+  var name = document.getElementById('se-name').value || document.getElementById('se-modal-title').textContent.replace('✏️ ','').replace(' 정보 수정','');
+  STATE.nfcPending = { mode: 'replace', student_uid: uid, name: name, fromEdit: true };
+  var animIcon = document.getElementById('se-nfc-btn').textContent.indexOf('교체') >= 0 ? '🔄' : '🪪';
+  document.getElementById('nfcRegisterStatus').textContent = name + '의 마음카드를 대주세요';
+  document.getElementById('nfcRegisterUid').textContent = '';
+  document.getElementById('nfcRegisterAnim').textContent = animIcon;
+  openModal('modal-nfc-register');
+  focusNfcInput();
+}
+
+async function submitStudentEdit() {
+  var uid    = document.getElementById('se-student-uid').value;
+  var name   = document.getElementById('se-name').value.trim();
+  var num    = document.getElementById('se-num').value;
+  var pw     = document.getElementById('se-pw').value;
+  var gender = STATE._seGender || '';
+  if (!name) { toast('이름을 입력해주세요'); return; }
+  if (!num)  { toast('번호를 입력해주세요'); return; }
+  if (STATE.isPreview) { toast('미리보기에서는 저장되지 않아요'); closeModal('modal-student-edit'); return; }
+  showLoading('학생 정보를 수정하는 중이에요 ✏️');
+  var payload = { student_uid: uid, name: name, num: parseInt(num), gender: gender };
+  if (pw) payload.new_pw = pw;
+  var res = await api('update_student', payload);
+  hideLoading();
+  if (res.status === 'ok') {
+    toast(res.data.message);
+    closeModal('modal-student-edit');
+    await loadStudents();
+  } else {
+    toast(res.message || '저장에 실패했어요');
+  }
 }
 function replaceCardById(uid, name, mode) {
   mode = mode || 'replace';
