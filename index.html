@@ -2105,7 +2105,7 @@ async function onLoginSuccess(data) {
         _attendanceMap = {};
         var todayEmotions = [];
         res.data.emotions.forEach(function(e) {
-          var d = String(e.timestamp).slice(0,10);
+          var d = e.timestamp ? new Date(new Date(e.timestamp).getTime()+9*3600000).toISOString().slice(0,10) : '';
           CAL.data[d] = (CAL.data[d] || 0) + 1;
           if (d === _bgToday) todayEmotions.push(e);
           if (!_attendanceMap[d]) _attendanceMap[d] = {};
@@ -3452,7 +3452,7 @@ async function ensureCalData() {
   if (res.status === 'ok') {
     CAL.data = {};
     res.data.emotions.forEach(function(e) {
-      var d = String(e.timestamp).slice(0,10);
+      var d = e.timestamp ? new Date(new Date(e.timestamp).getTime()+9*3600000).toISOString().slice(0,10) : '';
       CAL.data[d] = (CAL.data[d] || 0) + 1;
     });
     renderCal();
@@ -3465,7 +3465,7 @@ async function initCal() {
   if (res.status === 'ok') {
     CAL.data = {};
     res.data.emotions.forEach(function(e) {
-      var d = String(e.timestamp).slice(0,10);
+      var d = e.timestamp ? new Date(new Date(e.timestamp).getTime()+9*3600000).toISOString().slice(0,10) : '';
       CAL.data[d] = (CAL.data[d] || 0) + 1;
     });
   }
