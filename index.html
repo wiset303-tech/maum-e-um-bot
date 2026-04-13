@@ -1375,7 +1375,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <img id="profilePopupImg" src="" alt="프로필" class="profile-popup-img"
       onerror="this.style.display='none'">
     <div id="profilePopupEmpty" style="width:200px;height:200px;border-radius:50%;background:var(--lgray);display:flex;align-items:center;justify-content:center;font-size:60px;margin:0 auto 16px">🙂</div>
-    <div style="text-align:center;margin-bottom:8px"><button class="btn btn-mint" style="width:auto;padding:12px 24px" onclick="uploadProfileImage()">🖼️ 프로필 사진 변경</button></div>
+    <div style="text-align:center;margin-bottom:8px"><button class="btn btn-mint" style="width:auto;padding:12px 24px;margin:0 auto" onclick="uploadProfileImage()">🖼️ 프로필 사진 변경</button></div>
     <!-- 교사 전용: 이름 변경 + 비번 변경 -->
     <div id="profileTeacherActions" class="hidden">
       <div style="border-top:1px solid var(--lgray);margin:10px 0 10px"></div>
@@ -6307,7 +6307,8 @@ function _renderRecordList(emotions) {
         }
       }
 
-      var timeStr = String(e.timestamp).slice(5,16); // MM-DD HH:mm
+      var _tKST = e.timestamp ? new Date(new Date(e.timestamp).getTime()+9*3600000) : null;
+      var timeStr = _tKST ? ((_tKST.getMonth()+1)+'/'+ _tKST.getDate()+' '+('0'+_tKST.getHours()).slice(-2)+':'+('0'+_tKST.getMinutes()).slice(-2)) : '';
 
       return '<div style="display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px solid var(--lgray)">' +
         '<span style="font-weight:700;font-size:13px;min-width:56px;flex-shrink:0">' + e.student_name + '</span>' +
