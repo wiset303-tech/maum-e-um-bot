@@ -1303,7 +1303,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
         <!-- 하단 페이드 — 이미지→배너 자연스럽게 연결 -->
         <div style="position:absolute;bottom:0;left:0;right:0;height:80px;background:linear-gradient(to bottom,transparent,rgba(100,160,200,0.6))"></div>
         <!-- 리플 링 — 이미지 중앙 상단쪽에 오버레이 -->
-        <div style="position:absolute;bottom:21%;left:49%;transform:translateX(-50%);width:0;height:0;display:flex;align-items:center;justify-content:center">
+        <div style="position:absolute;bottom:21%;left:48%;transform:translateX(-50%);width:0;height:0;display:flex;align-items:center;justify-content:center">
           <div class="attend-ripple"></div>
           <div class="attend-ripple"></div>
           <div class="attend-ripple"></div>
@@ -2096,7 +2096,7 @@ async function onLoginSuccess(data) {
             _attendanceMap = {};
             var todayEmotions = [];
             res.data.emotions.forEach(function(e) {
-              var d = e.timestamp ? new Date(new Date(e.timestamp).getTime()+9*3600000).toISOString().slice(0,10) : '';
+              var d = e.timestamp ? e.timestamp.slice(0,10) : '';
               CAL.data[d] = (CAL.data[d] || 0) + 1;
               if (d === _bgToday) todayEmotions.push(e);
               if (!_attendanceMap[d]) _attendanceMap[d] = {};
@@ -2124,7 +2124,7 @@ async function onLoginSuccess(data) {
     // 학생: 헤더 설정 버튼 표시 (탭에 설정 없으므로 BGM 접근용)
     var btnSet = document.getElementById('btnSettings');
     if (btnSet) btnSet.classList.remove('hidden');
-    showLoading('마음데이터를 불러오는 중입니다 💚');
+    showLoading('잠깐만요, 화면 준비 중이에요 💚');
     buildStudentUI();
     // 토큰잔액 + 오늘 감정 제출 여부 — 둘 다 준비된 뒤 스피너 해제
     var today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
@@ -3447,7 +3447,7 @@ async function ensureCalData() {
   if (res.status === 'ok') {
     CAL.data = {};
     res.data.emotions.forEach(function(e) {
-      var d = e.timestamp ? new Date(new Date(e.timestamp).getTime()+9*3600000).toISOString().slice(0,10) : '';
+      var d = e.timestamp ? e.timestamp.slice(0,10) : '';
       CAL.data[d] = (CAL.data[d] || 0) + 1;
     });
     renderCal();
@@ -3460,7 +3460,7 @@ async function initCal() {
   if (res.status === 'ok') {
     CAL.data = {};
     res.data.emotions.forEach(function(e) {
-      var d = e.timestamp ? new Date(new Date(e.timestamp).getTime()+9*3600000).toISOString().slice(0,10) : '';
+      var d = e.timestamp ? e.timestamp.slice(0,10) : '';
       CAL.data[d] = (CAL.data[d] || 0) + 1;
     });
   }
@@ -6307,8 +6307,8 @@ function _renderRecordList(emotions) {
         }
       }
 
-      var _tKST = e.timestamp ? new Date(new Date(e.timestamp).getTime()+9*3600000) : null;
-      var timeStr = _tKST ? ((_tKST.getMonth()+1)+'/'+ _tKST.getDate()+' '+('0'+_tKST.getHours()).slice(-2)+':'+('0'+_tKST.getMinutes()).slice(-2)) : '';
+      var _t = e.timestamp ? new Date(e.timestamp.replace('T',' ')) : null;
+      var timeStr = _t && !isNaN(_t) ? ((_t.getMonth()+1)+'/'+ _t.getDate()+' '+('0'+_t.getHours()).slice(-2)+':'+('0'+_t.getMinutes()).slice(-2)) : '';
 
       return '<div style="display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px solid var(--lgray)">' +
         '<span style="font-weight:700;font-size:13px;min-width:56px;flex-shrink:0">' + e.student_name + '</span>' +
@@ -7158,8 +7158,8 @@ function _refreshTokenCards(tb) {
     cardMy.style.borderColor    = 'transparent';
     cardMy.style.background     = '#fff';
     cardMy.style.opacity        = regularBal > 0 ? '1' : '0.55';
-    cardMy.style.cursor         = 'pointer';
-    cardMy.style.pointerEvents  = '';   // 항상 hover 가능 — 없을 땐 탭 시 토스트로 안내
+    cardMy.style.cursor         = regularBal > 0 ? 'pointer' : 'default';
+    cardMy.style.pointerEvents  = regularBal > 0 ? '' : 'none';
   }
 
   // 선물받은 토큰 카드
@@ -7169,8 +7169,8 @@ function _refreshTokenCards(tb) {
     cardGift.style.borderColor  = 'transparent';
     cardGift.style.background   = '#fff';
     cardGift.style.opacity      = giftBal > 0 ? '1' : '0.55';
-    cardGift.style.cursor       = 'pointer';
-    cardGift.style.pointerEvents= '';   // 항상 hover 가능 — 없을 땐 탭 시 토스트로 안내
+    cardGift.style.cursor       = giftBal > 0 ? 'pointer' : 'default';
+    cardGift.style.pointerEvents= giftBal > 0 ? '' : 'none';
   }
   if (hintEl) hintEl.textContent = giftBal > 0 ? '탭 → 저축' : '없어요';
 
@@ -7266,7 +7266,7 @@ function renderTokenLogPage() {
     var color = log.gain ? 'var(--mint2)' : '#ff8c42';
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--lgray2)">' +
       '<div><span style="color:var(--lgray);font-size:11px;margin-right:6px">' + log.date + '</span><span>' + log.label + '</span></div>' +
-      '<span style="font-weight:800;color:' + color + ';flex-shrink:0;margin-left:8px">' + log.amount + ' ' + (log.icon || '🪙') + '</span>' +
+      '<span style="font-weight:800;color:' + color + ';flex-shrink:0;margin-left:8px">' + log.amount + ' 🪙</span>' +
     '</div>';
   }).join('');
   var nav = '';
@@ -7422,19 +7422,11 @@ async function saveRegularToken() {
     school_name : STATE.user.school_name || '',
     save_type   : 'regular',
   });
+  hideLoading();
   if (res.status === 'ok') {
-    if (res.data.new_balance) {
-      STATE.tokenBalance = Object.assign({}, STATE.tokenBalance, res.data.new_balance);
-      _refreshTokenCards(STATE.tokenBalance);
-    }
-    hideLoading();
-    if (card) { card.style.pointerEvents = ''; card.style.opacity = '1'; }
     toast((res.data.message || '저축 완료!') + ' 🌡️');
-  } else {
-    hideLoading();
-    _restore();
-    toast(res.message);
-  }
+  } else toast(res.message);
+  _restore();
 }
 
 // ─────────────────────────────────────────
@@ -7487,17 +7479,11 @@ async function saveGiftToken(count) {
     school_name : STATE.user.school_name || '',
     save_type   : saveType,
   });
+  hideLoading();
   if (res.status === 'ok') {
-    if (res.data.new_balance) {
-      STATE.tokenBalance = Object.assign({}, STATE.tokenBalance, res.data.new_balance);
-      _refreshTokenCards(STATE.tokenBalance);
-    }
-    hideLoading();
     toast((res.data.message || '선물 저축 완료!') + ' 🌟');
-  } else {
-    hideLoading();
-    toast(res.message);
-  }
+    loadTokenBalance();
+  } else toast(res.message);
 }
 
 // ─────────────────────────────────────────
@@ -7577,19 +7563,12 @@ async function saveAllTokens() {
     school_name : STATE.user.school_name || '',
     save_type   : 'all',
   });
+  hideLoading();
+  _restore();
   if (res.status === 'ok') {
-    if (res.data.new_balance) {
-      STATE.tokenBalance = Object.assign({}, STATE.tokenBalance, res.data.new_balance);
-      _refreshTokenCards(STATE.tokenBalance);
-    }
-    hideLoading();
-    _restore();
     toast((res.data.message || '전체 저축 완료!') + ' 🌡️');
-  } else {
-    hideLoading();
-    _restore();
-    toast(res.message);
-  }
+    loadTokenBalance();
+  } else toast(res.message);
 }
 
 function openGiftSelect() {
@@ -7638,17 +7617,14 @@ async function giftToken(friend) {
     teacher_uid: STATE.user.teacher_uid,
     school_name: STATE.user.school_name || '',
   });
+  hideLoading();
   if (res.status === 'ok') {
-    if (res.data.new_balance) {
-      STATE.tokenBalance = Object.assign({}, STATE.tokenBalance, res.data.new_balance);
-      _refreshTokenCards(STATE.tokenBalance);
-    }
-    hideLoading();
     if (res.data.class_bonus) { showWarmthBonus(); }
-    toast(res.data.message || '선물 완료! 💌');
+    toast((res.data.message || '선물 완료!') + '\n잔액을 불러오는 중이에요 💌');
+    loadTokenBalance();
   } else {
-    hideLoading();
     toast(res.message);
+    // 실패 시 선물하기 버튼(메인)만 복구 — 모달은 이미 닫혔으므로 재시도 안내
   }
 }
 
@@ -8153,8 +8129,7 @@ async function deleteAlbumItem() {
   if (!confirm('이 사진을 삭제할까요?')) return;
   closeModal('modal-album-popup');
   showLoading('삭제 중이에요 🗑');
-  var _reqUid = STATE.user ? (STATE.user.student_uid || STATE.user.teacher_uid || '') : '';
-  var res = await api('delete_album', { album_uid: _popupAlbumUid, requester_uid: _reqUid, requester_role: STATE.role || '' });
+  var res = await api('delete_album', { album_uid: _popupAlbumUid });
   hideLoading();
   if (res.status === 'ok') {
     toast('삭제됐어요');
