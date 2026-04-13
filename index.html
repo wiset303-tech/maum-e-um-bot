@@ -60,7 +60,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .modal-overlay{
   position:fixed;inset:0;background:rgba(0,0,0,.4);
   display:flex;align-items:center;justify-content:center;
-  z-index:500;backdrop-filter:blur(4px);
+  z-index:2500;backdrop-filter:blur(4px);
 }
 .modal-box{
   background:#fff;border-radius:24px;padding:28px 24px;
@@ -2763,6 +2763,7 @@ function replaceTeacherCardUI(uid, name) {
 // 교사 정보 수정 모달 (관리자)
 // ────────────────────────────────────────
 function openTeacherEditById(uid, name) {
+  closeStuMenu();
   var t = (_teacherAll || []).filter(function(x){ return x.teacher_uid === uid; })[0];
   var nfcUid = t ? (t.nfc_uid || '') : '';
 
@@ -5835,6 +5836,7 @@ function replaceCard(btn, mode) {
 // 학생 정보 수정 모달
 // ────────────────────────────────────────
 function openStudentEditById(uid, name, mode) {
+  closeStuMenu();
   var s = (STATE.students || []).filter(function(x){ return x.student_uid === uid; })[0];
   // STATE에 없으면 이름/uid만으로 기본값 세팅
   var numVal    = s ? (s.num || '') : '';
