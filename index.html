@@ -5352,7 +5352,7 @@ function renderStudentList() {
           + '<div class="stu-dropdown" style="display:none">'
             + '<button onclick="openChangePw(\''+uid2+'\',\''+nm2+'\')">&#128273; 비번변경</button>'
             + '<button onclick="resetStudentPw(\''+uid2+'\',\''+nm2+'\')">\uD83D\uDD04 \ube44\ubc88\ucd08\uae30\ud654</button>'
-            + '<button onclick="replaceCard(this);closeStuMenu()" data-uid="'+uid2+'" data-name="'+nm2+'">\uD83D\uDCB3 \uce74\ub4dc\uad50\uccb4</button>'
+            + (s.nfc_uid ? '<button onclick="replaceCard(this,\'replace\');closeStuMenu()" data-uid="'+uid2+'" data-name="'+nm2+'">\uD83E\uDE9E \uce74\ub4dc\uad50\uccb4</button>' : '<button onclick="replaceCard(this,\'register\');closeStuMenu()" data-uid="'+uid2+'" data-name="'+nm2+'">\uD83E\uDE9E NFC \ub4f1\ub85d</button>')
             + '<button onclick="openParentCreate(\''+uid2+'\',\''+nm2+'\',\''+(s.student_id||'')+'\')">\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67 \ud559\ubd80\ubaa8 \uacc4\uc815</button>'
             + '<div class="divider"></div>'
             + '<button class="danger" onclick="deactivateBtn(this)" data-uid="'+uid2+'" data-name="'+nm2+'">\uD83D\uDEAB \ube44\ud65c\uc131</button>'
