@@ -7158,8 +7158,8 @@ function _refreshTokenCards(tb) {
     cardMy.style.borderColor    = 'transparent';
     cardMy.style.background     = '#fff';
     cardMy.style.opacity        = regularBal > 0 ? '1' : '0.55';
-    cardMy.style.cursor         = regularBal > 0 ? 'pointer' : 'default';
-    cardMy.style.pointerEvents  = regularBal > 0 ? '' : 'none';
+    cardMy.style.cursor         = 'pointer';
+    cardMy.style.pointerEvents  = '';   // 항상 hover 가능 — 없을 땐 탭 시 토스트로 안내
   }
 
   // 선물받은 토큰 카드
