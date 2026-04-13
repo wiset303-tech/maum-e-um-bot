@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>마음이음</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Serif+KR:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Serif+KR:wght@600;700&family=Gamja+Flower&display=swap" rel="stylesheet">
 <style>
 :root {
   --mint:    #4ecdb4;
@@ -185,9 +185,11 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:0;
 }
+
+@keyframes floatBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 .nfc-top{text-align:center;margin-bottom:32px}
-.nfc-top h1{font-family:'Black Han Sans',sans-serif;font-size:36px;color:var(--mint2)}
-.nfc-top p{font-size:13px;color:var(--gray);margin-top:4px}
+.nfc-top h1{font-family:'Gamja Flower',sans-serif;font-size:44px;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.45);animation:floatBob 3s ease-in-out infinite;display:inline-block}
+.nfc-top p{font-size:14px;color:#fff;margin-top:4px;text-shadow:0 1px 6px rgba(0,0,0,.5)}
 
 .nfc-anim-wrap{
   position:relative;width:180px;height:180px;
@@ -213,9 +215,9 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   font-size:36px;box-shadow:0 8px 24px rgba(78,205,180,.4);
   z-index:1;position:relative;
 }
-.nfc-msg{font-family:'Black Han Sans',sans-serif;font-size:18px;color:var(--navy);margin-bottom:24px}
-.nfc-bypass{font-size:13px;color:var(--gray);text-decoration:none;cursor:pointer;background:none;border:none}
-.nfc-settings{position:absolute;top:20px;right:20px;font-size:26px;cursor:pointer;background:none;border:none}
+.nfc-msg{font-family:'Black Han Sans',sans-serif;font-size:18px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.5);margin-bottom:24px}
+.nfc-bypass{font-size:13px;color:var(--navy);text-decoration:none;cursor:pointer;background:rgba(78,205,180,.82);border:none;border-radius:20px;padding:7px 18px;font-weight:700;box-shadow:0 2px 10px rgba(78,205,180,.35)}
+.nfc-settings{position:absolute;top:20px;right:20px;font-size:26px;cursor:pointer;background:rgba(255,255,255,.25);border:none;border-radius:50%;width:40px;height:40px;backdrop-filter:blur(4px)}
 
 /* ── NFC 입력 숨김 필드 (ACR122U HID 입력용) ── */
 #nfc-input{
@@ -977,7 +979,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       animation:pulse 1.4s ease-in-out infinite;
     ">💚 마음잇기</button>
   </div>
-  <div class="loading-title gaegu">마음이음 🌱</div>
+  <div class="loading-title" style="font-family:'Gamja Flower',sans-serif">마음이음🌈</div>
   <div class="loading-sub">삐빅— 마음이 연결됩니다 ♡</div>
   <div class="loading-bar-wrap"><div class="loading-bar" id="loadingBar"></div></div>
   <div class="loading-status" id="loadingStatus">준비 중...</div>
@@ -987,7 +989,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 <div id="screen-nfc" class="hidden">
   <button class="nfc-settings btn-icon" onclick="openSettings()">⚙️</button>
   <div class="nfc-top">
-    <h1 class="gaegu">마음이음</h1>
+    <h1 class="gaegu">마음이음🌈</h1>
     <p>마음카드를 띠링- 🪪</p>
   </div>
   <div class="nfc-anim-wrap">
@@ -1002,13 +1004,13 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   <!-- 환경별 안내 영역 — updateNfcEnvUI()가 동적으로 제어 -->
   <!-- Android NFC 영역 -->
   <div id="nfcEnvNfc" style="display:none;text-align:center">
-    <button class="nfc-bypass" style="color:var(--mint2)" onclick="testWebNFC()">📡 NFC 활성화하기</button>
+    <button class="nfc-bypass" onclick="testWebNFC()">📡 NFC 활성화하기</button>
   </div>
   <!-- PC USB 리더기 영역 -->
   <div id="nfcEnvUsb" style="display:none;text-align:center">
     <!-- 연결 전 -->
     <div id="usbPreConnect">
-      <button id="webusbConnectBtn" class="nfc-bypass" onclick="connectWebUSBReader()" style="color:var(--mint2);font-weight:700">🔌 마음카드 리더기 연결하기</button>
+      <button id="webusbConnectBtn" class="nfc-bypass" onclick="connectWebUSBReader()">🔌 마음카드 리더기 연결하기</button>
     </div>
     <!-- 연결 클릭 후 — 실행 안내 -->
     <div id="usbRunGuide" style="display:none;background:rgba(255,255,255,0.75);border-radius:14px;padding:12px 16px;margin:0 16px;text-align:center">
@@ -1029,7 +1031,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     </div>
   </div>
   <!-- 공통: 아이디 로그인 -->
-  <button class="nfc-bypass" style="margin-top:10px" onclick="openLoginModal()">카드가 없어요 (아이디로 로그인)</button>
+  <button style="margin-top:10px;background:none;border:none;cursor:pointer;font-size:12px;color:rgba(44,74,90,.45);font-family:'Noto Sans KR',sans-serif" onclick="openLoginModal()">카드가 없어요 (아이디로 로그인)</button>
   <div id="nfcDebugLog" style="
     margin-top:12px;padding:10px 16px;
     background:rgba(255,255,255,0.7);border-radius:12px;
@@ -1049,7 +1051,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <button id="btnBackAdmin" class="hidden btn btn-sm" onclick="exitPreview()"
         style="background:var(--lav2);color:var(--lav);border:1.5px solid var(--lav);font-size:12px;padding:6px 12px;width:auto;border-radius:10px">← 관리자로</button>
       <div>
-        <div class="app-header-title gaegu">마음이음 🌱</div>
+        <div class="app-header-title" style="font-family:'Gamja Flower',sans-serif;font-size:22px;color:var(--mint2)">마음이음🌈</div>
         <div class="app-header-user" id="headerUser"></div>
       </div>
     </div>
@@ -1096,7 +1098,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 </div>
 
 <!-- ══ 모달: NFC 학생 등록 ══ -->
-<div id="modal-nfc-register" class="modal-overlay hidden" style="z-index:3500" onclick="closeModalOutside(event,'modal-nfc-register')">
+<div id="modal-nfc-register" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-nfc-register')">
   <div class="modal-box" style="position:relative">
     <div class="modal-title">🪪 카드 등록</div>
     <button class="modal-close" onclick="closeModal('modal-nfc-register')">✕</button>
@@ -1104,6 +1106,12 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <div class="nfc-register-anim" id="nfcRegisterAnim">🪪</div>
       <div class="nfc-register-status gaegu" id="nfcRegisterStatus">마음카드를 띠링-</div>
       <div style="font-size:12px;color:var(--gray);margin-top:8px" id="nfcRegisterUid"></div>
+    </div>
+    <div style="border-top:1px solid var(--lgray);margin-top:16px;padding-top:14px;text-align:center">
+      <div style="font-size:12px;color:var(--gray);margin-bottom:10px">카드가 없거나 인식이 안 되나요?</div>
+      <button class="btn btn-secondary" onclick="skipNfcRegister()" style="width:auto;padding:10px 20px;font-size:13px">
+        🖊️ NFC 없이 직접 등록하기
+      </button>
     </div>
   </div>
 </div>
@@ -2196,6 +2204,27 @@ async function onLoginSuccess(data) {
   }
 }
 
+// NFC 없이 직접 등록
+function skipNfcRegister() {
+  closeModal('modal-nfc-register');
+  if (STATE.nfcPending && STATE.nfcPending.mode === 'teacher') {
+    openTeacherFormDirect();
+  } else {
+    STATE.selectedGender = null;
+    document.getElementById('sf-nfc-uid').value = '';
+    document.getElementById('sf-name').value = '';
+    document.getElementById('sf-num').value = '';
+    document.getElementById('sf-id').value = '';
+    document.getElementById('sf-pw').value = '';
+    // 성별 버튼 초기화
+    var m = document.getElementById('sf-gender-m');
+    var f = document.getElementById('sf-gender-f');
+    if(m) { m.style.background='var(--lgray)'; m.style.color='var(--navy)'; m.style.borderColor='var(--lgray)'; }
+    if(f) { f.style.background='var(--lgray)'; f.style.color='var(--navy)'; f.style.borderColor='var(--lgray)'; }
+    openModal('modal-student-form');
+  }
+}
+
 function logout() {
   stopDashboardPoll();
   stopPersonaPoll();
@@ -2603,9 +2632,7 @@ function _buildTeacherCard(t) {
           '<div class="stu-dropdown" style="display:none">' +
             '<button onclick="openChangeTeacherPw(\'' + tid + '\',\'' + tname + '\')">🔑 암호변경</button>' +
             '<button onclick="openChangeTeacherInfo(\'' + tid + '\',\'' + tname + '\')">🏫 학급정보 변경</button>' +
-            (t.nfc_uid
-              ? '<button onclick="openTeacherEditById(\'' + tid + '\',\'' + tname + '\');closeStuMenu()">🔄 마음카드 교체</button>'
-              : '<button onclick="openTeacherEditById(\'' + tid + '\',\'' + tname + '\');closeStuMenu()">🪪 마음카드 등록</button>') +
+            '<button onclick="openTeacherEditById(\'' + tid + '\',\'' + tname + '\');closeStuMenu()">🪪 마음카드 교체</button>' +
             '<div class="divider"></div>' +
             '<button class="danger" onclick="deactivateTeacherUI(\'' + tid + '\',\'' + tname + '\')">🚫 비활성</button>' +
           '</div>' +
@@ -2667,8 +2694,8 @@ async function toggleAdminStudents(btn, teacherUid) {
           '<button onclick="openChangePw(\'' + uid2 + '\',\'' + nm2 + '\')">🔑 암호변경</button>' +
           '<button onclick="resetStudentPw(\'' + uid2 + '\',\'' + nm2 + '\')">🔄 암호초기화</button>' +
           (s.nfc_uid
-            ? '<button onclick="openStudentEditById(\'' + uid2 + '\',\'' + nm2 + '\',\'replace\',\'' + (s.nfc_uid||'') + '\',\'' + (s.num||'') + '\',\'' + (s.gender||'') + '\');closeStuMenu()" data-uid="' + uid2 + '" data-name="' + nm2 + '">🪪 마음카드 교체</button>'
-            : '<button onclick="openStudentEditById(\'' + uid2 + '\',\'' + nm2 + '\',\'register\',\'\',\'' + (s.num||'') + '\',\'' + (s.gender||'') + '\');closeStuMenu()" data-uid="' + uid2 + '" data-name="' + nm2 + '">🪪 마음카드 등록</button>') +
+            ? '<button onclick="openStudentEditById(\'' + uid2 + '\',\'' + nm2 + '\',\'replace\');closeStuMenu()" data-uid="' + uid2 + '" data-name="' + nm2 + '">🪪 마음카드 교체</button>'
+            : '<button onclick="openStudentEditById(\'' + uid2 + '\',\'' + nm2 + '\',\'register\');closeStuMenu()" data-uid="' + uid2 + '" data-name="' + nm2 + '">🪪 마음카드 등록</button>') +
           '<div class="divider"></div>' +
           '<button class="danger" onclick="deactivateBtn(this)" data-uid="' + uid2 + '" data-name="' + nm2 + '">🚫 비활성</button>' +
         '</div>' +
@@ -2755,7 +2782,7 @@ function openTeacherEditById(uid, name) {
   } else {
     nfcLabel.textContent = '🔲 마음카드 없음';
     nfcLabel.style.color = 'var(--gray)';
-    nfcBtn.textContent = '🪪 마음카드 등록';
+    nfcBtn.textContent = '🪪 마음카드 교체';
   }
   STATE.nfcPending = { mode: 'replace_teacher', teacher_uid: uid, name: name, fromEdit: true };
   openModal('modal-teacher-edit');
@@ -2767,8 +2794,7 @@ function triggerNfcFromTeacherEdit() {
   STATE.nfcPending = { mode: 'replace_teacher', teacher_uid: uid, name: name, fromEdit: true };
   document.getElementById('nfcRegisterStatus').textContent = name + ' 선생님의 마음카드를 띠링-';
   document.getElementById('nfcRegisterUid').textContent = '';
-  var animIcon = document.getElementById('te-nfc-btn').textContent.indexOf('교체') >= 0 ? '🔄' : '🪪';
-  document.getElementById('nfcRegisterAnim').textContent = animIcon;
+  document.getElementById('nfcRegisterAnim').textContent = '🔄';
   openModal('modal-nfc-register');
   focusNfcInput();
 }
@@ -5428,7 +5454,7 @@ function renderStudentList() {
           + '<div class="stu-dropdown" style="display:none">'
             + '<button onclick="openChangePw(\''+uid2+'\',\''+nm2+'\')">&#128273; 암호변경</button>'
             + '<button onclick="resetStudentPw(\''+uid2+'\',\''+nm2+'\')">\uD83D\uDD04 \uc554\ud638\ucd08\uae30\ud654</button>'
-            + (s.nfc_uid ? '<button onclick="openStudentEditById(\''+uid2+'\',\''+nm2+'\',\'replace\',\''+(s.nfc_uid||'')+'\',\''+(s.num||'')+'\',\''+(s.gender||'')+'\');closeStuMenu()" data-uid="'+uid2+'" data-name="'+nm2+'">🪪 마음카드 교체</button>' : '<button onclick="openStudentEditById(\''+uid2+'\',\''+nm2+'\',\'register\',\'\',\''+(s.num||'')+'\',\''+(s.gender||'')+'\');closeStuMenu()" data-uid="'+uid2+'" data-name="'+nm2+'">🪪 마음카드 등록</button>')
+            + (s.nfc_uid ? '<button onclick="openStudentEditById(\''+uid2+'\',\''+nm2+'\',\'replace\');closeStuMenu()" data-uid="'+uid2+'" data-name="'+nm2+'">🪪 마음카드 교체</button>' : '<button onclick="openStudentEditById(\''+uid2+'\',\''+nm2+'\',\'register\');closeStuMenu()" data-uid="'+uid2+'" data-name="'+nm2+'">🪪 마음카드 등록</button>')
             + '<button onclick="openParentCreate(\''+uid2+'\',\''+nm2+'\',\''+(s.student_id||'')+'\')">\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67 \ud559\ubd80\ubaa8 \uacc4\uc815</button>'
             + '<div class="divider"></div>'
             + '<button class="danger" onclick="deactivateBtn(this)" data-uid="'+uid2+'" data-name="'+nm2+'">\uD83D\uDEAB \ube44\ud65c\uc131</button>'
@@ -5815,13 +5841,13 @@ function replaceCard(btn, mode) {
 // ────────────────────────────────────────
 // 학생 정보 수정 모달
 // ────────────────────────────────────────
-function openStudentEditById(uid, name, mode, nfcUidHint, numHint, genderHint) {
+function openStudentEditById(uid, name, mode) {
   closeStuMenu();
   var s = (STATE.students || []).filter(function(x){ return x.student_uid === uid; })[0];
-  // STATE에 없으면 (관리자 모드 등) 호출부에서 넘겨준 힌트값 사용
-  var numVal    = s ? (s.num || '') : (numHint || '');
-  var genderVal = s ? (s.gender || '') : (genderHint || '');
-  var nfcUid    = s ? (s.nfc_uid || '') : (nfcUidHint || '');
+  // STATE에 없으면 이름/uid만으로 기본값 세팅
+  var numVal    = s ? (s.num || '') : '';
+  var genderVal = s ? (s.gender || '') : '';
+  var nfcUid    = s ? (s.nfc_uid || '') : '';
 
   document.getElementById('se-student-uid').value = uid;
   document.getElementById('se-modal-title').textContent = '✏️ ' + name + ' 정보 수정';
