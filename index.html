@@ -1375,7 +1375,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <img id="profilePopupImg" src="" alt="프로필" class="profile-popup-img"
       onerror="this.style.display='none'">
     <div id="profilePopupEmpty" style="width:200px;height:200px;border-radius:50%;background:var(--lgray);display:flex;align-items:center;justify-content:center;font-size:60px;margin:0 auto 16px">🙂</div>
-    <button class="btn btn-mint" style="width:auto;padding:12px 24px;margin-bottom:8px" onclick="uploadProfileImage()">🖼️ 프로필 사진 변경</button>
+    <div style="text-align:center;margin-bottom:8px"><button class="btn btn-mint" style="width:auto;padding:12px 24px" onclick="uploadProfileImage()">🖼️ 프로필 사진 변경</button></div>
     <!-- 교사 전용: 이름 변경 + 비번 변경 -->
     <div id="profileTeacherActions" class="hidden">
       <div style="border-top:1px solid var(--lgray);margin:10px 0 10px"></div>
@@ -7241,6 +7241,9 @@ function updateHeartTempUI(temp) {
 }
 
 // ── 학생 토큰 내역 로드 & 렌더 ──────────────────────────────
+var _tokenLogs = [], _tokenLogPage = 0;
+var TOKEN_LOG_PAGE = 10;
+
 async function loadTokenLog() {
   var el = document.getElementById('tokenLogList');
   if (!el) return;
@@ -7248,27 +7251,46 @@ async function loadTokenLog() {
   if (!studentUid) return;
   var res = await api('get_token_log', { student_uid: studentUid });
   if (!res || res.status !== 'ok') return;
-  var logs = res.data.logs || [];
-  if (!logs.length) {
+  _tokenLogs = res.data.logs || [];
+  _tokenLogPage = 0;
+  renderTokenLogPage();
+}
+
+function renderTokenLogPage() {
+  var el = document.getElementById('tokenLogList');
+  if (!el) return;
+  if (!_tokenLogs.length) {
     el.innerHTML = '<div style="color:var(--lgray);text-align:center;padding:8px 0">아직 기록이 없어요</div>';
     return;
   }
-  el.innerHTML = logs.map(function(log) {
+  var start = _tokenLogPage * TOKEN_LOG_PAGE;
+  var page  = _tokenLogs.slice(start, start + TOKEN_LOG_PAGE);
+  var totalPages = Math.ceil(_tokenLogs.length / TOKEN_LOG_PAGE);
+  var rows = page.map(function(log) {
     var color = log.gain ? 'var(--mint2)' : '#ff8c42';
-    var sign  = log.gain ? '+' : '';
-    return '<div style="display:flex;justify-content:space-between;align-items:center;' +
-           'padding:6px 0;border-bottom:1px solid var(--lgray2)">' +
-      '<div>' +
-        '<span style="color:var(--lgray);font-size:11px;margin-right:6px">' + log.date + '</span>' +
-        '<span>' + log.label + '</span>' +
-      '</div>' +
-      '<span style="font-weight:800;color:' + color + ';flex-shrink:0;margin-left:8px">' +
-        log.amount + ' 🪙' +
-      '</span>' +
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--lgray2)">' +
+      '<div><span style="color:var(--lgray);font-size:11px;margin-right:6px">' + log.date + '</span><span>' + log.label + '</span></div>' +
+      '<span style="font-weight:800;color:' + color + ';flex-shrink:0;margin-left:8px">' + log.amount + ' 🪙</span>' +
     '</div>';
   }).join('');
+  var nav = '';
+  if (totalPages > 1) {
+    var pd = _tokenLogPage === 0 ? 'opacity:0.3;pointer-events:none' : '';
+    var nd = _tokenLogPage >= totalPages - 1 ? 'opacity:0.3;pointer-events:none' : '';
+    nav = '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">' +
+      '<button onclick="tokenLogMovePage(-1)" style="background:none;border:none;color:var(--mint2);font-weight:700;font-size:12px;cursor:pointer;padding:4px 8px;' + pd + '">◀ 이전</button>' +
+      '<span style="font-size:11px;color:var(--lgray)">' + (_tokenLogPage + 1) + ' / ' + totalPages + '</span>' +
+      '<button onclick="tokenLogMovePage(1)" style="background:none;border:none;color:var(--mint2);font-weight:700;font-size:12px;cursor:pointer;padding:4px 8px;' + nd + '">다음 ▶</button>' +
+    '</div>';
+  }
+  el.innerHTML = rows + nav;
 }
 
+function tokenLogMovePage(dir) {
+  var totalPages = Math.ceil(_tokenLogs.length / TOKEN_LOG_PAGE);
+  _tokenLogPage = Math.max(0, Math.min(_tokenLogPage + dir, totalPages - 1));
+  renderTokenLogPage();
+}
 
 // 배너 프로필 사진 갱신
 function updateBannerProfile() {
