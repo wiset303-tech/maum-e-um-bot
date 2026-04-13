@@ -2079,7 +2079,8 @@ async function onLoginSuccess(data) {
         }),
       ]);
     } else {
-      // 교사: 학급 대시보드 + 학생 목록
+      // 교사: 학급 대시보드 + 학생 목록 + 출석부 맵 — 동시 로드
+      var _bgToday = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
       await Promise.all([
         loadDashboard(),
         api('get_students', { teacher_uid: teacherUid }).then(function(res) {
@@ -2089,35 +2090,29 @@ async function onLoginSuccess(data) {
             renderStudentList();
           }
         }),
+        api('get_emotions', { teacher_uid: teacherUid }).then(function(res) {
+          if (res.status === 'ok') {
+            CAL.data = {};
+            _attendanceMap = {};
+            var todayEmotions = [];
+            res.data.emotions.forEach(function(e) {
+              var d = e.timestamp ? new Date(new Date(e.timestamp).getTime()+9*3600000).toISOString().slice(0,10) : '';
+              CAL.data[d] = (CAL.data[d] || 0) + 1;
+              if (d === _bgToday) todayEmotions.push(e);
+              if (!_attendanceMap[d]) _attendanceMap[d] = {};
+              _attendanceMap[d][e.student_uid] = true;
+            });
+            _preloadedTodayRecords = { date: _bgToday, emotions: todayEmotions };
+            renderCal();
+          }
+        }),
       ]);
-      renderEmotionBarcode(); // 학생 목록 + 감정 데이터 모두 준비된 뒤 바코드 확정 렌더
+      renderEmotionBarcode();
     }
 
     hideLoading();
     startDashboardPoll();        // 관리자면 60초 전체 폴링
     if (STATE.role === 'teacher') startEmotionSignalPoll(); // 교사면 15초 신호 폴링
-
-    // 달력 + 오늘 기록 + 출석부 맵 백그라운드 선로드
-    var _bgToday = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
-    api('get_emotions', { teacher_uid: teacherUid }).then(function(res) {
-      if (res.status === 'ok') {
-        CAL.data = {};
-        _attendanceMap = {};
-        var todayEmotions = [];
-        res.data.emotions.forEach(function(e) {
-          var d = e.timestamp ? new Date(new Date(e.timestamp).getTime()+9*3600000).toISOString().slice(0,10) : '';
-          CAL.data[d] = (CAL.data[d] || 0) + 1;
-          if (d === _bgToday) todayEmotions.push(e);
-          if (!_attendanceMap[d]) _attendanceMap[d] = {};
-          _attendanceMap[d][e.student_uid] = true;
-        });
-        _preloadedTodayRecords = { date: _bgToday, emotions: todayEmotions };
-        renderCal();
-        // 출석부 탭이 이미 열려있으면 즉시 렌더
-        var activeTab = document.querySelector('.tab-btn.active');
-        if (activeTab && activeTab.textContent.includes('출석부')) renderAttendanceGrid();
-      }
-    });
 
   } else if (data.role === 'parent') {
     // 학부모 로그인 — 경량 모드 (폴링 없음)
