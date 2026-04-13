@@ -2125,7 +2125,7 @@ async function onLoginSuccess(data) {
     // 학생: 헤더 설정 버튼 표시 (탭에 설정 없으므로 BGM 접근용)
     var btnSet = document.getElementById('btnSettings');
     if (btnSet) btnSet.classList.remove('hidden');
-    showLoading('잠깐만요, 화면 준비 중이에요 💚');
+    showLoading('마음데이터를 불러오는 중입니다 💚');
     buildStudentUI();
     // 토큰잔액 + 오늘 감정 제출 여부 — 둘 다 준비된 뒤 스피너 해제
     var today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
@@ -4027,9 +4027,9 @@ function renderRegionTable(schools, containerId) {
                 '<div style="width:' + negW + '%;background:#ff6b6b"></div>'
               : '') +
           '</div>' +
-          '<div style="display:flex;gap:8px;margin-top:4px;font-size:10px;color:var(--gray)">' +
-            '<span>😊 ' + d.pos + '</span><span>😐 ' + d.neu + '</span><span>😢 ' + d.neg + '</span>' +
-            '<span style="margin-left:auto">학교 ' + d.schoolCount + '곳</span>' +
+          '<div style="display:flex;gap:6px;margin-top:4px;font-size:10px;color:var(--gray);flex-wrap:nowrap;overflow:hidden">' +
+            '<span style="white-space:nowrap">😊 ' + d.pos + '</span><span style="white-space:nowrap">😐 ' + d.neu + '</span><span style="white-space:nowrap">😢 ' + d.neg + '</span>' +
+            '<span style="margin-left:auto;flex-shrink:0;white-space:nowrap">학교 ' + d.schoolCount + '곳</span>' +
           '</div>' +
         '</div>' +
         '<div style="text-align:right;flex-shrink:0;margin-left:4px">' +
