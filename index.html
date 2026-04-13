@@ -2645,7 +2645,9 @@ async function toggleAdminStudents(btn, teacherUid) {
         '<div class="stu-dropdown" style="display:none">' +
           '<button onclick="openChangePw(\'' + uid2 + '\',\'' + nm2 + '\')">🔑 비번변경</button>' +
           '<button onclick="resetStudentPw(\'' + uid2 + '\',\'' + nm2 + '\')">🔄 비번초기화</button>' +
-          '<button onclick="replaceCard(this);closeStuMenu()" data-uid="' + uid2 + '" data-name="' + nm2 + '">🪪 카드교체</button>' +
+          (s.nfc_uid
+            ? '<button onclick="replaceCard(this,\'replace\');closeStuMenu()" data-uid="' + uid2 + '" data-name="' + nm2 + '">🪪 카드교체</button>'
+            : '<button onclick="replaceCard(this,\'register\');closeStuMenu()" data-uid="' + uid2 + '" data-name="' + nm2 + '">🪪 NFC 등록</button>') +
           '<div class="divider"></div>' +
           '<button class="danger" onclick="deactivateBtn(this)" data-uid="' + uid2 + '" data-name="' + nm2 + '">🚫 비활성</button>' +
         '</div>' +
@@ -5700,18 +5702,23 @@ async function deactivate(uid, name) {
   else toast(res.message);
 }
 
-function replaceCard(btn) {
+function replaceCard(btn, mode) {
   var uid = btn.getAttribute('data-uid');
   var name = btn.getAttribute('data-name');
   if (!uid) return;
-  // 기존 로직
-  replaceCardById(uid, name);
+  replaceCardById(uid, name, mode || 'replace');
 }
-function replaceCardById(uid, name) {
-  STATE.nfcPending = { mode:'replace', student_uid: uid, name };
-  document.getElementById('nfcRegisterStatus').textContent = name+'의 새 카드를 대주세요';
+function replaceCardById(uid, name, mode) {
+  mode = mode || 'replace';
+  STATE.nfcPending = { mode: mode === 'register' ? 'replace' : 'replace', student_uid: uid, name };
+  // 모달 안내 문구 — 신규 등록 vs 교체 구분
+  var statusMsg = mode === 'register'
+    ? name + '의 NFC 카드를 대주세요 (처음 등록)'
+    : name + '의 새 카드를 대주세요 (기존 카드 교체)';
+  var animIcon = mode === 'register' ? '🪪' : '🔄';
+  document.getElementById('nfcRegisterStatus').textContent = statusMsg;
   document.getElementById('nfcRegisterUid').textContent = '';
-  document.getElementById('nfcRegisterAnim').textContent = '🔄';
+  document.getElementById('nfcRegisterAnim').textContent = animIcon;
   openModal('modal-nfc-register');
   focusNfcInput();
 }
