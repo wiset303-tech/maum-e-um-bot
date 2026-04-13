@@ -7422,11 +7422,19 @@ async function saveRegularToken() {
     school_name : STATE.user.school_name || '',
     save_type   : 'regular',
   });
-  hideLoading();
   if (res.status === 'ok') {
+    if (res.data.new_balance) {
+      STATE.tokenBalance = Object.assign({}, STATE.tokenBalance, res.data.new_balance);
+      _refreshTokenCards(STATE.tokenBalance);
+    }
+    hideLoading();
+    if (card) { card.style.pointerEvents = ''; card.style.opacity = '1'; }
     toast((res.data.message || '저축 완료!') + ' 🌡️');
-  } else toast(res.message);
-  _restore();
+  } else {
+    hideLoading();
+    _restore();
+    toast(res.message);
+  }
 }
 
 // ─────────────────────────────────────────
@@ -7479,11 +7487,17 @@ async function saveGiftToken(count) {
     school_name : STATE.user.school_name || '',
     save_type   : saveType,
   });
-  hideLoading();
   if (res.status === 'ok') {
+    if (res.data.new_balance) {
+      STATE.tokenBalance = Object.assign({}, STATE.tokenBalance, res.data.new_balance);
+      _refreshTokenCards(STATE.tokenBalance);
+    }
+    hideLoading();
     toast((res.data.message || '선물 저축 완료!') + ' 🌟');
-    loadTokenBalance();
-  } else toast(res.message);
+  } else {
+    hideLoading();
+    toast(res.message);
+  }
 }
 
 // ─────────────────────────────────────────
@@ -7563,12 +7577,19 @@ async function saveAllTokens() {
     school_name : STATE.user.school_name || '',
     save_type   : 'all',
   });
-  hideLoading();
-  _restore();
   if (res.status === 'ok') {
+    if (res.data.new_balance) {
+      STATE.tokenBalance = Object.assign({}, STATE.tokenBalance, res.data.new_balance);
+      _refreshTokenCards(STATE.tokenBalance);
+    }
+    hideLoading();
+    _restore();
     toast((res.data.message || '전체 저축 완료!') + ' 🌡️');
-    loadTokenBalance();
-  } else toast(res.message);
+  } else {
+    hideLoading();
+    _restore();
+    toast(res.message);
+  }
 }
 
 function openGiftSelect() {
@@ -7617,14 +7638,17 @@ async function giftToken(friend) {
     teacher_uid: STATE.user.teacher_uid,
     school_name: STATE.user.school_name || '',
   });
-  hideLoading();
   if (res.status === 'ok') {
+    if (res.data.new_balance) {
+      STATE.tokenBalance = Object.assign({}, STATE.tokenBalance, res.data.new_balance);
+      _refreshTokenCards(STATE.tokenBalance);
+    }
+    hideLoading();
     if (res.data.class_bonus) { showWarmthBonus(); }
-    toast((res.data.message || '선물 완료!') + '\n잔액을 불러오는 중이에요 💌');
-    loadTokenBalance();
+    toast(res.data.message || '선물 완료! 💌');
   } else {
+    hideLoading();
     toast(res.message);
-    // 실패 시 선물하기 버튼(메인)만 복구 — 모달은 이미 닫혔으므로 재시도 안내
   }
 }
 
