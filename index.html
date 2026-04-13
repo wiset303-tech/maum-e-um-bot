@@ -7244,7 +7244,9 @@ function updateHeartTempUI(temp) {
 async function loadTokenLog() {
   var el = document.getElementById('tokenLogList');
   if (!el) return;
-  var res = await api('get_token_log', { student_uid: STATE.studentUid });
+  var studentUid = STATE.user && STATE.user.student_uid;
+  if (!studentUid) return;
+  var res = await api('get_token_log', { student_uid: studentUid });
   if (!res || res.status !== 'ok') return;
   var logs = res.data.logs || [];
   if (!logs.length) {
