@@ -988,7 +988,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   <button class="nfc-settings btn-icon" onclick="openSettings()">⚙️</button>
   <div class="nfc-top">
     <h1 class="gaegu">마음이음</h1>
-    <p>카드를 가까이 대주세요 🪪</p>
+    <p>마음카드를 띠링- 🪪</p>
   </div>
   <div class="nfc-anim-wrap">
     <div class="nfc-ripple"></div>
@@ -997,7 +997,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <div class="nfc-ripple"></div>
     <div class="nfc-icon">🪪</div>
   </div>
-  <div class="nfc-msg gaegu" id="nfcMsg">카드를 대주세요</div>
+  <div class="nfc-msg gaegu" id="nfcMsg">마음카드를 띠링-</div>
 
   <!-- 환경별 안내 영역 — updateNfcEnvUI()가 동적으로 제어 -->
   <!-- Android NFC 영역 -->
@@ -1102,7 +1102,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <button class="modal-close" onclick="closeModal('modal-nfc-register')">✕</button>
     <div class="nfc-register-wrap">
       <div class="nfc-register-anim" id="nfcRegisterAnim">🪪</div>
-      <div class="nfc-register-status gaegu" id="nfcRegisterStatus">카드를 가까이 대주세요</div>
+      <div class="nfc-register-status gaegu" id="nfcRegisterStatus">마음카드를 띠링-</div>
       <div style="font-size:12px;color:var(--gray);margin-top:8px" id="nfcRegisterUid"></div>
     </div>
     <div style="border-top:1px solid var(--lgray);margin-top:16px;padding-top:14px;text-align:center">
@@ -1361,7 +1361,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <!-- 그라데이션 텍스트 배너 -->
       <div style="background:linear-gradient(135deg,var(--mint2),#7c9de8,var(--lav));padding:16px 20px 14px;text-align:center">
         <div class="gaegu maeum-pulse" style="font-size:20px;color:#fff;letter-spacing:.5px">차례로 마음잇는 중 💚</div>
-        <div id="attendWaitMsg" style="font-size:12px;color:rgba(255,255,255,.82);margin-top:4px">카드를 가까이 대주세요</div>
+        <div id="attendWaitMsg" style="font-size:12px;color:rgba(255,255,255,.82);margin-top:4px">마음카드를 띠링-</div>
         <div id="attendReaderStatus" style="font-size:11px;margin-top:6px;color:rgba(255,255,255,.7)"></div>
       </div>
       <!-- 수동 검색 -->
@@ -2066,7 +2066,7 @@ async function handleNfcUid(uid) {
   } else {
     hideLoading();
     toast(res.message || '등록되지 않은 카드입니다');
-    if(msg) msg.textContent = '카드를 대주세요';
+    if(msg) msg.textContent = '마음카드를 띠링-';
     focusNfcInput();
   }
 }
@@ -2790,7 +2790,7 @@ function triggerNfcFromTeacherEdit() {
   var uid  = document.getElementById('te-teacher-uid').value;
   var name = document.getElementById('te-name').value || document.getElementById('te-modal-title').textContent.replace('✏️ ','').replace(' 선생님 정보 수정','');
   STATE.nfcPending = { mode: 'replace_teacher', teacher_uid: uid, name: name, fromEdit: true };
-  document.getElementById('nfcRegisterStatus').textContent = name + ' 선생님의 마음카드를 대주세요';
+  document.getElementById('nfcRegisterStatus').textContent = name + ' 선생님의 마음카드를 띠링-';
   document.getElementById('nfcRegisterUid').textContent = '';
   document.getElementById('nfcRegisterAnim').textContent = '🔄';
   openModal('modal-nfc-register');
@@ -3206,7 +3206,7 @@ function previewStudent() {
 function openTeacherForm() {
   // NFC 먼저 등록
   STATE.nfcPending = { mode: 'teacher' };
-  document.getElementById('nfcRegisterStatus').textContent = '선생님 카드를 가까이 대주세요';
+  document.getElementById('nfcRegisterStatus').textContent = '선생님의 마음카드를 띠링-';
   document.getElementById('nfcRegisterUid').textContent = '';
   document.getElementById('nfcRegisterAnim').textContent = '🪪';
   openModal('modal-nfc-register');
@@ -3364,8 +3364,8 @@ function adminDashboardHTML() {
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">' +
       '<div class="card-label" style="margin:0">학교별 현황</div>' +
       '<div style="display:flex;align-items:center;gap:6px">' +
-        '<button class="btn btn-sm btn-secondary" id="adm-sort-temp" onclick="admSortSchools(\'temp\')" style="font-size:11px;padding:3px 8px">온도순</button>' +
-        '<button class="btn btn-sm btn-secondary" id="adm-sort-name" onclick="admSortSchools(\'name\')" style="font-size:11px;padding:3px 8px">이름순</button>' +
+        '<button class="btn btn-sm btn-secondary" id="adm-school-sort-temp" onclick="admSortSchools(\'temp\')" style="font-size:11px;padding:3px 8px">온도순</button>' +
+        '<button class="btn btn-sm btn-secondary" id="adm-school-sort-name" onclick="admSortSchools(\'name\')" style="font-size:11px;padding:3px 8px">이름순</button>' +
       '</div>' +
     '</div>' +
     '<div id="adm-school-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px"></div>' +
@@ -3609,7 +3609,7 @@ function _attendShowWaiting() {
   var si = document.getElementById('attend-search-input');
   if (si) si.value = '';
   var msg = document.getElementById('attendWaitMsg');
-  if (msg) msg.textContent = '카드를 가까이 대주세요';
+  if (msg) msg.textContent = '마음카드를 띠링-';
   // 세부감정 초기화
   var ms = document.getElementById('attend-micro-section');
   if (ms) ms.style.display = 'none';
@@ -3650,7 +3650,7 @@ async function handleAttendNfc(uid) {
   if (res.status === 'already_attended') {
     AUDIO.sfx('nfc');
     toast('✅ ' + res.data.student_name + ' — 이미 등교했어요!');
-    if (msg) msg.textContent = '카드를 가까이 대주세요';
+    if (msg) msg.textContent = '마음카드를 띠링-';
     updateNfcEnvUI();
     focusNfcInput();
   } else if (res.status === 'ok') {
@@ -3658,7 +3658,7 @@ async function handleAttendNfc(uid) {
     _attendShowConfirm(res.data);
   } else {
     toast(res.message || '등록되지 않은 카드입니다');
-    if (msg) msg.textContent = '카드를 가까이 대주세요';
+    if (msg) msg.textContent = '마음카드를 띠링-';
     focusNfcInput();
   }
 }
@@ -5551,7 +5551,7 @@ function showLessStudents() {
 // ════════════════════════════════════════
 function openNfcRegister() {
   STATE.nfcPending = null;
-  document.getElementById('nfcRegisterStatus').textContent = '카드를 가까이 대주세요';
+  document.getElementById('nfcRegisterStatus').textContent = '마음카드를 띠링-';
   document.getElementById('nfcRegisterUid').textContent = '';
   document.getElementById('nfcRegisterAnim').textContent = '🪪';
   openModal('modal-nfc-register');
@@ -5569,7 +5569,7 @@ async function handleRegisterNfc(uid) {
     animEl.textContent = '❌';
     toast('이미 ' + dup.data.name + '의 카드입니다');
     await sleep(1500);
-    statusEl.textContent = '다른 카드를 대주세요';
+    statusEl.textContent = '다른 마음카드를 띠링-';
     animEl.textContent = '🪪';
     focusNfcInput();
     return;
@@ -5648,7 +5648,11 @@ async function handleRegisterNfc(uid) {
     return;
   }
 
-  // 학생 등록 모드
+  // 학생 등록 모드 — 교사 역할 + 상단 마음카드 등록 버튼(nfcPending=null)으로 진입한 경우만 허용
+  if (STATE.role !== 'teacher') {
+    // 관리자/학생 역할에서는 이 경로로 진입 불가 — 조용히 종료
+    return;
+  }
   var u = STATE.user;
   STATE.selectedGender = null;
   document.getElementById('sf-nfc-uid').value = uid;
@@ -5724,7 +5728,7 @@ function generateId() {
 function retapTeacherNfc() {
   closeModal('modal-teacher-form');
   STATE.nfcPending = { mode: 'teacher' };
-  document.getElementById('nfcRegisterStatus').textContent = '선생님 카드를 가까이 대주세요';
+  document.getElementById('nfcRegisterStatus').textContent = '선생님의 마음카드를 띠링-';
   document.getElementById('nfcRegisterUid').textContent = '';
   document.getElementById('nfcRegisterAnim').textContent = '🪪';
   openModal('modal-nfc-register');
@@ -5891,7 +5895,7 @@ function triggerNfcFromEdit() {
   var name = document.getElementById('se-name').value || document.getElementById('se-modal-title').textContent.replace('✏️ ','').replace(' 정보 수정','');
   STATE.nfcPending = { mode: 'replace', student_uid: uid, name: name, fromEdit: true };
   var animIcon = document.getElementById('se-nfc-btn').textContent.indexOf('교체') >= 0 ? '🔄' : '🪪';
-  document.getElementById('nfcRegisterStatus').textContent = name + '의 마음카드를 대주세요';
+  document.getElementById('nfcRegisterStatus').textContent = name + '의 마음카드를 띠링-';
   document.getElementById('nfcRegisterUid').textContent = '';
   document.getElementById('nfcRegisterAnim').textContent = animIcon;
   openModal('modal-nfc-register');
@@ -5925,8 +5929,8 @@ function replaceCardById(uid, name, mode) {
   STATE.nfcPending = { mode: mode === 'register' ? 'replace' : 'replace', student_uid: uid, name };
   // 모달 안내 문구 — 신규 등록 vs 교체 구분
   var statusMsg = mode === 'register'
-    ? name + '의 NFC 카드를 대주세요 (처음 등록)'
-    : name + '의 새 카드를 대주세요 (기존 카드 교체)';
+    ? name + '의 마음카드를 띠링-'
+    : name + '의 마음카드를 띠링-';
   var animIcon = mode === 'register' ? '🪪' : '🔄';
   document.getElementById('nfcRegisterStatus').textContent = statusMsg;
   document.getElementById('nfcRegisterUid').textContent = '';
