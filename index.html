@@ -1098,7 +1098,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 </div>
 
 <!-- ══ 모달: NFC 학생 등록 ══ -->
-<div id="modal-nfc-register" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-nfc-register')">
+<div id="modal-nfc-register" class="modal-overlay hidden" style="z-index:3500" onclick="closeModalOutside(event,'modal-nfc-register')">
   <div class="modal-box" style="position:relative">
     <div class="modal-title">🪪 카드 등록</div>
     <button class="modal-close" onclick="closeModal('modal-nfc-register')">✕</button>
@@ -1106,12 +1106,6 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <div class="nfc-register-anim" id="nfcRegisterAnim">🪪</div>
       <div class="nfc-register-status gaegu" id="nfcRegisterStatus">마음카드를 띠링-</div>
       <div style="font-size:12px;color:var(--gray);margin-top:8px" id="nfcRegisterUid"></div>
-    </div>
-    <div style="border-top:1px solid var(--lgray);margin-top:16px;padding-top:14px;text-align:center">
-      <div style="font-size:12px;color:var(--gray);margin-bottom:10px">카드가 없거나 인식이 안 되나요?</div>
-      <button class="btn btn-secondary" onclick="skipNfcRegister()" style="width:auto;padding:10px 20px;font-size:13px">
-        🖊️ NFC 없이 직접 등록하기
-      </button>
     </div>
   </div>
 </div>
@@ -2204,26 +2198,7 @@ async function onLoginSuccess(data) {
   }
 }
 
-// NFC 없이 직접 등록
-function skipNfcRegister() {
-  closeModal('modal-nfc-register');
-  if (STATE.nfcPending && STATE.nfcPending.mode === 'teacher') {
-    openTeacherFormDirect();
-  } else {
-    STATE.selectedGender = null;
-    document.getElementById('sf-nfc-uid').value = '';
-    document.getElementById('sf-name').value = '';
-    document.getElementById('sf-num').value = '';
-    document.getElementById('sf-id').value = '';
-    document.getElementById('sf-pw').value = '';
-    // 성별 버튼 초기화
-    var m = document.getElementById('sf-gender-m');
-    var f = document.getElementById('sf-gender-f');
-    if(m) { m.style.background='var(--lgray)'; m.style.color='var(--navy)'; m.style.borderColor='var(--lgray)'; }
-    if(f) { f.style.background='var(--lgray)'; f.style.color='var(--navy)'; f.style.borderColor='var(--lgray)'; }
-    openModal('modal-student-form');
-  }
-}
+// NFC 없이 직접 등록 기능은 27차에 제거됨 (마음카드 교체/등록은 NFC 태그로만 진행)
 
 function logout() {
   stopDashboardPoll();
