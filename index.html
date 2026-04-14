@@ -1158,24 +1158,6 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   </div>
 </div>
 
-<!-- ══ 모달: 교사 정보 수정 (관리자) ══ -->
-<div id="modal-teacher-edit" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-teacher-edit')">
-  <div class="modal-box" style="position:relative;max-height:90vh;overflow-y:auto">
-    <div class="modal-title" id="te-modal-title">✏️ 교사 정보 수정</div>
-    <button class="modal-close" onclick="closeModal('modal-teacher-edit')">✕</button>
-    <input type="hidden" id="te-teacher-uid">
-    <!-- 마음카드 상태 -->
-    <div id="te-nfc-status" style="background:var(--mint4);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:8px">
-      <span id="te-nfc-label" style="font-size:13px;color:var(--mint2);font-weight:700">🔲 마음카드 없음</span>
-      <button id="te-nfc-btn" onclick="triggerNfcFromTeacherEdit()" style="background:var(--mint3);border:1.5px solid var(--mint2);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;color:var(--navy);cursor:pointer;white-space:nowrap;flex-shrink:0">🪪 마음카드 등록</button>
-    </div>
-    <!-- 이름 -->
-    <div class="inp-label">이름 <span style="color:#e05050">*</span></div>
-    <input class="inp" id="te-name" placeholder="교사 이름" style="margin-bottom:16px">
-    <button class="btn btn-primary" onclick="submitTeacherEdit()">💾 저장하기</button>
-  </div>
-</div>
-
 <!-- ══ 모달: 소감정 더보기 ══ -->
 <div id="modal-more-emotions" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-more-emotions')">
   <div class="modal-box" style="position:relative;max-height:80vh;overflow-y:auto">
@@ -3270,13 +3252,6 @@ function _openTeacherFormCreate(nfcUid) {
     nfcLabel.style.color = 'var(--gray)';
   }
   openModal('modal-teacher-form');
-}
-
-function openTeacherFormDirect() {
-  openModal('modal-teacher-form');
-  document.getElementById('tf-nfc-uid').value = '';
-  document.getElementById('tf-nfc-label').textContent = '🔲 NFC 카드 없음';
-  document.getElementById('tf-region').value = '';
 }
 
 function dashboardHTML() {
@@ -5969,17 +5944,6 @@ function generateId() {
   var typeCode = (u.school_type||'e') === 'e' ? 'e' : (u.school_type === 'm' ? 'm' : 'h');
   var id = prefix + typeCode + String(u.year||2026).slice(-2) + (u.grade||'') + (u.class||'') + ('0'+num).slice(-2);
   document.getElementById('sf-id').value = id;
-}
-
-function retapTeacherNfc() {
-  closeModal('modal-teacher-form');
-  STATE.nfcPending = { mode: 'teacher' };
-  document.getElementById('nfcRegisterStatus').textContent = '선생님의 마음카드를 띠링-';
-  document.getElementById('nfcRegisterUid').textContent = '';
-  document.getElementById('nfcRegisterAnim').textContent = '🪪';
-  _updateNfcSkipVisibility();
-  openModal('modal-nfc-register');
-  focusNfcInput();
 }
 
 async function submitTeacherForm() {
