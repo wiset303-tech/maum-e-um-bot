@@ -845,6 +845,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   background:linear-gradient(transparent,rgba(0,0,0,.55));
   color:#fff;font-size:11px;padding:20px 8px 7px;
 }
+.album-item .album-name{
+  position:absolute;top:6px;left:6px;
+  background:rgba(0,0,0,.55);color:#fff;
+  font-size:11px;font-weight:700;
+  padding:3px 8px;border-radius:10px;
+  max-width:calc(100% - 12px);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  pointer-events:none;
+}
 .album-item .album-caption-thumb{
   font-size:11px;color:rgba(255,255,255,.85);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
@@ -2106,7 +2115,7 @@ async function onLoginSuccess(data) {
 
   if (data.role === 'admin' || data.role === 'teacher') {
     buildTeacherUI();
-    showLoading('데이터를 불러오는 중이에요 🌤');
+    showLoading('마음 데이터를 불러오는 중이에요 🌤');
 
     var teacherUid = data.teacher_uid || '';
 
@@ -8448,8 +8457,13 @@ function albumItemHTML(a, canDelete) {
   _albumCache.push({ data: a, canDelete: canDelete });
   var thumb = resolveAlbumThumb(a);
   var dateStr = String(a.date).slice(0, 10);
+  // 교사/관리자 뷰에서만 학생 이름 뱃지 표시 (학생 본인 뷰는 불필요)
+  var showName = (STATE.role !== 'student') && a.student_name;
+  var nmSafe = showName ? String(a.student_name).replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+  var nameBadge = showName ? '<div class="album-name">' + nmSafe + '</div>' : '';
   return '<div class="album-item" onclick="openAlbumPopup(' + idx + ')">' +
     '<img src="' + thumb + '" alt="마음앨범" loading="lazy" onerror="this.parentNode.style.display=\'none\'">' +
+    nameBadge +
     '<div class="album-date">' +
       '<div>' + dateStr + '</div>' +
       (a.caption ? '<div class="album-caption-thumb">' + a.caption + '</div>' : '') +
