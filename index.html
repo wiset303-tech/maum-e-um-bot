@@ -2104,11 +2104,6 @@ async function onLoginSuccess(data) {
     updateHeaderProfile(data.profile_image_url || '', data.name, data.gender);
   }
 
-  // 알림 로드 (교사/학생/학부모 공통)
-  if (data.role === 'teacher' || data.role === 'student' || data.role === 'parent') {
-    loadNotifications();
-  }
-
   if (data.role === 'admin' || data.role === 'teacher') {
     buildTeacherUI();
     showLoading('데이터를 불러오는 중이에요 🌤');
@@ -2116,7 +2111,7 @@ async function onLoginSuccess(data) {
     var teacherUid = data.teacher_uid || '';
 
     if (data.role === 'admin') {
-      // 관리자: 학교 단위 대시보드 + 교사 목록
+      // 관리자: 학교 단위 대시보드 + 교사 목록 (admin은 알림 수신자 아님)
       await Promise.all([
         loadAdminDashboard(),
         api('get_teachers', {}).then(function(res) {
@@ -2125,10 +2120,11 @@ async function onLoginSuccess(data) {
         }),
       ]);
     } else {
-      // 교사: 학급 대시보드 + 학생 목록 + 출석부 맵 — 동시 로드
+      // 교사: 학급 대시보드 + 학생 목록 + 출석부 맵 + 알림 — 동시 로드
       var _bgToday = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
       await Promise.all([
         loadDashboard(),
+        loadNotifications(),
         api('get_students', { teacher_uid: teacherUid }).then(function(res) {
           if (res.status === 'ok') {
             STATE.students = res.data.students;
@@ -2172,11 +2168,12 @@ async function onLoginSuccess(data) {
     if (btnSet) btnSet.classList.remove('hidden');
     showLoading('마음데이터를 불러오는 중입니다 💚');
     buildStudentUI();
-    // 토큰잔액 + 오늘 감정 제출 여부 — 둘 다 준비된 뒤 스피너 해제
+    // 토큰잔액 + 오늘 감정 제출 여부 + 알림 — 모두 준비된 뒤 스피너 해제
     var today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
     await Promise.all([
       loadTokenBalance(),
       loadTokenLog(),
+      loadNotifications(),
       api('get_emotions', { student_uid: data.student_uid, date: today }).then(function(res) {
         if (res.status === 'ok' && res.data.emotions.length) {
           var e = res.data.emotions[0];
