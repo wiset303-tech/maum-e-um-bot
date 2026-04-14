@@ -1189,56 +1189,54 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <div class="inp-label">비밀번호 <span style="color:#e05050">*</span></div>
       <input class="inp" id="tf-pw" type="password" placeholder="비밀번호" style="margin-bottom:10px">
     </div>
-    <!-- 학교·지역·학교급·학년·반·학년도 (공통, edit 시 JS가 readOnly 처리) -->
-    <div class="inp-label">학교명 <span style="color:#e05050">*</span></div>
-    <input class="inp" id="tf-school" placeholder="공식 이름을 입력해 주세요 (예: 학장초등학교)" style="margin-bottom:10px">
-    <div class="inp-label">지역 (시/도) <span style="color:#e05050">*</span></div>
-    <select class="inp" id="tf-region" style="margin-bottom:10px">
-      <option value="">-- 지역 선택 --</option>
-      <option value="서울">서울</option>
-      <option value="부산">부산</option>
-      <option value="대구">대구</option>
-      <option value="인천">인천</option>
-      <option value="광주">광주</option>
-      <option value="대전">대전</option>
-      <option value="울산">울산</option>
-      <option value="세종">세종</option>
-      <option value="경기">경기</option>
-      <option value="강원">강원</option>
-      <option value="충북">충북</option>
-      <option value="충남">충남</option>
-      <option value="전북">전북</option>
-      <option value="전남">전남</option>
-      <option value="경북">경북</option>
-      <option value="경남">경남</option>
-      <option value="제주">제주</option>
-    </select>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
-      <div>
-        <div class="inp-label">학교급</div>
-        <select class="inp" id="tf-type" style="margin-bottom:0">
-          <option value="e">초등</option>
-          <option value="m">중등</option>
-          <option value="h">고등</option>
-        </select>
+    <!-- 학교·지역·학교급·학년·반·학년도 (create 전용 — edit은 🏫 학급정보 변경 모달 사용) -->
+    <div data-mode="create">
+      <div class="inp-label">학교명 <span style="color:#e05050">*</span></div>
+      <input class="inp" id="tf-school" placeholder="공식 이름을 입력해 주세요 (예: 학장초등학교)" style="margin-bottom:10px">
+      <div class="inp-label">지역 (시/도) <span style="color:#e05050">*</span></div>
+      <select class="inp" id="tf-region" style="margin-bottom:10px">
+        <option value="">-- 지역 선택 --</option>
+        <option value="서울">서울</option>
+        <option value="부산">부산</option>
+        <option value="대구">대구</option>
+        <option value="인천">인천</option>
+        <option value="광주">광주</option>
+        <option value="대전">대전</option>
+        <option value="울산">울산</option>
+        <option value="세종">세종</option>
+        <option value="경기">경기</option>
+        <option value="강원">강원</option>
+        <option value="충북">충북</option>
+        <option value="충남">충남</option>
+        <option value="전북">전북</option>
+        <option value="전남">전남</option>
+        <option value="경북">경북</option>
+        <option value="경남">경남</option>
+        <option value="제주">제주</option>
+      </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+        <div>
+          <div class="inp-label">학교급</div>
+          <select class="inp" id="tf-type" style="margin-bottom:0">
+            <option value="e">초등</option>
+            <option value="m">중등</option>
+            <option value="h">고등</option>
+          </select>
+        </div>
+        <div>
+          <div class="inp-label">학년</div>
+          <input class="inp" id="tf-grade" type="number" placeholder="4" style="margin-bottom:0">
+        </div>
+        <div>
+          <div class="inp-label">반</div>
+          <input class="inp" id="tf-class" type="number" placeholder="1" style="margin-bottom:0">
+        </div>
       </div>
-      <div>
-        <div class="inp-label">학년</div>
-        <input class="inp" id="tf-grade" type="number" placeholder="4" style="margin-bottom:0">
-      </div>
-      <div>
-        <div class="inp-label">반</div>
-        <input class="inp" id="tf-class" type="number" placeholder="1" style="margin-bottom:0">
-      </div>
+      <div class="inp-label">학년도</div>
+      <input class="inp" id="tf-year" placeholder="2026" value="2026" style="margin-bottom:16px">
     </div>
-    <div class="inp-label">학년도</div>
-    <input class="inp" id="tf-year" placeholder="2026" value="2026" style="margin-bottom:16px">
-    <!-- edit 전용: 비밀번호 초기화 섹션 -->
-    <div data-mode="edit" style="display:none;border-top:1px solid var(--lgray);padding-top:14px;margin-bottom:14px">
-      <button class="btn" style="width:100%;background:#fff0f0;border:1.5px solid #f4c4c4;color:#c84040;font-weight:700;border-radius:12px;padding:11px 0" onclick="resetTeacherPasswordFromEdit()">🔑 비밀번호를 maum1234로 초기화</button>
-    </div>
-    <!-- 제출 -->
-    <button class="btn btn-primary" id="tf-submit-btn" onclick="submitTeacherForm()">교사 등록 완료</button>
+    <!-- 제출 (create 전용 — edit은 NFC 태그 즉시 저장) -->
+    <button class="btn btn-primary" id="tf-submit-btn" data-mode="create" onclick="submitTeacherForm()">교사 등록 완료</button>
   </div>
 </div>
 
@@ -1482,6 +1480,27 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <p id="changeTeacherInfoDesc" style="font-size:13px;color:var(--gray);margin-bottom:14px;text-align:center"></p>
     <div class="inp-label">학교명</div>
     <input class="inp" id="cti-school" placeholder="예: 마음초등학교" style="margin-bottom:10px">
+    <div class="inp-label">지역 (시/도) <span style="color:#e05050">*</span></div>
+    <select class="inp" id="cti-region" style="margin-bottom:10px">
+      <option value="">-- 지역 선택 --</option>
+      <option value="서울">서울</option>
+      <option value="부산">부산</option>
+      <option value="대구">대구</option>
+      <option value="인천">인천</option>
+      <option value="광주">광주</option>
+      <option value="대전">대전</option>
+      <option value="울산">울산</option>
+      <option value="세종">세종</option>
+      <option value="경기">경기</option>
+      <option value="강원">강원</option>
+      <option value="충북">충북</option>
+      <option value="충남">충남</option>
+      <option value="전북">전북</option>
+      <option value="전남">전남</option>
+      <option value="경북">경북</option>
+      <option value="경남">경남</option>
+      <option value="제주">제주</option>
+    </select>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
       <div>
         <div class="inp-label">학교급</div>
@@ -1502,7 +1521,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     </div>
     <div class="inp-label">학년도</div>
     <input class="inp" id="cti-year" placeholder="2026" style="margin-bottom:16px">
-    <button class="btn btn-mint" style="width:100%" onclick="confirmChangeTeacherInfo()">변경하기</button>
+    <button class="btn btn-primary" style="width:100%" onclick="confirmChangeTeacherInfo()">변경하기</button>
   </div>
 </div>
 
@@ -1533,7 +1552,12 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <input class="inp" id="changePwInput" type="password" placeholder="4자 이상 입력하세요"
       onkeydown="if(event.key==='Enter')confirmChangePw()" style="margin-bottom:6px">
     <div style="font-size:11px;color:var(--gray);margin-bottom:16px">4자 이상 입력해주세요</div>
-    <button class="btn btn-mint" style="width:100%" onclick="confirmChangePw()">변경하기</button>
+    <button class="btn btn-primary" style="width:100%" onclick="confirmChangePw()">변경하기</button>
+    <!-- teacher 모드 전용: maum1234 초기화 보조 버튼 (openChangeTeacherPw에서만 표시) -->
+    <div id="changePwResetWrap" style="display:none;border-top:1px solid var(--lgray);margin-top:14px;padding-top:14px">
+      <div style="font-size:11px;color:var(--gray);margin-bottom:8px;text-align:center">또는 기본 비밀번호로 초기화</div>
+      <button class="btn" style="width:100%;background:#fff0f0;border:1.5px solid #f4c4c4;color:#c84040;font-weight:700;border-radius:12px;padding:11px 0" onclick="resetPwToDefault()">🔑 maum1234로 초기화</button>
+    </div>
   </div>
 </div>
 
@@ -2670,6 +2694,7 @@ function openChangeTeacherInfo(uid, name) {
   var teacher = (_teacherAll || []).find(function(t){ return t.teacher_uid === uid; });
   document.getElementById('changeTeacherInfoDesc').textContent = name + ' 선생님의 학급 정보를 변경해요';
   document.getElementById('cti-school').value = teacher ? (teacher.school_name||'') : '';
+  document.getElementById('cti-region').value = teacher ? (teacher.region||'') : '';
   document.getElementById('cti-type').value   = teacher ? (teacher.school_type||'e') : 'e';
   document.getElementById('cti-grade').value  = teacher ? (teacher.grade||'') : '';
   document.getElementById('cti-class').value  = teacher ? (teacher.class||'') : '';
@@ -2678,21 +2703,32 @@ function openChangeTeacherInfo(uid, name) {
 }
 async function confirmChangeTeacherInfo() {
   var school = document.getElementById('cti-school').value.trim();
+  var region = document.getElementById('cti-region').value;
   var type   = document.getElementById('cti-type').value;
   var grade  = parseInt(document.getElementById('cti-grade').value, 10);
   var cls    = parseInt(document.getElementById('cti-class').value, 10);
   var year   = parseInt(document.getElementById('cti-year').value, 10);
   if (!school || !grade || !cls || !year) { toast('모든 항목을 입력해주세요'); return; }
+  if (!region) { toast('지역(시/도)을 선택해주세요'); return; }
   closeModal('modal-change-teacher-info');
   showLoading('학급 정보를 변경하는 중이에요 🏫');
   var res = await api('update_teacher_info', {
     teacher_uid: _teacherInfoTargetUid,
     school_name: school, school_type: type,
+    region: region,
     grade: grade, class: cls, year: year,
   });
   hideLoading();
   if (res.status === 'ok') {
     toast('학급 정보가 변경됐어요 ✅');
+    // _teacherAll 캐시 갱신
+    if (_teacherAll) {
+      var t = _teacherAll.filter(function(x){ return x.teacher_uid === _teacherInfoTargetUid; })[0];
+      if (t) {
+        t.school_name = school; t.region = region; t.school_type = type;
+        t.grade = grade; t.class = cls; t.year = year;
+      }
+    }
     renderAdminAccountMgmt();
   } else toast(res.message);
 }
@@ -2705,6 +2741,9 @@ function openChangeTeacherPw(uid, name) {
   document.getElementById('changePwInput').dataset.mode = 'teacher';
   var cwrap = document.getElementById('changePwCurrentWrap');
   if (cwrap) cwrap.style.display = 'none';
+  // teacher 모드 — 🔑 maum1234 초기화 보조 버튼 표시
+  var rwrap = document.getElementById('changePwResetWrap');
+  if (rwrap) rwrap.style.display = '';
   openModal('modal-change-pw');
   setTimeout(function(){ document.getElementById('changePwInput').focus(); }, 300);
 }
@@ -2719,7 +2758,8 @@ function replaceTeacherCardUI(uid, name) {
 }
 
 // ────────────────────────────────────────
-// 교사 정보 수정 모달 (관리자)
+// 교사 NFC 교체 모달 (관리자) — 41차부터 NFC 교체 전용 미니 모달
+// 학급정보는 modal-change-teacher-info, 이름은 openChangeTeacherName, 비번은 modal-change-pw에서 처리
 // ────────────────────────────────────────
 function openTeacherEditById(uid, name) {
   closeStuMenu();
@@ -2728,50 +2768,23 @@ function openTeacherEditById(uid, name) {
 
   STATE._teacherFormMode = 'edit';
 
-  // 타이틀/버튼 라벨
-  document.getElementById('tf-modal-title').textContent = '✏️ ' + name + ' 선생님 정보 수정';
-  document.getElementById('tf-submit-btn').textContent = '💾 저장하기';
+  // 타이틀 — NFC 유무에 따라 동적
+  document.getElementById('tf-modal-title').textContent = (nfcUid ? '🔄 마음카드 교체' : '🪪 마음카드 등록');
 
   // hidden 필드
   document.getElementById('tf-teacher-uid').value = uid;
   document.getElementById('tf-nfc-uid').value = '';
 
-  // 입력 필드 주입 (이름만 수정 가능, 나머지는 표시용)
-  document.getElementById('tf-name').value = name;
-  document.getElementById('tf-school').value = t ? (t.school_name || '') : '';
-  document.getElementById('tf-type').value   = t ? (t.school_type || 'e') : 'e';
-  document.getElementById('tf-grade').value  = t ? (t.grade || '') : '';
-  document.getElementById('tf-class').value  = t ? (t.class || '') : '';
-  document.getElementById('tf-year').value   = t ? (t.year || '2026') : '2026';
-  // region은 getTeachers 응답에 포함되지 않음 → 빈 값으로 표시 (edit 경로에서는 수정 불가)
-  document.getElementById('tf-region').value = '';
+  // 이름 — disabled로 표시만 (누구 카드 관리하는지 식별용)
+  var nameEl = document.getElementById('tf-name');
+  nameEl.value = name;
+  nameEl.disabled = true;
+  nameEl.style.background = 'var(--lgray)';
+  nameEl.style.color = 'var(--gray)';
 
-  // create 전용 블록 숨김 / edit 전용 블록 표시
+  // create 전용 블록 전체 숨김 (학교/지역/학교급/학년/반/학년도 + 아이디/비번 + 제출 버튼)
   var mqC = document.querySelectorAll('#modal-teacher-form [data-mode="create"]');
   for (var i=0;i<mqC.length;i++) mqC[i].style.display = 'none';
-  var mqE = document.querySelectorAll('#modal-teacher-form [data-mode="edit"]');
-  for (var j=0;j<mqE.length;j++) mqE[j].style.display = '';
-
-  // 공통 필드 readOnly + 회색 배경 (학급 정보는 별도 모달에서 수정)
-  var roIds = ['tf-school','tf-grade','tf-class','tf-year'];
-  for (var k=0;k<roIds.length;k++) {
-    var el = document.getElementById(roIds[k]);
-    if (el) {
-      el.readOnly = true;
-      el.style.background = 'var(--lgray)';
-      el.style.color = 'var(--gray)';
-    }
-  }
-  // select는 disabled 처리
-  var selIds = ['tf-region','tf-type'];
-  for (var m=0;m<selIds.length;m++) {
-    var se = document.getElementById(selIds[m]);
-    if (se) {
-      se.disabled = true;
-      se.style.background = 'var(--lgray)';
-      se.style.color = 'var(--gray)';
-    }
-  }
 
   // NFC 섹션: 버튼 표시
   var nfcLabel = document.getElementById('tf-nfc-label');
@@ -2792,7 +2805,7 @@ function openTeacherEditById(uid, name) {
 
 function triggerNfcFromTeacherEdit() {
   var uid  = document.getElementById('tf-teacher-uid').value;
-  var name = document.getElementById('tf-name').value || document.getElementById('tf-modal-title').textContent.replace('✏️ ','').replace(' 선생님 정보 수정','');
+  var name = document.getElementById('tf-name').value || '';
   STATE.nfcPending = { mode: 'replace_teacher', teacher_uid: uid, name: name, fromEdit: true };
   var animIcon = document.getElementById('tf-nfc-btn').textContent.indexOf('교체') >= 0 ? '🔄' : '🪪';
   document.getElementById('nfcRegisterStatus').textContent = name + ' 선생님의 마음카드를 띠링-';
@@ -3212,7 +3225,11 @@ function _openTeacherFormCreate(nfcUid) {
   document.getElementById('tf-nfc-uid').value = nfcUid || '';
   document.getElementById('tf-teacher-uid').value = '';
   // 입력 필드 초기화
-  document.getElementById('tf-name').value = '';
+  var nameEl = document.getElementById('tf-name');
+  nameEl.value = '';
+  nameEl.disabled = false;
+  nameEl.style.background = '';
+  nameEl.style.color = '';
   document.getElementById('tf-id').value = '';
   var pwEl = document.getElementById('tf-pw');
   pwEl.value = '';
@@ -3224,22 +3241,9 @@ function _openTeacherFormCreate(nfcUid) {
   document.getElementById('tf-grade').value = '';
   document.getElementById('tf-class').value = '';
   document.getElementById('tf-year').value = '2026';
-  // 공통 필드 readOnly 해제 (edit 모드 진입 후 재사용 대비)
-  var roIds = ['tf-school','tf-region','tf-type','tf-grade','tf-class','tf-year'];
-  for (var i=0;i<roIds.length;i++) {
-    var el = document.getElementById(roIds[i]);
-    if (el) {
-      if (el.tagName === 'SELECT') el.disabled = false;
-      else el.readOnly = false;
-      el.style.background = '';
-      el.style.color = '';
-    }
-  }
-  // create 전용 블록 표시 / edit 전용 블록 숨김
+  // create 전용 블록 표시 (edit 모드에서 숨겨진 것 원복)
   var mqC = document.querySelectorAll('#modal-teacher-form [data-mode="create"]');
   for (var j=0;j<mqC.length;j++) mqC[j].style.display = '';
-  var mqE = document.querySelectorAll('#modal-teacher-form [data-mode="edit"]');
-  for (var k=0;k<mqE.length;k++) mqE[k].style.display = 'none';
   // NFC 섹션: 버튼 숨김, label만 정보 표시
   var nfcLabel = document.getElementById('tf-nfc-label');
   var nfcBtn = document.getElementById('tf-nfc-btn');
@@ -5947,32 +5951,9 @@ function generateId() {
 }
 
 async function submitTeacherForm() {
-  var mode = STATE._teacherFormMode || 'create';
+  // create 전용 — edit 모드는 NFC 태그 즉시 저장되므로 이 핸들러를 사용하지 않음
   var name = document.getElementById('tf-name').value.trim();
   if (!name) { toast('이름을 입력해주세요'); return; }
-
-  // ── edit 모드: 이름만 수정 (학급 정보는 별도 모달에서) ──
-  if (mode === 'edit') {
-    var teacher_uid = document.getElementById('tf-teacher-uid').value;
-    if (!teacher_uid) { toast('교사 정보를 찾을 수 없어요'); return; }
-    if (STATE.isPreview) { toast('미리보기에서는 저장되지 않아요'); closeModal('modal-teacher-form'); return; }
-    showLoading('교사 정보를 수정하는 중이에요 ✏️');
-    var res = await api('update_teacher_name', { teacher_uid: teacher_uid, new_name: name });
-    hideLoading();
-    if (res.status === 'ok') {
-      toast(res.data.message || '이름이 변경됐어요 ✅');
-      // _teacherAll 캐시 갱신
-      if (_teacherAll) {
-        var t = _teacherAll.filter(function(x){ return x.teacher_uid === teacher_uid; })[0];
-        if (t) t.name = name;
-      }
-      closeModal('modal-teacher-form');
-      renderAdminAccountMgmt();
-    } else {
-      toast(res.message || '저장에 실패했어요');
-    }
-    return;
-  }
 
   // ── create 모드: 신규 등록 ──
   var id     = document.getElementById('tf-id').value.trim();
@@ -6015,22 +5996,7 @@ async function submitTeacherForm() {
   }
 }
 
-// 40차 B-3 — 관리자 교사 편집 모달에서 비밀번호 maum1234로 초기화
-async function resetTeacherPasswordFromEdit() {
-  var teacher_uid = document.getElementById('tf-teacher-uid').value;
-  var name = document.getElementById('tf-name').value.trim() || '이';
-  if (!teacher_uid) { toast('교사 정보를 찾을 수 없어요'); return; }
-  if (!confirm(name + ' 선생님의 비밀번호를 maum1234로 초기화할까요?')) return;
-  if (STATE.isPreview) { toast('미리보기에서는 저장되지 않아요'); return; }
-  showLoading('비밀번호를 초기화하는 중이에요 🔑');
-  var res = await api('reset_teacher_password', { teacher_uid: teacher_uid, caller_role: STATE.role });
-  hideLoading();
-  if (res.status === 'ok') {
-    toast(res.data.message || '비밀번호가 초기화됐어요 ✅');
-  } else {
-    toast(res.message || '초기화에 실패했어요');
-  }
-}
+// 40차 B-3 resetTeacherPasswordFromEdit 제거됨 → 41차 modal-change-pw 통합 (resetPwToDefault)
 
 async function submitStudentForm() {
   var mode = STATE._studentFormMode || 'create';
@@ -6261,6 +6227,8 @@ function openChangePwSelf() {
   var cinput = document.getElementById('changePwCurrentInput');
   if (cwrap) cwrap.style.display = 'block';
   if (cinput) cinput.value = '';
+  var rwrap = document.getElementById('changePwResetWrap');
+  if (rwrap) rwrap.style.display = 'none';
   openModal('modal-change-pw');
   setTimeout(function(){ if (cinput) cinput.focus(); }, 300);
 }
@@ -6273,6 +6241,8 @@ function openChangePw(uid, name) {
   document.getElementById('changePwInput').dataset.mode = 'student';
   var cwrap = document.getElementById('changePwCurrentWrap');
   if (cwrap) cwrap.style.display = 'none';
+  var rwrap = document.getElementById('changePwResetWrap');
+  if (rwrap) rwrap.style.display = 'none';
   openModal('modal-change-pw');
   setTimeout(function(){ document.getElementById('changePwInput').focus(); }, 300);
 }
@@ -6306,6 +6276,24 @@ async function confirmChangePw() {
   }
   hideLoading();
   toast(res.status === 'ok' ? (res.data ? res.data.message : '변경 완료') : res.message);
+}
+
+// 41차 — 관리자 교사 비번 maum1234 초기화 (modal-change-pw teacher 모드 보조 버튼)
+async function resetPwToDefault() {
+  var mode = document.getElementById('changePwInput').dataset.mode;
+  if (mode !== 'teacher') { toast('이 기능은 관리자 전용이에요'); return; }
+  if (!_teacherPwTargetUid) { toast('교사 정보를 찾을 수 없어요'); return; }
+  if (!confirm('이 선생님의 비밀번호를 maum1234로 초기화할까요?')) return;
+  if (STATE.isPreview) { toast('미리보기에서는 저장되지 않아요'); return; }
+  closeModal('modal-change-pw');
+  showLoading('비밀번호를 초기화하는 중이에요 🔑');
+  var res = await api('reset_teacher_password', { teacher_uid: _teacherPwTargetUid, caller_role: STATE.role });
+  hideLoading();
+  if (res.status === 'ok') {
+    toast(res.data.message || '비밀번호가 초기화됐어요 ✅');
+  } else {
+    toast(res.message || '초기화에 실패했어요');
+  }
 }
 
 async function resetStudentPw(uid, name) {
