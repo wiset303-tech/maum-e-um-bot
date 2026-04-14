@@ -4743,10 +4743,10 @@ function admMapRegionClick(region, pinEl) {
     '<div style="' +
       'background:#fff;border-radius:12px;padding:11px 14px;' +
       'box-shadow:0 4px 16px rgba(0,0,0,0.15);' +
-      'border:1.5px solid #4ecdb4;min-width:150px;max-width:190px;' +
+      'border:1.5px solid #4ecdb4;min-width:150px;max-width:220px;' +
       'animation:popupIn 0.18s cubic-bezier(.34,1.56,.64,1)' +
     '">' +
-      '<div style="font-size:13px;font-weight:800;color:var(--navy);margin-bottom:6px">' +
+      '<div style="font-size:13px;font-weight:800;color:var(--navy);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
         weatherEmoji[w.type] + ' ' + region + ' · ' + weatherLabel[w.type] +
       '</div>' +
       (total > 0
@@ -4814,10 +4814,10 @@ function natMapRegionClick(region, pinEl) {
     '<div style="' +
       'background:#fff;border-radius:12px;padding:11px 14px;' +
       'box-shadow:0 4px 16px rgba(0,0,0,0.15);' +
-      'border:1.5px solid #4ecdb4;min-width:150px;max-width:190px;' +
+      'border:1.5px solid #4ecdb4;min-width:150px;max-width:220px;' +
       'animation:popupIn 0.18s cubic-bezier(.34,1.56,.64,1)' +
     '">' +
-      '<div style="font-size:13px;font-weight:800;color:var(--navy);margin-bottom:6px">' +
+      '<div style="font-size:13px;font-weight:800;color:var(--navy);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
         weatherEmoji[w.type] + ' ' + region + ' · ' + weatherLabel[w.type] +
       '</div>' +
       (total > 0
@@ -7703,7 +7703,7 @@ async function saveRegularToken() {
   // 중복 탭 방지 — 카드 즉시 비활성화
   var card = document.getElementById('cardMyToken');
   if (card) { card.style.pointerEvents = 'none'; card.style.opacity = '0.5'; }
-  var _restore = function() { if (card) { card.style.pointerEvents = ''; loadTokenBalance(); } };
+  var _restore = function() { if (card) { card.style.pointerEvents = ''; card.style.opacity = '1'; } };
 
   if (STATE.isPreview) {
     toast('저축 완료! 🌡️ 마음온도가 올라갈 거예요');
@@ -7726,10 +7726,15 @@ async function saveRegularToken() {
     school_name : STATE.user.school_name || '',
     save_type   : 'regular',
   });
-  hideLoading();
   if (res.status === 'ok') {
+    // 로딩 닫기 전에 잔액·기록 모두 갱신 — 토스트 뜰 때 화면이 이미 최신
+    await Promise.all([loadTokenBalance(), loadTokenLog()]);
+    hideLoading();
     toast((res.data.message || '저축 완료!') + ' 🌡️');
-  } else toast(res.message);
+  } else {
+    hideLoading();
+    toast(res.message);
+  }
   _restore();
 }
 
@@ -7783,11 +7788,14 @@ async function saveGiftToken(count) {
     school_name : STATE.user.school_name || '',
     save_type   : saveType,
   });
-  hideLoading();
   if (res.status === 'ok') {
+    await Promise.all([loadTokenBalance(), loadTokenLog()]);
+    hideLoading();
     toast((res.data.message || '선물 저축 완료!') + ' 🌟');
-    loadTokenBalance();
-  } else toast(res.message);
+  } else {
+    hideLoading();
+    toast(res.message);
+  }
 }
 
 // ─────────────────────────────────────────
@@ -7867,12 +7875,16 @@ async function saveAllTokens() {
     school_name : STATE.user.school_name || '',
     save_type   : 'all',
   });
-  hideLoading();
-  _restore();
   if (res.status === 'ok') {
+    await Promise.all([loadTokenBalance(), loadTokenLog()]);
+    hideLoading();
+    _restore();
     toast((res.data.message || '전체 저축 완료!') + ' 🌡️');
-    loadTokenBalance();
-  } else toast(res.message);
+  } else {
+    hideLoading();
+    _restore();
+    toast(res.message);
+  }
 }
 
 function openGiftSelect() {
@@ -7921,12 +7933,13 @@ async function giftToken(friend) {
     teacher_uid: STATE.user.teacher_uid,
     school_name: STATE.user.school_name || '',
   });
-  hideLoading();
   if (res.status === 'ok') {
+    await Promise.all([loadTokenBalance(), loadTokenLog()]);
+    hideLoading();
     if (res.data.class_bonus) { showWarmthBonus(); }
-    toast((res.data.message || '선물 완료!') + '\n잔액을 불러오는 중이에요 💌');
-    loadTokenBalance();
+    toast((res.data.message || '선물 완료!') + ' 💌');
   } else {
+    hideLoading();
     toast(res.message);
     // 실패 시 선물하기 버튼(메인)만 복구 — 모달은 이미 닫혔으므로 재시도 안내
   }
