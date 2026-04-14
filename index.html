@@ -4934,6 +4934,7 @@ async function markAllNotifsRead() {
 
 async function clearAllNotifs() {
   if (!_notifications.length) return;
+  if (!confirm('알림을 모두 삭제할까요?\n삭제한 알림은 되돌릴 수 없어요.')) return;
   _notifications = [];
   _notifPage = 0;
   updateNotifBadge();
@@ -6502,7 +6503,8 @@ function _renderRecordList(emotions) {
         }
       }
 
-      var _t = e.timestamp ? new Date(e.timestamp.replace('T',' ')) : null;
+      var tsSrc = (e.is_modified && e.modified_at) ? e.modified_at : e.timestamp;
+      var _t = tsSrc ? new Date(String(tsSrc).replace('T',' ')) : null;
       var timeStr = _t && !isNaN(_t) ? ((_t.getMonth()+1)+'/'+ _t.getDate()+' '+('0'+_t.getHours()).slice(-2)+':'+('0'+_t.getMinutes()).slice(-2)) : '';
 
       return '<div style="display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px solid var(--lgray)">' +
