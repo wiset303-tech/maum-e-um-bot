@@ -2305,6 +2305,9 @@ function switchTab(idx) {
 
   // ── 교사·관리자 탭 액션 ──
   if (STATE.role === 'teacher' || STATE.role === 'admin') {
+    // 탭 이탈 시 해당 폴 중지
+    stopAttendancePoll();
+    stopAlbumPoll();
     if (idx === 2) {
       if (STATE.role === 'admin') {
         renderAdminAttendance();
@@ -2324,9 +2327,10 @@ function switchTab(idx) {
           }
         }
       }
+      startAttendancePoll();
     }                                                                         // 출석부
-    if (idx === 3 && STATE.role === 'admin') renderAdminAlbum();             // 관리자 마음앨범
-    if (idx === 3 && STATE.role === 'teacher') loadAlbumIfNeeded();          // 교사 마음앨범
+    if (idx === 3 && STATE.role === 'admin') { renderAdminAlbum(); startAlbumPoll(); }             // 관리자 마음앨범
+    if (idx === 3 && STATE.role === 'teacher') { loadAlbumIfNeeded(); startAlbumPoll(); }          // 교사 마음앨범
     if (idx === 1 && STATE.role === 'admin') renderAdminAccountMgmt();      // 관리자 계정관리
     if (idx === 4 && STATE.role === 'admin') {                               // 관리자 탭: BGM 상태 동기화
       var admBgm = document.getElementById('adm-set-bgm');
@@ -3392,7 +3396,10 @@ function recordsHTML() {
     // ② 감정 출석부 (달력 바로 아래)
     '<div class="card" style="margin-top:10px;padding:12px 10px">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
-        '<div class="card-label" style="margin:0">📋 감정 출석부</div>' +
+        '<div style="display:flex;align-items:center;gap:6px">' +
+          '<div class="card-label" style="margin:0">📋 감정 출석부</div>' +
+          '<button onclick="refreshAttendance()" style="background:none;border:none;font-size:13px;cursor:pointer;color:var(--lgray);padding:2px 4px;line-height:1" title="새로고침">🔄</button>' +
+        '</div>' +
         '<div style="display:flex;align-items:center;gap:6px">' +
           '<button class="btn-icon" style="font-size:14px;padding:2px 6px" onclick="attendMove(-1)">◀</button>' +
           '<span id="attendWeekLabel" style="font-size:11px;color:var(--gray);white-space:nowrap"></span>' +
@@ -5170,6 +5177,8 @@ var _lastSubmitCount  = -1;
 var _lastEmotionSignal = '';
 var _pollTimer        = null;
 var _signalTimer      = null;
+var _attendancePollTimer = null;
+var _albumPollTimer      = null;
 
 // 관리자 전용 60초 폴링 (get_admin_dashboard — 관리자만 유지)
 function startDashboardPoll() {
@@ -5218,6 +5227,44 @@ function stopDashboardPoll() {
 }
 function stopEmotionSignalPoll() {
   if (_signalTimer) { clearInterval(_signalTimer); _signalTimer = null; }
+}
+
+// 출석부 폴링 (60초, 출석부 탭 활성 시만)
+function startAttendancePoll() {
+  stopAttendancePoll();
+  if (STATE.role !== 'teacher' && STATE.role !== 'admin') return;
+  _attendancePollTimer = setInterval(function() {
+    var panel = document.getElementById('panel-2');
+    if (!panel || !panel.classList.contains('active')) return;
+    refreshAttendance();
+  }, 60000);
+}
+function stopAttendancePoll() {
+  if (_attendancePollTimer) { clearInterval(_attendancePollTimer); _attendancePollTimer = null; }
+}
+function refreshAttendance() {
+  if (STATE.role === 'admin') { renderAdminAttendance(); return; }
+  renderAttendanceGrid();
+  var activeDate = CAL._selectedDate;
+  if (activeDate) loadRecords(activeDate);
+}
+
+// 마음앨범 폴링 (120초, 마음앨범 탭 활성 시만)
+function startAlbumPoll() {
+  stopAlbumPoll();
+  if (STATE.role !== 'teacher' && STATE.role !== 'admin') return;
+  _albumPollTimer = setInterval(function() {
+    var panel = document.getElementById('panel-3');
+    if (!panel || !panel.classList.contains('active')) return;
+    refreshAlbum();
+  }, 120000);
+}
+function stopAlbumPoll() {
+  if (_albumPollTimer) { clearInterval(_albumPollTimer); _albumPollTimer = null; }
+}
+function refreshAlbum() {
+  if (STATE.role === 'teacher') renderAlbumStudentPicker();
+  else if (STATE.role === 'admin') renderAdminAlbum();
 }
 
 
@@ -8138,6 +8185,9 @@ function albumTeacherHTML() {
   }
   // 교사: 우리 반 전체 앨범 (학생 필터 포함)
   return '<div id="albumTeacherSection">' +
+    '<div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:8px">' +
+      '<button onclick="refreshAlbum()" style="background:none;border:none;font-size:13px;cursor:pointer;color:var(--lgray);padding:2px 4px;line-height:1" title="새로고침">🔄 새로고침</button>' +
+    '</div>' +
     '<div id="albumStudentPicker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>' +
     '<div id="albumTeacherGrid" class="album-grid"></div>' +
     '<div id="albumTeacherEmpty" class="album-empty" style="display:none">사진이 없어요 📷</div>' +
