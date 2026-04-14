@@ -3367,7 +3367,7 @@ function studentMgmtHTML() {
     '</div>';
   }
   return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">' +
-    '<button class="btn btn-primary" style="flex-shrink:0;font-size:11px;padding:5px 10px;white-space:nowrap" onclick="openNfcRegister()">🪪 마음카드 등록</button>' +
+    '<button class="btn btn-primary" style="width:auto;flex-shrink:0;font-size:12px;padding:6px 14px;white-space:nowrap" onclick="openNfcRegister()">🪪 마음카드 등록</button>' +
     '<div style="display:flex;gap:5px;margin-left:auto">' +
       '<button id="stu-sort-num"  class="btn btn-sm btn-secondary adm-sort-btn active-sort" onclick="stuSortBy(\'num\')" style="font-size:11px;padding:5px 10px;white-space:nowrap">번호순</button>' +
       '<button id="stu-sort-name" class="btn btn-sm btn-secondary adm-sort-btn" onclick="stuSortBy(\'name\')" style="font-size:11px;padding:5px 10px;white-space:nowrap">이름순</button>' +
@@ -8159,9 +8159,9 @@ function albumTeacherHTML() {
   }
   // 교사: 우리 반 전체 앨범 (학생 필터 포함)
   return '<div id="albumTeacherSection">' +
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:12px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px">' +
       '<div id="albumStudentPicker" style="display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0"></div>' +
-      '<button onclick="refreshAlbum()" style="background:none;border:none;font-size:12px;cursor:pointer;color:var(--navy);padding:4px 6px;line-height:1;white-space:nowrap;flex-shrink:0;font-weight:600" title="새로고침">🔄 새로고침</button>' +
+      '<button onclick="refreshAlbum()" style="font-size:11px;padding:4px 10px;background:#fff;border:1.5px solid var(--lgray);border-radius:20px;color:var(--navy);font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0" title="새로고침">🔄 새로고침</button>' +
     '</div>' +
     '<div id="albumTeacherGrid" class="album-grid"></div>' +
     '<div id="albumTeacherEmpty" class="album-empty" style="display:none">사진이 없어요 📷</div>' +
