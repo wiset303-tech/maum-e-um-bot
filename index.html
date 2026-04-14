@@ -2758,6 +2758,7 @@ function triggerNfcFromTeacherEdit() {
   document.getElementById('nfcRegisterStatus').textContent = name + ' 선생님의 마음카드를 띠링-';
   document.getElementById('nfcRegisterUid').textContent = '';
   document.getElementById('nfcRegisterAnim').textContent = animIcon;
+  _updateNfcSkipVisibility();
   openModal('modal-nfc-register');
   focusNfcInput();
 }
@@ -3174,6 +3175,7 @@ function openTeacherForm() {
   document.getElementById('nfcRegisterStatus').textContent = '선생님의 마음카드를 띠링-';
   document.getElementById('nfcRegisterUid').textContent = '';
   document.getElementById('nfcRegisterAnim').textContent = '🪪';
+  _updateNfcSkipVisibility();
   openModal('modal-nfc-register');
   focusNfcInput();
 }
@@ -5644,11 +5646,22 @@ function showLessStudents() {
 // ════════════════════════════════════════
 // NFC 학생 등록
 // ════════════════════════════════════════
+
+// 39차(2) — NFC 모달의 "카드 없이 등록" 칩 버튼 표시 여부
+// 신규 등록 경로(null / {mode:'teacher'})에서만 노출, replace 계열에서는 숨김
+function _updateNfcSkipVisibility() {
+  var p = STATE.nfcPending;
+  var isNew = (p === null) || (p && p.mode === 'teacher');
+  var btn = document.getElementById('nfcSkipBtn');
+  if (btn) btn.style.display = isNew ? '' : 'none';
+}
+
 function openNfcRegister() {
   STATE.nfcPending = null;
   document.getElementById('nfcRegisterStatus').textContent = '마음카드를 띠링-';
   document.getElementById('nfcRegisterUid').textContent = '';
   document.getElementById('nfcRegisterAnim').textContent = '🪪';
+  _updateNfcSkipVisibility();
   openModal('modal-nfc-register');
   focusNfcInput();
 }
@@ -5876,6 +5889,7 @@ function retapTeacherNfc() {
   document.getElementById('nfcRegisterStatus').textContent = '선생님의 마음카드를 띠링-';
   document.getElementById('nfcRegisterUid').textContent = '';
   document.getElementById('nfcRegisterAnim').textContent = '🪪';
+  _updateNfcSkipVisibility();
   openModal('modal-nfc-register');
   focusNfcInput();
 }
@@ -6069,6 +6083,7 @@ function triggerNfcFromEdit() {
   document.getElementById('nfcRegisterStatus').textContent = name + '의 마음카드를 띠링-';
   document.getElementById('nfcRegisterUid').textContent = '';
   document.getElementById('nfcRegisterAnim').textContent = animIcon;
+  _updateNfcSkipVisibility();
   openModal('modal-nfc-register');
   focusNfcInput();
 }
@@ -6083,6 +6098,7 @@ function replaceCardById(uid, name, mode) {
   document.getElementById('nfcRegisterStatus').textContent = statusMsg;
   document.getElementById('nfcRegisterUid').textContent = '';
   document.getElementById('nfcRegisterAnim').textContent = animIcon;
+  _updateNfcSkipVisibility();
   openModal('modal-nfc-register');
   focusNfcInput();
 }
