@@ -4255,7 +4255,14 @@ function renderNationalMap(container, legEl, schools) {
     var fontSize = p.r === '부산' ? 9.5 : (p.small ? 7 : 9);
     return '<div class="adm-pin" style="' +
       'position:absolute;left:' + p.px + '%;top:' + p.py + '%;' +
-      'transform:translate(-50%,-50%);width:' + sz + 'px;height:' + sz + 'px;cursor:default;z-index:1">' +
+      'transform:translate(-50%,-50%);width:' + sz + 'px;height:' + sz + 'px;' +
+      'cursor:pointer;z-index:1;' +
+      'transition:transform 0.32s cubic-bezier(.25,.8,.25,1), z-index 0s;' +
+      '" onclick="event.stopPropagation();natMapRegionClick(\'' + p.r + '\', this)"' +
+      ' onmouseenter="this.style.transform=\'translate(-50%,-50%) scale(1.28)\';this.style.zIndex=\'10\'"' +
+      ' onmouseleave="this.style.transform=\'translate(-50%,-50%) scale(1)\';this.style.zIndex=\'1\'"' +
+      ' ontouchstart="this.style.transform=\'translate(-50%,-50%) scale(1.28)\';this.style.zIndex=\'10\'"' +
+      ' ontouchend="this.style.transform=\'translate(-50%,-50%) scale(1)\';this.style.zIndex=\'1\'">' +
       '<svg width="' + sz + '" height="' + sz + '" viewBox="0 0 ' + sz + ' ' + sz + '" xmlns="http://www.w3.org/2000/svg">' +
         '<circle cx="' + sz/2 + '" cy="' + sz/2 + '" r="' + (sz/2-1) + '" fill="' + w.bg + '" stroke="' + w.border + '" stroke-width="' + strokeW + '" opacity="0.72"/>' +
         iconSVG +
@@ -4265,9 +4272,10 @@ function renderNationalMap(container, legEl, schools) {
   }).join('');
 
   container.innerHTML =
-    '<div style="position:relative;display:inline-block;width:100%">' +
+    '<div id="nat-map-inner" style="position:relative;display:inline-block;width:100%" onclick="natMapBgClick(event)">' +
     '<img src="' + KOREA_MAP_SRC + '" alt="한국 지도" style="width:100%;height:auto;display:block;border-radius:8px" draggable="false"/>' +
     markers +
+    '<div id="nat-map-popup" style="display:none;position:absolute;pointer-events:none;z-index:50"></div>' +
     '</div>';
 
   if (legEl) {
@@ -4760,6 +4768,93 @@ function _pctBar(label, pct, color) {
     '</div>' +
     '<span style="width:24px;text-align:right;font-weight:700;color:' + color + '">' + pct + '%</span>' +
   '</div>';
+}
+
+// ── 교사 전국지도 모달: 시도 핀 클릭 팝업 (admMapRegionClick 교사용 버전) ──
+function natMapRegionClick(region, pinEl) {
+  var popup = document.getElementById('nat-map-popup');
+  var inner = document.getElementById('nat-map-inner');
+  if (!popup || !inner) return;
+
+  // 해당 지역 데이터 집계 (_nationalMapCache: 여러 학교가 같은 region일 수 있음)
+  var schools = _nationalMapCache || [];
+  var pos = 0, neu = 0, neg = 0;
+  schools.forEach(function(s) {
+    if (s.region !== region) return;
+    pos += s.positive || 0;
+    neu += s.neutral  || 0;
+    neg += s.negative || 0;
+  });
+  var total = pos + neu + neg;
+  var w = admRegionWeather(pos, neu, neg);
+
+  var posP = total > 0 ? Math.round(pos / total * 100) : 0;
+  var neuP = total > 0 ? Math.round(neu / total * 100) : 0;
+  var negP = total > 0 ? Math.round(neg / total * 100) : 0;
+
+  var weatherEmoji = { sunny:'☀️', partly:'⛅', cloud:'☁️', rain:'🌧', thunder:'⚡', nodata:'🌱' };
+  var weatherLabel = { sunny:'맑음', partly:'구름 조금', cloud:'구름 많음', rain:'비', thunder:'폭풍', nodata:'데이터 없음' };
+
+  popup.innerHTML =
+    '<div style="' +
+      'background:#fff;border-radius:12px;padding:11px 14px;' +
+      'box-shadow:0 4px 16px rgba(0,0,0,0.15);' +
+      'border:1.5px solid #4ecdb4;min-width:150px;max-width:190px;' +
+      'animation:popupIn 0.18s cubic-bezier(.34,1.56,.64,1)' +
+    '">' +
+      '<div style="font-size:13px;font-weight:800;color:var(--navy);margin-bottom:6px">' +
+        weatherEmoji[w.type] + ' ' + region + ' · ' + weatherLabel[w.type] +
+      '</div>' +
+      (total > 0
+        ? '<div style="font-size:11px;color:var(--gray);margin-bottom:5px">제출 학생 ' + total + '명 기준</div>' +
+          '<div style="display:flex;flex-direction:column;gap:3px">' +
+            _pctBar('긍정 ☀️', posP, '#4ecdb4') +
+            _pctBar('중립 ☁️', neuP, '#aaa') +
+            _pctBar('부정 🌧', negP, '#7986cb') +
+          '</div>'
+        : '<div style="font-size:11px;color:#ccc;margin-top:2px">아직 감정 데이터가 없어요</div>'
+      ) +
+    '</div>';
+
+  // 팝업 위치: 핀 기준 (nat-map-inner 스코프 내에서만 fallback 셀렉트)
+  var pin = pinEl;
+  if (!pin) {
+    var pins = inner.querySelectorAll('.adm-pin');
+    for (var i = 0; i < pins.length; i++) {
+      if (pins[i].getAttribute('onclick') && pins[i].getAttribute('onclick').indexOf("'" + region + "'") >= 0) {
+        pin = pins[i]; break;
+      }
+    }
+  }
+  if (!pin) { popup.style.display = 'none'; return; }
+
+  var innerRect = inner.getBoundingClientRect();
+  var pinRect   = pin.getBoundingClientRect();
+  var pxPct = (pinRect.left + pinRect.width/2 - innerRect.left) / innerRect.width * 100;
+  var pyPct = (pinRect.top - innerRect.top) / innerRect.height * 100;
+
+  popup.style.display = 'block';
+  popup.style.top     = pyPct + '%';
+  popup.style.left    = pxPct + '%';
+  popup.style.transform = pxPct > 55 ? 'translate(-100%, -110%)' : 'translate(-10%, -110%)';
+}
+
+// 교사 전국지도 배경 클릭 → 팝업 닫기
+function natMapBgClick(e) {
+  if (e.target.closest('.adm-pin')) return;
+  natMapClosePopup();
+}
+
+function natMapClosePopup() {
+  var popup = document.getElementById('nat-map-popup');
+  if (!popup || popup.style.display === 'none') return;
+  var inner = popup.querySelector('div');
+  if (inner) {
+    inner.style.animation = 'popupOut 0.18s cubic-bezier(.25,.8,.25,1) forwards';
+    setTimeout(function(){ popup.style.display = 'none'; }, 170);
+  } else {
+    popup.style.display = 'none';
+  }
 }
 
 // ══════════════════════════════════════════════
