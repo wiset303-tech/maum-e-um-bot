@@ -7977,7 +7977,7 @@ function _renderAdminAlbumGrid(sid, moreBtn) {
   grid.innerHTML = items.slice(0, count).map(function(a) {
     var idx = _albumCache.length;
     _albumCache.push({ data: a, canDelete: false });
-    var thumb = a.thumb_url || a.image_url;
+    var thumb = resolveAlbumThumb(a);
     var dateStr = String(a.date).slice(5, 10); // MM-DD
     return '<div onclick="openAlbumPopup(' + idx + ')" style="cursor:pointer;border-radius:8px;overflow:hidden;aspect-ratio:1;position:relative;background:#eee">' +
       '<img src="' + thumb + '" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.style.background=\'#ddd\'">' +
@@ -8287,10 +8287,20 @@ var _useWebP = (function() {
     return c.toDataURL('image/webp').indexOf('image/webp') === 0;
   } catch(e) { return false; }
 })();
+// 앨범 그리드 썸네일 src 결정
+// 1) thumb_url이 data:image/... 면 썸네일 base64
+// 2) image_url이 data:image/... 면 레거시 원본 base64 (30차 이전 9건)
+// 3) 그 외엔 빈 문자열 → onerror로 부모 숨김
+function resolveAlbumThumb(a) {
+  if (a && a.thumb_url && typeof a.thumb_url === 'string' && a.thumb_url.indexOf('data:image/') === 0) return a.thumb_url;
+  if (a && a.image_url && typeof a.image_url === 'string' && a.image_url.indexOf('data:image/') === 0) return a.image_url;
+  return '';
+}
+
 function albumItemHTML(a, canDelete) {
   var idx = _albumCache.length;
   _albumCache.push({ data: a, canDelete: canDelete });
-  var thumb = a.thumb_url || a.image_url;
+  var thumb = resolveAlbumThumb(a);
   var dateStr = String(a.date).slice(0, 10);
   return '<div class="album-item" onclick="openAlbumPopup(' + idx + ')">' +
     '<img src="' + thumb + '" alt="마음앨범" loading="lazy" onerror="this.parentNode.style.display=\'none\'">' +
@@ -8303,20 +8313,60 @@ function albumItemHTML(a, canDelete) {
 
 // SNS 팝업 열기
 var _popupAlbumUid = '';
-function openAlbumPopup(idx) {
+async function openAlbumPopup(idx) {
   var entry = _albumCache[idx];
   if (!entry) return;
   var albumData = entry.data;
   var canDelete = entry.canDelete;
   _popupAlbumUid = albumData.album_uid;
-  document.getElementById('popupAlbumImg').src = albumData.image_url;
+
+  // 메타 정보는 즉시 세팅
   document.getElementById('popupAlbumDate').textContent = String(albumData.date).slice(0, 10);
   document.getElementById('popupAlbumCaption').textContent = albumData.caption || '';
   var tags = albumData.hashtags ? parseHashtags(albumData.hashtags) : [];
   document.getElementById('popupAlbumHashtags').innerHTML = renderHashtagChips(tags);
   var delBtn = document.getElementById('popupAlbumDelete');
   if (delBtn) delBtn.style.display = canDelete ? 'block' : 'none';
+
+  var imgEl = document.getElementById('popupAlbumImg');
+  var imageRef = albumData.image_url || '';
+
+  // Case 1: 레거시 base64 — 즉시 세팅 (30차 이전 9건)
+  if (typeof imageRef === 'string' && imageRef.indexOf('data:image/') === 0) {
+    imgEl.src = imageRef;
+    openModal('modal-album-popup');
+    return;
+  }
+
+  // Case 2: 신규 Drive file_id — 썸네일 먼저 보여주고 모달 열기, 백그라운드에서 Drive 원본 fetch
+  var preThumb = (albumData.thumb_url && typeof albumData.thumb_url === 'string'
+                  && albumData.thumb_url.indexOf('data:image/') === 0) ? albumData.thumb_url : '';
+  imgEl.src = preThumb;
   openModal('modal-album-popup');
+
+  // 역할별 caller_uid (관리자는 teacher_uid 사용하는 기존 관례 그대로)
+  var role = STATE.role || (STATE.user && STATE.user.role) || '';
+  var callerUid = '';
+  if (STATE.user) {
+    if (role === 'teacher' || role === 'admin') callerUid = STATE.user.teacher_uid || '';
+    else if (role === 'student')                callerUid = STATE.user.student_uid || '';
+    else if (role === 'parent')                 callerUid = STATE.user.parent_uid || '';
+  }
+
+  try {
+    var res = await api('get_album_image', {
+      album_uid:   albumData.album_uid,
+      caller_uid:  callerUid,
+      caller_role: role,
+    });
+    if (res && res.status === 'ok' && res.image_b64) {
+      imgEl.src = res.image_b64;
+    } else if (res && res.message) {
+      toast(res.message);
+    }
+  } catch(e) {
+    toast('사진을 불러오는 중 오류가 났어요 📷');
+  }
 }
 
 async function deleteAlbumItem() {
@@ -8361,12 +8411,12 @@ async function uploadAlbum() {
         { size:300, q:0.45 },
         { size:300, q:0.32 },
       ];
-      // 고화질 (팝업용): 썸네일보다 먼저 한도 도달 가능성 낮으나 동일하게 방어
+      // 원본(뷰어용): Drive에 저장됨. 720px q75 기준으로 시작, 복잡한 사진은 단계적 축소
       var imgConfigs = [
-        { size:1000, q:0.82 },
-        { size:800,  q:0.75 },
-        { size:700,  q:0.65 },
-        { size:600,  q:0.55 },
+        { size:720, q:0.75 },
+        { size:640, q:0.70 },
+        { size:560, q:0.65 },
+        { size:480, q:0.60 },
       ];
       compressToLimit(rawData, LIMIT, thumbConfigs, function(thumbUrl) {
         hideLoading();
@@ -8374,8 +8424,8 @@ async function uploadAlbum() {
           toast('사진을 올릴 수 없어요. 더 작은 사진을 선택해주세요 📷');
           return;
         }
-        compressToLimit(rawData, LIMIT * 2, imgConfigs, function(imageUrl) {
-          // imageUrl은 Sheets에 저장 안 하고 Drive URL로 대체될 수도 있어 LIMIT * 2로 여유 있게
+        compressToLimit(rawData, 1200000, imgConfigs, function(imageUrl) {
+          // imageUrl은 Drive에 저장됨 (이전엔 Sheets 셀). GAS 1.4MB 가드 안쪽 여유값.
           _albumUploadData.imageUrl = imageUrl || thumbUrl; // fallback
           _albumUploadData.thumbUrl = thumbUrl;
           _albumUploadData.isUpdate = false;
@@ -8405,10 +8455,9 @@ async function submitAlbumUpload() {
 
   var payload = {
     student_uid  : STATE.user.student_uid,
-    student_name : STATE.user.name,
     teacher_uid  : STATE.user.teacher_uid,
-    image_url    : _albumUploadData.imageUrl,
-    thumb_url    : _albumUploadData.thumbUrl,
+    image_b64    : _albumUploadData.imageUrl,
+    thumb_b64    : _albumUploadData.thumbUrl,
     caption      : caption,
     hashtags     : hashtags,
     emotion_id   : (STATE.selectedMicro && STATE.selectedMicro.id) || '',
