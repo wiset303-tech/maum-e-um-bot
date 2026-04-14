@@ -1525,6 +1525,27 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   </div>
 </div>
 
+<!-- ══ 모달: 담임 이양 (42차) ══ -->
+<div id="modal-transfer-teacher" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-transfer-teacher')">
+  <div class="modal-box" style="position:relative">
+    <button class="modal-close" onclick="closeModal('modal-transfer-teacher')">✕</button>
+    <div class="modal-title">🔄 담임 이양</div>
+    <p id="transferTeacherDesc" style="font-size:13px;color:var(--gray);margin-bottom:8px;text-align:center;line-height:1.5"></p>
+    <div style="background:var(--cream);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--navy);line-height:1.55">
+      이양하면 학생·감정·토큰·앨범·훈훈습도계 등 <b>이 학반의 모든 기록</b>이 새 담임 선생님에게 그대로 넘어가요. 기존 담임 선생님은 자동으로 비활성 처리돼요.
+    </div>
+    <div class="inp-label">이양받을 선생님 <span style="color:#e05050">*</span></div>
+    <select class="inp" id="transferToSelect" style="margin-bottom:6px">
+      <option value="">-- 선생님 선택 --</option>
+    </select>
+    <p id="transferNoCandidate" style="display:none;font-size:12px;color:#e05050;margin:0 0 10px;line-height:1.5">
+      같은 학교·학년·반·학년도로 등록된 다른 활성 교사가 없어요.<br>먼저 신규 교사를 같은 학반으로 일반 등록한 뒤 다시 시도해 주세요.
+    </p>
+    <div style="height:10px"></div>
+    <button class="btn btn-primary" style="width:100%" onclick="confirmTransferTeacher()">이양하기</button>
+  </div>
+</div>
+
 <!-- ══ 모달: 교사 이름 변경 ══ -->
 <div id="modal-change-teacher-name" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-change-teacher-name')">
   <div class="modal-box" style="position:relative">
@@ -2614,6 +2635,7 @@ function _buildTeacherCard(t) {
             '<button onclick="openChangeTeacherPw(\'' + tid + '\',\'' + tname + '\')">🔑 암호변경</button>' +
             '<button onclick="openChangeTeacherInfo(\'' + tid + '\',\'' + tname + '\')">🏫 학급정보 변경</button>' +
             '<button onclick="openTeacherEditById(\'' + tid + '\',\'' + tname + '\');closeStuMenu()">' + (t.nfc_uid ? '🪪 마음카드 교체' : '🪪 마음카드 등록') + '</button>' +
+            '<button onclick="openTransferTeacher(\'' + tid + '\',\'' + tname + '\')">🔄 담임 이양</button>' +
             '<div class="divider"></div>' +
             '<button class="danger" onclick="deactivateTeacherUI(\'' + tid + '\',\'' + tname + '\')">🚫 비활성</button>' +
           '</div>' +
@@ -2731,6 +2753,89 @@ async function confirmChangeTeacherInfo() {
     }
     renderAdminAccountMgmt();
   } else toast(res.message);
+}
+
+// ── 관리자: 담임 이양 (42차) ──
+var _transferFromUid = '';
+function openTransferTeacher(uid, name) {
+  closeStuMenu();
+  _transferFromUid = uid;
+  var fromTeacher = (_teacherAll || []).find(function(t){ return t.teacher_uid === uid; });
+  if (!fromTeacher) { toast('교사 정보를 찾을 수 없어요'); return; }
+
+  document.getElementById('transferTeacherDesc').innerHTML =
+    '<b>' + name + ' 선생님</b>의 담임을 다른 선생님에게 이양해요';
+
+  // 수령자 후보 필터: 같은 학교·학년도·학년·반 + active=Y + 자기 자신 아님
+  var candidates = (_teacherAll || []).filter(function(t) {
+    return t.active === 'Y'
+        && t.teacher_uid !== uid
+        && String(t.school_name) === String(fromTeacher.school_name)
+        && String(t.year)        === String(fromTeacher.year)
+        && String(t.grade)       === String(fromTeacher.grade)
+        && String(t.class)       === String(fromTeacher.class);
+  });
+
+  var sel = document.getElementById('transferToSelect');
+  var noCandMsg = document.getElementById('transferNoCandidate');
+  sel.innerHTML = '<option value="">-- 선생님 선택 --</option>';
+  if (candidates.length === 0) {
+    sel.style.display = 'none';
+    noCandMsg.style.display = '';
+  } else {
+    sel.style.display = '';
+    noCandMsg.style.display = 'none';
+    candidates.forEach(function(t) {
+      var opt = document.createElement('option');
+      opt.value = t.teacher_uid;
+      opt.textContent = t.name + ' 선생님 (' + (t.nfc_uid ? '🪪' : '🔲') + ')';
+      sel.appendChild(opt);
+    });
+  }
+  openModal('modal-transfer-teacher');
+}
+
+async function confirmTransferTeacher() {
+  var toUid = document.getElementById('transferToSelect').value;
+  if (!toUid) { toast('이양받을 선생님을 선택해주세요'); return; }
+  if (!_transferFromUid) { toast('이양자 정보가 없어요'); return; }
+
+  var fromT = (_teacherAll || []).find(function(t){ return t.teacher_uid === _transferFromUid; });
+  var toT   = (_teacherAll || []).find(function(t){ return t.teacher_uid === toUid; });
+  if (!fromT || !toT) { toast('교사 정보를 찾을 수 없어요'); return; }
+
+  var confirmMsg = fromT.name + ' 선생님 → ' + toT.name + ' 선생님\n\n'
+    + '이 학반의 모든 기록(학생·감정·토큰·앨범·훈훈습도계 등)이 '
+    + toT.name + ' 선생님에게 넘어가요.\n'
+    + fromT.name + ' 선생님 계정은 자동으로 비활성 처리돼요.\n\n진행할까요?';
+  if (!confirm(confirmMsg)) return;
+
+  closeModal('modal-transfer-teacher');
+  showLoading('담임을 이양하는 중이에요 🔄');
+  var res = await api('transfer_teacher', {
+    from_teacher_uid: _transferFromUid,
+    to_teacher_uid:   toUid
+  });
+  hideLoading();
+  if (res.status !== 'ok') { toast(res.message || '이양 실패'); return; }
+
+  toast('담임 이양 완료 ✅');
+
+  // _teacherAll 캐시 갱신 — 서버와 동기화
+  if (_teacherAll) {
+    var archivedUid = res.data && res.data.archived_uid;
+    var transferredUid = res.data && res.data.transferred_uid;
+    _teacherAll.forEach(function(t) {
+      if (t.teacher_uid === _transferFromUid) {
+        t.teacher_uid = archivedUid || t.teacher_uid;
+        t.active = 'N';
+      } else if (t.teacher_uid === toUid) {
+        t.teacher_uid = transferredUid || t.teacher_uid;
+      }
+    });
+  }
+  _transferFromUid = '';
+  renderAdminAccountMgmt();
 }
 
 function openChangeTeacherPw(uid, name) {
