@@ -3791,6 +3791,21 @@ async function loadDashboard() {
   if (d.token_balances) STATE.tokenBalances = d.token_balances;
   if (d.student_emotions) {
     STATE.studentEmotions = d.student_emotions;
+    // 출석부 맵 오늘 날짜 갱신 (감정 제출 = 출석) — 33차
+    // 기존: 교사 로그인 시에만 get_emotions로 _attendanceMap 빌드 → 15초 폴링에서 감정 새로 제출돼도
+    //       _attendanceMap 그대로라 출석부 탭에 반영 안 됨. loadDashboard가 받아온 student_emotions로 merge 처리
+    var _dToday = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+    if (!_attendanceMap[_dToday]) _attendanceMap[_dToday] = {};
+    Object.keys(d.student_emotions).forEach(function(uid) {
+      _attendanceMap[_dToday][uid] = true;
+    });
+    CAL.data[_dToday] = Object.keys(_attendanceMap[_dToday]).length;
+    // 출석부 탭이 현재 활성화돼 있으면 즉시 재렌더 (다른 탭이면 탭 전환 시 자동 반영)
+    var _activeTab = document.querySelector('.tab.active');
+    if (_activeTab && _activeTab.textContent.indexOf('출석부') >= 0) {
+      renderAttendanceGrid();
+    }
+    renderCal();
     renderStudentList(); // 감정 데이터 반영해서 학생 카드 갱신
     renderEmotionBarcode(); // 우리반 감정 바코드 갱신
   }
