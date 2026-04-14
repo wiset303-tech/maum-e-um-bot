@@ -1185,22 +1185,29 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   </div>
 </div>
 
-<!-- ══ 모달: 교사 등록 폼 ══ -->
+<!-- ══ 모달: 교사 통합 폼 (신규 등록 + 편집) — 38차 학생 통합 패턴 ══ -->
 <div id="modal-teacher-form" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-teacher-form')">
   <div class="modal-box" style="position:relative;max-height:90vh;overflow-y:auto">
-    <div class="modal-title">👩‍🏫 교사 등록</div>
+    <div class="modal-title" id="tf-modal-title">👩‍🏫 교사 등록</div>
     <button class="modal-close" onclick="closeModal('modal-teacher-form')">✕</button>
     <input type="hidden" id="tf-nfc-uid">
-    <div style="background:var(--mint4);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">
-      <span id="tf-nfc-status" style="font-size:13px;color:var(--mint2)">🔲 NFC 카드 없음</span>
-      <button class="btn btn-sm btn-secondary" style="width:auto" onclick="retapTeacherNfc()">카드 다시 태깅</button>
+    <input type="hidden" id="tf-teacher-uid">
+    <!-- NFC 카드 상태 (wrapper + label + btn, 편집 모달 스타일) -->
+    <div id="tf-nfc-status" style="background:var(--mint4);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <span id="tf-nfc-label" style="font-size:13px;color:var(--mint2);font-weight:700">🔲 NFC 카드 없음</span>
+      <button id="tf-nfc-btn" onclick="triggerNfcFromTeacherEdit()" style="background:var(--mint3);border:1.5px solid var(--mint2);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;color:var(--navy);cursor:pointer;white-space:nowrap;flex-shrink:0;display:none">🪪 마음카드 등록</button>
     </div>
+    <!-- 이름 (공통) -->
     <div class="inp-label">이름 <span style="color:#e05050">*</span></div>
     <input class="inp" id="tf-name" placeholder="교사 이름" style="margin-bottom:10px">
-    <div class="inp-label">아이디 <span style="color:#e05050">*</span></div>
-    <input class="inp" id="tf-id" placeholder="로그인 아이디" style="margin-bottom:10px">
-    <div class="inp-label">비밀번호 <span style="color:#e05050">*</span></div>
-    <input class="inp" id="tf-pw" type="password" placeholder="비밀번호" style="margin-bottom:10px">
+    <!-- 아이디·비밀번호 (create 전용) -->
+    <div data-mode="create">
+      <div class="inp-label">아이디 <span style="color:#e05050">*</span></div>
+      <input class="inp" id="tf-id" placeholder="로그인 아이디" style="margin-bottom:10px">
+      <div class="inp-label">비밀번호 <span style="color:#e05050">*</span></div>
+      <input class="inp" id="tf-pw" type="password" placeholder="비밀번호" style="margin-bottom:10px">
+    </div>
+    <!-- 학교·지역·학교급·학년·반·학년도 (공통, edit 시 JS가 readOnly 처리) -->
     <div class="inp-label">학교명 <span style="color:#e05050">*</span></div>
     <input class="inp" id="tf-school" placeholder="공식 이름을 입력해 주세요 (예: 학장초등학교)" style="margin-bottom:10px">
     <div class="inp-label">지역 (시/도) <span style="color:#e05050">*</span></div>
@@ -1244,7 +1251,12 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     </div>
     <div class="inp-label">학년도</div>
     <input class="inp" id="tf-year" placeholder="2026" value="2026" style="margin-bottom:16px">
-    <button class="btn btn-primary" onclick="submitTeacherForm()">교사 등록 완료</button>
+    <!-- edit 전용: 비밀번호 초기화 섹션 -->
+    <div data-mode="edit" style="display:none;border-top:1px solid var(--lgray);padding-top:14px;margin-bottom:14px">
+      <button class="btn" style="width:100%;background:#fff0f0;border:1.5px solid #f4c4c4;color:#c84040;font-weight:700;border-radius:12px;padding:11px 0" onclick="resetTeacherPasswordFromEdit()">🔑 비밀번호를 maum1234로 초기화</button>
+    </div>
+    <!-- 제출 -->
+    <button class="btn btn-primary" id="tf-submit-btn" onclick="submitTeacherForm()">교사 등록 완료</button>
   </div>
 </div>
 
@@ -1703,6 +1715,7 @@ var STATE = {
   dashboard: null,     // 대시보드 데이터
   nfcPending: null,    // NFC 등록 대기 UID
   _studentFormMode: 'create',  // 38차 통합 학생 폼 모드 ('create' / 'edit')
+  _teacherFormMode: 'create',  // 40차 B-3 통합 교사 폼 모드 ('create' / 'edit')
   selectedMacro: null, // 감정 선택
   selectedMicro: null,
   chatHistory: [],     // 봇 대화 기록
@@ -2731,12 +2744,57 @@ function openTeacherEditById(uid, name) {
   var t = (_teacherAll || []).filter(function(x){ return x.teacher_uid === uid; })[0];
   var nfcUid = t ? (t.nfc_uid || '') : '';
 
-  document.getElementById('te-teacher-uid').value = uid;
-  document.getElementById('te-modal-title').textContent = '✏️ ' + name + ' 선생님 정보 수정';
-  document.getElementById('te-name').value = name;
+  STATE._teacherFormMode = 'edit';
 
-  var nfcLabel = document.getElementById('te-nfc-label');
-  var nfcBtn   = document.getElementById('te-nfc-btn');
+  // 타이틀/버튼 라벨
+  document.getElementById('tf-modal-title').textContent = '✏️ ' + name + ' 선생님 정보 수정';
+  document.getElementById('tf-submit-btn').textContent = '💾 저장하기';
+
+  // hidden 필드
+  document.getElementById('tf-teacher-uid').value = uid;
+  document.getElementById('tf-nfc-uid').value = '';
+
+  // 입력 필드 주입 (이름만 수정 가능, 나머지는 표시용)
+  document.getElementById('tf-name').value = name;
+  document.getElementById('tf-school').value = t ? (t.school_name || '') : '';
+  document.getElementById('tf-type').value   = t ? (t.school_type || 'e') : 'e';
+  document.getElementById('tf-grade').value  = t ? (t.grade || '') : '';
+  document.getElementById('tf-class').value  = t ? (t.class || '') : '';
+  document.getElementById('tf-year').value   = t ? (t.year || '2026') : '2026';
+  // region은 getTeachers 응답에 포함되지 않음 → 빈 값으로 표시 (edit 경로에서는 수정 불가)
+  document.getElementById('tf-region').value = '';
+
+  // create 전용 블록 숨김 / edit 전용 블록 표시
+  var mqC = document.querySelectorAll('#modal-teacher-form [data-mode="create"]');
+  for (var i=0;i<mqC.length;i++) mqC[i].style.display = 'none';
+  var mqE = document.querySelectorAll('#modal-teacher-form [data-mode="edit"]');
+  for (var j=0;j<mqE.length;j++) mqE[j].style.display = '';
+
+  // 공통 필드 readOnly + 회색 배경 (학급 정보는 별도 모달에서 수정)
+  var roIds = ['tf-school','tf-grade','tf-class','tf-year'];
+  for (var k=0;k<roIds.length;k++) {
+    var el = document.getElementById(roIds[k]);
+    if (el) {
+      el.readOnly = true;
+      el.style.background = 'var(--lgray)';
+      el.style.color = 'var(--gray)';
+    }
+  }
+  // select는 disabled 처리
+  var selIds = ['tf-region','tf-type'];
+  for (var m=0;m<selIds.length;m++) {
+    var se = document.getElementById(selIds[m]);
+    if (se) {
+      se.disabled = true;
+      se.style.background = 'var(--lgray)';
+      se.style.color = 'var(--gray)';
+    }
+  }
+
+  // NFC 섹션: 버튼 표시
+  var nfcLabel = document.getElementById('tf-nfc-label');
+  var nfcBtn   = document.getElementById('tf-nfc-btn');
+  nfcBtn.style.display = '';
   if (nfcUid) {
     nfcLabel.textContent = '🪪 마음카드 등록됨 (' + nfcUid + ')';
     nfcLabel.style.color = 'var(--mint2)';
@@ -2747,37 +2805,20 @@ function openTeacherEditById(uid, name) {
     nfcBtn.textContent = '🪪 마음카드 등록';
   }
   STATE.nfcPending = { mode: 'replace_teacher', teacher_uid: uid, name: name, fromEdit: true };
-  openModal('modal-teacher-edit');
+  openModal('modal-teacher-form');
 }
 
 function triggerNfcFromTeacherEdit() {
-  var uid  = document.getElementById('te-teacher-uid').value;
-  var name = document.getElementById('te-name').value || document.getElementById('te-modal-title').textContent.replace('✏️ ','').replace(' 선생님 정보 수정','');
+  var uid  = document.getElementById('tf-teacher-uid').value;
+  var name = document.getElementById('tf-name').value || document.getElementById('tf-modal-title').textContent.replace('✏️ ','').replace(' 선생님 정보 수정','');
   STATE.nfcPending = { mode: 'replace_teacher', teacher_uid: uid, name: name, fromEdit: true };
-  var animIcon = document.getElementById('te-nfc-btn').textContent.indexOf('교체') >= 0 ? '🔄' : '🪪';
+  var animIcon = document.getElementById('tf-nfc-btn').textContent.indexOf('교체') >= 0 ? '🔄' : '🪪';
   document.getElementById('nfcRegisterStatus').textContent = name + ' 선생님의 마음카드를 띠링-';
   document.getElementById('nfcRegisterUid').textContent = '';
   document.getElementById('nfcRegisterAnim').textContent = animIcon;
   _updateNfcSkipVisibility();
   openModal('modal-nfc-register');
   focusNfcInput();
-}
-
-async function submitTeacherEdit() {
-  var uid  = document.getElementById('te-teacher-uid').value;
-  var name = document.getElementById('te-name').value.trim();
-  if (!name) { toast('이름을 입력해주세요'); return; }
-  if (STATE.isPreview) { toast('미리보기에서는 저장되지 않아요'); closeModal('modal-teacher-edit'); return; }
-  showLoading('교사 정보를 수정하는 중이에요 ✏️');
-  var res = await api('update_teacher_name', { teacher_uid: uid, new_name: name });
-  hideLoading();
-  if (res.status === 'ok') {
-    toast(res.data.message || '이름이 변경됐어요 ✅');
-    closeModal('modal-teacher-edit');
-    renderAdminAccountMgmt();
-  } else {
-    toast(res.message || '저장에 실패했어요');
-  }
 }
 
 // 교사 비활성화
@@ -3180,10 +3221,61 @@ function openTeacherForm() {
   focusNfcInput();
 }
 
+function _openTeacherFormCreate(nfcUid) {
+  STATE._teacherFormMode = 'create';
+  // 타이틀/버튼 라벨
+  document.getElementById('tf-modal-title').textContent = '👩‍🏫 교사 등록';
+  document.getElementById('tf-submit-btn').textContent = '교사 등록 완료';
+  // hidden 필드
+  document.getElementById('tf-nfc-uid').value = nfcUid || '';
+  document.getElementById('tf-teacher-uid').value = '';
+  // 입력 필드 초기화
+  document.getElementById('tf-name').value = '';
+  document.getElementById('tf-id').value = '';
+  var pwEl = document.getElementById('tf-pw');
+  pwEl.value = '';
+  pwEl.type = 'password';
+  pwEl.placeholder = '비밀번호';
+  document.getElementById('tf-school').value = '';
+  document.getElementById('tf-region').value = '';
+  document.getElementById('tf-type').value = 'e';
+  document.getElementById('tf-grade').value = '';
+  document.getElementById('tf-class').value = '';
+  document.getElementById('tf-year').value = '2026';
+  // 공통 필드 readOnly 해제 (edit 모드 진입 후 재사용 대비)
+  var roIds = ['tf-school','tf-region','tf-type','tf-grade','tf-class','tf-year'];
+  for (var i=0;i<roIds.length;i++) {
+    var el = document.getElementById(roIds[i]);
+    if (el) {
+      if (el.tagName === 'SELECT') el.disabled = false;
+      else el.readOnly = false;
+      el.style.background = '';
+      el.style.color = '';
+    }
+  }
+  // create 전용 블록 표시 / edit 전용 블록 숨김
+  var mqC = document.querySelectorAll('#modal-teacher-form [data-mode="create"]');
+  for (var j=0;j<mqC.length;j++) mqC[j].style.display = '';
+  var mqE = document.querySelectorAll('#modal-teacher-form [data-mode="edit"]');
+  for (var k=0;k<mqE.length;k++) mqE[k].style.display = 'none';
+  // NFC 섹션: 버튼 숨김, label만 정보 표시
+  var nfcLabel = document.getElementById('tf-nfc-label');
+  var nfcBtn = document.getElementById('tf-nfc-btn');
+  nfcBtn.style.display = 'none';
+  if (nfcUid) {
+    nfcLabel.textContent = '🪪 카드 등록됨 (' + nfcUid + ')';
+    nfcLabel.style.color = 'var(--mint2)';
+  } else {
+    nfcLabel.textContent = '🔲 NFC 카드 없음';
+    nfcLabel.style.color = 'var(--gray)';
+  }
+  openModal('modal-teacher-form');
+}
+
 function openTeacherFormDirect() {
   openModal('modal-teacher-form');
   document.getElementById('tf-nfc-uid').value = '';
-  document.getElementById('tf-nfc-status').textContent = '🔲 NFC 카드 없음';
+  document.getElementById('tf-nfc-label').textContent = '🔲 NFC 카드 없음';
   document.getElementById('tf-region').value = '';
 }
 
@@ -5677,9 +5769,7 @@ function skipNfcRegister() {
   closeModal('modal-nfc-register');
   // 교사 신규 등록 경로
   if (p && p.mode === 'teacher') {
-    openModal('modal-teacher-form');
-    document.getElementById('tf-nfc-uid').value = '';
-    document.getElementById('tf-nfc-status').textContent = '🔲 NFC 카드 없음';
+    _openTeacherFormCreate('');
     return;
   }
   // 학생 신규 등록 경로 — 교사 역할만 허용 (handleRegisterNfc 정책과 동일)
@@ -5717,9 +5807,7 @@ async function handleRegisterNfc(uid) {
   // 교사 등록 모드
   if (STATE.nfcPending && STATE.nfcPending.mode === 'teacher') {
     STATE.nfcPending.nfc_uid = uid;
-    openModal('modal-teacher-form');
-    document.getElementById('tf-nfc-uid').value = uid;
-    document.getElementById('tf-nfc-status').textContent = '🪪 카드 등록됨 (' + uid + ')';
+    _openTeacherFormCreate(uid);
     return;
   }
 
@@ -5765,17 +5853,17 @@ async function handleRegisterNfc(uid) {
         if (t) t.nfc_uid = uid;
       }
       if (fromEdit) {
-        var nfcLabel = document.getElementById('te-nfc-label');
-        var nfcBtn   = document.getElementById('te-nfc-btn');
+        var nfcLabel = document.getElementById('tf-nfc-label');
+        var nfcBtn   = document.getElementById('tf-nfc-btn');
         if (nfcLabel) { nfcLabel.textContent = '🪪 마음카드 등록됨 (' + uid + ')'; nfcLabel.style.color = 'var(--mint2)'; }
         if (nfcBtn)   { nfcBtn.textContent = '🔄 마음카드 교체'; }
-        openModal('modal-teacher-edit');
+        openModal('modal-teacher-form');
       } else {
         renderAdminAccountMgmt();
       }
     } else {
       toast(res.message);
-      if (fromEdit) openModal('modal-teacher-edit');
+      if (fromEdit) openModal('modal-teacher-form');
     }
     return;
   }
@@ -5895,7 +5983,34 @@ function retapTeacherNfc() {
 }
 
 async function submitTeacherForm() {
-  var name   = document.getElementById('tf-name').value.trim();
+  var mode = STATE._teacherFormMode || 'create';
+  var name = document.getElementById('tf-name').value.trim();
+  if (!name) { toast('이름을 입력해주세요'); return; }
+
+  // ── edit 모드: 이름만 수정 (학급 정보는 별도 모달에서) ──
+  if (mode === 'edit') {
+    var teacher_uid = document.getElementById('tf-teacher-uid').value;
+    if (!teacher_uid) { toast('교사 정보를 찾을 수 없어요'); return; }
+    if (STATE.isPreview) { toast('미리보기에서는 저장되지 않아요'); closeModal('modal-teacher-form'); return; }
+    showLoading('교사 정보를 수정하는 중이에요 ✏️');
+    var res = await api('update_teacher_name', { teacher_uid: teacher_uid, new_name: name });
+    hideLoading();
+    if (res.status === 'ok') {
+      toast(res.data.message || '이름이 변경됐어요 ✅');
+      // _teacherAll 캐시 갱신
+      if (_teacherAll) {
+        var t = _teacherAll.filter(function(x){ return x.teacher_uid === teacher_uid; })[0];
+        if (t) t.name = name;
+      }
+      closeModal('modal-teacher-form');
+      renderAdminAccountMgmt();
+    } else {
+      toast(res.message || '저장에 실패했어요');
+    }
+    return;
+  }
+
+  // ── create 모드: 신규 등록 ──
   var id     = document.getElementById('tf-id').value.trim();
   var pw     = document.getElementById('tf-pw').value.trim();
   var school = document.getElementById('tf-school').value.trim();
@@ -5905,7 +6020,7 @@ async function submitTeacherForm() {
   var cls    = document.getElementById('tf-class').value.trim();
   var year   = document.getElementById('tf-year').value.trim() || '2026';
 
-  if (!name||!id||!pw||!school) { toast('이름, 아이디, 비밀번호, 학교명은 필수예요'); return; }
+  if (!id||!pw||!school) { toast('아이디, 비밀번호, 학교명은 필수예요'); return; }
   if (!region) { toast('지역(시/도)을 선택해주세요'); return; }
 
   var gradeNum = parseInt(grade, 10);
@@ -5933,6 +6048,23 @@ async function submitTeacherForm() {
   } else {
     toast(res.message);
     openModal('modal-teacher-form');
+  }
+}
+
+// 40차 B-3 — 관리자 교사 편집 모달에서 비밀번호 maum1234로 초기화
+async function resetTeacherPasswordFromEdit() {
+  var teacher_uid = document.getElementById('tf-teacher-uid').value;
+  var name = document.getElementById('tf-name').value.trim() || '이';
+  if (!teacher_uid) { toast('교사 정보를 찾을 수 없어요'); return; }
+  if (!confirm(name + ' 선생님의 비밀번호를 maum1234로 초기화할까요?')) return;
+  if (STATE.isPreview) { toast('미리보기에서는 저장되지 않아요'); return; }
+  showLoading('비밀번호를 초기화하는 중이에요 🔑');
+  var res = await api('reset_teacher_password', { teacher_uid: teacher_uid, caller_role: STATE.role });
+  hideLoading();
+  if (res.status === 'ok') {
+    toast(res.data.message || '비밀번호가 초기화됐어요 ✅');
+  } else {
+    toast(res.message || '초기화에 실패했어요');
   }
 }
 
