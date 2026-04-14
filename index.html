@@ -1582,7 +1582,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   <div class="modal-box" style="position:relative;padding:0;overflow:hidden;max-height:92vh">
     <button class="modal-close" onclick="closeModal('modal-album-popup')"
       style="position:absolute;top:10px;right:12px;z-index:10;background:rgba(0,0,0,.35);color:#fff;border-radius:50%;width:28px;height:28px;font-size:16px">✕</button>
-    <img id="popupAlbumImg" src="" alt="마음앨범" style="width:100%;display:block;max-height:55vw;object-fit:cover">
+    <img id="popupAlbumImg" src="" alt="마음앨범" style="width:100%;display:block;max-height:65vh;object-fit:cover">
     <div style="padding:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div id="popupAlbumDate" style="font-size:12px;color:var(--gray)"></div>
@@ -3173,7 +3173,7 @@ function previewStudent() {
   setTimeout(function() {
     // 토큰 카드 전체 상태를 _refreshTokenCards로 일괄 반영
     _refreshTokenCards(STATE.tokenBalance);
-    updateHeartTempUI(Math.min(100, Math.floor(7/2)));
+    updateHeartTempUI(Math.min(100, 7/2));
   }, 200);
 }
 
@@ -3364,7 +3364,7 @@ function studentMgmtHTML() {
       '<div id="adminTeacherList"><div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div></div>' +
     '</div>';
   }
-  return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">' +
+  return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">' +
     '<button class="btn btn-primary" style="flex-shrink:0;font-size:12px;padding:9px 12px" onclick="openNfcRegister()">🪪 마음카드 등록</button>' +
     '<div style="display:flex;gap:5px;margin-left:auto">' +
       '<button id="stu-sort-num"  class="btn btn-sm btn-secondary adm-sort-btn active-sort" onclick="stuSortBy(\'num\')" style="font-size:11px;padding:5px 10px;white-space:nowrap">번호순</button>' +
@@ -7448,7 +7448,7 @@ function _refreshTokenCards(tb) {
   var giftBal    = tb.gift_balance   || 0;
   var regularBal = Math.max(0, balance - giftBal);
   var giftable   = regularBal; // 선물 가능량 = 일반 토큰만
-  var temp       = Math.min(100, Math.floor(saved / 2));
+  var temp       = Math.min(100, saved / 2);
 
   setText('tokenAmount', balance);
   setText('tokenGift',   giftBal);
