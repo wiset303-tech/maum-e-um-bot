@@ -4139,8 +4139,8 @@ function toggleNatRegionDetail(row, region, pos, neu, neg, avgTemp, schoolCount,
   var tempCol  = avgTemp >= 70 ? '#1D9E75' : avgTemp >= 45 ? '#f39c12' : '#e74c3c';
 
   detail.innerHTML =
-    '<div style="background:linear-gradient(135deg,#f5fffe,#fff);border-radius:10px;padding:12px 14px;border:1px solid var(--mint3)">' +
-      '<div style="display:flex;justify-content:space-around;text-align:center;gap:8px;flex-wrap:wrap">' +
+    '<div style="background:linear-gradient(135deg,#f5fffe,#fff);border-radius:10px;padding:10px 8px;border:1px solid var(--mint3)">' +
+      '<div style="display:flex;justify-content:space-around;text-align:center;gap:4px;flex-wrap:nowrap">' +
         _natDetailStat('🌡️', avgTemp + '°', '평균 마음온도', tempCol) +
         _natDetailStat('📝', submitted + '명', '오늘 제출') +
         _natDetailStat('😊', posP + '%', '긍정 비율', '#1D9E75') +
@@ -4154,10 +4154,10 @@ function toggleNatRegionDetail(row, region, pos, neu, neg, avgTemp, schoolCount,
 }
 
 function _natDetailStat(icon, val, lbl, color) {
-  return '<div style="min-width:48px">' +
-    '<div style="font-size:15px">' + icon + '</div>' +
-    '<div style="font-weight:800;font-size:14px;color:' + (color || 'var(--navy)') + '">' + val + '</div>' +
-    '<div style="font-size:10px;color:var(--gray);margin-top:1px">' + lbl + '</div>' +
+  return '<div style="flex:1;min-width:0;overflow:hidden">' +
+    '<div style="font-size:14px;line-height:1.1">' + icon + '</div>' +
+    '<div style="font-weight:800;font-size:13px;color:' + (color || 'var(--navy)') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + val + '</div>' +
+    '<div style="font-size:9px;color:var(--gray);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + lbl + '</div>' +
   '</div>';
 }
 
