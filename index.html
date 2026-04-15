@@ -780,6 +780,21 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   border:none;cursor:pointer;font-size:18px;color:#fff;flex-shrink:0;
 }
 
+/* 45차 U: 마음봇 대화 프라이버시 안내 배너 */
+.chat-notice{
+  flex-shrink:0;
+  background:#fff9e6;
+  color:#6b5a1f;
+  border-left:3px solid #f0c14b;
+  border-radius:8px;
+  padding:8px 12px;
+  font-size:12px;
+  line-height:1.55;
+  margin-bottom:8px;
+  letter-spacing:-0.2px;
+}
+.chat-notice-line{display:block}
+
 /* 페르소나 대화 모드 */
 .persona-bar{
   display:flex;align-items:center;justify-content:space-between;
@@ -7340,6 +7355,10 @@ function chatHTML() {
     '<div id="personaBar" class="persona-bar" style="display:none">' +
       '<span class="persona-bar-label" id="personaBarLabel">🤝 페르소나 대화 중</span>' +
       '<button class="persona-bar-btn" onclick="exitPersonaMode()">✕ 마음봇으로</button>' +
+    '</div>' +
+    '<div class="chat-notice" id="chatNotice">' +
+      '<span class="chat-notice-line">🔔 마음봇과 나눈 이야기는 다른 탭으로 이동하면 저장돼요.</span>' +
+      '<span class="chat-notice-line">선생님은 전체 이야기가 아니라 주요 낱말만 함께 봐요.</span>' +
     '</div>' +
     '<div class="chat-messages" id="chatMessages"></div>' +
     '<div style="display:flex;gap:6px;padding-top:6px;flex-shrink:0">' +
