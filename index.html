@@ -5141,7 +5141,7 @@ function renderNotifDropdown(page) {
   if (!dd) return;
   if (page !== undefined) _notifPage = page;
 
-  var ICON = { token_gift:'💝', emotion_crisis:'⚡', attendance:'🏫' };
+  var ICON = { token_gift:'💝', emotion_crisis:'⚡', attendance:'🏫', crisis_chat:'⚠️' };
   var total = _notifications.length;
   var totalPages = Math.max(1, Math.ceil(total / NOTIF_PER_PAGE));
   if (_notifPage >= totalPages) _notifPage = totalPages - 1;
@@ -7059,7 +7059,7 @@ function onParentTabSwitch(idx) {
 function renderParentNotifPanel() {
   var el = document.getElementById('parentNotifPanel');
   if (!el) return;
-  var ICON = { attendance: '🏫', emotion_crisis: '⚡', token_gift: '💝' };
+  var ICON = { attendance: '🏫', emotion_crisis: '⚡', token_gift: '💝', crisis_chat: '⚠️' };
   if (!_notifications.length) {
     el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:30px">새 알림이 없어요 🌱</div>';
     return;
@@ -7711,6 +7711,21 @@ async function saveChatLogIfNeeded() {
   // 45차 U: await 전에 동기 가드 — 탭전환 직후 로그아웃 같은 race condition 방지
   STATE.chatLogSaved = true;
 
+  // 46차 U: messages 배열 → {r,t} 압축 JSON (r='u'|'b', t=text)
+  // Sheets cell limit 50000자 안전망: 초과 시 최근 30턴만 유지
+  var _toMsgsJson = function(arr) {
+    return JSON.stringify(arr.map(function(h){
+      return { r: (h.role === 'user' ? 'u' : 'b'), t: String(h.text || '') };
+    }));
+  };
+  var messages_json = '[]';
+  try {
+    messages_json = _toMsgsJson(history);
+    if (messages_json.length > 45000) {
+      messages_json = _toMsgsJson(history.slice(-30));
+    }
+  } catch(e) { messages_json = '[]'; }
+
   try {
     var _macroKoLog = { positive:'기쁜', neutral:'그저그런', negative:'힘든' };
     var res = await api('save_chat_log', {
@@ -7729,6 +7744,7 @@ async function saveChatLogIfNeeded() {
       punctuation  : analysis.punctuation,
       comm_pattern : analysis.comm_pattern,
       raw_sample   : analysis.raw_sample,
+      messages_json: messages_json,            // ← 46차 U: 원문 JSON 동봉
     });
     // 응답에서 log_uid 받기 (신규면 새 uid, 기존 UPDATE면 그대로)
     if (res && res.status === 'ok' && res.data && res.data.log_uid) {
