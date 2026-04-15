@@ -7625,6 +7625,10 @@ async function saveChatLogIfNeeded() {
   if (userTurns.length < 2) return;
   var analysis = analyzeChatStyle(history);
   if (!analysis) return;
+
+  // 45차 U: await 전에 동기 가드 — 탭전환 직후 로그아웃 같은 race condition 방지
+  STATE.chatLogSaved = true;
+
   try {
     var _macroKoLog = { positive:'기쁜', neutral:'그저그런', negative:'힘든' };
     await api('save_chat_log', {
@@ -7643,7 +7647,6 @@ async function saveChatLogIfNeeded() {
       comm_pattern : analysis.comm_pattern,
       raw_sample   : analysis.raw_sample,
     });
-    STATE.chatLogSaved = true;             // 저장 완료 플래그
   } catch(e) {
     STATE.chatLogSaved = false;            // 실패 시 재시도 허용
   }
