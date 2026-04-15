@@ -8180,13 +8180,14 @@ function _renderChatKeywords(chats) {
       var sev = String(c.crisis_severity || 'med');
       var rowBg, rowBorder, headIcon, headColor, clickAttr;
       if (isCrisis) {
+        // 52차: severity 무관 연빨강 배경 통일, severity는 보더 굵기/색으로만 구분
         var sevStyleRow = {
-          low : { bg:'#fff8dc', bd:'#d4a017' },
-          med : { bg:'#ffeacc', bd:'#e67e22' },
-          high: { bg:'#ffe0e0', bd:'#c0392b' }
-        }[sev] || { bg:'#ffeacc', bd:'#e67e22' };
-        rowBg = sevStyleRow.bg;
-        rowBorder = '2px solid ' + sevStyleRow.bd;
+          low : { bd:'#d4a017', bw:'1px' },
+          med : { bd:'#e67e22', bw:'2px' },
+          high: { bd:'#c0392b', bw:'2px' }
+        }[sev] || { bd:'#e67e22', bw:'2px' };
+        rowBg = '#ffe0e0';
+        rowBorder = sevStyleRow.bw + ' solid ' + sevStyleRow.bd;
         headIcon = '⚠️ 위기 신호';
         headColor = '#c0392b';
         clickAttr = ' onclick="openCrisisContext(\'' + _escHtml(c.log_uid || '') + '\')" style="cursor:pointer"';
