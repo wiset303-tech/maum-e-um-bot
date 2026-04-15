@@ -7921,7 +7921,6 @@ function tokenHTML() {
       '<button class="btn btn-lav" id="giftBtn" onclick="openGiftSelect()">💌 선물하기</button>' +
     '</div>' +
     '<div id="saveAllDetail" style="font-size:11px;color:var(--gray);text-align:center;margin-top:-8px;margin-bottom:6px;min-height:16px"></div>' +
-    '<div id="giftOnlyHint" style="font-size:11.5px;color:#c2185b;text-align:center;margin-top:-4px;margin-bottom:8px;display:none;background:#fdf2f8;border-radius:8px;padding:6px 10px;font-weight:600">💝 선물받은 토큰은 다시 선물할 수 없어요</div>' +
     '<div class="card card-lemon" style="margin-top:8px">' +
       '<div class="card-label gaegu">마음토큰이란?</div>' +
       '<div style="font-size:13px;line-height:1.7;color:var(--gray)">매일 로그인하면 토큰 1개를 받아요.<br>토큰을 <b>저축</b>하면 마음 온도가 올라가요 🌡️<br>토큰 2개 저축 = 마음 온도 1°<br>선물받은 토큰은 저축 시 <b>2배</b>로 적립돼요 💝<br>최대 100°까지 올릴 수 있어요!</div>' +
@@ -7955,14 +7954,14 @@ function _refreshTokenCards(tb) {
   setText('tokenSaved',  saved);
   updateHeartTempUI(temp);
 
-  // 현재 마음토큰 카드 — border는 항상 transparent (호버 시만 CSS로 반응)
+  // 현재 마음토큰 카드 — 0이어도 클릭 받게 (confirmSaveRegular가 가드 토스트 표시)
   var cardMy = document.getElementById('cardMyToken');
   if (cardMy) {
     cardMy.style.borderColor    = 'transparent';
     cardMy.style.background     = '#fff';
     cardMy.style.opacity        = regularBal > 0 ? '1' : '0.55';
-    cardMy.style.cursor         = regularBal > 0 ? 'pointer' : 'default';
-    cardMy.style.pointerEvents  = regularBal > 0 ? '' : 'none';
+    cardMy.style.cursor         = regularBal > 0 ? 'pointer' : 'not-allowed';
+    cardMy.style.pointerEvents  = ''; // 항상 활성 — 가드는 confirmSaveRegular 내부에서
   }
 
   // 선물받은 토큰 카드
@@ -7986,37 +7985,35 @@ function _refreshTokenCards(tb) {
     saveAllBtn.textContent   = '🪙 모두 저축하기';
   }
   if (saveAllDetail) {
-    if (balance > 0) {
-      var parts = [];
-      if (regularBal > 0) parts.push('일반 ' + regularBal + '개');
-      if (giftBal > 0)    parts.push('선물 ' + giftBal + '개 × 2');
-      saveAllDetail.textContent = '(' + parts.join(', ') + ')';
+    if (regularBal > 0 && giftBal > 0) {
+      // 일반 + 선물 둘 다 있을 때만 detail 표시 (의미 있는 정보)
+      saveAllDetail.textContent = '(일반 ' + regularBal + '개, 선물 ' + giftBal + '개 × 2)';
+    } else if (regularBal > 0) {
+      saveAllDetail.textContent = '(일반 ' + regularBal + '개)';
     } else {
+      // 선물만 있거나 아무것도 없을 때는 detail 비움 (위의 카드와 안내로 충분)
       saveAllDetail.textContent = '';
     }
   }
 
-  // 선물하기 버튼 — 직접 획득한 토큰 없으면 비활성
+  // 선물하기 버튼 — 직접 획득한 토큰 없으면 시각만 비활성. 클릭은 받게 두고 openGiftSelect 가드가 toast 안내
   var giftBtn = document.getElementById('giftBtn');
   if (giftBtn) {
+    giftBtn.disabled = false; // 항상 클릭 받음 (모바일에서 비활성 사유 toast 노출 위해)
     if (giftable < 1) {
-      giftBtn.disabled      = true;
       giftBtn.style.opacity = '0.45';
+      giftBtn.style.cursor  = 'not-allowed';
       giftBtn.title = giftBal > 0
         ? '선물받은 토큰은 다시 선물할 수 없어요 💝'
         : '선물할 토큰이 부족해요';
     } else {
-      giftBtn.disabled      = false;
       giftBtn.style.opacity = '1';
+      giftBtn.style.cursor  = '';
       giftBtn.title         = '';
     }
   }
 
-  // 52차: 일반 토큰은 없고 선물받은 토큰만 있을 때 안내 (선물하기 비활성 이유 모바일에서도 보이게)
-  var giftOnlyHint = document.getElementById('giftOnlyHint');
-  if (giftOnlyHint) {
-    giftOnlyHint.style.display = (regularBal === 0 && giftBal > 0) ? 'block' : 'none';
-  }
+  // 52차: giftOnlyHint div 제거 — toast 방식으로 전환 (변쌤 요청)
 }
 
 async function loadTokenBalance() {
@@ -8559,7 +8556,7 @@ function confirmSaveRegular() {
   var balance    = tb.current_balance || 0;
   var regularBal = Math.max(0, balance - giftBal);
   if (regularBal < 1) {
-    toast(giftBal > 0 ? '💝 선물받은 토큰은 아래 카드를 눌러 저축해요!' : '저축할 마음토큰이 없어요');
+    toast(giftBal > 0 ? '💝 선물받은 토큰은 아래 카드를 눌러 저축해요!' : '저축할 토큰이 없어요 🪙');
     return;
   }
   // 확인 모달 열기
@@ -8593,7 +8590,7 @@ async function saveRegularToken() {
   var balance    = tb.current_balance || 0;
   var regularBal = Math.max(0, balance - giftBal);
   if (regularBal < 1) {
-    toast(giftBal > 0 ? '💝 선물받은 토큰은 아래 카드를 눌러 저축해요!' : '저축할 마음토큰이 없어요');
+    toast(giftBal > 0 ? '💝 선물받은 토큰은 아래 카드를 눌러 저축해요!' : '저축할 토큰이 없어요 🪙');
     return;
   }
   // 중복 탭 방지 — 카드 즉시 비활성화
