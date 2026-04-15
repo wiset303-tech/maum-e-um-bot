@@ -796,6 +796,50 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   overflow:hidden;
   transition:max-height .22s ease, padding .22s ease, margin-bottom .22s ease, opacity .22s ease;
 }
+
+/* 47차 C: 학생 지난 대화 열람 */
+.chat-topbar{
+  display:flex;justify-content:flex-end;flex-shrink:0;
+  margin-bottom:6px;
+}
+.chat-history-btn{
+  background:var(--mint4);color:var(--mint2);
+  border:1px solid var(--mint);border-radius:14px;
+  padding:5px 14px;font-size:11.5px;font-weight:700;
+  cursor:pointer;font-family:'Noto Sans KR',sans-serif;
+}
+.chat-history-btn:active{background:var(--mint);color:#fff}
+.chat-hist-row{
+  display:flex;gap:10px;padding:11px 4px;
+  border-bottom:1px solid var(--lgray2);cursor:pointer;
+  align-items:center;
+}
+.chat-hist-row:active{background:var(--mint4)}
+.chat-hist-date{font-size:12px;color:var(--gray);flex-shrink:0;min-width:46px;font-weight:700}
+.chat-hist-kw{font-size:13px;color:var(--navy);flex:1;line-height:1.5;word-break:break-all}
+.chat-hist-empty{color:var(--lgray);text-align:center;padding:24px 0;font-size:13px}
+.chat-hist-legacy{
+  background:#fff9e6;color:#6b5a1f;
+  border-left:3px solid #f0c14b;border-radius:8px;
+  padding:10px 12px;font-size:12px;line-height:1.6;
+  margin-bottom:12px;
+}
+.chat-hist-msg{
+  display:flex;gap:8px;margin-bottom:10px;max-width:90%;
+}
+.chat-hist-msg.user{align-self:flex-end;flex-direction:row-reverse;margin-left:auto}
+.chat-hist-msg .avatar{
+  width:30px;height:30px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg,var(--mint),var(--mint2));
+  display:flex;align-items:center;justify-content:center;font-size:14px;
+}
+.chat-hist-msg .bubble{
+  padding:8px 12px;border-radius:14px;font-size:13px;line-height:1.55;
+  background:var(--mint4);color:var(--navy);
+}
+.chat-hist-msg.user .bubble{
+  background:linear-gradient(135deg,var(--mint),var(--mint2));color:#fff;
+}
 .chat-notice.collapsed{
   max-height:0;
   padding-top:0;
@@ -1337,6 +1381,29 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       </button>
     </div>
     <div style="margin-top:12px;font-size:11px;color:var(--gray);text-align:center">선물받은 토큰은 다시 선물할 수 없어요</div>
+  </div>
+</div>
+
+<!-- ══ 47차 C: 지난 대화 목록 (학생 본인 전용) ══ -->
+<div id="modal-chat-history" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-chat-history')">
+  <div class="modal-box" style="position:relative">
+    <button class="modal-close" onclick="closeModal('modal-chat-history')">✕</button>
+    <div class="modal-title">📖 지난 대화</div>
+    <div style="font-size:11.5px;color:var(--gray);text-align:center;margin-bottom:10px;line-height:1.5">날짜를 누르면 그날 나눈 이야기를 볼 수 있어요</div>
+    <div id="chatHistoryList" style="max-height:56vh;overflow-y:auto">
+      <div class="chat-hist-empty">불러오는 중...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 47차 C: 지난 대화 원문 (학생 본인 전용) ══ -->
+<div id="modal-chat-messages" class="modal-overlay hidden" style="z-index:3000" onclick="closeModalOutside(event,'modal-chat-messages')">
+  <div class="modal-box" style="position:relative">
+    <button class="modal-close" onclick="closeModal('modal-chat-messages')">✕</button>
+    <div class="modal-title" id="chatMsgsTitle">📖 대화</div>
+    <div id="chatMsgsBody" style="max-height:60vh;overflow-y:auto;padding:4px 2px">
+      <div class="chat-hist-empty">불러오는 중...</div>
+    </div>
   </div>
 </div>
 
@@ -7365,6 +7432,9 @@ function enterModifyMode() {
 // ── 봇 대화 ──
 function chatHTML() {
   return '<div class="chat-wrap">' +
+    '<div class="chat-topbar">' +
+      '<button class="chat-history-btn" onclick="openChatHistory()">📖 지난 대화</button>' +
+    '</div>' +
     '<div id="personaBar" class="persona-bar" style="display:none">' +
       '<span class="persona-bar-label" id="personaBarLabel">🤝 페르소나 대화 중</span>' +
       '<button class="persona-bar-btn" onclick="exitPersonaMode()">✕ 마음봇으로</button>' +
@@ -7968,6 +8038,110 @@ function tokenLogMovePage(dir) {
   var totalPages = Math.ceil(_tokenLogs.length / TOKEN_LOG_PAGE);
   _tokenLogPage = Math.max(0, Math.min(_tokenLogPage + dir, totalPages - 1));
   renderTokenLogPage();
+}
+
+// ── 47차 C: 학생 지난 대화 열람 (U Phase 3 작업 1) ──────────
+// list_chats → 목록 모달 / get_chat_messages → 원문 모달 (학생 본인 전용)
+// 레거시 9건(messages_json 없는 45차 이전 행)은 목록에 함께 보이되
+// 원문 모달에서 "요약만 기록돼 있어요" 안내 + dominant_keywords만 표시
+var _chatHistCache = [];
+
+function _escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function openChatHistory() {
+  var u = STATE.user || {};
+  if (STATE.role !== 'student' || !u.student_uid) {
+    showToast('학생 계정에서만 볼 수 있어요');
+    return;
+  }
+  document.getElementById('modal-chat-history').classList.remove('hidden');
+  loadChatHistoryList();
+}
+
+async function loadChatHistoryList() {
+  var list = document.getElementById('chatHistoryList');
+  if (!list) return;
+  list.innerHTML = '<div class="chat-hist-empty">불러오는 중...</div>';
+  var u = STATE.user || {};
+  var res = await api('list_chats', {
+    caller_uid : u.student_uid,
+    caller_role: 'student',
+    limit      : 30
+  });
+  if (!res || res.status !== 'ok') {
+    list.innerHTML = '<div class="chat-hist-empty">불러오지 못했어요</div>';
+    return;
+  }
+  var chats = (res.data && res.data.chats) || [];
+  _chatHistCache = chats;
+  if (!chats.length) {
+    list.innerHTML = '<div class="chat-hist-empty">아직 지난 대화가 없어요 💭</div>';
+    return;
+  }
+  var html = chats.map(function(c, idx) {
+    var mmdd = (c.date || '').slice(5);  // 'YYYY-MM-DD' → 'MM-DD'
+    var kwRaw = c.dominant_keywords ? String(c.dominant_keywords) : '';
+    var kwText = kwRaw
+      ? kwRaw.split(',').slice(0, 5).map(function(s){return s.trim();}).filter(Boolean).join(', ')
+      : '(낱말 없음)';
+    return '<div class="chat-hist-row" onclick="openChatMessagesFromList(' + idx + ')">' +
+      '<div class="chat-hist-date">' + _escHtml(mmdd) + '</div>' +
+      '<div class="chat-hist-kw">' + _escHtml(kwText) + '</div>' +
+    '</div>';
+  }).join('');
+  list.innerHTML = html;
+}
+
+async function openChatMessagesFromList(idx) {
+  var c = _chatHistCache[idx];
+  if (!c) return;
+  document.getElementById('modal-chat-messages').classList.remove('hidden');
+  var titleEl = document.getElementById('chatMsgsTitle');
+  var body    = document.getElementById('chatMsgsBody');
+  if (titleEl) titleEl.textContent = '📖 ' + (c.date || '대화');
+  if (body)    body.innerHTML = '<div class="chat-hist-empty">불러오는 중...</div>';
+  var u = STATE.user || {};
+  var res = await api('get_chat_messages', {
+    caller_uid : u.student_uid,
+    caller_role: 'student',
+    log_uid    : c.log_uid
+  });
+  if (!res || res.status !== 'ok') {
+    body.innerHTML = '<div class="chat-hist-empty">' + _escHtml(res && res.message ? res.message : '불러오지 못했어요') + '</div>';
+    return;
+  }
+  var data = res.data || {};
+  var msgs = data.messages || [];
+  // 레거시: 원문이 없는 예전 대화 — 안내 + 키워드만
+  if (data.legacy || !msgs.length) {
+    var kwRaw  = c.dominant_keywords ? String(c.dominant_keywords) : '';
+    var kwText = kwRaw
+      ? kwRaw.split(',').map(function(s){return s.trim();}).filter(Boolean).join(', ')
+      : '(낱말 없음)';
+    body.innerHTML =
+      '<div class="chat-hist-legacy">💡 이전 대화는 <b>요약</b>만 기록돼 있어요.<br>이 날짜부터는 원래 대화도 함께 저장됩니다.</div>' +
+      '<div style="font-size:12px;color:var(--gray);margin-bottom:6px">그날의 주요 낱말</div>' +
+      '<div style="font-size:13.5px;color:var(--navy);line-height:1.65">' + _escHtml(kwText) + '</div>';
+    return;
+  }
+  // 정상 케이스: 46차 압축 포맷 {r:'u'|'b', t:'...'} 배열 렌더
+  var rows = msgs.map(function(m) {
+    var isUser = (m && m.r === 'u');
+    var avatar = isUser ? '🙂' : '🤖';
+    return '<div class="chat-hist-msg ' + (isUser ? 'user' : 'bot') + '">' +
+      '<div class="avatar">' + avatar + '</div>' +
+      '<div class="bubble">' + _escHtml(m && m.t ? m.t : '') + '</div>' +
+    '</div>';
+  }).join('');
+  body.innerHTML = rows || '<div class="chat-hist-empty">대화가 비어 있어요</div>';
+  // 위부터 읽기 편하도록 scrollTop 0
+  body.scrollTop = 0;
 }
 
 // 배너 프로필 사진 갱신
