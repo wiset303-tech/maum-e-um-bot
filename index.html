@@ -792,6 +792,16 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   line-height:1.55;
   margin-bottom:8px;
   letter-spacing:-0.2px;
+  max-height:120px;
+  overflow:hidden;
+  transition:max-height .22s ease, padding .22s ease, margin-bottom .22s ease, opacity .22s ease;
+}
+.chat-notice.collapsed{
+  max-height:0;
+  padding-top:0;
+  padding-bottom:0;
+  margin-bottom:0;
+  opacity:0;
 }
 .chat-notice-line{display:block}
 
@@ -1761,6 +1771,8 @@ var STATE = {
   selectedMacro: null, // 감정 선택
   selectedMicro: null,
   chatHistory: [],     // 봇 대화 기록
+  chatLogUid: '',      // 45차 U: 현재 로그인 세션의 CHAT_LOG 행 uid (UPSERT 추적)
+  chatLogSaved: false, // 45차 U: 현재 턴 수 기준 저장 완료 플래그 (race condition 방지)
   tokenBalance: null,
   tokenBalances: {},     // 교사용: {student_uid: {current_balance, total_saved, temp}}
   studentEmotions: {},   // 교사용: {student_uid: {macro, micro, score}} 오늘 감정
@@ -2252,7 +2264,8 @@ function logout() {
   _notifications  = [];
   if (STATE.role === 'student') saveChatLogIfNeeded();
   STATE = { role:null, user:null, emotions:[...STATE.emotions], students:[], dashboard:null,
-            nfcPending:null, selectedMacro:null, selectedMicro:null, chatHistory:[], tokenBalance:null,
+            nfcPending:null, selectedMacro:null, selectedMicro:null, chatHistory:[],
+            chatLogUid:'', chatLogSaved:false, tokenBalance:null,
             tokenBalances:{}, studentEmotions:{},
             isPreview:false, adminUser:null, selectedGender:null,
             settings:{ alarm_checkin:true, alarm_crisis:true, bgm:true,
@@ -7366,9 +7379,24 @@ function chatHTML() {
       '<button class="btn btn-lav" style="font-size:12px;padding:8px 12px;flex:1;display:none" id="btnPersonaSelf" onclick="openPersonaSelect(true)">🪞 나랑 대화</button>' +
     '</div>' +
     '<div class="chat-input-row">' +
-      '<input class="chat-input" id="chatInput" placeholder="마음이음봇에게 말해봐요..." onkeydown="if(event.key===&quot;Enter&quot;)sendChat()">' +
+      '<input class="chat-input" id="chatInput" placeholder="마음이음봇에게 말해봐요..." onfocus="_chatInputFocus()" onblur="_chatInputBlur()" onkeydown="if(event.key===&quot;Enter&quot;)sendChat()">' +
       '<button class="chat-send" id="chatSendBtn" onclick="sendChat()">➤</button>' +
     '</div></div>';
+}
+
+// 45차 U: 입력창 포커스 시 배너 collapse + 대화 스크롤 bottom 유지 (키보드 올라와 좁아진 공간 확보)
+function _chatInputFocus() {
+  var n = document.getElementById('chatNotice');
+  if (n) n.classList.add('collapsed');
+  // 키보드 애니메이션 끝난 뒤 스크롤 bottom으로 — 말풍선 최신 메시지 유지
+  setTimeout(function(){
+    var wrap = document.getElementById('chatMessages');
+    if (wrap) wrap.scrollTop = wrap.scrollHeight;
+  }, 280);
+}
+function _chatInputBlur() {
+  var n = document.getElementById('chatNotice');
+  if (n) n.classList.remove('collapsed');
 }
 
 function addBotMsg(text) {
@@ -7650,7 +7678,8 @@ async function saveChatLogIfNeeded() {
 
   try {
     var _macroKoLog = { positive:'기쁜', neutral:'그저그런', negative:'힘든' };
-    await api('save_chat_log', {
+    var res = await api('save_chat_log', {
+      log_uid      : STATE.chatLogUid || '',   // ← 45차 U: UPSERT 키. 빈 문자열이면 신규 INSERT
       student_uid  : u.student_uid,
       student_name : u.name,
       teacher_uid  : u.teacher_uid,
@@ -7666,6 +7695,10 @@ async function saveChatLogIfNeeded() {
       comm_pattern : analysis.comm_pattern,
       raw_sample   : analysis.raw_sample,
     });
+    // 응답에서 log_uid 받기 (신규면 새 uid, 기존 UPDATE면 그대로)
+    if (res && res.status === 'ok' && res.data && res.data.log_uid) {
+      STATE.chatLogUid = res.data.log_uid;
+    }
   } catch(e) {
     STATE.chatLogSaved = false;            // 실패 시 재시도 허용
   }
