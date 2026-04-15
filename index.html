@@ -7942,9 +7942,13 @@ function renderTokenLogPage() {
   var totalPages = Math.ceil(_tokenLogs.length / TOKEN_LOG_PAGE);
   var rows = page.map(function(log) {
     var color = log.gain ? 'var(--mint2)' : '#ff8c42';
+    // 47차 B: 선물 방향 시각화 — 받음 ⬅️ / 보냄 ➡️, 그 외는 기본 🪙
+    var icon = '🪙';
+    if (log.type === 'gift_received' || log.type === 'gift_recv') icon = '⬅️🪙';
+    else if (log.type === 'gift_sent') icon = '➡️🪙';
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--lgray2)">' +
       '<div><span style="color:var(--lgray);font-size:11px;margin-right:6px">' + log.date + '</span><span>' + log.label + '</span></div>' +
-      '<span style="font-weight:800;color:' + color + ';flex-shrink:0;margin-left:8px">' + log.amount + ' 🪙</span>' +
+      '<span style="font-weight:800;color:' + color + ';flex-shrink:0;margin-left:8px">' + log.amount + ' ' + icon + '</span>' +
     '</div>';
   }).join('');
   var nav = '';
