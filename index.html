@@ -7384,19 +7384,54 @@ function chatHTML() {
     '</div></div>';
 }
 
-// 45차 U: 입력창 포커스 시 배너 collapse + 대화 스크롤 bottom 유지 (키보드 올라와 좁아진 공간 확보)
+// 45차 U: 입력창 포커스 시 배너 collapse + chat-wrap 높이를 visualViewport에 맞춤
+// (Android Chrome의 body scroll로 대화 영역이 밀려 사라지는 문제 해결)
+var _chatVpHandler = null;
+
 function _chatInputFocus() {
   var n = document.getElementById('chatNotice');
   if (n) n.classList.add('collapsed');
-  // 키보드 애니메이션 끝난 뒤 스크롤 bottom으로 — 말풍선 최신 메시지 유지
-  setTimeout(function(){
-    var wrap = document.getElementById('chatMessages');
-    if (wrap) wrap.scrollTop = wrap.scrollHeight;
-  }, 280);
+
+  var applyVp = function() {
+    var wrap = document.querySelector('.chat-wrap');
+    if (!wrap) return;
+    if (window.visualViewport) {
+      // 리셋 후 재측정 → 정확한 chat-wrap top 획득
+      wrap.style.height = '';
+      var rect = wrap.getBoundingClientRect();
+      var vp = window.visualViewport;
+      // chat-wrap bottom이 visualViewport 하단과 일치해야 키보드와 딱 맞음
+      var h = vp.offsetTop + vp.height - rect.top;
+      if (h > 120) wrap.style.height = h + 'px';
+    }
+    // 최신 말풍선 bottom으로 유지
+    var msgs = document.getElementById('chatMessages');
+    if (msgs) msgs.scrollTop = msgs.scrollHeight;
+  };
+
+  // 키보드 애니메이션 끝난 뒤 한 번 적용
+  setTimeout(applyVp, 320);
+
+  // 이후 키보드 크기 변화(예: 이모지/언어 전환) 추적
+  if (window.visualViewport && !_chatVpHandler) {
+    _chatVpHandler = applyVp;
+    window.visualViewport.addEventListener('resize', _chatVpHandler);
+  }
 }
+
 function _chatInputBlur() {
   var n = document.getElementById('chatNotice');
   if (n) n.classList.remove('collapsed');
+
+  // 높이 원복 (position:absolute inset:0 기본 레이아웃으로 돌아감)
+  var wrap = document.querySelector('.chat-wrap');
+  if (wrap) wrap.style.height = '';
+
+  // visualViewport 리스너 해제
+  if (window.visualViewport && _chatVpHandler) {
+    window.visualViewport.removeEventListener('resize', _chatVpHandler);
+    _chatVpHandler = null;
+  }
 }
 
 function addBotMsg(text) {
