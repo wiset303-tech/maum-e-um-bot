@@ -5818,7 +5818,7 @@ function renderStudentList() {
     var emoColor = emo ? (emo.macro==='positive'?'#2d7a4a':emo.macro==='negative'?'#c0392b':'#555') : '#999';
     var tb = STATE.tokenBalances && STATE.tokenBalances[uid2];
     var tempTxt  = tb ? tb.temp + '\u00b0' : '\u2014';
-    var tokenTxt = tb ? tb.current_balance + '\uac1c' : '\u2014';
+    // 50차: 토큰 칩 삭제 — statusRow 5칩(감정/온도/토큰/NFC/마음열기) → 4칩으로 정리
     var statusRow =
       '<div style="display:flex;gap:3px;flex-wrap:nowrap;overflow-x:auto;margin-top:5px;-webkit-overflow-scrolling:touch;scrollbar-width:none">'
         + '<span title="' + emoWord + '" style="display:inline-flex;align-items:center;gap:2px;background:'+emoBg+';color:'+emoColor+';border-radius:20px;padding:2px 6px;font-size:10.5px;font-weight:700;max-width:76px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex-shrink:0">'
@@ -5826,9 +5826,6 @@ function renderStudentList() {
         + '</span>'
         + '<span style="display:inline-flex;align-items:center;background:#fff3e0;color:#e65100;border-radius:20px;padding:2px 6px;font-size:10.5px;font-weight:700;white-space:nowrap;flex-shrink:0">'
             + '\uD83C\uDF21\uFE0F ' + tempTxt
-        + '</span>'
-        + '<span style="display:inline-flex;align-items:center;background:#fffde7;color:#f57f17;border-radius:20px;padding:2px 6px;font-size:10.5px;font-weight:700;white-space:nowrap;flex-shrink:0">'
-            + '\uD83E\uDE99 ' + tokenTxt
         + '</span>'
         + '<span style="display:inline-flex;align-items:center;background:'+(s.nfc_uid?'#e3f6f0':'#f5f5f5')+';color:'+(s.nfc_uid?'#1a7a58':'#bbb')+';border-radius:20px;padding:2px 6px;font-size:10.5px;font-weight:700;white-space:nowrap;flex-shrink:0">'
             + (s.nfc_uid ? '\uD83D\uDCB3 NFC' : '\uD83D\uDD32 NFC')
