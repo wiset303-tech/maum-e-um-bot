@@ -1429,7 +1429,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   <div class="modal-box" style="position:relative;max-width:460px">
     <button class="modal-close" onclick="closeModal('modal-crisis-detail')">✕</button>
     <div class="modal-title" style="color:#c0392b">⚠️ 위기 신호 대화</div>
-    <div id="crisisDetailBody" style="max-height:68vh;overflow-y:auto;padding:4px 2px">
+    <div id="crisisDetailBody" style="min-height:55vh;max-height:68vh;overflow-y:auto;padding:4px 2px">
       <div class="chat-hist-empty" style="text-align:center;padding:24px 0;color:var(--gray);font-size:13px">불러오는 중...</div>
     </div>
   </div>
@@ -2179,6 +2179,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+// 52차: NFC 인증 진행 중 플래그 — 동시 다중 NFC 인증으로 UI 섞임 방지
+var _nfcAuthInFlight = false;
+
 async function handleNfcUid(uid) {
   if (!uid) return;
 
@@ -2201,20 +2204,34 @@ async function handleNfcUid(uid) {
     return;
   }
 
+  // 52차: 이미 인증 진행 중이면 새 카드 무시 — 교사→학생 동시 로그인으로 UI 섞임 차단
+  if (_nfcAuthInFlight) {
+    var msg2 = document.getElementById('nfcMsg');
+    if (msg2) msg2.textContent = '카드 확인 중이에요... 잠시만 기다려주세요';
+    return;
+  }
+
   // 일반 로그인 처리
+  _nfcAuthInFlight = true;
   var msg = document.getElementById('nfcMsg');
   if(msg) msg.textContent = '확인 중...';
   showLoading('카드를 확인하는 중이에요 🪪');
 
-  var res = await api('login_nfc', { nfc_uid: uid });
-  if (res.status === 'ok') {
-    AUDIO.sfx('nfc');
-    onLoginSuccess(res.data); // hideLoading은 onLoginSuccess 내부에서 역할별로 처리
-  } else {
-    hideLoading();
-    toast(res.message || '등록되지 않은 카드입니다');
-    if(msg) msg.textContent = '마음카드를 띠링-';
-    focusNfcInput();
+  try {
+    var res = await api('login_nfc', { nfc_uid: uid });
+    if (res.status === 'ok') {
+      AUDIO.sfx('nfc');
+      onLoginSuccess(res.data); // hideLoading은 onLoginSuccess 내부에서 역할별로 처리
+    } else {
+      hideLoading();
+      toast(res.message || '등록되지 않은 카드입니다');
+      if(msg) msg.textContent = '마음카드를 띠링-';
+      focusNfcInput();
+    }
+  } finally {
+    // onLoginSuccess가 호출되는 순간 screen-nfc가 hidden 되어 다음 NFC는 게이트에서 막힘
+    // 실패 시에도 다음 NFC 시도가 가능해야 하므로 finally에서 리셋
+    _nfcAuthInFlight = false;
   }
 }
 
@@ -5868,13 +5885,15 @@ function renderStudentList() {
   }).join('');
 
 
-  var moreBtn = hasMore
-    ? '<button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px" onclick="showMoreStudents()">' +
-        '더보기 ('+(sorted.length - _studentShowCount)+'명 더)' +
-      '</button>'
-    : (_studentShowCount > 5
-        ? '<button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px" onclick="showLessStudents()">접기</button>'
-        : '');
+  var moreBtn;
+  if (hasMore) {
+    var nextStep = Math.min(5, sorted.length - _studentShowCount);
+    moreBtn = '<button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px" onclick="showMoreStudents()">+' + nextStep + '명 더보기</button>';
+  } else if (_studentShowCount > 5) {
+    moreBtn = '<button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px" onclick="showLessStudents()">접기</button>';
+  } else {
+    moreBtn = '';
+  }
 
   el.innerHTML = cards + moreBtn;
 }
@@ -8160,14 +8179,17 @@ function _renderChatKeywords(chats) {
       if (!kws.length) {
         chipsHtml = '<span style="font-size:11px;color:var(--gray);font-style:italic">키워드 없음</span>';
       } else {
-        var visible = kws.slice(0, MAX_CHIPS);
-        var remain = kws.length - visible.length;
-        chipsHtml = visible.map(function(k) {
-          return '<span style="display:inline-block;background:var(--lav2);color:var(--navy);border-radius:14px;padding:3px 10px;font-size:11.5px;font-weight:700;margin:2px 3px 2px 0">'
+        // 52차: 모든 칩 렌더, MAX_CHIPS 초과는 display:none + +N 칩 클릭으로 펼치기
+        chipsHtml = kws.map(function(k, idx) {
+          var isExtra = (idx >= MAX_CHIPS);
+          var extraStyle = isExtra ? ';display:none' : '';
+          var extraClass = isExtra ? ' kw-chip-extra' : '';
+          return '<span class="kw-chip' + extraClass + '" style="display:inline-block;background:var(--lav2);color:var(--navy);border-radius:14px;padding:3px 10px;font-size:11.5px;font-weight:700;margin:2px 3px 2px 0' + extraStyle + '">'
             + _escHtml(k) + '</span>';
         }).join('');
+        var remain = kws.length - MAX_CHIPS;
         if (remain > 0) {
-          chipsHtml += '<span style="display:inline-block;background:#f0f0f0;color:#888;border-radius:14px;padding:3px 9px;font-size:11px;font-weight:700;margin:2px 0">+' + remain + '</span>';
+          chipsHtml += '<span class="kw-chip-more" onclick="event.stopPropagation();_expandKwChips(this)" style="display:inline-block;background:#f0f0f0;color:#888;border-radius:14px;padding:3px 9px;font-size:11px;font-weight:700;margin:2px 0;cursor:pointer">+' + remain + '</span>';
         }
       }
 
@@ -8186,7 +8208,7 @@ function _renderChatKeywords(chats) {
           med : { bd:'#e67e22', bw:'2px' },
           high: { bd:'#c0392b', bw:'2px' }
         }[sev] || { bd:'#e67e22', bw:'2px' };
-        rowBg = '#ffe0e0';
+        rowBg = '#ffd0d0';
         rowBorder = sevStyleRow.bw + ' solid ' + sevStyleRow.bd;
         headIcon = '⚠️ 위기 신호';
         headColor = '#c0392b';
@@ -8219,6 +8241,17 @@ function _renderChatKeywords(chats) {
   }).join('');
 
   body.innerHTML = html;
+}
+
+// 52차: +N 칩 클릭 → 같은 행의 hidden 칩 모두 펼치기 + 자기 자신 사라지기
+function _expandKwChips(badge) {
+  var container = badge.parentElement;
+  if (!container) return;
+  var extras = container.querySelectorAll('.kw-chip-extra');
+  for (var i = 0; i < extras.length; i++) {
+    extras[i].style.display = 'inline-block';
+  }
+  badge.style.display = 'none';
 }
 
 // ── 51차: 위기 대화 상세 조회 (교사/관리자/부모 전용) ──────────
