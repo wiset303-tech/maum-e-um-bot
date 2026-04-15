@@ -7946,7 +7946,9 @@ function _refreshTokenCards(tb) {
   var giftable   = regularBal; // 선물 가능량 = 일반 토큰만
   var temp       = Math.min(100, saved / 2);
 
-  setText('tokenAmount', balance);
+  // 52차: tokenAmount는 일반 토큰만 표시 (이전엔 총합이라 "현재 1 + 선물 1 = 2개?" 오해 발생)
+  // balance(=current_balance)는 시트상 총합. regularBal = balance - giftBal이 진짜 일반 잔고
+  setText('tokenAmount', regularBal);
   setText('tokenGift',   giftBal);
   setText('tokenEarned', earned);
   setText('tokenSaved',  saved);
