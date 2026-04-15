@@ -1417,9 +1417,20 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   <div class="modal-box" style="position:relative">
     <button class="modal-close" onclick="closeModal('modal-chat-keywords')">✕</button>
     <div class="modal-title" id="chatKwTitle">📖 마음열기</div>
-    <div style="font-size:11.5px;color:var(--gray);text-align:center;margin-bottom:10px;line-height:1.5">마음봇과 나눈 이야기의 키워드를 보여드려요<br>대화 원문은 학생 본인만 볼 수 있어요</div>
+    <div style="font-size:11.5px;color:var(--gray);text-align:center;margin-bottom:10px;line-height:1.5">마음봇과 나눈 이야기의 키워드를 보여드려요<br>대화 원문은 학생 본인만 볼 수 있어요<br><span style="color:#c0392b;font-weight:600">⚠️ 위기 신호로 판단된 대화는 보호 목적상 원문 일부가 공개될 수 있어요</span></div>
     <div id="chatKwBody" style="max-height:58vh;overflow-y:auto;padding:4px 2px">
       <div class="chat-hist-empty">불러오는 중...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 51차: 위기 대화 상세 모달 (교사/관리자/부모 전용) ══ -->
+<div id="modal-crisis-detail" class="modal-overlay hidden" style="z-index:3100" onclick="closeModalOutside(event,'modal-crisis-detail')">
+  <div class="modal-box" style="position:relative;max-width:460px">
+    <button class="modal-close" onclick="closeModal('modal-crisis-detail')">✕</button>
+    <div class="modal-title" style="color:#c0392b">⚠️ 위기 신호 대화</div>
+    <div id="crisisDetailBody" style="max-height:68vh;overflow-y:auto;padding:4px 2px">
+      <div class="chat-hist-empty" style="text-align:center;padding:24px 0;color:var(--gray);font-size:13px">불러오는 중...</div>
     </div>
   </div>
 </div>
@@ -8086,7 +8097,7 @@ function openChatKeywords(student_uid, student_name) {
     setTimeout(function() {
       _renderChatKeywords([
         { log_uid:'pv1', date:'2026-04-14', student_name:student_name, turn_count:8, dominant_keywords:'친구,놀이,속상함' },
-        { log_uid:'pv2', date:'2026-04-14', student_name:student_name, turn_count:5, dominant_keywords:'공부,걱정' },
+        { log_uid:'pv2', date:'2026-04-14', student_name:student_name, turn_count:5, dominant_keywords:'공부,걱정', crisis_flag:'Y', crisis_severity:'high', crisis_keyword:'죽고 싶', crisis_reason:'미리보기 위기 샘플' },
         { log_uid:'pv3', date:'2026-04-12', student_name:student_name, turn_count:12, dominant_keywords:'게임,형,즐거움,웃음' }
       ]);
     }, 200);
@@ -8164,9 +8175,32 @@ function _renderChatKeywords(chats) {
         ? '<span style="font-size:10.5px;color:var(--gray);font-weight:600;flex-shrink:0;margin-left:6px">' + c.turn_count + '턴</span>'
         : '';
 
-      return '<div style="padding:8px 10px;background:#fafbfe;border-radius:10px;margin-bottom:6px">'
+      // 51차: 위기 행 강조 + 클릭 배선
+      var isCrisis = (String(c.crisis_flag || '') === 'Y');
+      var sev = String(c.crisis_severity || 'med');
+      var rowBg, rowBorder, headIcon, headColor, clickAttr;
+      if (isCrisis) {
+        var sevStyleRow = {
+          low : { bg:'#fff8dc', bd:'#d4a017' },
+          med : { bg:'#ffeacc', bd:'#e67e22' },
+          high: { bg:'#ffe0e0', bd:'#c0392b' }
+        }[sev] || { bg:'#ffeacc', bd:'#e67e22' };
+        rowBg = sevStyleRow.bg;
+        rowBorder = '2px solid ' + sevStyleRow.bd;
+        headIcon = '⚠️ 위기 신호';
+        headColor = '#c0392b';
+        clickAttr = ' onclick="openCrisisContext(\'' + _escHtml(c.log_uid || '') + '\')" style="cursor:pointer"';
+      } else {
+        rowBg = '#fafbfe';
+        rowBorder = 'none';
+        headIcon = '💬 대화';
+        headColor = 'var(--gray)';
+        clickAttr = '';
+      }
+
+      return '<div' + clickAttr + ' style="padding:8px 10px;background:' + rowBg + ';border:' + rowBorder + ';border-radius:10px;margin-bottom:6px' + (isCrisis ? ';cursor:pointer' : '') + '">'
         + '<div style="display:flex;align-items:center;margin-bottom:4px">'
-          + '<span style="font-size:11px;color:var(--gray);font-weight:600;flex:1">💬 대화</span>'
+          + '<span style="font-size:11px;color:' + headColor + ';font-weight:' + (isCrisis ? '700' : '600') + ';flex:1">' + headIcon + '</span>'
           + turnBadge
         + '</div>'
         + '<div style="line-height:1.9">' + chipsHtml + '</div>'
@@ -8184,6 +8218,127 @@ function _renderChatKeywords(chats) {
   }).join('');
 
   body.innerHTML = html;
+}
+
+// ── 51차: 위기 대화 상세 조회 (교사/관리자/부모 전용) ──────────
+// 마음열기 모달에서 위기 행 클릭 → get_crisis_context 호출 → hit ±5턴 + AI reason 표시
+function openCrisisContext(log_uid) {
+  var u = STATE.user || {};
+  var role = STATE.role;
+  if (role !== 'teacher' && role !== 'admin' && role !== 'parent') {
+    showToast('권한이 없어요'); return;
+  }
+  if (!log_uid) { showToast('대화 정보가 없어요'); return; }
+
+  var body = document.getElementById('crisisDetailBody');
+  if (body) body.innerHTML = '<div style="text-align:center;padding:24px 0"><div style="position:relative;display:inline-block;font-size:38px;line-height:1"><span style="opacity:0.18">⚠️</span><span style="position:absolute;left:0;top:0;animation:ckwHeartFill 2s ease-in-out infinite">⚠️</span></div><div style="font-size:12px;color:#c0392b;margin-top:8px">마음 데이터를 불러오고 있어요</div></div>';
+  document.getElementById('modal-crisis-detail').classList.remove('hidden');
+
+  // 관리자 미리보기: 더미
+  if (STATE.isPreview) {
+    setTimeout(function() {
+      _renderCrisisContext({
+        messages: [
+          { r:'u', t:'오늘 학교에서 너무 힘들었어' },
+          { r:'b', t:'무슨 일이 있었어?' },
+          { r:'u', t:'친구들이 나만 빼고 놀아' },
+          { r:'b', t:'많이 속상했겠다' },
+          { r:'u', t:'죽고 싶어 진짜' }
+        ],
+        hit_idx: 4,
+        total: 5,
+        crisis: {
+          flag:'Y',
+          reason:'학생이 직접적으로 자살 의사를 표현함 (미리보기)',
+          keyword:'죽고 싶',
+          severity:'high'
+        }
+      });
+    }, 200);
+    return;
+  }
+
+  var caller_uid;
+  if (role === 'teacher')      caller_uid = u.teacher_uid;
+  else if (role === 'admin')   caller_uid = 'admin';
+  else if (role === 'parent')  caller_uid = u.parent_uid;
+
+  api('get_crisis_context', {
+    caller_uid  : caller_uid,
+    caller_role : role,
+    log_uid     : log_uid
+  }).then(function(res) {
+    if (res.status !== 'ok') {
+      if (body) body.innerHTML = '<div style="text-align:center;padding:24px 10px;color:var(--gray);font-size:13px">' + _escHtml(res.message || '불러오기 실패') + '</div>';
+      return;
+    }
+    _renderCrisisContext(res.data);
+  }).catch(function(e) {
+    if (body) body.innerHTML = '<div style="text-align:center;padding:24px 10px;color:var(--gray);font-size:13px">불러오기 실패</div>';
+  });
+}
+
+function _renderCrisisContext(d) {
+  var body = document.getElementById('crisisDetailBody');
+  if (!body) return;
+
+  var c = d.crisis || {};
+  var msgs = d.messages || [];
+  var hitIdx = (typeof d.hit_idx === 'number') ? d.hit_idx : -1;
+  var total = d.total || msgs.length;
+
+  // severity 배지 색상
+  var sev = String(c.severity || 'med');
+  var sevMap = {
+    low : { bg:'#fff4cc', fg:'#8a6d0b', label:'주의' },
+    med : { bg:'#ffe4cc', fg:'#9c4a10', label:'경고' },
+    high: { bg:'#ffd4d4', fg:'#8a1e1e', label:'위험' }
+  };
+  var sevStyle = sevMap[sev] || sevMap.med;
+
+  // 상단: severity 배지 + 매치 키워드
+  var headHtml =
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">'
+      + '<span style="background:' + sevStyle.bg + ';color:' + sevStyle.fg + ';padding:4px 12px;border-radius:14px;font-size:12px;font-weight:700">' + sevStyle.label + '</span>'
+      + (c.keyword ? '<span style="font-size:12px;color:var(--gray)">매치 키워드: <span style="color:#c0392b;font-weight:600">' + _escHtml(c.keyword) + '</span></span>' : '')
+    + '</div>';
+
+  // AI reason 박스
+  var reasonHtml = c.reason
+    ? '<div style="background:#fff8f8;border-left:3px solid #e74c3c;padding:10px 12px;border-radius:6px;margin-bottom:14px;font-size:12.5px;line-height:1.6;color:#555"><span style="font-weight:700;color:#c0392b">AI 판단: </span>' + _escHtml(c.reason) + '</div>'
+    : '';
+
+  // 원문 메시지 (hit 발화 강조)
+  var ctxHtml;
+  if (!msgs.length) {
+    ctxHtml = '<div style="text-align:center;padding:20px 0;color:var(--gray);font-size:12px">원문을 불러올 수 없어요</div>';
+  } else {
+    var contextLabel = (hitIdx >= 0 && total > msgs.length)
+      ? '<div style="font-size:11px;color:var(--gray);margin-bottom:6px;text-align:center">전체 ' + total + '턴 중 위기 발화 주변 ' + msgs.length + '턴</div>'
+      : '';
+    var msgsHtml = msgs.map(function(m, i) {
+      var isUser = (m.r === 'u');
+      var isHit = (i === hitIdx);
+      var bg, color, align, label;
+      if (isHit) {
+        bg = '#ffe0e0'; color = '#8a1e1e'; align = 'flex-end'; label = '🚨 학생';
+      } else if (isUser) {
+        bg = '#e8f0ff'; color = '#2c4a7c'; align = 'flex-end'; label = '학생';
+      } else {
+        bg = '#f0f0f0'; color = '#555'; align = 'flex-start'; label = '마음봇';
+      }
+      var borderStyle = isHit ? 'border:2px solid #c0392b;box-shadow:0 2px 8px rgba(192,57,43,0.18)' : '';
+      return '<div style="display:flex;justify-content:' + align + ';margin-bottom:8px">'
+        + '<div style="max-width:80%">'
+          + '<div style="font-size:10.5px;color:' + (isHit ? '#c0392b' : 'var(--gray)') + ';font-weight:600;margin-bottom:3px;padding:0 4px">' + label + '</div>'
+          + '<div style="background:' + bg + ';color:' + color + ';padding:8px 12px;border-radius:14px;font-size:13px;line-height:1.5;word-break:break-word;' + borderStyle + '">' + _escHtml(m.t || '') + '</div>'
+        + '</div>'
+      + '</div>';
+    }).join('');
+    ctxHtml = contextLabel + msgsHtml;
+  }
+
+  body.innerHTML = headHtml + reasonHtml + ctxHtml;
 }
 
 // ── 47차 C: 학생 지난 대화 열람 (U Phase 3 작업 1) ──────────
