@@ -655,6 +655,11 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 }
 .loading-dot:nth-child(2){ animation-delay:.2s; }
 .loading-dot:nth-child(3){ animation-delay:.4s; }
+@keyframes ckwHeartFill{
+  0%{ clip-path:inset(100% 0 0 0); }
+  50%{ clip-path:inset(0% 0 0 0); }
+  100%{ clip-path:inset(100% 0 0 0); }
+}
 
 /* NFC 등록 팝업 */
 .nfc-register-wrap{
@@ -5815,20 +5820,20 @@ function renderStudentList() {
     var tempTxt  = tb ? tb.temp + '\u00b0' : '\u2014';
     var tokenTxt = tb ? tb.current_balance + '\uac1c' : '\u2014';
     var statusRow =
-      '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">'
-        + '<span title="' + emoWord + '" style="display:inline-flex;align-items:center;gap:2px;background:'+emoBg+';color:'+emoColor+';border-radius:20px;padding:3px 8px;font-size:11px;font-weight:700;max-width:82px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'
+      '<div style="display:flex;gap:3px;flex-wrap:nowrap;overflow-x:auto;margin-top:5px;-webkit-overflow-scrolling:touch;scrollbar-width:none">'
+        + '<span title="' + emoWord + '" style="display:inline-flex;align-items:center;gap:2px;background:'+emoBg+';color:'+emoColor+';border-radius:20px;padding:2px 6px;font-size:10.5px;font-weight:700;max-width:76px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex-shrink:0">'
             + emoIcon + ' ' + emoWord
         + '</span>'
-        + '<span style="display:inline-flex;align-items:center;background:#fff3e0;color:#e65100;border-radius:20px;padding:3px 7px;font-size:11px;font-weight:700">'
+        + '<span style="display:inline-flex;align-items:center;background:#fff3e0;color:#e65100;border-radius:20px;padding:2px 6px;font-size:10.5px;font-weight:700;white-space:nowrap;flex-shrink:0">'
             + '\uD83C\uDF21\uFE0F ' + tempTxt
         + '</span>'
-        + '<span style="display:inline-flex;align-items:center;background:#fffde7;color:#f57f17;border-radius:20px;padding:3px 7px;font-size:11px;font-weight:700">'
+        + '<span style="display:inline-flex;align-items:center;background:#fffde7;color:#f57f17;border-radius:20px;padding:2px 6px;font-size:10.5px;font-weight:700;white-space:nowrap;flex-shrink:0">'
             + '\uD83E\uDE99 ' + tokenTxt
         + '</span>'
-        + '<span style="display:inline-flex;align-items:center;background:'+(s.nfc_uid?'#e3f6f0':'#f5f5f5')+';color:'+(s.nfc_uid?'#1a7a58':'#bbb')+';border-radius:20px;padding:3px 7px;font-size:11px;font-weight:700">'
+        + '<span style="display:inline-flex;align-items:center;background:'+(s.nfc_uid?'#e3f6f0':'#f5f5f5')+';color:'+(s.nfc_uid?'#1a7a58':'#bbb')+';border-radius:20px;padding:2px 6px;font-size:10.5px;font-weight:700;white-space:nowrap;flex-shrink:0">'
             + (s.nfc_uid ? '\uD83D\uDCB3 NFC' : '\uD83D\uDD32 NFC')
         + '</span>'
-        + (s.active==='Y' ? '<span onclick="openChatKeywords(\''+uid2+'\',\''+nm2+'\')" style="display:inline-flex;align-items:center;background:#f3eefa;color:#6c3fb5;border-radius:20px;padding:3px 7px;font-size:11px;font-weight:700;cursor:pointer">📖 마음열기</span>' : '')
+        + (s.active==='Y' ? '<span onclick="openChatKeywords(\''+uid2+'\',\''+nm2+'\')" style="display:inline-flex;align-items:center;background:#f3eefa;color:#6c3fb5;border-radius:20px;padding:2px 6px;font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">📖 마음열기</span>' : '')
       + '</div>';
     var actions = s.active==='Y'
       ? '<div class="stu-menu-wrap">'
@@ -8076,7 +8081,7 @@ function openChatKeywords(student_uid, student_name) {
   var titleEl = document.getElementById('chatKwTitle');
   if (titleEl) titleEl.textContent = '📖 ' + (student_name || '학생') + ' 마음열기';
   var body = document.getElementById('chatKwBody');
-  if (body) body.innerHTML = '<div class="chat-hist-empty">불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div>';
+  if (body) body.innerHTML = '<div style="text-align:center;padding:28px 0"><div style="position:relative;display:inline-block;font-size:38px;line-height:1"><span style="opacity:0.18">💜</span><span style="position:absolute;left:0;top:0;animation:ckwHeartFill 2s ease-in-out infinite">💜</span></div><div style="font-size:12px;color:#9b59b6;margin-top:8px">마음 데이터를 불러오고 있어요</div></div>';
   document.getElementById('modal-chat-keywords').classList.remove('hidden');
 
   // 관리자 미리보기: 더미 응답
