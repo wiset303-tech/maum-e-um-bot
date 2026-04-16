@@ -5648,9 +5648,10 @@ async function markNotifRead(uid, el) {
   _notifications.forEach(function(n){ if (n.notification_uid === uid) { n.is_read = true; notif = n; } });
   if (el) el.style.background = '#fff';
   updateNotifBadge();
-  // 56차(fix): SECURITY DEFINER RPC로 교체 (anon PATCH는 RLS로 0 rows 업데이트)
-  try { await _sbRpc('rpc_mark_one_read', { p_notification_uid: uid }); }
-  catch(e) { await api('mark_notification_read', { notification_uid: uid }); }
+  // 56차(fix2): RPC가 0 rows 반환하면(SQL 미실행·RLS) GAS fallback
+  var _ok = false;
+  try { var n = await _sbRpc('rpc_mark_one_read', { p_notification_uid: uid }); _ok = (typeof n === 'number' && n > 0); } catch(e) {}
+  if (!_ok) await api('mark_notification_read', { notification_uid: uid });
   // 선물 알림 클릭 시 토큰 탭 내역 갱신
   if (notif && notif.type === 'token_gift') {
     loadTokenBalance();
@@ -5675,10 +5676,19 @@ async function markAllNotifsRead() {
   else if (role === 'parent')                 uid = STATE.user && STATE.user.parent_uid;
   if (!uid) return;
 
-  // ③ 56차(fix): SECURITY DEFINER RPC로 교체 (anon PATCH RLS 우회)
-  try { await _sbRpc('rpc_mark_all_read', { p_recipient_uid: uid }); }
-  catch(e) { await api('mark_all_notifications_read', { recipient_uid: uid }); }
-  showToast('모두 읽음 처리했어요 ✅');
+  // ③ 56차(fix2): RPC 호출 → 업데이트된 행 수 확인, 0이면 GAS fallback
+  var _rpcOk = false;
+  try {
+    var cnt = await _sbRpc('rpc_mark_all_read', { p_recipient_uid: uid });
+    _rpcOk = (typeof cnt === 'number' && cnt > 0);
+    if (!_rpcOk) console.warn('[mark_all_read] RPC returned 0 rows - SQL 미실행 또는 RLS 차단');
+  } catch(e) {
+    console.warn('[mark_all_read] RPC error:', e.message);
+  }
+  if (!_rpcOk) {
+    await api('mark_all_notifications_read', { recipient_uid: uid });
+  }
+  showToast(_rpcOk ? '모두 읽음 처리했어요 ✅' : '읽음 처리했어요 (시트 모드) ✅');
 }
 
 async function clearAllNotifs() {
@@ -5690,9 +5700,10 @@ async function clearAllNotifs() {
   renderNotifDropdown();
   // 55차: Supabase 직접 DELETE
   var uid = STATE.user ? (STATE.user.student_uid || STATE.user.teacher_uid || '') : '';
-  // 56차(fix): SECURITY DEFINER RPC
-  try { await _sbRpc('rpc_clear_notifications', { p_recipient_uid: uid }); }
-  catch(e) { await api('clear_notifications', { recipient_uid: uid }); }
+  // 56차(fix2): RPC 0 rows면 fallback
+  var _delOk = false;
+  try { var dn = await _sbRpc('rpc_clear_notifications', { p_recipient_uid: uid }); _delOk = (typeof dn === 'number'); } catch(e) {}
+  if (!_delOk) await api('clear_notifications', { recipient_uid: uid });
 }
 
 function _timeAgo(ts) {
