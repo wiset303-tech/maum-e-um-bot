@@ -1768,7 +1768,9 @@ function _normalizeNfc(uid) {
 // Supabase REST 조회
 async function _sbFetch(table, filters) {
   var qs = Object.keys(filters).map(function(k){ return k+'='+filters[k]; }).join('&');
-  var res = await fetch(SB_URL+'/rest/v1/'+table+'?'+qs+'&select=*', {
+  // 57차: filters에 select 키가 있으면 &select=* 생략 (image_url 등 대용량 컬럼 제외용)
+  var selQs = filters.select ? '' : '&select=*';
+  var res = await fetch(SB_URL+'/rest/v1/'+table+'?'+qs+selQs, {
     headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer '+SB_KEY }
   });
   if (!res.ok) throw new Error('SB '+res.status);
@@ -2553,6 +2555,14 @@ async function onLoginSuccess(data) {
         _sbFetch('emotions', { teacher_uid:'eq.'+teacherUid, limit:'10000' })
           .then(_applyEmotions)
           .catch(function(){ return api('get_emotions',{teacher_uid:teacherUid}).then(function(r){ if(r.status==='ok') _applyEmotions(r.data.emotions); }); }),
+        // 57차: 마음앨범 프리로드 (Supabase, image_url 제외 — 경량)
+        _sbFetch('album', { teacher_uid:'eq.'+teacherUid, order:'timestamp.desc',
+          select:'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url' })
+          .then(function(rows){
+            var filtered = (rows||[]).filter(function(a){ return a.is_deleted !== true && a.is_deleted !== 'TRUE'; });
+            _teacherAlbumAll = filtered; _teacherAlbumLoaded = true;
+          })
+          .catch(function(){}), // 57차: 조용히 실패 — 탭 진입 시 GAS fallback
       ]);
       renderEmotionBarcode();
     }
@@ -2603,6 +2613,14 @@ async function onLoginSuccess(data) {
             }
           });
         }),
+      // 57차: 마음앨범 프리로드 (Supabase, image_url 제외 — 경량)
+      _sbFetch('album', { student_uid:'eq.'+data.student_uid, order:'timestamp.desc',
+        select:'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url' })
+        .then(function(rows){
+          var filtered = (rows||[]).filter(function(a){ return a.is_deleted !== true && a.is_deleted !== 'TRUE'; });
+          _preloadedStudentAlbum = filtered;
+        })
+        .catch(function(){}), // 57차: 조용히 실패 — 탭 진입 시 GAS fallback
     ]);
     hideLoading();
     startPersonaPoll();
@@ -2635,6 +2653,8 @@ function logout() {
   _albumLoaded    = false;
   _albumAllLoaded = false;
   _albumCache     = [];
+  _preloadedStudentAlbum = null; // 57차: 학생 앨범 프리로드 캐시 리셋
+  _teacherAlbumAll = []; _teacherAlbumLoaded = false; _teacherAlbumFilter = null; // 57차: 교사 앨범 캐시 리셋
   _notifications  = [];
   if (STATE.role === 'student') saveChatLogIfNeeded();
   STATE = { role:null, user:null, emotions:[...STATE.emotions], students:[], dashboard:null,
@@ -9619,22 +9639,48 @@ async function loadAlbum(loadAll) {
   }).join('');
   if (empty) empty.style.display = 'none';
 
-  // 초기: 최근 12장만, 더보기 클릭 시 전체
-  var params = { student_uid: STATE.user.student_uid };
-  if (!loadAll) params.limit = 12;
-
-  var res = await api('get_album', params);
-
-  if (res.status !== 'ok' || !res.data.album.length) {
-    grid.innerHTML = '';
-    if (empty) empty.style.display = 'block';
-    _albumLoaded = true; // 빈 상태도 캐시로 처리
-    _albumAllLoaded = true;
-    return;
+  // 57차: Supabase 우선 (프리로드 캐시 || 직접 조회) → GAS fallback
+  var allItems = _preloadedStudentAlbum; // 프리로드 캐시가 있으면 재사용
+  if (!allItems) {
+    try {
+      var rows = await _sbFetch('album', {
+        student_uid:'eq.'+STATE.user.student_uid, order:'timestamp.desc',
+        select:'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url'
+      });
+      allItems = (rows||[]).filter(function(a){ return a.is_deleted !== true && a.is_deleted !== 'TRUE'; });
+      _preloadedStudentAlbum = allItems; // 더보기 재사용 캐시
+    } catch(e) {}
   }
 
-  var items  = res.data.album; // GAS에서 이미 최신순 정렬
-  var limited = !loadAll && res.data.limited; // 더보기 필요 여부
+  var items, total, limited;
+
+  if (allItems) {
+    // Supabase 경로 — 전체 데이터를 이미 보유 (최신순 정렬됨)
+    total = allItems.length;
+    items = (!loadAll && total > 12) ? allItems.slice(0, 12) : allItems;
+    limited = !loadAll && total > 12;
+  } else {
+    // GAS fallback
+    var params = { student_uid: STATE.user.student_uid };
+    if (!loadAll) params.limit = 12;
+    var res = await api('get_album', params);
+    if (res.status !== 'ok' || !res.data.album.length) {
+      grid.innerHTML = '';
+      if (empty) empty.style.display = 'block';
+      _albumLoaded = true; _albumAllLoaded = true;
+      return;
+    }
+    items = res.data.album;
+    total = res.data.total || items.length;
+    limited = !loadAll && res.data.limited;
+  }
+
+  if (!items.length) {
+    grid.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    _albumLoaded = true; _albumAllLoaded = true;
+    return;
+  }
 
   grid.innerHTML = items.map(function(a) { return albumItemHTML(a, true); }).join('');
 
@@ -9648,7 +9694,7 @@ async function loadAlbum(loadAll) {
     grid.parentNode.insertBefore(moreBtn, grid.nextSibling);
   }
   if (limited) {
-    var remaining = (res.data.total || 0) - items.length;
+    var remaining = total - items.length;
     moreBtn.style.display = 'block';
     moreBtn.textContent = '더보기 (' + remaining + '장 더)';
     moreBtn.onclick = function() { loadAlbum(true); };
@@ -9750,8 +9796,20 @@ async function _loadTeacherClassAlbum() {
     '</div>';
   }).join('');
   if (empty) empty.style.display = 'none';
-  var res = await api('get_album', { teacher_uid: STATE.user.teacher_uid });
-  _teacherAlbumAll = (res.status === 'ok') ? res.data.album : [];
+  // 57차: Supabase 우선 → GAS fallback
+  var albumList = null;
+  try {
+    var rows = await _sbFetch('album', {
+      teacher_uid:'eq.'+STATE.user.teacher_uid, order:'timestamp.desc',
+      select:'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url'
+    });
+    albumList = (rows||[]).filter(function(a){ return a.is_deleted !== true && a.is_deleted !== 'TRUE'; });
+  } catch(e) {}
+  if (!albumList) {
+    var res = await api('get_album', { teacher_uid: STATE.user.teacher_uid });
+    albumList = (res.status === 'ok') ? res.data.album : [];
+  }
+  _teacherAlbumAll = albumList;
   _albumCache = [];
   _teacherAlbumLoaded = true;
   _teacherAlbumFilter = null;
@@ -9796,6 +9854,7 @@ function _renderTeacherAlbumGrid() {
 var _albumCache  = [];
 var _albumLoaded = false;   // 캐시 유효 플래그 (false면 탭 진입 시 재로드)
 var _albumAllLoaded = false; // 전체 로드 완료 여부 (더보기 필요 없을 때)
+var _preloadedStudentAlbum = null; // 57차: 학생 앨범 프리로드 캐시 {items, total}
 // WebP 지원 감지 (1회 평가, 이후 재사용)
 var _useWebP = (function() {
   try {
