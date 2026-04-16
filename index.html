@@ -4336,17 +4336,24 @@ async function loadDashboard() {
   var btnRef = document.getElementById('btnRefresh');
   if (btnRef) btnRef.classList.add('spinning');
 
-  // 교사 대시보드 + 전국 온도 동시 요청 → 스피너가 둘 다 커버
-  var natNeeded = !_nationalMapCache;
-  var results = await Promise.all([
-    _sbGetDashboard(teacher_uid),  // 54차: Supabase 직접 집계
-    natNeeded ? api('get_admin_dashboard', {}) : Promise.resolve(null),
-  ]);
-  var res    = results[0];
-  var natRes = results[1];
+  // 교사 대시보드 — Supabase 직접 (blocking)
+  var res = await _sbGetDashboard(teacher_uid);  // 54차: Supabase 직접 집계
 
   if (btnRef) btnRef.classList.remove('spinning');
   if (res.status !== 'ok') return;
+
+  // 55차: 전국 온도는 백그라운드 (GAS cold start가 login blocking 유발 → 분리)
+  if (!_nationalMapCache) {
+    api('get_admin_dashboard', {}).then(function(natRes) {
+      if (natRes && natRes.status === 'ok') {
+        _nationalMapCache = natRes.data.schools || [];
+        var avgTemp = natRes.data.nation_temp || 0;
+        setText('nationalTempValue', avgTemp);
+        var natFill = document.getElementById('nationalTempFill');
+        if (natFill) setTimeout(function(){ natFill.style.width = avgTemp + '%'; }, 150);
+      }
+    }).catch(function(){});
+  }
 
   var d = res.data;
   STATE.dashboard = d;
@@ -4429,13 +4436,6 @@ async function loadDashboard() {
   renderGiftFeed(d.today_gifts || []);
 
   // 전국 마음 온도 — Promise.all로 이미 받아온 결과 즉시 반영
-  if (natNeeded && natRes && natRes.status === 'ok') {
-    _nationalMapCache = natRes.data.schools || [];
-    var avgTemp = natRes.data.nation_temp || 0;
-    setText('nationalTempValue', avgTemp);
-    var natFill = document.getElementById('nationalTempFill');
-    if (natFill) setTimeout(function(){ natFill.style.width = avgTemp + '%'; }, 150);
-  }
 }
 
 // ── 관리자 대시보드 ──
