@@ -1781,7 +1781,11 @@ async function _sbRpc(fn, params) {
     headers: { 'apikey':SB_KEY, 'Authorization':'Bearer '+SB_KEY, 'Content-Type':'application/json' },
     body: JSON.stringify(params)
   });
-  if (!res.ok) throw new Error('SB RPC '+res.status);
+  if (!res.ok) {
+    var txt = '';
+    try { txt = await res.text(); } catch(e) {}
+    throw new Error('SB RPC '+res.status+': '+txt.slice(0,300));
+  }
   return res.json();
 }
 // 55차: Supabase PATCH (알림 읽음 처리 등 쓰기용)
@@ -5676,19 +5680,23 @@ async function markAllNotifsRead() {
   else if (role === 'parent')                 uid = STATE.user && STATE.user.parent_uid;
   if (!uid) return;
 
-  // ③ 56차(fix2): RPC 호출 → 업데이트된 행 수 확인, 0이면 GAS fallback
-  var _rpcOk = false;
+  // ③ 56차(fix3): 상세 진단 토스트 (원인 특정용)
+  var _rpcOk = false, _diag = '';
   try {
     var cnt = await _sbRpc('rpc_mark_all_read', { p_recipient_uid: uid });
+    _diag = 'rpc=' + JSON.stringify(cnt);
     _rpcOk = (typeof cnt === 'number' && cnt > 0);
-    if (!_rpcOk) console.warn('[mark_all_read] RPC returned 0 rows - SQL 미실행 또는 RLS 차단');
   } catch(e) {
-    console.warn('[mark_all_read] RPC error:', e.message);
+    _diag = 'err=' + e.message;
   }
+  console.log('[mark_all_read]', 'uid='+uid.slice(0,8), _diag);
   if (!_rpcOk) {
-    await api('mark_all_notifications_read', { recipient_uid: uid });
+    try { await api('mark_all_notifications_read', { recipient_uid: uid }); } catch(ge) { _diag += ' | gas_err='+ge.message; }
   }
-  showToast(_rpcOk ? '모두 읽음 처리했어요 ✅' : '읽음 처리했어요 (시트 모드) ✅');
+  toast(
+    (_rpcOk ? '✅ Supabase 반영' : '⚠️ 시트만 반영') + '\n['+uid.slice(0,8)+'] '+_diag,
+    6000
+  );
 }
 
 async function clearAllNotifs() {
@@ -8483,10 +8491,10 @@ function openChatKeywords(student_uid, student_name) {
   var u = STATE.user || {};
   var role = STATE.role;
   if (role !== 'teacher' && role !== 'admin' && role !== 'parent') {
-    showToast('권한이 없어요');
+    toast('권한이 없어요');
     return;
   }
-  if (!student_uid) { showToast('학생 정보가 없어요'); return; }
+  if (!student_uid) { toast('학생 정보가 없어요'); return; }
 
   // 제목 세팅
   var titleEl = document.getElementById('chatKwTitle');
@@ -8644,9 +8652,9 @@ function openCrisisContext(log_uid) {
   var u = STATE.user || {};
   var role = STATE.role;
   if (role !== 'teacher' && role !== 'admin' && role !== 'parent') {
-    showToast('권한이 없어요'); return;
+    toast('권한이 없어요'); return;
   }
-  if (!log_uid) { showToast('대화 정보가 없어요'); return; }
+  if (!log_uid) { toast('대화 정보가 없어요'); return; }
 
   var body = document.getElementById('crisisDetailBody');
   if (body) body.innerHTML = '<div style="text-align:center;padding:24px 0"><div style="position:relative;display:inline-block;font-size:38px;line-height:1"><span style="opacity:0.18">⚠️</span><span style="position:absolute;left:0;top:0;animation:ckwHeartFill 2s ease-in-out infinite">⚠️</span></div><div style="font-size:12px;color:#c0392b;margin-top:8px">마음 데이터를 불러오고 있어요</div></div>';
@@ -8776,7 +8784,7 @@ function _escHtml(s) {
 function openChatHistory() {
   var u = STATE.user || {};
   if (STATE.role !== 'student' || !u.student_uid) {
-    showToast('학생 계정에서만 볼 수 있어요');
+    toast('학생 계정에서만 볼 수 있어요');
     return;
   }
   document.getElementById('modal-chat-history').classList.remove('hidden');
