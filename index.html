@@ -9943,6 +9943,17 @@ async function openAlbumPopup(idx) {
     if (res && res.status === 'ok' && res.image_b64) {
       imgEl.src = res.image_b64;
     } else if (res && res.message) {
+      // 57차: 삭제된 앨범이면 팝업 닫고 캐시에서 제거 후 그리드 재렌더
+      if (res.message.indexOf('삭제') >= 0) {
+        closeModal('modal-album-popup');
+        _albumCache = _albumCache.filter(function(c){ return c.data.album_uid !== albumData.album_uid; });
+        if (_preloadedStudentAlbum) {
+          _preloadedStudentAlbum = _preloadedStudentAlbum.filter(function(a){ return a.album_uid !== albumData.album_uid; });
+        }
+        _teacherAlbumAll = _teacherAlbumAll.filter(function(a){ return a.album_uid !== albumData.album_uid; });
+        _albumLoaded = false; _teacherAlbumLoaded = false;
+        loadAlbumIfNeeded();
+      }
       toast(res.message);
     }
   } catch(e) {
