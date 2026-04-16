@@ -8393,10 +8393,12 @@ async function loadTokenBalance() {
                    current_balance:Number(b.current_balance)||0,
                    can_save_double:b.can_save_double===true||b.can_save_double==='TRUE',
                    gift_balance:Number(b.gift_balance)||0 };
+      // 57차: 정합성 체크 — current_balance < gift_balance면 스테일 데이터 (§7-A)
+      if (data.current_balance < data.gift_balance) throw new Error('stale: cb<gb');
       STATE.tokenBalance=data; _refreshTokenCards(data); calcBannerMessage(data); return;
     }
   } catch(e) {}
-  // fallback
+  // fallback — Sheets가 source of truth (일일 토큰은 GAS에서만 지급)
   var res = await api('get_token_balance', { student_uid: STATE.user.student_uid });
   if (res.status === 'ok') { STATE.tokenBalance=res.data; _refreshTokenCards(res.data); calcBannerMessage(res.data); }
   else toast('잔액 정보를 불러오지 못했어요. 잠시 후 다시 시도해요 🙏');
