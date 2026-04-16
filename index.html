@@ -4536,6 +4536,19 @@ async function openGiftHistory() {
   document.getElementById('giftHistoryList').innerHTML =
     '<div style="text-align:center;color:var(--gray);font-size:13px;padding:20px">불러오는 중...</div>';
 
+  // 55차: Supabase 직접 조회, GAS fallback
+  try {
+    var rows = await _sbFetch('tokens', { teacher_uid:'eq.'+STATE.user.teacher_uid, type:'eq.gift_sent', order:'created_at.desc', limit:'200' });
+    if (rows) {
+      _giftHistoryAll = rows.map(function(r) {
+        var d=r.created_at?new Date(new Date(r.created_at).getTime()+9*3600000):null;
+        return { from_name:r.student_name||'', to_name:r.to_name||'',
+                 created_at:d?((d.getUTCMonth()+1)+'/'+d.getUTCDate()):'' };
+      });
+      _renderGiftHistoryPage(0); return;
+    }
+  } catch(e) {}
+  // fallback
   var res = await api('get_gift_history', { teacher_uid: STATE.user.teacher_uid });
   if (res.status !== 'ok') {
     document.getElementById('giftHistoryList').innerHTML =
@@ -8304,15 +8317,22 @@ function _refreshTokenCards(tb) {
 }
 
 async function loadTokenBalance() {
+  // 55차: Supabase 직접 조회, GAS fallback
+  try {
+    var rows = await _sbFetch('token_balance', { student_uid: 'eq.'+STATE.user.student_uid });
+    if (rows && rows.length) {
+      var b = rows[0];
+      var data = { total_earned:Number(b.total_earned)||0, total_saved:Number(b.total_saved)||0,
+                   current_balance:Number(b.current_balance)||0,
+                   can_save_double:b.can_save_double===true||b.can_save_double==='TRUE',
+                   gift_balance:Number(b.gift_balance)||0 };
+      STATE.tokenBalance=data; _refreshTokenCards(data); calcBannerMessage(data); return;
+    }
+  } catch(e) {}
+  // fallback
   var res = await api('get_token_balance', { student_uid: STATE.user.student_uid });
-  if (res.status === 'ok') {
-    STATE.tokenBalance = res.data;
-    _refreshTokenCards(res.data);
-    calcBannerMessage(res.data);
-  } else {
-    // BUG-05: 에러 무음 처리 수정
-    toast('잔액 정보를 불러오지 못했어요. 잠시 후 다시 시도해요 🙏');
-  }
+  if (res.status === 'ok') { STATE.tokenBalance=res.data; _refreshTokenCards(res.data); calcBannerMessage(res.data); }
+  else toast('잔액 정보를 불러오지 못했어요. 잠시 후 다시 시도해요 🙏');
 }
 
 function updateHeartTempUI(temp) {
@@ -8338,6 +8358,31 @@ async function loadTokenLog() {
   if (!el) return;
   var studentUid = STATE.user && STATE.user.student_uid;
   if (!studentUid) return;
+  // 55차: Supabase 직접 조회, GAS fallback
+  try {
+    var rows = await _sbFetch('tokens', { student_uid:'eq.'+studentUid, order:'created_at.desc', limit:'30' });
+    if (rows) {
+      var TYPE_LBL={'daily':'출석 토큰','save':'저축','save_all':'전체 저축',
+        'gift_sent':'선물 보냄','gift_received':'선물 받음','gift_recv':'선물 받음',
+        'gift_save':'선물 1개 저축','gift_save_all':'선물 모두 저축','class_bonus':'학급 보너스',
+        'game':'게임 보상','regular':'저축','gift_one':'선물 저축','gift_all':'선물 전체 저축',
+        'all':'전체 저축','legacy':'저축'};
+      var GAIN={daily:1,gift_received:1,gift_recv:1,class_bonus:1,game:1};
+      _tokenLogs = rows.map(function(r) {
+        var type=String(r.type||''), amount=Math.abs(Number(r.amount||0));
+        var isGain=!!GAIN[type], isSave=!isGain&&type!=='gift_sent';
+        var sign=isGain?'+':(isSave?'-':'+');
+        var label=TYPE_LBL[type]||type;
+        if(type==='gift_sent')   label=(r.to_name?r.to_name+'에게 선물':'선물 보냄');
+        if(type==='gift_received'||type==='gift_recv') label=(r.to_name?r.to_name+'에게서 선물':'선물 받음');
+        var d=r.created_at?new Date(new Date(r.created_at).getTime()+9*3600000):null;
+        var dateStr=d?((d.getUTCMonth()+1)+'/'+d.getUTCDate()):'';
+        return {date:dateStr,label:label,amount:sign+amount,gain:isGain,type:type};
+      });
+      _tokenLogPage=0; renderTokenLogPage(); return;
+    }
+  } catch(e) {}
+  // fallback
   var res = await api('get_token_log', { student_uid: studentUid });
   if (!res || res.status !== 'ok') return;
   _tokenLogs = res.data.logs || [];
