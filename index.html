@@ -5648,8 +5648,8 @@ async function markNotifRead(uid, el) {
   _notifications.forEach(function(n){ if (n.notification_uid === uid) { n.is_read = true; notif = n; } });
   if (el) el.style.background = '#fff';
   updateNotifBadge();
-  // 55차: Supabase 직접 업데이트 (GAS는 Sheets만 업데이트하므로 Supabase와 sync 안 됨)
-  try { await _sbPatch('notifications', { notification_uid:'eq.'+uid }, { is_read: true }); }
+  // 56차(fix): SECURITY DEFINER RPC로 교체 (anon PATCH는 RLS로 0 rows 업데이트)
+  try { await _sbRpc('rpc_mark_one_read', { p_notification_uid: uid }); }
   catch(e) { await api('mark_notification_read', { notification_uid: uid }); }
   // 선물 알림 클릭 시 토큰 탭 내역 갱신
   if (notif && notif.type === 'token_gift') {
@@ -5675,8 +5675,8 @@ async function markAllNotifsRead() {
   else if (role === 'parent')                 uid = STATE.user && STATE.user.parent_uid;
   if (!uid) return;
 
-  // ③ 55차: Supabase 직접 일괄 PATCH (GAS 동기화 문제 해소)
-  try { await _sbPatch('notifications', { recipient_uid:'eq.'+uid }, { is_read: true }); }
+  // ③ 56차(fix): SECURITY DEFINER RPC로 교체 (anon PATCH RLS 우회)
+  try { await _sbRpc('rpc_mark_all_read', { p_recipient_uid: uid }); }
   catch(e) { await api('mark_all_notifications_read', { recipient_uid: uid }); }
   showToast('모두 읽음 처리했어요 ✅');
 }
@@ -5690,7 +5690,8 @@ async function clearAllNotifs() {
   renderNotifDropdown();
   // 55차: Supabase 직접 DELETE
   var uid = STATE.user ? (STATE.user.student_uid || STATE.user.teacher_uid || '') : '';
-  try { await _sbDelete('notifications', { recipient_uid:'eq.'+uid }); }
+  // 56차(fix): SECURITY DEFINER RPC
+  try { await _sbRpc('rpc_clear_notifications', { p_recipient_uid: uid }); }
   catch(e) { await api('clear_notifications', { recipient_uid: uid }); }
 }
 
