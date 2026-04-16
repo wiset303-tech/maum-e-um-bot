@@ -1774,6 +1774,16 @@ async function _sbFetch(table, filters) {
   if (!res.ok) throw new Error('SB '+res.status);
   return res.json();
 }
+// 56차: Supabase RPC 호출 헬퍼 (Postgres 함수 직접 실행)
+async function _sbRpc(fn, params) {
+  var res = await fetch(SB_URL+'/rest/v1/rpc/'+fn, {
+    method: 'POST',
+    headers: { 'apikey':SB_KEY, 'Authorization':'Bearer '+SB_KEY, 'Content-Type':'application/json' },
+    body: JSON.stringify(params)
+  });
+  if (!res.ok) throw new Error('SB RPC '+res.status);
+  return res.json();
+}
 // 55차: Supabase PATCH (알림 읽음 처리 등 쓰기용)
 async function _sbPatch(table, filters, body) {
   var qs = Object.keys(filters).map(function(k){ return k+'='+filters[k]; }).join('&');
@@ -9032,21 +9042,34 @@ async function saveRegularToken() {
     return;
   }
   showLoading('마음토큰을 저축하는 중이에요 🪙');
-  var res = await api('save_token', {
-    student_uid : STATE.user.student_uid,
-    student_name: STATE.user.name,
-    teacher_uid : STATE.user.teacher_uid,
-    school_name : STATE.user.school_name || '',
-    save_type   : 'regular',
-  });
-  if (res.status === 'ok') {
-    // 로딩 닫기 전에 잔액·기록 모두 갱신 — 토스트 뜰 때 화면이 이미 최신
-    await Promise.all([loadTokenBalance(), loadTokenLog()]);
+  // 56차: Supabase RPC (GAS fallback)
+  try {
+    var rpcRes = await _sbRpc('rpc_save_token', {
+      p_student_uid:STATE.user.student_uid, p_student_name:STATE.user.name,
+      p_teacher_uid:STATE.user.teacher_uid, p_school_name:STATE.user.school_name||'',
+      p_save_type:'regular'
+    });
     hideLoading();
-    _showSaveAnim((res.data.message || '저축 완료!') + ' 🌡️');
-  } else {
-    hideLoading();
-    toast(res.message);
+    if (rpcRes.status === 'ok') {
+    if (rpcRes.balance) {
+      STATE.tokenBalance = Object.assign({}, STATE.tokenBalance, {
+        current_balance : rpcRes.balance.current_balance  !== null ? rpcRes.balance.current_balance  : (STATE.tokenBalance||{}).current_balance,
+        total_saved     : rpcRes.balance.total_saved      !== null ? rpcRes.balance.total_saved      : (STATE.tokenBalance||{}).total_saved,
+        total_earned    : rpcRes.balance.total_earned     !== null ? rpcRes.balance.total_earned     : (STATE.tokenBalance||{}).total_earned,
+        gift_balance    : rpcRes.balance.gift_balance     !== null ? rpcRes.balance.gift_balance     : (STATE.tokenBalance||{}).gift_balance,
+        can_save_double : rpcRes.balance.can_save_double  !== undefined ? rpcRes.balance.can_save_double : (STATE.tokenBalance||{}).can_save_double
+      });
+      _refreshTokenCards(STATE.tokenBalance);
+      calcBannerMessage(STATE.tokenBalance);
+    }
+      loadTokenLog();
+      _showSaveAnim(rpcRes.message + ' 🌡️');
+    } else { toast(rpcRes.message); }
+  } catch(e) {
+    var res = await api('save_token', { student_uid:STATE.user.student_uid, student_name:STATE.user.name,
+      teacher_uid:STATE.user.teacher_uid, school_name:STATE.user.school_name||'', save_type:'regular' });
+    if (res.status==='ok') { await Promise.all([loadTokenBalance(),loadTokenLog()]); hideLoading(); _showSaveAnim((res.data.message||'저축 완료!')+' 🌡️'); }
+    else { hideLoading(); toast(res.message); }
   }
   _restore();
 }
@@ -9094,20 +9117,34 @@ async function saveGiftToken(count) {
     return;
   }
   showLoading('선물받은 토큰을 저축하는 중이에요 💝');
-  var res = await api('save_token', {
-    student_uid : STATE.user.student_uid,
-    student_name: STATE.user.name,
-    teacher_uid : STATE.user.teacher_uid,
-    school_name : STATE.user.school_name || '',
-    save_type   : saveType,
-  });
-  if (res.status === 'ok') {
-    await Promise.all([loadTokenBalance(), loadTokenLog()]);
+  // 56차: Supabase RPC (GAS fallback)
+  try {
+    var rpcRes = await _sbRpc('rpc_save_token', {
+      p_student_uid:STATE.user.student_uid, p_student_name:STATE.user.name,
+      p_teacher_uid:STATE.user.teacher_uid, p_school_name:STATE.user.school_name||'',
+      p_save_type:saveType
+    });
     hideLoading();
-    _showSaveAnim((res.data.message || '선물 저축 완료!') + ' 🌟');
-  } else {
-    hideLoading();
-    toast(res.message);
+    if (rpcRes.status === 'ok') {
+    if (rpcRes.balance) {
+      STATE.tokenBalance = Object.assign({}, STATE.tokenBalance, {
+        current_balance : rpcRes.balance.current_balance  !== null ? rpcRes.balance.current_balance  : (STATE.tokenBalance||{}).current_balance,
+        total_saved     : rpcRes.balance.total_saved      !== null ? rpcRes.balance.total_saved      : (STATE.tokenBalance||{}).total_saved,
+        total_earned    : rpcRes.balance.total_earned     !== null ? rpcRes.balance.total_earned     : (STATE.tokenBalance||{}).total_earned,
+        gift_balance    : rpcRes.balance.gift_balance     !== null ? rpcRes.balance.gift_balance     : (STATE.tokenBalance||{}).gift_balance,
+        can_save_double : rpcRes.balance.can_save_double  !== undefined ? rpcRes.balance.can_save_double : (STATE.tokenBalance||{}).can_save_double
+      });
+      _refreshTokenCards(STATE.tokenBalance);
+      calcBannerMessage(STATE.tokenBalance);
+    }
+      loadTokenLog();
+      _showSaveAnim(rpcRes.message + ' 🌟');
+    } else { toast(rpcRes.message); }
+  } catch(e) {
+    var res = await api('save_token', { student_uid:STATE.user.student_uid, student_name:STATE.user.name,
+      teacher_uid:STATE.user.teacher_uid, school_name:STATE.user.school_name||'', save_type:saveType });
+    if (res.status==='ok') { await Promise.all([loadTokenBalance(),loadTokenLog()]); hideLoading(); _showSaveAnim((res.data.message||'선물 저축 완료!')+' 🌟'); }
+    else { hideLoading(); toast(res.message); }
   }
 }
 
@@ -9181,22 +9218,34 @@ async function saveAllTokens() {
     return;
   }
   showLoading('마음토큰을 모두 저축하는 중이에요 🪙');
-  var res = await api('save_token', {
-    student_uid : STATE.user.student_uid,
-    student_name: STATE.user.name,
-    teacher_uid : STATE.user.teacher_uid,
-    school_name : STATE.user.school_name || '',
-    save_type   : 'all',
-  });
-  if (res.status === 'ok') {
-    await Promise.all([loadTokenBalance(), loadTokenLog()]);
-    hideLoading();
-    _restore();
-    toast((res.data.message || '전체 저축 완료!') + ' 🌡️');
-  } else {
-    hideLoading();
-    _restore();
-    toast(res.message);
+  // 56차: Supabase RPC (GAS fallback)
+  try {
+    var rpcRes = await _sbRpc('rpc_save_token', {
+      p_student_uid:STATE.user.student_uid, p_student_name:STATE.user.name,
+      p_teacher_uid:STATE.user.teacher_uid, p_school_name:STATE.user.school_name||'',
+      p_save_type:'all'
+    });
+    hideLoading(); _restore();
+    if (rpcRes.status === 'ok') {
+    if (rpcRes.balance) {
+      STATE.tokenBalance = Object.assign({}, STATE.tokenBalance, {
+        current_balance : rpcRes.balance.current_balance  !== null ? rpcRes.balance.current_balance  : (STATE.tokenBalance||{}).current_balance,
+        total_saved     : rpcRes.balance.total_saved      !== null ? rpcRes.balance.total_saved      : (STATE.tokenBalance||{}).total_saved,
+        total_earned    : rpcRes.balance.total_earned     !== null ? rpcRes.balance.total_earned     : (STATE.tokenBalance||{}).total_earned,
+        gift_balance    : rpcRes.balance.gift_balance     !== null ? rpcRes.balance.gift_balance     : (STATE.tokenBalance||{}).gift_balance,
+        can_save_double : rpcRes.balance.can_save_double  !== undefined ? rpcRes.balance.can_save_double : (STATE.tokenBalance||{}).can_save_double
+      });
+      _refreshTokenCards(STATE.tokenBalance);
+      calcBannerMessage(STATE.tokenBalance);
+    }
+      loadTokenLog();
+      _showSaveAnim(rpcRes.message + ' 🌡️');
+    } else { toast(rpcRes.message); }
+  } catch(e) {
+    var res = await api('save_token', { student_uid:STATE.user.student_uid, student_name:STATE.user.name,
+      teacher_uid:STATE.user.teacher_uid, school_name:STATE.user.school_name||'', save_type:'all' });
+    if (res.status==='ok') { await Promise.all([loadTokenBalance(),loadTokenLog()]); hideLoading(); _restore(); _showSaveAnim((res.data.message||'전체 저축 완료!')+' 🌡️'); }
+    else { hideLoading(); _restore(); toast(res.message); }
   }
 }
 
@@ -9238,23 +9287,40 @@ async function giftToken(friend) {
     return;
   }
   showLoading(friend.name+'에게 토큰을 선물하는 중이에요 💌');
-  var res = await api('gift_token', {
-    from_uid : STATE.user.student_uid,
-    from_name: STATE.user.name,
-    to_uid   : friend.student_uid,
-    to_name  : friend.name,
-    teacher_uid: STATE.user.teacher_uid,
-    school_name: STATE.user.school_name || '',
-  });
-  if (res.status === 'ok') {
-    await Promise.all([loadTokenBalance(), loadTokenLog()]);
+  // 56차: Supabase RPC (GAS fallback)
+  try {
+    var rpcRes = await _sbRpc('rpc_gift_token', {
+      p_from_uid:STATE.user.student_uid, p_from_name:STATE.user.name,
+      p_to_uid:friend.student_uid, p_to_name:friend.name,
+      p_teacher_uid:STATE.user.teacher_uid
+    });
     hideLoading();
-    if (res.data.class_bonus) { showWarmthBonus(); }
-    _showGiftAnim(friend.name, friend.gender || '');
-  } else {
-    hideLoading();
-    toast(res.message);
-    // 실패 시 선물하기 버튼(메인)만 복구 — 모달은 이미 닫혔으므로 재시도 안내
+    if (rpcRes.status === 'ok') {
+    if (rpcRes.balance) {
+      STATE.tokenBalance = Object.assign({}, STATE.tokenBalance, {
+        current_balance : rpcRes.balance.current_balance  !== null ? rpcRes.balance.current_balance  : (STATE.tokenBalance||{}).current_balance,
+        total_saved     : rpcRes.balance.total_saved      !== null ? rpcRes.balance.total_saved      : (STATE.tokenBalance||{}).total_saved,
+        total_earned    : rpcRes.balance.total_earned     !== null ? rpcRes.balance.total_earned     : (STATE.tokenBalance||{}).total_earned,
+        gift_balance    : rpcRes.balance.gift_balance     !== null ? rpcRes.balance.gift_balance     : (STATE.tokenBalance||{}).gift_balance,
+        can_save_double : rpcRes.balance.can_save_double  !== undefined ? rpcRes.balance.can_save_double : (STATE.tokenBalance||{}).can_save_double
+      });
+      _refreshTokenCards(STATE.tokenBalance);
+      calcBannerMessage(STATE.tokenBalance);
+    }
+      loadTokenLog();
+      if (rpcRes.class_bonus) { showWarmthBonus(); }
+      _showGiftAnim(friend.name, friend.gender || '');
+    } else { toast(rpcRes.message); }
+  } catch(e) {
+    var res = await api('gift_token', { from_uid:STATE.user.student_uid, from_name:STATE.user.name,
+      to_uid:friend.student_uid, to_name:friend.name,
+      teacher_uid:STATE.user.teacher_uid, school_name:STATE.user.school_name||'' });
+    if (res.status==='ok') {
+      await Promise.all([loadTokenBalance(),loadTokenLog()]);
+      hideLoading();
+      if (res.data.class_bonus) { showWarmthBonus(); }
+      _showGiftAnim(friend.name, friend.gender || '');
+    } else { hideLoading(); toast(res.message); }
   }
 }
 
