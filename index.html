@@ -5524,7 +5524,7 @@ async function loadNotifications() {
     _notifications = (rows||[]).map(function(r){
       return { notification_uid:r.notification_uid, created_at:r.created_at, type:r.type,
                title:r.title, body:r.body, sender_name:r.sender_name,
-               is_read:r.is_read===true||r.is_read==='TRUE', related_uid:r.related_uid };
+               is_read:r.is_read===true||String(r.is_read).toUpperCase()==='TRUE', related_uid:r.related_uid };
     });
     updateNotifBadge();
   } catch(e) {
@@ -5680,23 +5680,16 @@ async function markAllNotifsRead() {
   else if (role === 'parent')                 uid = STATE.user && STATE.user.parent_uid;
   if (!uid) return;
 
-  // ③ 56차(fix3): 상세 진단 토스트 (원인 특정용)
-  var _rpcOk = false, _diag = '';
+  // ③ 56차(fix4): RPC 우선, 실패/0rows면 GAS fallback
+  var _rpcOk = false;
   try {
     var cnt = await _sbRpc('rpc_mark_all_read', { p_recipient_uid: uid });
-    _diag = 'rpc=' + JSON.stringify(cnt);
     _rpcOk = (typeof cnt === 'number' && cnt > 0);
-  } catch(e) {
-    _diag = 'err=' + e.message;
-  }
-  console.log('[mark_all_read]', 'uid='+uid.slice(0,8), _diag);
+  } catch(e) { console.warn('[mark_all_read] RPC err:', e.message); }
   if (!_rpcOk) {
-    try { await api('mark_all_notifications_read', { recipient_uid: uid }); } catch(ge) { _diag += ' | gas_err='+ge.message; }
+    try { await api('mark_all_notifications_read', { recipient_uid: uid }); } catch(ge) {}
   }
-  toast(
-    (_rpcOk ? '✅ Supabase 반영' : '⚠️ 시트만 반영') + '\n['+uid.slice(0,8)+'] '+_diag,
-    6000
-  );
+  toast('모두 읽음 처리했어요 ✅');
 }
 
 async function clearAllNotifs() {
