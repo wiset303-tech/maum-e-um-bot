@@ -1774,6 +1774,26 @@ async function _sbFetch(table, filters) {
   if (!res.ok) throw new Error('SB '+res.status);
   return res.json();
 }
+// 55차: Supabase PATCH (알림 읽음 처리 등 쓰기용)
+async function _sbPatch(table, filters, body) {
+  var qs = Object.keys(filters).map(function(k){ return k+'='+filters[k]; }).join('&');
+  var res = await fetch(SB_URL+'/rest/v1/'+table+'?'+qs, {
+    method: 'PATCH',
+    headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer '+SB_KEY,
+               'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error('SB PATCH '+res.status);
+}
+// 55차: Supabase DELETE
+async function _sbDelete(table, filters) {
+  var qs = Object.keys(filters).map(function(k){ return k+'='+filters[k]; }).join('&');
+  var res = await fetch(SB_URL+'/rest/v1/'+table+'?'+qs, {
+    method: 'DELETE',
+    headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer '+SB_KEY, 'Prefer': 'return=minimal' }
+  });
+  if (!res.ok) throw new Error('SB DELETE '+res.status);
+}
 
 // 54차: 날씨 계산 (GAS calcWeather 이식)
 function _calcWeather(pos, neu, neg, total) {
@@ -5618,7 +5638,9 @@ async function markNotifRead(uid, el) {
   _notifications.forEach(function(n){ if (n.notification_uid === uid) { n.is_read = true; notif = n; } });
   if (el) el.style.background = '#fff';
   updateNotifBadge();
-  await api('mark_notification_read', { notification_uid: uid });
+  // 55차: Supabase 직접 업데이트 (GAS는 Sheets만 업데이트하므로 Supabase와 sync 안 됨)
+  try { await _sbPatch('notifications', { notification_uid:'eq.'+uid }, { is_read: true }); }
+  catch(e) { await api('mark_notification_read', { notification_uid: uid }); }
   // 선물 알림 클릭 시 토큰 탭 내역 갱신
   if (notif && notif.type === 'token_gift') {
     loadTokenBalance();
@@ -5643,8 +5665,9 @@ async function markAllNotifsRead() {
   else if (role === 'parent')                 uid = STATE.user && STATE.user.parent_uid;
   if (!uid) return;
 
-  // ③ 단일 배치 호출 (N번 개별 호출 → 1번 일괄 처리)
-  await api('mark_all_notifications_read', { recipient_uid: uid });
+  // ③ 55차: Supabase 직접 일괄 PATCH (GAS 동기화 문제 해소)
+  try { await _sbPatch('notifications', { recipient_uid:'eq.'+uid }, { is_read: true }); }
+  catch(e) { await api('mark_all_notifications_read', { recipient_uid: uid }); }
   showToast('모두 읽음 처리했어요 ✅');
 }
 
@@ -5655,9 +5678,10 @@ async function clearAllNotifs() {
   _notifPage = 0;
   updateNotifBadge();
   renderNotifDropdown();
-  // GAS: 해당 수신자 알림 전체 삭제
+  // 55차: Supabase 직접 DELETE
   var uid = STATE.user ? (STATE.user.student_uid || STATE.user.teacher_uid || '') : '';
-  await api('clear_notifications', { recipient_uid: uid });
+  try { await _sbDelete('notifications', { recipient_uid:'eq.'+uid }); }
+  catch(e) { await api('clear_notifications', { recipient_uid: uid }); }
 }
 
 function _timeAgo(ts) {
@@ -8916,6 +8940,70 @@ function confirmSaveRegular() {
 // ─────────────────────────────────────────
 // 현재 마음토큰 카드 탭 → 일반 1개 저축 (실행)
 // ─────────────────────────────────────────
+// ═══════════════════════════════════════════
+// 토큰 애니메이션 헬퍼 (55차)
+// ═══════════════════════════════════════════
+function _injectTokenAnimCss() {
+  if (document.getElementById('_tokenAnimCss')) return;
+  var st = document.createElement('style');
+  st.id = '_tokenAnimCss';
+  st.textContent = [
+    '@keyframes _coinPop{0%{transform:translateY(36px) scale(0.4);opacity:0}',
+    '70%{transform:translateY(-6px) scale(1.25);opacity:1}',
+    '100%{transform:translateY(0) scale(1);opacity:1}}',
+    '@keyframes _coinSlide{0%{transform:translateX(-48px);opacity:0}',
+    '50%{transform:translateX(0) scale(1.3);opacity:1}',
+    '100%{transform:translateX(48px) scale(0.8);opacity:0}}',
+    '@keyframes _fadeUpIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}'
+  ].join('');
+  document.head.appendChild(st);
+}
+
+// 저축 완료 — 코인이 아래서 위로 차오르는 느낌
+function _showSaveAnim(msg) {
+  _injectTokenAnimCss();
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;' +
+    'justify-content:center;z-index:9800;pointer-events:none;background:rgba(255,255,255,0.55);';
+  var coins = [0,1,2,3,4].map(function(i){
+    return '<span style="display:inline-block;font-size:34px;' +
+      'animation:_coinPop 0.55s '+(i*0.08)+'s cubic-bezier(.17,.67,.38,1.3) both">🪙</span>';
+  }).join('');
+  ov.innerHTML =
+    '<div style="display:flex;gap:4px;margin-bottom:10px">'+coins+'</div>' +
+    '<div style="font-size:16px;font-weight:800;color:#43a047;' +
+    'animation:_fadeUpIn 0.5s 0.35s ease-out both">'+(msg||'저축 완료! 🌡️')+'</div>';
+  document.body.appendChild(ov);
+  setTimeout(function(){
+    ov.style.transition='opacity 0.35s'; ov.style.opacity='0';
+    setTimeout(function(){ ov.remove(); }, 380);
+  }, 1100);
+}
+
+// 선물 완료 — 내 캐릭터에서 상대방 캐릭터로 코인이 날아가는 느낌
+function _showGiftAnim(toName, toGender) {
+  _injectTokenAnimCss();
+  var myG = STATE.user && STATE.user.gender;
+  var me = myG==='M'?'👦':myG==='F'?'👧':'🧒';
+  var you = toGender==='M'?'👦':toGender==='F'?'👧':'🧒';
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;' +
+    'justify-content:center;z-index:9800;pointer-events:none;background:rgba(255,255,255,0.65);';
+  ov.innerHTML =
+    '<div style="display:flex;align-items:center;gap:16px">' +
+    '<span style="font-size:44px">'+me+'</span>' +
+    '<span style="font-size:30px;animation:_coinSlide 0.85s 0.15s ease-in-out both">🪙</span>' +
+    '<span style="font-size:44px">'+you+'</span>' +
+    '</div>' +
+    '<div style="font-size:15px;font-weight:800;color:var(--navy);margin-top:12px;' +
+    'animation:_fadeUpIn 0.5s 0.5s ease-out both">'+toName+'에게 선물했어요 💌</div>';
+  document.body.appendChild(ov);
+  setTimeout(function(){
+    ov.style.transition='opacity 0.35s'; ov.style.opacity='0';
+    setTimeout(function(){ ov.remove(); }, 380);
+  }, 1400);
+}
+
 async function saveRegularToken() {
   var tb = STATE.tokenBalance || {};
   var giftBal    = tb.gift_balance    || 0;
@@ -8955,7 +9043,7 @@ async function saveRegularToken() {
     // 로딩 닫기 전에 잔액·기록 모두 갱신 — 토스트 뜰 때 화면이 이미 최신
     await Promise.all([loadTokenBalance(), loadTokenLog()]);
     hideLoading();
-    toast((res.data.message || '저축 완료!') + ' 🌡️');
+    _showSaveAnim((res.data.message || '저축 완료!') + ' 🌡️');
   } else {
     hideLoading();
     toast(res.message);
@@ -9016,7 +9104,7 @@ async function saveGiftToken(count) {
   if (res.status === 'ok') {
     await Promise.all([loadTokenBalance(), loadTokenLog()]);
     hideLoading();
-    toast((res.data.message || '선물 저축 완료!') + ' 🌟');
+    _showSaveAnim((res.data.message || '선물 저축 완료!') + ' 🌟');
   } else {
     hideLoading();
     toast(res.message);
@@ -9162,7 +9250,7 @@ async function giftToken(friend) {
     await Promise.all([loadTokenBalance(), loadTokenLog()]);
     hideLoading();
     if (res.data.class_bonus) { showWarmthBonus(); }
-    toast((res.data.message || '선물 완료!') + ' 💌');
+    _showGiftAnim(friend.name, friend.gender || '');
   } else {
     hideLoading();
     toast(res.message);
