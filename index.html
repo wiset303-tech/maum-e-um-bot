@@ -8556,7 +8556,7 @@ function confirmSaveRegular() {
   var balance    = tb.current_balance || 0;
   var regularBal = Math.max(0, balance - giftBal);
   if (regularBal < 1) {
-    toast(giftBal > 0 ? '💝 선물받은 토큰은 아래 카드를 눌러 저축해요!' : '저축할 토큰이 없어요 🪙');
+    toast('저축할 토큰이 없어요 🪙');
     return;
   }
   // 확인 모달 열기
@@ -8590,7 +8590,7 @@ async function saveRegularToken() {
   var balance    = tb.current_balance || 0;
   var regularBal = Math.max(0, balance - giftBal);
   if (regularBal < 1) {
-    toast(giftBal > 0 ? '💝 선물받은 토큰은 아래 카드를 눌러 저축해요!' : '저축할 토큰이 없어요 🪙');
+    toast('저축할 토큰이 없어요 🪙');
     return;
   }
   // 중복 탭 방지 — 카드 즉시 비활성화
