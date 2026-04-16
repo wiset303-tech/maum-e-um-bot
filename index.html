@@ -1749,6 +1749,33 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxef53CsHzTsfsd1LQV5hyZWcrDmamy0jcRRmJYDd8b-PGk4duvvaouFNEuPH1hcHQ2Yw/exec';
 
 // ════════════════════════════════════════
+// 53차: Supabase 직접 연결 (로그인 전용)
+// ════════════════════════════════════════
+var SB_URL = 'https://mgfaedijfdqcilrisntp.supabase.co';
+var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1nZmFlZGlqZmRxY2lscmlzbnRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMzgwMzMsImV4cCI6MjA5MTkxNDAzM30.LMxIpF2QCndHY3dQNxfJfWitgxm6mh8Z1OjkBg5Dytk';
+
+// SHA-256 해시 (비밀번호 검증용)
+async function _sha256(str) {
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(function(b){ return ('0'+b.toString(16)).slice(-2); }).join('');
+}
+
+// NFC UID 정규화 (GAS _normalizeUid 동일 로직)
+function _normalizeNfc(uid) {
+  return String(uid || '').replace(/[:\-\s]/g, '').toLowerCase();
+}
+
+// Supabase REST 조회
+async function _sbFetch(table, filters) {
+  var qs = Object.keys(filters).map(function(k){ return k+'='+filters[k]; }).join('&');
+  var res = await fetch(SB_URL+'/rest/v1/'+table+'?'+qs+'&select=*', {
+    headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer '+SB_KEY }
+  });
+  if (!res.ok) throw new Error('SB '+res.status);
+  return res.json();
+}
+
+// ════════════════════════════════════════
 // 오디오 시스템
 // ════════════════════════════════════════
 var AUDIO = {
@@ -2218,19 +2245,60 @@ async function handleNfcUid(uid) {
   showLoading('카드를 확인하는 중이에요 🪪');
 
   try {
-    var res = await api('login_nfc', { nfc_uid: uid });
-    if (res.status === 'ok') {
+    // 53차: Supabase 직접 조회 (cold start 제거)
+    var normUid = _normalizeNfc(uid);
+    var data = null;
+
+    try {
+      // 교사 NFC 조회
+      var allTeachers = await _sbFetch('teachers', { active:'eq.Y' });
+      for (var i = 0; i < allTeachers.length; i++) {
+        if (_normalizeNfc(allTeachers[i].nfc_uid) === normUid) {
+          var r = allTeachers[i];
+          data = { role:'teacher', teacher_uid:r.teacher_uid, name:r.name,
+            school_name:r.school_name, school_type:r.school_type,
+            year:r.year, grade:r.grade, class:r.class, profile_image_url:'' };
+          break;
+        }
+      }
+
+      if (!data) {
+        // 학생 NFC 조회
+        var allStudents = await _sbFetch('students', { active:'eq.Y' });
+        for (var j = 0; j < allStudents.length; j++) {
+          if (_normalizeNfc(allStudents[j].nfc_uid) === normUid) {
+            var r = allStudents[j];
+            data = { role:'student', student_uid:r.student_uid, student_id:r.student_id,
+              name:r.name, teacher_uid:r.teacher_uid, school_name:r.school_name,
+              grade:r.grade, class:r.class, num:r.num, gender:r.gender||'', profile_image_url:'' };
+            // 토큰 지급 + 등교 알림 — 백그라운드 비동기
+            api('post_login_student', { student_uid:r.student_uid, name:r.name,
+              teacher_uid:r.teacher_uid, school_name:r.school_name }).catch(function(){});
+            break;
+          }
+        }
+      }
+    } catch(sbErr) {
+      console.warn('[SB] NFC fallback:', sbErr.message);
+    }
+
+    if (data) {
       AUDIO.sfx('nfc');
-      onLoginSuccess(res.data); // hideLoading은 onLoginSuccess 내부에서 역할별로 처리
+      onLoginSuccess(data);
     } else {
-      hideLoading();
-      toast(res.message || '등록되지 않은 카드입니다');
-      if(msg) msg.textContent = '마음카드를 띠링-';
-      focusNfcInput();
+      // Supabase 미매칭 or 오류 → GAS fallback (관리자 NFC 포함)
+      var res = await api('login_nfc', { nfc_uid: uid });
+      if (res.status === 'ok') {
+        AUDIO.sfx('nfc');
+        onLoginSuccess(res.data);
+      } else {
+        hideLoading();
+        toast(res.message || '등록되지 않은 카드입니다');
+        if(msg) msg.textContent = '마음카드를 띠링-';
+        focusNfcInput();
+      }
     }
   } finally {
-    // onLoginSuccess가 호출되는 순간 screen-nfc가 hidden 되어 다음 NFC는 게이트에서 막힘
-    // 실패 시에도 다음 NFC 시도가 가능해야 하므로 finally에서 리셋
     _nfcAuthInFlight = false;
   }
 }
@@ -2244,15 +2312,77 @@ async function loginByPw() {
   if (!id || !pw) { toast('아이디와 비밀번호를 입력하세요'); return; }
 
   showLoading('로그인 중이에요 💛');
-  var res = await api('login_pw', { id: id, pw: pw });
-  if (res.status === 'ok') {
-    AUDIO.sfx('login');
-    closeModal('modal-login');
-    onLoginSuccess(res.data); // hideLoading은 onLoginSuccess 내부에서 처리
-  } else {
-    hideLoading();
-    AUDIO.sfx('error');
-    toast(res.message);
+
+  // 53차: Supabase 직접 조회 (cold start 제거)
+  // 관리자는 PropertiesService 기반 → GAS fallback
+  // 실패/에러 시 GAS fallback 자동 적용
+  try {
+    var hash = await _sha256(pw);
+    var data = null;
+
+    if (id.slice(-2) === '_p') {
+      // 부모 로그인
+      var rows = await _sbFetch('parents', { parent_id:'eq.'+id, pw_hash:'eq.'+hash, active:'eq.Y' });
+      if (rows.length) {
+        var r = rows[0];
+        data = { role:'parent', parent_uid:r.parent_uid, student_uid:r.student_uid,
+          student_name:r.student_name, teacher_uid:r.teacher_uid,
+          school_name:r.school_name, parent_id:r.parent_id };
+      }
+    } else {
+      // 교사 시도
+      var tRows = await _sbFetch('teachers', { teacher_id:'eq.'+id, pw_hash:'eq.'+hash, active:'eq.Y' });
+      if (tRows.length) {
+        var r = tRows[0];
+        data = { role:'teacher', teacher_uid:r.teacher_uid, name:r.name,
+          school_name:r.school_name, school_type:r.school_type,
+          year:r.year, grade:r.grade, class:r.class, profile_image_url:'' };
+      } else {
+        // 학생 시도
+        var sRows = await _sbFetch('students', { student_id:'eq.'+id, pw_hash:'eq.'+hash, active:'eq.Y' });
+        if (sRows.length) {
+          var r = sRows[0];
+          data = { role:'student', student_uid:r.student_uid, student_id:r.student_id,
+            name:r.name, teacher_uid:r.teacher_uid, school_name:r.school_name,
+            grade:r.grade, class:r.class, num:r.num, gender:r.gender||'', profile_image_url:'' };
+          // 토큰 지급 + 등교 알림 — 백그라운드 비동기 (기다리지 않음)
+          api('post_login_student', { student_uid:r.student_uid, name:r.name,
+            teacher_uid:r.teacher_uid, school_name:r.school_name }).catch(function(){});
+        }
+      }
+    }
+
+    if (data) {
+      AUDIO.sfx('login');
+      closeModal('modal-login');
+      onLoginSuccess(data);
+      return;
+    }
+
+    // Supabase에서 못 찾으면 GAS fallback (관리자 포함)
+    var res = await api('login_pw', { id: id, pw: pw });
+    if (res.status === 'ok') {
+      AUDIO.sfx('login');
+      closeModal('modal-login');
+      onLoginSuccess(res.data);
+    } else {
+      hideLoading();
+      AUDIO.sfx('error');
+      toast(res.message);
+    }
+  } catch(e) {
+    // Supabase 오류 → GAS fallback
+    console.warn('[SB] loginByPw fallback:', e.message);
+    var res = await api('login_pw', { id: id, pw: pw });
+    if (res.status === 'ok') {
+      AUDIO.sfx('login');
+      closeModal('modal-login');
+      onLoginSuccess(res.data);
+    } else {
+      hideLoading();
+      AUDIO.sfx('error');
+      toast(res.message);
+    }
   }
 }
 
@@ -7921,6 +8051,7 @@ function tokenHTML() {
       '<button class="btn btn-lav" id="giftBtn" onclick="openGiftSelect()">💌 선물하기</button>' +
     '</div>' +
     '<div id="saveAllDetail" style="font-size:11px;color:var(--gray);text-align:center;margin-top:-8px;margin-bottom:6px;min-height:16px"></div>' +
+    '<div id="giftOnlyHint" style="font-size:11.5px;color:#c2185b;text-align:center;margin-top:-4px;margin-bottom:8px;display:none;background:#fdf2f8;border-radius:8px;padding:6px 10px;font-weight:600">💝 선물받은 토큰은 다시 선물할 수 없어요</div>' +
     '<div class="card card-lemon" style="margin-top:8px">' +
       '<div class="card-label gaegu">마음토큰이란?</div>' +
       '<div style="font-size:13px;line-height:1.7;color:var(--gray)">매일 로그인하면 토큰 1개를 받아요.<br>토큰을 <b>저축</b>하면 마음 온도가 올라가요 🌡️<br>토큰 2개 저축 = 마음 온도 1°<br>선물받은 토큰은 저축 시 <b>2배</b>로 적립돼요 💝<br>최대 100°까지 올릴 수 있어요!</div>' +
@@ -7954,14 +8085,14 @@ function _refreshTokenCards(tb) {
   setText('tokenSaved',  saved);
   updateHeartTempUI(temp);
 
-  // 현재 마음토큰 카드 — 0이어도 클릭 받게 (confirmSaveRegular가 가드 토스트 표시)
+  // 현재 마음토큰 카드 — border는 항상 transparent (호버 시만 CSS로 반응)
   var cardMy = document.getElementById('cardMyToken');
   if (cardMy) {
     cardMy.style.borderColor    = 'transparent';
     cardMy.style.background     = '#fff';
     cardMy.style.opacity        = regularBal > 0 ? '1' : '0.55';
-    cardMy.style.cursor         = regularBal > 0 ? 'pointer' : 'not-allowed';
-    cardMy.style.pointerEvents  = ''; // 항상 활성 — 가드는 confirmSaveRegular 내부에서
+    cardMy.style.cursor         = regularBal > 0 ? 'pointer' : 'default';
+    cardMy.style.pointerEvents  = regularBal > 0 ? '' : 'none';
   }
 
   // 선물받은 토큰 카드
@@ -7985,35 +8116,37 @@ function _refreshTokenCards(tb) {
     saveAllBtn.textContent   = '🪙 모두 저축하기';
   }
   if (saveAllDetail) {
-    if (regularBal > 0 && giftBal > 0) {
-      // 일반 + 선물 둘 다 있을 때만 detail 표시 (의미 있는 정보)
-      saveAllDetail.textContent = '(일반 ' + regularBal + '개, 선물 ' + giftBal + '개 × 2)';
-    } else if (regularBal > 0) {
-      saveAllDetail.textContent = '(일반 ' + regularBal + '개)';
+    if (balance > 0) {
+      var parts = [];
+      if (regularBal > 0) parts.push('일반 ' + regularBal + '개');
+      if (giftBal > 0)    parts.push('선물 ' + giftBal + '개 × 2');
+      saveAllDetail.textContent = '(' + parts.join(', ') + ')';
     } else {
-      // 선물만 있거나 아무것도 없을 때는 detail 비움 (위의 카드와 안내로 충분)
       saveAllDetail.textContent = '';
     }
   }
 
-  // 선물하기 버튼 — 직접 획득한 토큰 없으면 시각만 비활성. 클릭은 받게 두고 openGiftSelect 가드가 toast 안내
+  // 선물하기 버튼 — 직접 획득한 토큰 없으면 비활성
   var giftBtn = document.getElementById('giftBtn');
   if (giftBtn) {
-    giftBtn.disabled = false; // 항상 클릭 받음 (모바일에서 비활성 사유 toast 노출 위해)
     if (giftable < 1) {
+      giftBtn.disabled      = true;
       giftBtn.style.opacity = '0.45';
-      giftBtn.style.cursor  = 'not-allowed';
       giftBtn.title = giftBal > 0
         ? '선물받은 토큰은 다시 선물할 수 없어요 💝'
         : '선물할 토큰이 부족해요';
     } else {
+      giftBtn.disabled      = false;
       giftBtn.style.opacity = '1';
-      giftBtn.style.cursor  = '';
       giftBtn.title         = '';
     }
   }
 
-  // 52차: giftOnlyHint div 제거 — toast 방식으로 전환 (변쌤 요청)
+  // 52차: 일반 토큰은 없고 선물받은 토큰만 있을 때 안내 (선물하기 비활성 이유 모바일에서도 보이게)
+  var giftOnlyHint = document.getElementById('giftOnlyHint');
+  if (giftOnlyHint) {
+    giftOnlyHint.style.display = (regularBal === 0 && giftBal > 0) ? 'block' : 'none';
+  }
 }
 
 async function loadTokenBalance() {
@@ -8556,7 +8689,7 @@ function confirmSaveRegular() {
   var balance    = tb.current_balance || 0;
   var regularBal = Math.max(0, balance - giftBal);
   if (regularBal < 1) {
-    toast('저축할 토큰이 없어요 🪙');
+    toast(giftBal > 0 ? '💝 선물받은 토큰은 아래 카드를 눌러 저축해요!' : '저축할 마음토큰이 없어요');
     return;
   }
   // 확인 모달 열기
@@ -8590,7 +8723,7 @@ async function saveRegularToken() {
   var balance    = tb.current_balance || 0;
   var regularBal = Math.max(0, balance - giftBal);
   if (regularBal < 1) {
-    toast('저축할 토큰이 없어요 🪙');
+    toast(giftBal > 0 ? '💝 선물받은 토큰은 아래 카드를 눌러 저축해요!' : '저축할 마음토큰이 없어요');
     return;
   }
   // 중복 탭 방지 — 카드 즉시 비활성화
