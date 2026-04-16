@@ -1775,6 +1775,77 @@ async function _sbFetch(table, filters) {
   return res.json();
 }
 
+// 54차: 날씨 계산 (GAS calcWeather 이식)
+function _calcWeather(pos, neu, neg, total) {
+  if (total === 0) return 'none';
+  var posR=pos/total, neuR=neu/total, negR=neg/total;
+  if (posR>=0.3 && negR>=0.3) return 'rainbow';
+  if (negR>=0.25) return 'rain';
+  if (neuR>=0.4)  return 'cloudy';
+  if (posR>=0.6)  return 'sunny';
+  return 'partly_cloudy';
+}
+
+// 54차: 교사 대시보드 Supabase 직접 집계 (GAS get_dashboard 대체)
+async function _sbGetDashboard(teacher_uid) {
+  var today = new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+  var todayStart = today + 'T00:00:00';
+  var results = await Promise.all([
+    _sbFetch('students',      { teacher_uid:'eq.'+teacher_uid, active:'eq.Y' }),
+    _sbFetch('emotions',      { teacher_uid:'eq.'+teacher_uid, timestamp:'gte.'+todayStart, type:'eq.checkin' }),
+    _sbFetch('token_balance', { teacher_uid:'eq.'+teacher_uid }),
+    _sbFetch('warmth',        { teacher_uid:'eq.'+teacher_uid }),
+    _sbFetch('tokens',        { teacher_uid:'eq.'+teacher_uid, type:'eq.gift_sent', order:'timestamp.desc', limit:'3' }),
+  ]);
+  var students=results[0]||[], todayEmo=results[1]||[];
+  var balances=results[2]||[], warmRows=results[3]||[], giftRows=results[4]||[];
+
+  var pos=0, neu=0, neg=0, studentEmotions={}, emotion_words=[];
+  todayEmo.forEach(function(e) {
+    var mac=e.macro_emotion;
+    if (mac==='positive') pos++; else if (mac==='neutral') neu++; else if (mac==='negative') neg++;
+    studentEmotions[e.student_uid]={ macro:mac, micro:e.micro_emotion, score:e.emotion_score };
+    var micro=(e.micro_emotion||'').trim();
+    if (micro) {
+      var f=null;
+      for(var w=0;w<emotion_words.length;w++){if(emotion_words[w].word===micro){f=emotion_words[w];break;}}
+      if(f) f.count++; else emotion_words.push({word:micro,type:mac,count:1});
+    }
+  });
+
+  var submittedUids={};
+  todayEmo.forEach(function(e){ submittedUids[e.student_uid]=true; });
+  var notSubmitted=students
+    .filter(function(s){ return !submittedUids[s.student_uid]; })
+    .map(function(s){ return {student_uid:s.student_uid,name:s.name,num:s.num}; });
+
+  var tokenBalances={}, tempSum=0, tempCount=0;
+  balances.forEach(function(b) {
+    var bSaved=Number(b.total_saved)||0, bBal=Number(b.current_balance)||0;
+    var bTemp=Math.min(100, bSaved/2);
+    tokenBalances[b.student_uid]={current_balance:bBal, total_saved:bSaved, temp:bTemp};
+    tempSum+=bTemp; tempCount++;
+  });
+  var classTemp=tempCount>0?Math.min(100,Math.round(tempSum/tempCount)):0;
+  var warmCount=warmRows.length?Number(warmRows[0].current_count)||0:0;
+  var todayGifts=giftRows.map(function(g){ return {from_name:g.student_name, to_name:g.from_student_name}; });
+
+  return {
+    status:'ok',
+    data:{
+      total_students:students.length, submitted:todayEmo.length,
+      not_submitted:notSubmitted, positive_count:pos, neutral_count:neu, negative_count:neg,
+      weather:_calcWeather(pos,neu,neg,students.length), warmth_count:warmCount,
+      student_emotions:studentEmotions, emotion_words:emotion_words,
+      today_emotions_list:todayEmo.slice(0,100).map(function(e){
+        return {student_name:e.student_name, macro_emotion:e.macro_emotion,
+          micro_emotion:e.micro_emotion, custom_text:e.custom_text||'', timestamp:e.timestamp};
+      }),
+      class_temp:classTemp, token_balances:tokenBalances, today_gifts:todayGifts
+    }
+  };
+}
+
 // ════════════════════════════════════════
 // 오디오 시스템
 // ════════════════════════════════════════
@@ -2257,7 +2328,7 @@ async function handleNfcUid(uid) {
           var r = allTeachers[i];
           data = { role:'teacher', teacher_uid:r.teacher_uid, name:r.name,
             school_name:r.school_name, school_type:r.school_type,
-            year:r.year, grade:r.grade, class:r.class, profile_image_url:'' };
+            year:r.year, grade:r.grade, class:r.class, profile_image_url:r.profile_image_url||'' };
           break;
         }
       }
@@ -2270,7 +2341,7 @@ async function handleNfcUid(uid) {
             var r = allStudents[j];
             data = { role:'student', student_uid:r.student_uid, student_id:r.student_id,
               name:r.name, teacher_uid:r.teacher_uid, school_name:r.school_name,
-              grade:r.grade, class:r.class, num:r.num, gender:r.gender||'', profile_image_url:'' };
+              grade:r.grade, class:r.class, num:r.num, gender:r.gender||'', profile_image_url:r.profile_image_url||'' };
             // 토큰 지급 + 등교 알림 — 백그라운드 비동기
             api('post_login_student', { student_uid:r.student_uid, name:r.name,
               teacher_uid:r.teacher_uid, school_name:r.school_name }).catch(function(){});
@@ -2336,7 +2407,7 @@ async function loginByPw() {
         var r = tRows[0];
         data = { role:'teacher', teacher_uid:r.teacher_uid, name:r.name,
           school_name:r.school_name, school_type:r.school_type,
-          year:r.year, grade:r.grade, class:r.class, profile_image_url:'' };
+          year:r.year, grade:r.grade, class:r.class, profile_image_url:r.profile_image_url||'' };
       } else {
         // 학생 시도
         var sRows = await _sbFetch('students', { student_id:'eq.'+id, pw_hash:'eq.'+hash, active:'eq.Y' });
@@ -2344,7 +2415,7 @@ async function loginByPw() {
           var r = sRows[0];
           data = { role:'student', student_uid:r.student_uid, student_id:r.student_id,
             name:r.name, teacher_uid:r.teacher_uid, school_name:r.school_name,
-            grade:r.grade, class:r.class, num:r.num, gender:r.gender||'', profile_image_url:'' };
+            grade:r.grade, class:r.class, num:r.num, gender:r.gender||'', profile_image_url:r.profile_image_url||'' };
           // 토큰 지급 + 등교 알림 — 백그라운드 비동기 (기다리지 않음)
           api('post_login_student', { student_uid:r.student_uid, name:r.name,
             teacher_uid:r.teacher_uid, school_name:r.school_name }).catch(function(){});
@@ -4058,24 +4129,73 @@ async function handleAttendNfc(uid) {
   if (!uid) return;
   var msg = document.getElementById('attendWaitMsg');
   if (msg) msg.textContent = '확인 중...';
-  var res = await api('lookup_nfc_student', {
-    nfc_uid: uid,
-    teacher_uid: STATE.user.teacher_uid,
-  });
-  hideLoading();  // 47차 D: API 응답 후 즉시 스피너 닫기 (성공/실패/중복 모든 경로 공통)
-  if (res.status === 'already_attended') {
+  try {
+    var normUid     = _normalizeNfc(uid);
+    var teacher_uid = STATE.user.teacher_uid;
+    var today       = new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+    var todayStart  = today + 'T00:00:00';
+    // 학생 목록: STATE 캐시 우선, 없으면 Supabase
+    var pool = (STATE.students&&STATE.students.length)
+      ? STATE.students.filter(function(s){ return s.active==='Y'; })
+      : await _sbFetch('students', { active:'eq.Y', teacher_uid:'eq.'+teacher_uid });
+    var matched = null;
+    for (var i=0; i<pool.length; i++) {
+      if (_normalizeNfc(pool[i].nfc_uid)===normUid && pool[i].teacher_uid===teacher_uid) {
+        matched=pool[i]; break;
+      }
+    }
+    if (!matched) {
+      hideLoading();
+      toast('등록되지 않은 카드입니다');
+      if (msg) msg.textContent = '마음카드를 띠링-';
+      focusNfcInput();
+      return;
+    }
+    // 로컬 캐시로 이미 등교 여부 빠른 확인
+    if (_attendanceMap[today]&&_attendanceMap[today][matched.student_uid]) {
+      hideLoading();
+      AUDIO.sfx('nfc');
+      toast('✅ '+matched.name+' — 이미 등교했어요!');
+      if (msg) msg.textContent = '마음카드를 띠링-';
+      updateNfcEnvUI(); focusNfcInput();
+      return;
+    }
+    // Supabase로 오늘 감정 제출 여부 확인
+    var emoRows = await _sbFetch('emotions', {
+      student_uid:'eq.'+matched.student_uid,
+      timestamp:'gte.'+todayStart,
+      type:'eq.checkin'
+    });
+    hideLoading();  // 47차 D: API 응답 후 즉시 스피너 닫기
+    if (emoRows&&emoRows.length>0) {
+      AUDIO.sfx('nfc');
+      toast('✅ '+matched.name+' — 이미 등교했어요!');
+      if (msg) msg.textContent = '마음카드를 띠링-';
+      updateNfcEnvUI(); focusNfcInput();
+      return;
+    }
+    // 첫 등교 → 토큰·알림 GAS 백그라운드
+    api('post_login_student', { student_uid:matched.student_uid, name:matched.name,
+      teacher_uid:matched.teacher_uid, school_name:matched.school_name }).catch(function(){});
     AUDIO.sfx('nfc');
-    toast('✅ ' + res.data.student_name + ' — 이미 등교했어요!');
-    if (msg) msg.textContent = '마음카드를 띠링-';
-    updateNfcEnvUI();
-    focusNfcInput();
-  } else if (res.status === 'ok') {
-    AUDIO.sfx('nfc');
-    _attendShowConfirm(res.data);
-  } else {
-    toast(res.message || '등록되지 않은 카드입니다');
-    if (msg) msg.textContent = '마음카드를 띠링-';
-    focusNfcInput();
+    _attendShowConfirm({ student_uid:matched.student_uid, student_name:matched.name,
+      gender:matched.gender||'', teacher_uid:matched.teacher_uid, school_name:matched.school_name });
+  } catch(sbErr) {
+    console.warn('[SB] handleAttendNfc fallback:', sbErr.message);
+    var res = await api('lookup_nfc_student', { nfc_uid:uid, teacher_uid:STATE.user.teacher_uid });
+    hideLoading();  // 47차 D
+    if (res.status==='already_attended') {
+      AUDIO.sfx('nfc');
+      toast('✅ '+res.data.student_name+' — 이미 등교했어요!');
+      if (msg) msg.textContent = '마음카드를 띠링-';
+      updateNfcEnvUI(); focusNfcInput();
+    } else if (res.status==='ok') {
+      AUDIO.sfx('nfc'); _attendShowConfirm(res.data);
+    } else {
+      toast(res.message||'등록되지 않은 카드입니다');
+      if (msg) msg.textContent = '마음카드를 띠링-';
+      focusNfcInput();
+    }
   }
 }
 
@@ -4193,7 +4313,7 @@ async function loadDashboard() {
   // 교사 대시보드 + 전국 온도 동시 요청 → 스피너가 둘 다 커버
   var natNeeded = !_nationalMapCache;
   var results = await Promise.all([
-    api('get_dashboard', { teacher_uid }),
+    _sbGetDashboard(teacher_uid),  // 54차: Supabase 직접 집계
     natNeeded ? api('get_admin_dashboard', {}) : Promise.resolve(null),
   ]);
   var res    = results[0];
