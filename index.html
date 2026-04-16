@@ -2491,32 +2491,34 @@ async function onLoginSuccess(data) {
     } else {
       // 교사: 학급 대시보드 + 학생 목록 + 출석부 맵 + 알림 — 동시 로드
       var _bgToday = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+      // 55차: get_students / get_emotions → Supabase 직접 (GAS fallback 포함)
+      function _applyStudents(list) {
+        var active=(list||[]).filter(function(s){return s.active==='Y';});
+        var inactive=(list||[]).filter(function(s){return s.active!=='Y';});
+        active.sort(function(a,b){return a.num-b.num;});
+        STATE.students=active.concat(inactive); _studentShowCount=5; renderStudentList();
+      }
+      function _applyEmotions(list) {
+        CAL.data={}; _attendanceMap={};
+        var todayEmotions=[];
+        (list||[]).forEach(function(e){
+          var d=e.timestamp?e.timestamp.slice(0,10):'';
+          CAL.data[d]=(CAL.data[d]||0)+1;
+          if(d===_bgToday) todayEmotions.push(e);
+          if(!_attendanceMap[d]) _attendanceMap[d]={};
+          _attendanceMap[d][e.student_uid]=true;
+        });
+        _preloadedTodayRecords={date:_bgToday,emotions:todayEmotions}; renderCal();
+      }
       await Promise.all([
         loadDashboard(),
         loadNotifications(),
-        api('get_students', { teacher_uid: teacherUid }).then(function(res) {
-          if (res.status === 'ok') {
-            STATE.students = res.data.students;
-            _studentShowCount = 5;
-            renderStudentList();
-          }
-        }),
-        api('get_emotions', { teacher_uid: teacherUid }).then(function(res) {
-          if (res.status === 'ok') {
-            CAL.data = {};
-            _attendanceMap = {};
-            var todayEmotions = [];
-            res.data.emotions.forEach(function(e) {
-              var d = e.timestamp ? e.timestamp.slice(0,10) : '';
-              CAL.data[d] = (CAL.data[d] || 0) + 1;
-              if (d === _bgToday) todayEmotions.push(e);
-              if (!_attendanceMap[d]) _attendanceMap[d] = {};
-              _attendanceMap[d][e.student_uid] = true;
-            });
-            _preloadedTodayRecords = { date: _bgToday, emotions: todayEmotions };
-            renderCal();
-          }
-        }),
+        _sbFetch('students', { teacher_uid:'eq.'+teacherUid })
+          .then(_applyStudents)
+          .catch(function(){ return api('get_students',{teacher_uid:teacherUid}).then(function(r){ if(r.status==='ok') _applyStudents(r.data.students); }); }),
+        _sbFetch('emotions', { teacher_uid:'eq.'+teacherUid, limit:'10000' })
+          .then(_applyEmotions)
+          .catch(function(){ return api('get_emotions',{teacher_uid:teacherUid}).then(function(r){ if(r.status==='ok') _applyEmotions(r.data.emotions); }); }),
       ]);
       renderEmotionBarcode();
     }
@@ -2543,23 +2545,47 @@ async function onLoginSuccess(data) {
       loadTokenBalance(),
       loadTokenLog(),
       loadNotifications(),
-      api('get_emotions', { student_uid: data.student_uid, date: today }).then(function(res) {
-        if (res.status === 'ok' && res.data.emotions.length) {
-          var e = res.data.emotions[0];
-          STATE.todayEmotionSubmitted = true;
-          STATE.todayEmotionModified  = !!(e.is_modified === true || e.is_modified === 'TRUE');
-          STATE.selectedMacro = e.macro_emotion;
-          STATE.selectedMicro = { word: e.micro_emotion, id: e.is_custom ? 'custom' : '' };
-          updateEmotionSubmittedBanner();
-        }
-      }),
+      // 55차: 오늘 감정 → Supabase 직접 (GAS fallback)
+      _sbFetch('emotions', { student_uid:'eq.'+data.student_uid, timestamp:'gte.'+today+'T00:00:00', type:'eq.checkin' })
+        .then(function(rows){
+          if (rows && rows.length) {
+            var e=rows[0];
+            STATE.todayEmotionSubmitted=true;
+            STATE.todayEmotionModified=!!(e.is_modified===true||e.is_modified==='TRUE');
+            STATE.selectedMacro=e.macro_emotion;
+            STATE.selectedMicro={word:e.micro_emotion,id:e.is_custom?'custom':''};
+            updateEmotionSubmittedBanner();
+          }
+        })
+        .catch(function(){
+          return api('get_emotions',{student_uid:data.student_uid,date:today}).then(function(res){
+            if(res.status==='ok'&&res.data.emotions.length){
+              var e=res.data.emotions[0];
+              STATE.todayEmotionSubmitted=true;
+              STATE.todayEmotionModified=!!(e.is_modified===true||e.is_modified==='TRUE');
+              STATE.selectedMacro=e.macro_emotion;
+              STATE.selectedMicro={word:e.micro_emotion,id:e.is_custom?'custom':''};
+              updateEmotionSubmittedBanner();
+            }
+          });
+        }),
     ]);
     hideLoading();
     startPersonaPoll();
     if (data.teacher_uid) {
-      api('get_students', { teacher_uid: data.teacher_uid }).then(function(res) {
-        if (res.status === 'ok') STATE.students = res.data.students;
-      });
+      // 55차: Supabase 직접 (GAS fallback)
+      _sbFetch('students', { teacher_uid:'eq.'+data.teacher_uid })
+        .then(function(rows){
+          var active=(rows||[]).filter(function(s){return s.active==='Y';});
+          var inactive=(rows||[]).filter(function(s){return s.active!=='Y';});
+          active.sort(function(a,b){return a.num-b.num;});
+          STATE.students=active.concat(inactive);
+        })
+        .catch(function(){
+          api('get_students',{teacher_uid:data.teacher_uid}).then(function(r){
+            if(r.status==='ok') STATE.students=r.data.students;
+          });
+        });
     }
   }
 }
@@ -5445,10 +5471,18 @@ async function loadNotifications() {
   else if (role === 'student')                uid = STATE.user && STATE.user.student_uid;
   else if (role === 'parent')                 uid = STATE.user && STATE.user.parent_uid;
   if (!uid) return;
-  var res = await api('get_notifications', { recipient_uid: uid });
-  if (res.status === 'ok') {
-    _notifications = res.data.notifications || [];
+  // 55차: Supabase 직접 조회, GAS fallback
+  try {
+    var rows = await _sbFetch('notifications', { recipient_uid:'eq.'+uid, order:'created_at.desc', limit:'50' });
+    _notifications = (rows||[]).map(function(r){
+      return { notification_uid:r.notification_uid, created_at:r.created_at, type:r.type,
+               title:r.title, body:r.body, sender_name:r.sender_name,
+               is_read:r.is_read===true||r.is_read==='TRUE', related_uid:r.related_uid };
+    });
     updateNotifBadge();
+  } catch(e) {
+    var res = await api('get_notifications', { recipient_uid: uid });
+    if (res.status === 'ok') { _notifications = res.data.notifications||[]; updateNotifBadge(); }
   }
 }
 
