@@ -1794,6 +1794,7 @@ async function _sbRpc(fn, params) {
   return res.json();
 }
 // 55차: Supabase PATCH (알림 읽음 처리 등 쓰기용)
+// 61차: 실패 시 응답 body를 console.error + throw에도 포함 (fail-silent 방어)
 async function _sbPatch(table, filters, body) {
   var qs = Object.keys(filters).map(function(k){ return k+'='+filters[k]; }).join('&');
   var res = await fetch(SB_URL+'/rest/v1/'+table+'?'+qs, {
@@ -1802,16 +1803,27 @@ async function _sbPatch(table, filters, body) {
                'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
     body: JSON.stringify(body)
   });
-  if (!res.ok) throw new Error('SB PATCH '+res.status);
+  if (!res.ok) {
+    var txt = '';
+    try { txt = await res.text(); } catch(e) {}
+    console.error('[SB PATCH ERROR]', table, res.status, txt.slice(0,500));
+    throw new Error('SB PATCH '+res.status+': '+txt.slice(0,300));
+  }
 }
 // 55차: Supabase DELETE
+// 61차: 실패 시 응답 body를 console.error + throw에도 포함
 async function _sbDelete(table, filters) {
   var qs = Object.keys(filters).map(function(k){ return k+'='+filters[k]; }).join('&');
   var res = await fetch(SB_URL+'/rest/v1/'+table+'?'+qs, {
     method: 'DELETE',
     headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer '+SB_KEY, 'Prefer': 'return=minimal' }
   });
-  if (!res.ok) throw new Error('SB DELETE '+res.status);
+  if (!res.ok) {
+    var txt = '';
+    try { txt = await res.text(); } catch(e) {}
+    console.error('[SB DELETE ERROR]', table, res.status, txt.slice(0,500));
+    throw new Error('SB DELETE '+res.status+': '+txt.slice(0,300));
+  }
 }
 
 // 54차: 날씨 계산 (GAS calcWeather 이식)
