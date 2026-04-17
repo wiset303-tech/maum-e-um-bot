@@ -9475,6 +9475,8 @@ function openGiftSelect() {
 }
 
 async function giftToken(friend) {
+  // [60차 Δ³ 임시 진단 — 원인 파악 후 제거 예정]
+  var _giftT0 = performance.now();
   // 탭 즉시 모달 닫기 (자연스러운 UX)
   closeModal('modal-gift-select');
 
@@ -9489,6 +9491,8 @@ async function giftToken(friend) {
     return;
   }
   showLoading(friend.name+'에게 토큰을 선물하는 중이에요 💌');
+  var _giftTShow = performance.now(); // [Δ³ 진단]
+  console.log('[GIFT-DIAG] 시작 → showLoading:', Math.round(_giftTShow - _giftT0), 'ms');
   // 56차: Supabase RPC (GAS fallback)
   try {
     var rpcRes = await _sbRpc('rpc_gift_token', {
@@ -9496,6 +9500,8 @@ async function giftToken(friend) {
       p_to_uid:friend.student_uid, p_to_name:friend.name,
       p_teacher_uid:STATE.user.teacher_uid
     });
+    var _giftTRpc = performance.now(); // [Δ³ 진단]
+    console.log('[GIFT-DIAG] ⭐ RPC 시간:', Math.round(_giftTRpc - _giftTShow), 'ms');
     hideLoading();
     if (rpcRes.status === 'ok') {
     if (rpcRes.balance) {
@@ -9514,16 +9520,21 @@ async function giftToken(friend) {
       loadTokenLog();
       if (rpcRes.class_bonus) { showWarmthBonus(); }
       _showGiftAnim(friend.name, friend.gender || '');
+      console.log('[GIFT-DIAG] ✅ 전체(RPC 경로):', Math.round(performance.now() - _giftT0), 'ms'); // [Δ³ 진단]
     } else { toast(rpcRes.message); }
   } catch(e) {
+    console.log('[GIFT-DIAG] ⚠️ catch 진입 (Supabase RPC 실패 → GAS fallback). 경과:', Math.round(performance.now() - _giftTShow), 'ms. 에러:', e && e.message); // [Δ³ 진단]
+    var _giftTCatch = performance.now(); // [Δ³ 진단]
     var res = await api('gift_token', { from_uid:STATE.user.student_uid, from_name:STATE.user.name,
       to_uid:friend.student_uid, to_name:friend.name,
       teacher_uid:STATE.user.teacher_uid, school_name:STATE.user.school_name||'' });
+    console.log('[GIFT-DIAG] GAS gift_token 시간:', Math.round(performance.now() - _giftTCatch), 'ms'); // [Δ³ 진단]
     if (res.status==='ok') {
       await Promise.all([loadTokenBalance(),loadTokenLog()]);
       hideLoading();
       if (res.data.class_bonus) { showWarmthBonus(); }
       _showGiftAnim(friend.name, friend.gender || '');
+      console.log('[GIFT-DIAG] ✅ 전체(GAS fallback):', Math.round(performance.now() - _giftT0), 'ms'); // [Δ³ 진단]
     } else { hideLoading(); toast(res.message); }
   }
 }
