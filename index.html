@@ -8350,14 +8350,7 @@ function _refreshTokenCards(tb) {
     saveAllBtn.textContent   = '🪙 모두 저축하기';
   }
   if (saveAllDetail) {
-    if (balance > 0) {
-      var parts = [];
-      if (regularBal > 0) parts.push('일반 ' + regularBal + '개');
-      if (giftBal > 0)    parts.push('선물 ' + giftBal + '개 × 2');
-      saveAllDetail.textContent = '(' + parts.join(', ') + ')';
-    } else {
-      saveAllDetail.textContent = '';
-    }
+    saveAllDetail.textContent = ''; // 57차: 내역 텍스트 제거 (회귀 fix)
   }
 
   // 선물하기 버튼 — 직접 획득한 토큰 없으면 비활성
@@ -9340,6 +9333,7 @@ async function giftToken(friend) {
       _refreshTokenCards(STATE.tokenBalance);
       calcBannerMessage(STATE.tokenBalance);
       _syncTokenToSheets(rpcRes.balance); // 57차: Sheets 동기화
+      api('sync_token_balance', { student_uid: friend.student_uid }); // 57차: 받는 사람 Sheets←Supabase 미러링
     }
       loadTokenLog();
       if (rpcRes.class_bonus) { showWarmthBonus(); }
