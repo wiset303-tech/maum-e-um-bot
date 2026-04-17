@@ -8384,21 +8384,9 @@ function _refreshTokenCards(tb) {
 }
 
 async function loadTokenBalance() {
-  // 55차: Supabase 직접 조회, GAS fallback
-  try {
-    var rows = await _sbFetch('token_balance', { student_uid: 'eq.'+STATE.user.student_uid });
-    if (rows && rows.length) {
-      var b = rows[0];
-      var data = { total_earned:Number(b.total_earned)||0, total_saved:Number(b.total_saved)||0,
-                   current_balance:Number(b.current_balance)||0,
-                   can_save_double:b.can_save_double===true||b.can_save_double==='TRUE',
-                   gift_balance:Number(b.gift_balance)||0 };
-      // 57차: 정합성 체크 — current_balance < gift_balance면 스테일 데이터 (§7-A)
-      if (data.current_balance < data.gift_balance) throw new Error('stale: cb<gb');
-      STATE.tokenBalance=data; _refreshTokenCards(data); calcBannerMessage(data); return;
-    }
-  } catch(e) {}
-  // fallback — Sheets가 source of truth (일일 토큰은 GAS에서만 지급)
+  // 57차: GAS(Sheets) 전용 — Sheets가 token_balance의 source of truth
+  // RPC 성공 시 STATE는 rpcRes.balance에서 직접 갱신 (loadTokenBalance 호출 불필요)
+  // Supabase 읽기 제거 이유: 일일토큰이 GAS→Sheets만 기록, RPC는 Supabase만 기록 → 어느 쪽이든 불완전
   var res = await api('get_token_balance', { student_uid: STATE.user.student_uid });
   if (res.status === 'ok') { STATE.tokenBalance=res.data; _refreshTokenCards(res.data); calcBannerMessage(res.data); }
   else toast('잔액 정보를 불러오지 못했어요. 잠시 후 다시 시도해요 🙏');
@@ -9005,6 +8993,13 @@ function _injectTokenAnimCss() {
 }
 
 // 저축 완료 — 코인이 아래서 위로 차오르는 느낌
+// 57차: RPC 성공 후 Sheets에 잔액 반영 (fire-and-forget)
+// loadTokenBalance가 GAS(Sheets) 전용이므로, RPC가 Supabase만 업데이트한 값을 Sheets에도 동기화
+function _syncTokenToSheets(balance) {
+  if (!balance || !STATE.user) return;
+  api('sync_token_balance', Object.assign({ student_uid: STATE.user.student_uid }, balance));
+}
+
 function _showSaveAnim(msg) {
   _injectTokenAnimCss();
   var ov = document.createElement('div');
@@ -9096,6 +9091,7 @@ async function saveRegularToken() {
       });
       _refreshTokenCards(STATE.tokenBalance);
       calcBannerMessage(STATE.tokenBalance);
+      _syncTokenToSheets(rpcRes.balance); // 57차: Sheets 동기화
     }
       loadTokenLog();
       _showSaveAnim(rpcRes.message + ' 🌡️');
@@ -9171,6 +9167,7 @@ async function saveGiftToken(count) {
       });
       _refreshTokenCards(STATE.tokenBalance);
       calcBannerMessage(STATE.tokenBalance);
+      _syncTokenToSheets(rpcRes.balance); // 57차: Sheets 동기화
     }
       loadTokenLog();
       _showSaveAnim(rpcRes.message + ' 🌟');
@@ -9272,6 +9269,7 @@ async function saveAllTokens() {
       });
       _refreshTokenCards(STATE.tokenBalance);
       calcBannerMessage(STATE.tokenBalance);
+      _syncTokenToSheets(rpcRes.balance); // 57차: Sheets 동기화
     }
       loadTokenLog();
       _showSaveAnim(rpcRes.message + ' 🌡️');
@@ -9341,6 +9339,7 @@ async function giftToken(friend) {
       });
       _refreshTokenCards(STATE.tokenBalance);
       calcBannerMessage(STATE.tokenBalance);
+      _syncTokenToSheets(rpcRes.balance); // 57차: Sheets 동기화
     }
       loadTokenLog();
       if (rpcRes.class_bonus) { showWarmthBonus(); }
