@@ -1883,6 +1883,131 @@ async function _sbGetDashboard(teacher_uid) {
   };
 }
 
+// 60차: 관리자 대시보드 Supabase 직접 집계 (GAS get_admin_dashboard 대체)
+async function _sbGetAdminDashboard() {
+  var today = new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+  var todayStart = today + 'T00:00:00';
+  var results = await Promise.all([
+    _sbFetch('schools',       { active:'eq.Y' }),
+    _sbFetch('teachers',      { active:'eq.Y' }),
+    _sbFetch('students',      { active:'eq.Y' }),
+    _sbFetch('emotions',      { timestamp:'gte.'+todayStart, type:'eq.checkin' }),
+    _sbFetch('token_balance', {}),
+  ]);
+  var sbSchools = results[0]||[], teachers = results[1]||[];
+  var students  = results[2]||[], todayEmo = results[3]||[];
+  var balances  = results[4]||[];
+
+  // 1. schoolRegionMap: school_name → region
+  var schoolRegionMap = {};
+  sbSchools.forEach(function(s) { schoolRegionMap[s.school_name] = s.region||''; });
+
+  // 2. teacherMap: teacher_uid → {name, school_name, grade, cls, region}
+  var teacherMap = {};
+  teachers.forEach(function(t) {
+    teacherMap[t.teacher_uid] = {
+      name: t.name, school_name: t.school_name,
+      grade: t.grade, cls: t.class, region: t.region||''
+    };
+  });
+
+  // 3. schoolInfo: school_name → {student_count, teacher_uids{}, teacher_region}
+  var schoolInfo = {};
+  students.forEach(function(s) {
+    var sn = s.school_name; if (!sn) return;
+    if (!schoolInfo[sn]) schoolInfo[sn] = { student_count:0, teacher_uids:{}, teacher_region:'' };
+    schoolInfo[sn].student_count++;
+    var tuid = s.teacher_uid;
+    schoolInfo[sn].teacher_uids[tuid] = true;
+    if (!schoolInfo[sn].teacher_region && teacherMap[tuid] && teacherMap[tuid].region) {
+      schoolInfo[sn].teacher_region = teacherMap[tuid].region;
+    }
+  });
+
+  // 4. schoolEmo: school_name → {pos, neu, neg, submitted_uids{}}; nationCrisis
+  var schoolEmo = {}, nationCrisis = 0;
+  todayEmo.forEach(function(e) {
+    var esn = e.school_name;
+    if (!esn && teacherMap[e.teacher_uid]) esn = teacherMap[e.teacher_uid].school_name;
+    if (!esn) return;
+    if (!schoolEmo[esn]) schoolEmo[esn] = { pos:0, neu:0, neg:0, submitted_uids:{} };
+    var mac = e.macro_emotion;
+    if (mac==='positive') schoolEmo[esn].pos++;
+    else if (mac==='neutral') schoolEmo[esn].neu++;
+    else if (mac==='negative') { schoolEmo[esn].neg++; nationCrisis++; }
+    schoolEmo[esn].submitted_uids[e.student_uid] = true;
+  });
+
+  // 5. schoolTemp + nationTemp (total_saved/2 공식은 GAS 동일)
+  var schoolTemp = {}, nationTempSum=0, nationTempCount=0;
+  balances.forEach(function(b) {
+    var tm = teacherMap[b.teacher_uid]; if (!tm) return;
+    var bsn = tm.school_name;
+    var bTemp = Math.min(100, (Number(b.total_saved)||0) / 2);
+    if (!schoolTemp[bsn]) schoolTemp[bsn] = { sum:0, count:0 };
+    schoolTemp[bsn].sum += bTemp; schoolTemp[bsn].count++;
+    nationTempSum += bTemp; nationTempCount++;
+  });
+  var nationTemp = nationTempCount > 0 ? Math.min(100, Math.round(nationTempSum/nationTempCount)) : 0;
+
+  // 6. 학교별 결과 + 학급 드릴다운 조립
+  var schoolNames = Object.keys(schoolInfo);
+  var schoolsOut = schoolNames.map(function(sn) {
+    var info = schoolInfo[sn];
+    var emo  = schoolEmo[sn]  || { pos:0, neu:0, neg:0, submitted_uids:{} };
+    var temp = schoolTemp[sn] || { sum:0, count:0 };
+    var schoolT = temp.count > 0 ? Math.min(100, Math.round(temp.sum/temp.count)) : 0;
+    var submitted = Object.keys(emo.submitted_uids).length;
+
+    var classes = [];
+    Object.keys(info.teacher_uids).forEach(function(tuid) {
+      var t = teacherMap[tuid]; if (!t) return;
+      var classStudentCount = students.filter(function(s){ return s.teacher_uid === tuid; }).length;
+      var classSubmitted = 0, classTempSum=0, classTempCount=0;
+      balances.forEach(function(b) {
+        if (b.teacher_uid !== tuid) return;
+        var cTemp = Math.min(100, (Number(b.total_saved)||0)/2);
+        classTempSum += cTemp; classTempCount++;
+        if (emo.submitted_uids[b.student_uid]) classSubmitted++;
+      });
+      var classT = classTempCount > 0 ? Math.min(100, Math.round(classTempSum/classTempCount)) : 0;
+      classes.push({
+        teacher_uid: tuid, teacher_name: t.name,
+        grade: t.grade, class_num: t.cls,
+        student_count: classStudentCount, submitted: classSubmitted, temp: classT
+      });
+    });
+    classes.sort(function(a,b){ return a.grade!==b.grade ? a.grade-b.grade : a.class_num-b.class_num; });
+
+    return {
+      school_name:   sn,
+      region:        schoolRegionMap[sn] || info.teacher_region || '',
+      student_count: info.student_count,
+      class_count:   classes.length,
+      submitted:     submitted,
+      temp:          schoolT,
+      positive:      emo.pos, neutral: emo.neu, negative: emo.neg,
+      classes:       classes
+    };
+  });
+  schoolsOut.sort(function(a,b){ return b.temp - a.temp; });
+
+  var todaySubmitted = Object.keys(schoolEmo).reduce(function(sum,sn){
+    return sum + Object.keys(schoolEmo[sn].submitted_uids).length;
+  }, 0);
+
+  return {
+    status: 'ok',
+    data: {
+      nation_temp:     nationTemp,
+      school_count:    schoolNames.length,
+      today_submitted: todaySubmitted,
+      today_crisis:    nationCrisis,
+      schools:         schoolsOut
+    }
+  };
+}
+
 // ════════════════════════════════════════
 // 오디오 시스템
 // ════════════════════════════════════════
@@ -4410,7 +4535,7 @@ async function loadDashboard() {
       if (natFill) setTimeout(function(){ natFill.style.width = avgTemp + '%'; }, 150);
     }).catch(function(){});
     // 지도 데이터 (GAS 백그라운드 — 모달 열 때 사용)
-    api('get_admin_dashboard', {}).then(function(natRes) {
+    _sbGetAdminDashboard().then(function(natRes) {
       if (natRes && natRes.status === 'ok') {
         _nationalMapCache = natRes.data.schools || [];
       }
@@ -4665,7 +4790,7 @@ var _nationalMapCache = null; // 교사용 전국 지도 캐시
 async function _preloadNationalTemp() {
   if (_nationalMapCache) return;
   try {
-    var res = await api('get_admin_dashboard', {});
+    var res = await _sbGetAdminDashboard();
     if (res.status !== 'ok') return;
     _nationalMapCache = res.data.schools || [];
     var avgTemp = res.data.nation_temp || 0;
@@ -4887,7 +5012,7 @@ async function openNationalMapModal() {
   }
 
   if (svgEl) svgEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--gray);font-size:13px">전국 데이터를 불러오는 중이에요 🗺️</div>';
-  var res = await api('get_admin_dashboard', {});
+  var res = await _sbGetAdminDashboard();
   if (res.status !== 'ok') {
     if (svgEl) svgEl.innerHTML = '<div style="text-align:center;padding:20px;color:#e05050;font-size:13px">데이터를 불러오지 못했어요</div>';
     return;
@@ -4976,7 +5101,7 @@ var _admSelectedSchool = null; // 현재 드릴다운 중인 school_name
 async function loadAdminDashboard() {
   var btnRef = document.getElementById('btnRefresh');
   if (btnRef) btnRef.classList.add('spinning');
-  var res = await api('get_admin_dashboard', {});
+  var res = await _sbGetAdminDashboard(); // 60차: Supabase 직접 집계 (관리자)
   if (btnRef) btnRef.classList.remove('spinning');
   if (res.status !== 'ok') return;
 
@@ -5864,7 +5989,7 @@ function startDashboardPoll() {
     var panel = document.getElementById('panel-0');
     if (!panel || !panel.classList.contains('active')) return;
     try {
-      var res = await api('get_admin_dashboard', {});
+      var res = await _sbGetAdminDashboard();
       if (res.status !== 'ok') return;
       var crisis = res.data.today_crisis || 0;
       if (_lastSubmitCount === -1) { _lastSubmitCount = crisis; return; }
@@ -7351,7 +7476,7 @@ function renderAdminAttendance() {
 
   if (!schools.length) {
     wrap.innerHTML = '<div style="color:var(--gray);font-size:12px;text-align:center;padding:20px">데이터를 불러오는 중이에요</div>';
-    api('get_admin_dashboard', {}).then(function(res) {
+    _sbGetAdminDashboard().then(function(res) {
       if (res.status === 'ok') {
         _admSchools = res.data.schools || [];
         renderAdminAttendance();
