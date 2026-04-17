@@ -3283,6 +3283,7 @@ async function toggleAdminStudents(btn, teacherUid) {
 }
 
 // ── 관리자: 교사 학급 정보 변경 ──
+var _teacherAll = [];  // 60차 Δ(수정 Δ⁴): _sbGetTeachersAll 캐시 — 선언 누락으로 관리자 로그인 시 ReferenceError 발생하던 것 수정
 var _teacherInfoTargetUid = '';
 function openChangeTeacherInfo(uid, name) {
   closeStuMenu();
