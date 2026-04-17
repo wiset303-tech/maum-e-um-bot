@@ -5709,6 +5709,8 @@ async function loadNotifications() {
                title:r.title, body:r.body, sender_name:r.sender_name,
                is_read:r.is_read===true||String(r.is_read).toUpperCase()==='TRUE', related_uid:r.related_uid };
     });
+    // 60차 Δ⁴ 후속: 혼합 시간 포맷(KST/UTC) 문자열 정렬 꼬임 방어 — 프론트에서 재정렬
+    _notifications.sort(function(a,b){ return _tsToMs(b.created_at) - _tsToMs(a.created_at); });
     updateNotifBadge();
   } catch(e) {
     var res = await api('get_notifications', { recipient_uid: uid });
@@ -5890,9 +5892,25 @@ async function clearAllNotifs() {
   if (!_delOk) await api('clear_notifications', { recipient_uid: uid });
 }
 
+// 60차 Δ⁴ 후속: notifications.created_at 등 혼합 시간 포맷 안전 파싱 헬퍼
+// - GAS `_addNotification`: "2026-04-17T21:35:00" (KST, T구분자, TZ 없음)
+// - RPC `rpc_gift_token`  : "2026-04-17 12:35:00.123+00" (UTC, 공백구분자, TZ 있음)
+// TZ 없는 문자열은 KST로 강제 해석(+09:00 부착)하여 일관성 확보. ms 반환.
+function _tsToMs(ts) {
+  if (!ts) return 0;
+  var s = String(ts).replace(' ', 'T');
+  // TZ 접미사 있음 (Z, +09, +0900, +09:00, -05:00 등)
+  if (/([Zz]|[+-]\d{2}(:?\d{2})?)$/.test(s)) {
+    return new Date(s).getTime() || 0;
+  }
+  // TZ 없음 → KST로 강제 해석
+  return new Date(s + '+09:00').getTime() || 0;
+}
+
 function _timeAgo(ts) {
   if (!ts) return '';
-  var d = new Date(ts), now = new Date();
+  var d = _tsToMs(ts), now = Date.now();
+  if (!d) return '';
   var diff = Math.floor((now - d) / 1000);
   if (diff < 60)   return '방금 전';
   if (diff < 3600) return Math.floor(diff/60) + '분 전';
