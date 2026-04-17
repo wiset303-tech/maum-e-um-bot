@@ -1787,6 +1787,8 @@ async function _sbRpc(fn, params) {
   if (!res.ok) {
     var txt = '';
     try { txt = await res.text(); } catch(e) {}
+    // 60차 Δ⁴ 후속: fail-silent fallback 방어 — RPC 실패를 항상 콘솔에 가시화
+    console.error('[SB RPC ERROR]', fn, res.status, txt.slice(0,500));
     throw new Error('SB RPC '+res.status+': '+txt.slice(0,300));
   }
   return res.json();
