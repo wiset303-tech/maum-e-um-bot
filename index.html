@@ -2746,12 +2746,11 @@ async function onLoginSuccess(data) {
     if (btnSet) btnSet.classList.remove('hidden');
     showLoading('마음데이터를 불러오는 중입니다 💚');
     buildStudentUI();
-    // 토큰잔액은 GAS라 cold start 2~5초 → Promise.all에서 분리해 백그라운드 (60차 Δ²)
-    // 잔액 로드 완료 후 자동으로 UI 갱신됨 (loadTokenBalance 내부에서 _refreshTokenCards 호출)
-    loadTokenBalance().catch(function(){});
-    // 나머지는 모두 Supabase라 빠름 — 준비된 뒤 스피너 해제
+    // 62차: loadTokenBalance Supabase 전환으로 cold start 사라짐 → Promise.all 편입
+    // (60차 Δ² 때는 GAS라 분리했으나, 지금은 같이 기다려도 되므로 스피너 꺼질 때 온도값 보장)
     var today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
     await Promise.all([
+      loadTokenBalance(),
       loadTokenLog(),
       loadNotifications(),
       // 55차: 오늘 감정 → Supabase 직접 (GAS fallback)
@@ -8607,9 +8606,34 @@ function _refreshTokenCards(tb) {
 }
 
 async function loadTokenBalance() {
-  // 57차: GAS(Sheets) 전용 — Sheets가 token_balance의 source of truth
-  // RPC 성공 시 STATE는 rpcRes.balance에서 직접 갱신 (loadTokenBalance 호출 불필요)
-  // Supabase 읽기 제거 이유: 일일토큰이 GAS→Sheets만 기록, RPC는 Supabase만 기록 → 어느 쪽이든 불완전
+  // 62차: Supabase 직접 조회로 전환 (GAS cold start 제거)
+  // 60차 Δ²에서 Promise.all 분리했던 이유가 GAS cold start 2~5초였는데,
+  // 모든 쓰기 경로(register/update/giveDaily/classBonus/rpc_save/rpc_gift)가
+  // Supabase token_balance도 동기화하므로 Supabase가 SOT로 간주 가능.
+  // 실패 시 기존 GAS 경로로 fallback (Sheets가 최종 진실).
+  try {
+    var rows = await _sbFetch('token_balance', { student_uid: 'eq.' + STATE.user.student_uid });
+    if (rows && rows.length) {
+      var r = rows[0];
+      // text 잔존 컬럼 대비 Number 보호 (Δ³에서 integer 변환했으나 안전망)
+      var tb = {
+        total_earned:    Number(r.total_earned)    || 0,
+        total_saved:     Number(r.total_saved)     || 0,
+        current_balance: Number(r.current_balance) || 0,
+        gift_balance:    Number(r.gift_balance)    || 0,
+        can_save_double: (r.can_save_double === true || String(r.can_save_double).toLowerCase() === 'true'),
+        last_daily_date: r.last_daily_date || ''
+      };
+      STATE.tokenBalance = tb;
+      _refreshTokenCards(tb);
+      calcBannerMessage(tb);
+      return;
+    }
+    // rows 빈 배열이면 token_balance 자체가 누락 — GAS fallback으로 넘어감
+  } catch(e) {
+    console.error('[TB FETCH ERROR] Supabase fallback to GAS:', e && e.message ? e.message : e);
+  }
+  // GAS fallback — Supabase 실패 또는 행 누락 시
   var res = await api('get_token_balance', { student_uid: STATE.user.student_uid });
   if (res.status === 'ok') { STATE.tokenBalance=res.data; _refreshTokenCards(res.data); calcBannerMessage(res.data); }
   else toast('잔액 정보를 불러오지 못했어요. 잠시 후 다시 시도해요 🙏');
