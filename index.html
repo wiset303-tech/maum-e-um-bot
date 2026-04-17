@@ -1041,6 +1041,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-cloud/1.2.5/d3.layout.cloud.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 
@@ -5875,31 +5876,38 @@ function startDashboardPoll() {
   }, 60000);
 }
 
-// 교사 전용 감정 신호 폴링 — 58차: Supabase 카운트 비교 (GAS PropertiesService 제거)
-// 5초마다 오늘 체크인 수를 Supabase에서 가져와 변화 감지 → loadDashboard
+// 58차: 교사 전용 Supabase Realtime — 학생 감정 제출 즉시 감지 (폴링 제거)
+var _sbClient = null;
+var _sbChannel = null;
+
 function startEmotionSignalPoll() {
   stopEmotionSignalPoll();
-  var _lastCount = -1;
-  _signalTimer = setInterval(async function() {
-    if (!STATE.user || !STATE.user.teacher_uid) return;
-    try {
-      var today = new Date(Date.now()+9*3600000).toISOString().slice(0,10);
-      var rows = await _sbFetch('emotions', {
-        teacher_uid:'eq.'+STATE.user.teacher_uid,
-        timestamp:'gte.'+today+'T00:00:00',
-        type:'eq.checkin',
-        select:'emotion_uid'
-      });
-      var count = (rows || []).length;
-      if (_lastCount === -1) { _lastCount = count; return; }
-      if (count !== _lastCount) {
-        _lastCount = count;
-        await loadDashboard();
+  if (!STATE.user || !STATE.user.teacher_uid) return;
+  try {
+    if (!_sbClient && typeof supabase !== 'undefined') {
+      _sbClient = supabase.createClient(SB_URL, SB_KEY);
+    }
+    if (!_sbClient) return; // 라이브러리 로드 실패 시 무시
+    _sbChannel = _sbClient
+      .channel('emotions-' + STATE.user.teacher_uid)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'emotions',
+        filter: 'teacher_uid=eq.' + STATE.user.teacher_uid
+      }, function() {
+        loadDashboard();
         toast('새 감정이 제출됐어요 💛');
         sparkleWeatherIcon();
-      }
-    } catch(e) {}
-  }, 5000);
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'emotions',
+        filter: 'teacher_uid=eq.' + STATE.user.teacher_uid
+      }, function() {
+        loadDashboard();
+        toast('감정이 수정됐어요 💛');
+        sparkleWeatherIcon();
+      })
+      .subscribe();
+  } catch(e) {}
 }
 
 function stopDashboardPoll() {
@@ -5907,6 +5915,11 @@ function stopDashboardPoll() {
 }
 function stopEmotionSignalPoll() {
   if (_signalTimer) { clearInterval(_signalTimer); _signalTimer = null; }
+  // 58차: Supabase Realtime 해제
+  if (_sbChannel && _sbClient) {
+    try { _sbClient.removeChannel(_sbChannel); } catch(e) {}
+    _sbChannel = null;
+  }
 }
 
 // 마음앨범 폴링 (120초, 마음앨범 탭 활성 시만)
