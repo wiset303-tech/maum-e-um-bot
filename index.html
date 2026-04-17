@@ -7968,6 +7968,10 @@ async function submitEmotion() {
   if(!STATE.selectedMacro) { toast('감정을 먼저 골라요'); return; }
   if(!STATE.selectedMicro) { toast('세부 감정도 골라줘야 저장할 수 있어요 😊'); return; }
 
+  // 62차 D: 감정 제출 느림 진단 로깅 (원인 확정 후 제거 예정)
+  var _diagT0 = performance.now();
+  console.log('[EMOTION-DIAG] submit start');
+
   // 이중 탭 방지
   var submitBtn = document.querySelector('[onclick="submitEmotion()"]');
   if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = '0.5'; }
@@ -7986,6 +7990,9 @@ async function submitEmotion() {
     showLoading('오늘 감정을 기록하는 중이에요 💛');
   }
 
+  var _diagT1 = performance.now();
+  console.log('[EMOTION-DIAG] before api', (_diagT1 - _diagT0).toFixed(0), 'ms (UI setup)');
+
   var res = await api('save_emotion', {
     student_uid  : STATE.user.student_uid,
     student_name : STATE.user.name,
@@ -7999,6 +8006,12 @@ async function submitEmotion() {
     type         : 'checkin',
     is_modify    : isModify,
   });
+
+  var _diagT2 = performance.now();
+  console.log('[EMOTION-DIAG] after api', (_diagT2 - _diagT1).toFixed(0), 'ms (client round-trip)');
+  if (res && res.data && res.data._diag) {
+    console.log('[EMOTION-DIAG] server:', JSON.stringify(res.data._diag));
+  }
 
   hideLoading();
   _restore();
@@ -8020,6 +8033,9 @@ async function submitEmotion() {
   } else {
     toast(res.message||'오류가 발생했어요');
   }
+
+  var _diagT3 = performance.now();
+  console.log('[EMOTION-DIAG] total', (_diagT3 - _diagT0).toFixed(0), 'ms');
 }
 
 // 이미 제출한 경우 마음날씨 탭 상단에 상태 배너 갱신
