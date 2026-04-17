@@ -2722,7 +2722,7 @@ async function onLoginSuccess(data) {
         _sbFetch('album', { teacher_uid:'eq.'+teacherUid, order:'timestamp.desc',
           select:'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url' })
           .then(function(rows){
-            var filtered = (rows||[]).filter(function(a){ return a.is_deleted !== true && a.is_deleted !== 'TRUE'; });
+            var filtered = (rows||[]).filter(function(a){ return a.is_deleted !== true && a.is_deleted !== 'TRUE' && a.is_deleted !== 'true'; });
             _teacherAlbumAll = filtered; _teacherAlbumLoaded = true;
           })
           .catch(function(){}), // 57차: 조용히 실패 — 탭 진입 시 GAS fallback
@@ -2781,7 +2781,7 @@ async function onLoginSuccess(data) {
       _sbFetch('album', { student_uid:'eq.'+data.student_uid, order:'timestamp.desc',
         select:'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url' })
         .then(function(rows){
-          var filtered = (rows||[]).filter(function(a){ return a.is_deleted !== true && a.is_deleted !== 'TRUE'; });
+          var filtered = (rows||[]).filter(function(a){ return a.is_deleted !== true && a.is_deleted !== 'TRUE' && a.is_deleted !== 'true'; });
           _preloadedStudentAlbum = filtered;
         })
         .catch(function(){}), // 57차: 조용히 실패 — 탭 진입 시 GAS fallback
@@ -9823,11 +9823,13 @@ async function _loadAdminAlbumSchool(schoolName, teacherUids) {
     var uidList = teacherUids.map(encodeURIComponent).join(',');
     var rows = await _sbFetch('album', {
       teacher_uid: 'in.(' + uidList + ')',
-      is_deleted: 'neq.true',
       order: 'timestamp.desc',
       select: 'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url'
     });
-    all = rows || [];
+    // 63차: is_deleted 저장 형태가 true/'TRUE'/'true' 혼재 가능 — 3중 안전망 필터
+    all = (rows || []).filter(function(a){
+      return a.is_deleted !== true && a.is_deleted !== 'TRUE' && a.is_deleted !== 'true';
+    });
   } catch(e) {
     console.error('[ADMIN-ALBUM FETCH ERROR] Supabase fallback to GAS:', e && e.message ? e.message : e);
     var res = await api('get_album_school', { school_name: schoolName });
@@ -9997,7 +9999,7 @@ async function loadAlbum(loadAll) {
         student_uid:'eq.'+STATE.user.student_uid, order:'timestamp.desc',
         select:'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url'
       });
-      allItems = (rows||[]).filter(function(a){ return a.is_deleted !== true && a.is_deleted !== 'TRUE'; });
+      allItems = (rows||[]).filter(function(a){ return a.is_deleted !== true && a.is_deleted !== 'TRUE' && a.is_deleted !== 'true'; });
       _preloadedStudentAlbum = allItems; // 더보기 재사용 캐시
     } catch(e) {}
   }
@@ -10153,7 +10155,7 @@ async function _loadTeacherClassAlbum() {
       teacher_uid:'eq.'+STATE.user.teacher_uid, order:'timestamp.desc',
       select:'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url'
     });
-    albumList = (rows||[]).filter(function(a){ return a.is_deleted !== true && a.is_deleted !== 'TRUE'; });
+    albumList = (rows||[]).filter(function(a){ return a.is_deleted !== true && a.is_deleted !== 'TRUE' && a.is_deleted !== 'true'; });
   } catch(e) {}
   if (!albumList) {
     var res = await api('get_album', { teacher_uid: STATE.user.teacher_uid });
