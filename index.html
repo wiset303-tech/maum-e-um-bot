@@ -6064,38 +6064,65 @@ function startDashboardPoll() {
   }, 60000);
 }
 
-// 58차: 교사 전용 Supabase Realtime — 학생 감정 제출 즉시 감지 (폴링 제거)
+// 58차: 교사 전용 Supabase Realtime — 학생 감정 제출 즉시 감지
+// 62차: 15초 폴링 안전망 추가 — Realtime 끊겨도 최대 15초 내 반영 보장
 var _sbClient = null;
 var _sbChannel = null;
+var _emotionPollCount = -1; // 폴링 안전망 기준값 (-1 = 초기화 전)
 
 function startEmotionSignalPoll() {
   stopEmotionSignalPoll();
   if (!STATE.user || !STATE.user.teacher_uid) return;
+
+  // ── Realtime (즉시 감지) ──
   try {
     if (!_sbClient && typeof supabase !== 'undefined') {
       _sbClient = supabase.createClient(SB_URL, SB_KEY);
     }
-    if (!_sbClient) return; // 라이브러리 로드 실패 시 무시
-    _sbChannel = _sbClient
-      .channel('emotions-' + STATE.user.teacher_uid)
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'emotions',
-        filter: 'teacher_uid=eq.' + STATE.user.teacher_uid
-      }, function() {
-        loadDashboard();
-        toast('새 감정이 제출됐어요 💛');
-        sparkleWeatherIcon();
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'emotions',
-        filter: 'teacher_uid=eq.' + STATE.user.teacher_uid
-      }, function() {
-        loadDashboard();
-        toast('감정이 수정됐어요 💛');
-        sparkleWeatherIcon();
-      })
-      .subscribe();
+    if (_sbClient) {
+      _sbChannel = _sbClient
+        .channel('emotions-' + STATE.user.teacher_uid)
+        .on('postgres_changes', {
+          event: 'INSERT', schema: 'public', table: 'emotions',
+          filter: 'teacher_uid=eq.' + STATE.user.teacher_uid
+        }, function() {
+          _emotionPollCount = -1; // 폴링 기준값 리셋 (다음 폴링 시 재동기화)
+          loadDashboard();
+          toast('새 감정이 제출됐어요 💛');
+          sparkleWeatherIcon();
+        })
+        .on('postgres_changes', {
+          event: 'UPDATE', schema: 'public', table: 'emotions',
+          filter: 'teacher_uid=eq.' + STATE.user.teacher_uid
+        }, function() {
+          _emotionPollCount = -1;
+          loadDashboard();
+          toast('감정이 수정됐어요 💛');
+          sparkleWeatherIcon();
+        })
+        .subscribe();
+    }
   } catch(e) {}
+
+  // ── 15초 폴링 안전망 (Realtime 끊겨도 최대 15초 내 반영) ──
+  var tUid = STATE.user.teacher_uid;
+  var today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+  _signalTimer = setInterval(async function() {
+    try {
+      var rows = await _sbFetch('emotions', {
+        teacher_uid: 'eq.' + tUid,
+        timestamp: 'gte.' + today + 'T00:00:00',
+        type: 'eq.checkin',
+        select: 'emotion_uid'
+      });
+      var cnt = rows ? rows.length : 0;
+      if (_emotionPollCount === -1) { _emotionPollCount = cnt; return; } // 첫 회 기준값만 저장
+      if (cnt !== _emotionPollCount) {
+        _emotionPollCount = cnt;
+        loadDashboard(); // Realtime이 못 잡은 변화를 여기서 감지
+      }
+    } catch(e) {} // 네트워크 오류 시 조용히 넘김
+  }, 15000);
 }
 
 function stopDashboardPoll() {
@@ -6103,6 +6130,7 @@ function stopDashboardPoll() {
 }
 function stopEmotionSignalPoll() {
   if (_signalTimer) { clearInterval(_signalTimer); _signalTimer = null; }
+  _emotionPollCount = -1; // 62차: 폴링 기준값 초기화
   // 58차: Supabase Realtime 해제
   if (_sbChannel && _sbClient) {
     try { _sbClient.removeChannel(_sbChannel); } catch(e) {}
@@ -7992,6 +8020,84 @@ async function submitEmotion() {
   var _diagT1 = performance.now();
   console.log('[EMOTION-DIAG] before api', (_diagT1 - _diagT0).toFixed(0), 'ms (UI setup)');
 
+  // 62차 중간안: Supabase RPC 선행 (0.3~0.5초) → Sheets는 백그라운드
+  var rpcOk = false, rpcRes = null;
+  try {
+    rpcRes = await _sbRpc('rpc_save_emotion', {
+      p_student_uid : STATE.user.student_uid,
+      p_student_name: STATE.user.name,
+      p_teacher_uid : STATE.user.teacher_uid,
+      p_school_name : STATE.user.school_name || '',
+      p_macro       : STATE.selectedMacro,
+      p_micro       : micro?.word || '',
+      p_score       : scoreMap[STATE.selectedMacro],
+      p_is_custom   : micro?.id === 'custom',
+      p_custom_text : micro?.id === 'custom' ? micro.word : '',
+      p_type        : 'checkin',
+      p_is_modify   : isModify
+    });
+    // rpc_save_emotion은 { status, message, emotion_uid, ... } jsonb 반환
+    if (rpcRes && rpcRes.status === 'ok') rpcOk = true;
+  } catch(e) {
+    console.error('[EMOTION RPC ERROR] fallback to GAS:', e && e.message ? e.message : e);
+  }
+
+  var _diagT2 = performance.now();
+  console.log('[EMOTION-DIAG] after rpc', (_diagT2 - _diagT1).toFixed(0), 'ms', rpcOk ? '(Supabase ok)' : '(fallback)');
+
+  if (rpcOk) {
+    // Supabase 성공 — 즉시 UI 반영, Sheets 동기화는 백그라운드 fire-and-forget
+    hideLoading();
+    _restore();
+    AUDIO.sfx('save');
+    STATE.todayEmotionSubmitted = true;
+    STATE.todayEmotionModified  = isModify;
+    STATE.selectedMacro = rpcRes.macro_emotion || STATE.selectedMacro;
+    updateEmotionSubmittedBanner();
+    toast(isModify ? '감정을 수정했어요 ✏️' : '감정을 저장했어요 💛');
+    if (!isModify) { switchTab(1); startBotGreeting(); }
+
+    // Sheets 동기화 + 위기 알림 (학생 안 기다림)
+    api('save_emotion_sheets', {
+      emotion_uid  : rpcRes.emotion_uid,
+      timestamp    : rpcRes.timestamp,
+      student_uid  : STATE.user.student_uid,
+      student_name : STATE.user.name,
+      teacher_uid  : STATE.user.teacher_uid,
+      school_name  : STATE.user.school_name || '',
+      macro_emotion: STATE.selectedMacro,
+      micro_emotion: micro?.word || '',
+      emotion_score: scoreMap[STATE.selectedMacro],
+      is_custom    : micro?.id === 'custom',
+      custom_text  : micro?.id === 'custom' ? micro.word : '',
+      type         : 'checkin',
+      is_crisis    : rpcRes.is_crisis === true,
+      was_modify   : rpcRes.was_modify === true
+    }).catch(function(){ /* 조용히 실패 — 학생 화면 영향 없음 */ });
+
+    var _diagT3 = performance.now();
+    console.log('[EMOTION-DIAG] total', (_diagT3 - _diagT0).toFixed(0), 'ms (fast path)');
+    return;
+  }
+
+  // Supabase RPC 실패 또는 status != ok — 기존 GAS 경로 fallback
+  // rpcRes?.status가 duplicate/no_modify면 메시지만 활용, 아니면 GAS가 처음부터 다시 판정
+  if (rpcRes && rpcRes.status === 'no_modify') {
+    hideLoading(); _restore();
+    STATE.todayEmotionModified = true;
+    updateEmotionSubmittedBanner();
+    toast('오늘 감정 수정 기회를 이미 사용했어요');
+    return;
+  }
+  if (rpcRes && rpcRes.status === 'duplicate') {
+    hideLoading(); _restore();
+    STATE.todayEmotionSubmitted = true;
+    updateEmotionSubmittedBanner();
+    toast('오늘 이미 감정을 기록했어요. 수정하려면 아래 버튼을 눌러요');
+    return;
+  }
+
+  // 진짜 RPC 실패 — 기존 GAS save_emotion 경로로
   var res = await api('save_emotion', {
     student_uid  : STATE.user.student_uid,
     student_name : STATE.user.name,
@@ -8006,8 +8112,8 @@ async function submitEmotion() {
     is_modify    : isModify,
   });
 
-  var _diagT2 = performance.now();
-  console.log('[EMOTION-DIAG] after api', (_diagT2 - _diagT1).toFixed(0), 'ms (client round-trip)');
+  var _diagT2b = performance.now();
+  console.log('[EMOTION-DIAG] after api', (_diagT2b - _diagT1).toFixed(0), 'ms (client round-trip GAS fallback)');
   if (res && res.data && res.data._diag) {
     console.log('[EMOTION-DIAG] server:', JSON.stringify(res.data._diag));
   }
@@ -8033,8 +8139,8 @@ async function submitEmotion() {
     toast(res.message||'오류가 발생했어요');
   }
 
-  var _diagT3 = performance.now();
-  console.log('[EMOTION-DIAG] total', (_diagT3 - _diagT0).toFixed(0), 'ms');
+  var _diagT3b = performance.now();
+  console.log('[EMOTION-DIAG] total', (_diagT3b - _diagT0).toFixed(0), 'ms (slow path)');
 }
 
 // 이미 제출한 경우 마음날씨 탭 상단에 상태 배너 갱신
