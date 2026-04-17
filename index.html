@@ -9728,9 +9728,26 @@ async function _loadAdminAlbumSchool(schoolName, teacherUids) {
   var moreBtn = document.getElementById('admAlbMoreBtn-' + sid);
   if (!grid) return;
 
-  // 학교 단위 API 한 번 호출
-  var res = await api('get_album_school', { school_name: schoolName });
-  var all = (res.status === 'ok') ? res.data.album : [];
+  // 62차: Supabase 직접 조회 (GAS cold start 제거 — 체감 5배+ 개선)
+  // teacher_uid IN 필터로 해당 학교 소속 교사의 앨범만 받아옴. 실패 시 GAS fallback.
+  var all = [];
+  try {
+    if (!teacherUids || !teacherUids.length) {
+      throw new Error('no teacher uids for ' + schoolName);
+    }
+    var uidList = teacherUids.map(encodeURIComponent).join(',');
+    var rows = await _sbFetch('album', {
+      teacher_uid: 'in.(' + uidList + ')',
+      is_deleted: 'neq.true',
+      order: 'timestamp.desc',
+      select: 'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url'
+    });
+    all = rows || [];
+  } catch(e) {
+    console.error('[ADMIN-ALBUM FETCH ERROR] Supabase fallback to GAS:', e && e.message ? e.message : e);
+    var res = await api('get_album_school', { school_name: schoolName });
+    all = (res.status === 'ok') ? res.data.album : [];
+  }
 
   if (!all.length) {
     grid.innerHTML = '<div style="grid-column:1/-1;color:var(--gray);font-size:12px;text-align:center;padding:10px">사진이 없어요 📷</div>';
