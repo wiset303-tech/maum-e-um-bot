@@ -4396,15 +4396,22 @@ async function loadDashboard() {
   if (btnRef) btnRef.classList.remove('spinning');
   if (res.status !== 'ok') return;
 
-  // 55차: 전국 온도는 백그라운드 (GAS cold start가 login blocking 유발 → 분리)
+  // 58차: 전국 마음온도 — Supabase 즉시 집계 (숫자만), 지도 데이터는 GAS 백그라운드
   if (!_nationalMapCache) {
+    // 숫자 먼저 (Supabase ~100ms)
+    _sbFetch('token_balance', { select:'total_saved' }).then(function(allBal) {
+      if (!allBal || !allBal.length) return;
+      var sum = 0;
+      allBal.forEach(function(b){ sum += Math.min((Number(b.total_saved)||0)/2, 100); });
+      var avgTemp = Math.round(sum / allBal.length);
+      setText('nationalTempValue', avgTemp);
+      var natFill = document.getElementById('nationalTempFill');
+      if (natFill) setTimeout(function(){ natFill.style.width = avgTemp + '%'; }, 150);
+    }).catch(function(){});
+    // 지도 데이터 (GAS 백그라운드 — 모달 열 때 사용)
     api('get_admin_dashboard', {}).then(function(natRes) {
       if (natRes && natRes.status === 'ok') {
         _nationalMapCache = natRes.data.schools || [];
-        var avgTemp = natRes.data.nation_temp || 0;
-        setText('nationalTempValue', avgTemp);
-        var natFill = document.getElementById('nationalTempFill');
-        if (natFill) setTimeout(function(){ natFill.style.width = avgTemp + '%'; }, 150);
       }
     }).catch(function(){});
   }
@@ -5868,26 +5875,31 @@ function startDashboardPoll() {
   }, 60000);
 }
 
-// 교사 전용 감정 신호 폴링 (15초, PropertiesService 1줄 읽기 — 초경량)
-// 학생 saveEmotion 시 신호값 갱신 -> 달라지면 그때만 getDashboard 전체 호출
+// 교사 전용 감정 신호 폴링 — 58차: Supabase 카운트 비교 (GAS PropertiesService 제거)
+// 5초마다 오늘 체크인 수를 Supabase에서 가져와 변화 감지 → loadDashboard
 function startEmotionSignalPoll() {
   stopEmotionSignalPoll();
-  _lastEmotionSignal = '';
+  var _lastCount = -1;
   _signalTimer = setInterval(async function() {
     if (!STATE.user || !STATE.user.teacher_uid) return;
     try {
-      var res = await api('check_emotion_signal', { teacher_uid: STATE.user.teacher_uid });
-      if (res.status !== 'ok') return;
-      var sig = res.data.signal || '';
-      if (_lastEmotionSignal === '') { _lastEmotionSignal = sig; return; }
-      if (sig !== _lastEmotionSignal) {
-        _lastEmotionSignal = sig;
+      var today = new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+      var rows = await _sbFetch('emotions', {
+        teacher_uid:'eq.'+STATE.user.teacher_uid,
+        timestamp:'gte.'+today+'T00:00:00',
+        type:'eq.checkin',
+        select:'emotion_uid'
+      });
+      var count = (rows || []).length;
+      if (_lastCount === -1) { _lastCount = count; return; }
+      if (count !== _lastCount) {
+        _lastCount = count;
         await loadDashboard();
         toast('새 감정이 제출됐어요 💛');
         sparkleWeatherIcon();
       }
     } catch(e) {}
-  }, 15000);
+  }, 5000);
 }
 
 function stopDashboardPoll() {
