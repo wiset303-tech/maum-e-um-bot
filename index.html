@@ -2594,6 +2594,15 @@ async function loginByPw() {
           // 토큰 지급 + 등교 알림 — 백그라운드 비동기 (기다리지 않음)
           api('post_login_student', { student_uid:r.student_uid, name:r.name,
             teacher_uid:r.teacher_uid, school_name:r.school_name }).catch(function(){});
+        } else {
+          // 60차 Δ²: 관리자 시도 (Supabase admins) — 테이블 없으면 조용히 throw → 외부 GAS fallback
+          try {
+            var aRows = await _sbFetch('admins', { admin_id:'eq.'+id, pw_hash:'eq.'+hash, active:'eq.Y' });
+            if (aRows.length) {
+              var r = aRows[0];
+              data = { role:'admin', admin_uid:r.admin_uid, name:r.name||'관리자' };
+            }
+          } catch(ae) { /* admins 테이블 없으면 하단 GAS fallback으로 */ }
         }
       }
     }
@@ -2723,10 +2732,12 @@ async function onLoginSuccess(data) {
     if (btnSet) btnSet.classList.remove('hidden');
     showLoading('마음데이터를 불러오는 중입니다 💚');
     buildStudentUI();
-    // 토큰잔액 + 오늘 감정 제출 여부 + 알림 — 모두 준비된 뒤 스피너 해제
+    // 토큰잔액은 GAS라 cold start 2~5초 → Promise.all에서 분리해 백그라운드 (60차 Δ²)
+    // 잔액 로드 완료 후 자동으로 UI 갱신됨 (loadTokenBalance 내부에서 _refreshTokenCards 호출)
+    loadTokenBalance().catch(function(){});
+    // 나머지는 모두 Supabase라 빠름 — 준비된 뒤 스피너 해제
     var today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
     await Promise.all([
-      loadTokenBalance(),
       loadTokenLog(),
       loadNotifications(),
       // 55차: 오늘 감정 → Supabase 직접 (GAS fallback)
