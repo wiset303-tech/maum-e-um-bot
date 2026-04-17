@@ -5892,19 +5892,23 @@ async function clearAllNotifs() {
   if (!_delOk) await api('clear_notifications', { recipient_uid: uid });
 }
 
-// 60차 Δ⁴ 후속: notifications.created_at 등 혼합 시간 포맷 안전 파싱 헬퍼
+// 60차 Δ⁴ 후속(2): notifications.created_at 등 혼합 시간 포맷 안전 파싱 헬퍼
 // - GAS `_addNotification`: "2026-04-17T21:35:00" (KST, T구분자, TZ 없음)
-// - RPC `rpc_gift_token`  : "2026-04-17 12:35:00.123+00" (UTC, 공백구분자, TZ 있음)
-// TZ 없는 문자열은 KST로 강제 해석(+09:00 부착)하여 일관성 확보. ms 반환.
+// - RPC `rpc_gift_token`  : "2026-04-17 12:35:00.123+00" (UTC, 공백구분자, +00 2자리)
+// Postgres NOW()::text의 "+00" 2자리 TZ는 브라우저 ISO 파싱에서 실패 가능(Chrome 포함 일부 환경).
+// TZ 접미사(+HH, +HHMM, +HH:MM 모두)를 +HH:MM으로 통일 + TZ 없으면 KST 부착. ms 반환.
 function _tsToMs(ts) {
   if (!ts) return 0;
   var s = String(ts).replace(' ', 'T');
-  // TZ 접미사 있음 (Z, +09, +0900, +09:00, -05:00 등)
-  if (/([Zz]|[+-]\d{2}(:?\d{2})?)$/.test(s)) {
-    return new Date(s).getTime() || 0;
+  // TZ 접미사 정규화: +HH / +HHMM / +HH:MM → +HH:MM 통일
+  s = s.replace(/([+-]\d{2})(:?)(\d{2})?$/, function(_, sign, _colon, min) {
+    return sign + ':' + (min || '00');
+  });
+  // Z 접미사도 없고 TZ도 없으면 KST로 강제 해석
+  if (!/([Zz]|[+-]\d{2}:\d{2})$/.test(s)) {
+    s = s + '+09:00';
   }
-  // TZ 없음 → KST로 강제 해석
-  return new Date(s + '+09:00').getTime() || 0;
+  return new Date(s).getTime() || 0;
 }
 
 function _timeAgo(ts) {
