@@ -7995,10 +7995,6 @@ async function submitEmotion() {
   if(!STATE.selectedMacro) { toast('감정을 먼저 골라요'); return; }
   if(!STATE.selectedMicro) { toast('세부 감정도 골라줘야 저장할 수 있어요 😊'); return; }
 
-  // 62차 D: 감정 제출 느림 진단 로깅 (원인 확정 후 제거 예정)
-  var _diagT0 = performance.now();
-  console.log('[EMOTION-DIAG] submit start');
-
   // 이중 탭 방지
   var submitBtn = document.querySelector('[onclick="submitEmotion()"]');
   if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = '0.5'; }
@@ -8016,9 +8012,6 @@ async function submitEmotion() {
   } else {
     showLoading('오늘 감정을 기록하는 중이에요 💛');
   }
-
-  var _diagT1 = performance.now();
-  console.log('[EMOTION-DIAG] before api', (_diagT1 - _diagT0).toFixed(0), 'ms (UI setup)');
 
   // 62차 중간안: Supabase RPC 선행 (0.3~0.5초) → Sheets는 백그라운드
   var rpcOk = false, rpcRes = null;
@@ -8041,9 +8034,6 @@ async function submitEmotion() {
   } catch(e) {
     console.error('[EMOTION RPC ERROR] fallback to GAS:', e && e.message ? e.message : e);
   }
-
-  var _diagT2 = performance.now();
-  console.log('[EMOTION-DIAG] after rpc', (_diagT2 - _diagT1).toFixed(0), 'ms', rpcOk ? '(Supabase ok)' : '(fallback)');
 
   if (rpcOk) {
     // Supabase 성공 — 즉시 UI 반영, Sheets 동기화는 백그라운드 fire-and-forget
@@ -8075,8 +8065,6 @@ async function submitEmotion() {
       was_modify   : rpcRes.was_modify === true
     }).catch(function(){ /* 조용히 실패 — 학생 화면 영향 없음 */ });
 
-    var _diagT3 = performance.now();
-    console.log('[EMOTION-DIAG] total', (_diagT3 - _diagT0).toFixed(0), 'ms (fast path)');
     return;
   }
 
@@ -8112,12 +8100,6 @@ async function submitEmotion() {
     is_modify    : isModify,
   });
 
-  var _diagT2b = performance.now();
-  console.log('[EMOTION-DIAG] after api', (_diagT2b - _diagT1).toFixed(0), 'ms (client round-trip GAS fallback)');
-  if (res && res.data && res.data._diag) {
-    console.log('[EMOTION-DIAG] server:', JSON.stringify(res.data._diag));
-  }
-
   hideLoading();
   _restore();
   if(res.status==='ok') {
@@ -8138,9 +8120,6 @@ async function submitEmotion() {
   } else {
     toast(res.message||'오류가 발생했어요');
   }
-
-  var _diagT3b = performance.now();
-  console.log('[EMOTION-DIAG] total', (_diagT3b - _diagT0).toFixed(0), 'ms (slow path)');
 }
 
 // 이미 제출한 경우 마음날씨 탭 상단에 상태 배너 갱신
