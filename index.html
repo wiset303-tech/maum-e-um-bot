@@ -8585,8 +8585,9 @@ async function loadTokenLog() {
   var studentUid = STATE.user && STATE.user.student_uid;
   if (!studentUid) return;
   // 55차: Supabase 직접 조회, GAS fallback
+  // 60차 Δ³: 컬럼명 오류 수정 (created_at → timestamp). tokens 테이블 시간 컬럼은 timestamp.
   try {
-    var rows = await _sbFetch('tokens', { student_uid:'eq.'+studentUid, order:'created_at.desc', limit:'30' });
+    var rows = await _sbFetch('tokens', { student_uid:'eq.'+studentUid, order:'timestamp.desc', limit:'30' });
     if (rows) {
       var TYPE_LBL={'daily':'출석 토큰','save':'저축','save_all':'전체 저축',
         'gift_sent':'선물 보냄','gift_received':'선물 받음','gift_recv':'선물 받음',
@@ -8601,7 +8602,7 @@ async function loadTokenLog() {
         var label=TYPE_LBL[type]||type;
         if(type==='gift_sent')   label=(r.to_name?r.to_name+'에게 선물':'선물 보냄');
         if(type==='gift_received'||type==='gift_recv') label=(r.to_name?r.to_name+'에게서 선물':'선물 받음');
-        var d=r.created_at?new Date(new Date(r.created_at).getTime()+9*3600000):null;
+        var d=r.timestamp?new Date(new Date(r.timestamp).getTime()+9*3600000):null;
         var dateStr=d?((d.getUTCMonth()+1)+'/'+d.getUTCDate()):'';
         return {date:dateStr,label:label,amount:sign+amount,gain:isGain,type:type};
       });
