@@ -2008,6 +2008,19 @@ async function _sbGetAdminDashboard() {
   };
 }
 
+// 60차(Δ): 관리자 교사 목록 Supabase 직접 조회 (GAS get_teachers 대체 + fallback)
+// pw_hash 제외 위해 select 명시
+async function _sbGetTeachersAll() {
+  try {
+    return await _sbFetch('teachers', {
+      select: 'teacher_uid,teacher_id,name,school_name,school_type,year,grade,class,nfc_uid,active,created_at,region,profile_image_url'
+    });
+  } catch(e) {
+    var res = await api('get_teachers', {});
+    return (res && res.status === 'ok') ? (res.data.teachers || []) : [];
+  }
+}
+
 // ════════════════════════════════════════
 // 오디오 시스템
 // ════════════════════════════════════════
@@ -2643,10 +2656,11 @@ async function onLoginSuccess(data) {
 
     if (data.role === 'admin') {
       // 관리자: 학교 단위 대시보드 + 교사 목록 (admin은 알림 수신자 아님)
+      // 60차(Δ): get_teachers GAS → Supabase 직접 조회 (로그인 체감 병목 해소)
       await Promise.all([
         loadAdminDashboard(),
-        api('get_teachers', {}).then(function(res) {
-          if (res.status === 'ok') _teacherAll = res.data.teachers || [];
+        _sbGetTeachersAll().then(function(rows) {
+          _teacherAll = rows || [];
           _renderAdminTeacherList();
         }),
       ]);
@@ -3078,12 +3092,13 @@ async function renderAdminAccountMgmt() {
 
   el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div>';
 
-  var res = await api('get_teachers', {});
-  if (res.status !== 'ok') {
+  // 60차(Δ): Supabase 직접 조회
+  try {
+    _teacherAll = await _sbGetTeachersAll();
+  } catch(e) {
     el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오기 실패</div>';
     return;
   }
-  _teacherAll = (res.data.teachers || []);
   _renderAdminTeacherList();
 }
 
@@ -9525,10 +9540,9 @@ async function renderAdminAlbum() {
   // 캐시 있으면 즉시 렌더 후 백그라운드에서 갱신
   if (Object.keys(_adminAlbumCache).length) {
     _renderAdminAlbumFromCache(el);
-    // 백그라운드 갱신: 교사 목록 + 앨범 재로드
-    api('get_teachers', {}).then(function(tres) {
-      if (tres.status !== 'ok') return;
-      _teacherAll = tres.data.teachers || [];
+    // 백그라운드 갱신: 교사 목록 + 앨범 재로드 — 60차(Δ): Supabase 직접
+    _sbGetTeachersAll().then(function(rows) {
+      _teacherAll = rows || [];
       var schoolMap = {};
       _teacherAll.filter(function(t){ return t.active === 'Y'; }).forEach(function(t) {
         var sn = t.school_name || '미배정';
@@ -9549,10 +9563,9 @@ async function renderAdminAlbum() {
   _albumCache = [];
   _adminAlbumCache = {};
 
-  // 교사 목록으로 학교 그룹 구성
+  // 교사 목록으로 학교 그룹 구성 — 60차(Δ): Supabase 직접
   if (!_teacherAll.length) {
-    var tres = await api('get_teachers', {});
-    if (tres.status === 'ok') _teacherAll = tres.data.teachers || [];
+    _teacherAll = await _sbGetTeachersAll();
   }
 
   // 학교별 교사 UID 매핑
