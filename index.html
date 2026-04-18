@@ -2076,6 +2076,17 @@ async function _sbGetTeachersAll() {
   }
 }
 
+// 66차: 학생 지난 대화 30건 Supabase 직접 조회 (목록 + 원문 동시 프리로드용)
+// messages_json까지 select해서 openChatMessagesFromList도 GAS 왕복 없이 즉시 열기
+async function _sbGetStudentChatHistory(student_uid) {
+  return await _sbFetch('chat_log', {
+    student_uid: 'eq.' + student_uid,
+    order: 'date.desc',
+    limit: '30',
+    select: 'log_uid,date,dominant_keywords,messages_json'
+  });
+}
+
 // 66차: 학부모 대시보드 Supabase 직접 집계 (GAS getParentDashboard 대체)
 // emotions 최근 7일 + token_balance.total_saved → heart_temp. PARENTS 조회는 불필요 (data.student_uid 이미 있음)
 async function _sbGetParentDashboard(student_uid) {
@@ -2936,6 +2947,10 @@ async function onLoginSuccess(data) {
           _preloadedStudentAlbum = filtered;
         })
         .catch(function(){}), // 57차: 조용히 실패 — 탭 진입 시 GAS fallback
+      // 66차: 지난 대화 목록 + 원문(messages_json)까지 프리로드 — 모달 2번 로딩 대기 없애기
+      _sbGetStudentChatHistory(data.student_uid)
+        .then(function(rows){ STATE._preloadedChatHistory = rows || []; })
+        .catch(function(e){ console.error('[SB CHAT HIST PRELOAD]', e && e.message ? e.message : e); }),
     ]);
     hideLoading();
     startPersonaPoll();
@@ -2982,6 +2997,9 @@ function _clearSessionCaches() {
   if (dd) dd.style.display = 'none';
   // 66차: 학부모 마음열기 프리로드 캐시
   if (typeof STATE !== 'undefined' && STATE) STATE._preloadedChatKeywords = null;
+  // 66차: 학생 지난 대화 프리로드 캐시
+  if (typeof STATE !== 'undefined' && STATE) STATE._preloadedChatHistory = null;
+  _chatHistCache = [];
 }
 
 function logout() {
@@ -8917,6 +8935,8 @@ async function saveChatLogIfNeeded() {
     // 응답에서 log_uid 받기 (신규면 새 uid, 기존 UPDATE면 그대로)
     if (res && res.status === 'ok' && res.data && res.data.log_uid) {
       STATE.chatLogUid = res.data.log_uid;
+      // 66차: 새 대화 저장 성공 → 지난 대화 프리로드 캐시 무효화 (다음 오픈 시 최신 재조회)
+      STATE._preloadedChatHistory = null;
     }
   } catch(e) {
     STATE.chatLogSaved = false;            // 실패 시 재시도 허용
@@ -9507,22 +9527,7 @@ function openChatHistory() {
   loadChatHistoryList();
 }
 
-async function loadChatHistoryList() {
-  var list = document.getElementById('chatHistoryList');
-  if (!list) return;
-  list.innerHTML = '<div class="chat-hist-empty">불러오는 중...</div>';
-  var u = STATE.user || {};
-  var res = await api('list_chats', {
-    caller_uid : u.student_uid,
-    caller_role: 'student',
-    limit      : 30
-  });
-  if (!res || res.status !== 'ok') {
-    list.innerHTML = '<div class="chat-hist-empty">불러오지 못했어요</div>';
-    return;
-  }
-  var chats = (res.data && res.data.chats) || [];
-  _chatHistCache = chats;
+function _renderChatHistRows(chats, list) {
   if (!chats.length) {
     list.innerHTML = '<div class="chat-hist-empty">아직 지난 대화가 없어요 💭</div>';
     return;
@@ -9541,6 +9546,64 @@ async function loadChatHistoryList() {
   list.innerHTML = html;
 }
 
+async function loadChatHistoryList() {
+  var list = document.getElementById('chatHistoryList');
+  if (!list) return;
+
+  // 66차: 로그인 스피너에서 프리로드된 캐시가 있으면 즉시 렌더 (GAS 왕복 0회)
+  if (Array.isArray(STATE._preloadedChatHistory)) {
+    _chatHistCache = STATE._preloadedChatHistory.map(function(r){
+      return {
+        log_uid          : r.log_uid,
+        date             : String(r.date || '').slice(0, 10),
+        dominant_keywords: r.dominant_keywords || '',
+        _messages_json   : r.messages_json  // 원문은 여기 박아두고 openChatMessagesFromList에서 쓰기
+      };
+    });
+    _renderChatHistRows(_chatHistCache, list);
+    return;
+  }
+
+  list.innerHTML = '<div class="chat-hist-empty">불러오는 중...</div>';
+  var u = STATE.user || {};
+  var res = await api('list_chats', {
+    caller_uid : u.student_uid,
+    caller_role: 'student',
+    limit      : 30
+  });
+  if (!res || res.status !== 'ok') {
+    list.innerHTML = '<div class="chat-hist-empty">불러오지 못했어요</div>';
+    return;
+  }
+  var chats = (res.data && res.data.chats) || [];
+  _chatHistCache = chats;
+  _renderChatHistRows(chats, list);
+}
+
+function _renderChatMessagesBody(body, msgs, isLegacy, c) {
+  if (isLegacy || !msgs.length) {
+    var kwRaw  = c && c.dominant_keywords ? String(c.dominant_keywords) : '';
+    var kwText = kwRaw
+      ? kwRaw.split(',').map(function(s){return s.trim();}).filter(Boolean).join(', ')
+      : '(낱말 없음)';
+    body.innerHTML =
+      '<div class="chat-hist-legacy">💡 이전 대화는 <b>요약</b>만 기록돼 있어요.<br>이 날짜부터는 원래 대화도 함께 저장됩니다.</div>' +
+      '<div style="font-size:12px;color:var(--gray);margin-bottom:6px">그날의 주요 낱말</div>' +
+      '<div style="font-size:13.5px;color:var(--navy);line-height:1.65">' + _escHtml(kwText) + '</div>';
+    return;
+  }
+  var rows = msgs.map(function(m) {
+    var isUser = (m && m.r === 'u');
+    var avatar = isUser ? '🙂' : '🤖';
+    return '<div class="chat-hist-msg ' + (isUser ? 'user' : 'bot') + '">' +
+      '<div class="avatar">' + avatar + '</div>' +
+      '<div class="bubble">' + _escHtml(m && m.t ? m.t : '') + '</div>' +
+    '</div>';
+  }).join('');
+  body.innerHTML = rows || '<div class="chat-hist-empty">대화가 비어 있어요</div>';
+  body.scrollTop = 0;
+}
+
 async function openChatMessagesFromList(idx) {
   var c = _chatHistCache[idx];
   if (!c) return;
@@ -9548,7 +9611,22 @@ async function openChatMessagesFromList(idx) {
   var titleEl = document.getElementById('chatMsgsTitle');
   var body    = document.getElementById('chatMsgsBody');
   if (titleEl) titleEl.textContent = '📖 ' + (c.date || '대화');
-  if (body)    body.innerHTML = '<div class="chat-hist-empty">불러오는 중...</div>';
+
+  // 66차: 프리로드된 messages_json이 있으면 GAS 왕복 없이 즉시 렌더
+  if (c._messages_json !== undefined) {
+    var raw = c._messages_json;
+    var msgs = null;
+    if (Array.isArray(raw)) {
+      msgs = raw;
+    } else if (typeof raw === 'string' && raw.length >= 2) {
+      try { var parsed = JSON.parse(raw); if (Array.isArray(parsed)) msgs = parsed; } catch(e) {}
+    }
+    var isLegacy = !msgs;
+    _renderChatMessagesBody(body, msgs || [], isLegacy, c);
+    return;
+  }
+
+  if (body) body.innerHTML = '<div class="chat-hist-empty">불러오는 중...</div>';
   var u = STATE.user || {};
   var res = await api('get_chat_messages', {
     caller_uid : u.student_uid,
