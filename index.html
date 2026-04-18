@@ -2844,6 +2844,8 @@ function logout() {
   _teacherAlbumAll = []; _teacherAlbumLoaded = false; _teacherAlbumFilter = null; // 57차: 교사 앨범 캐시 리셋
   // 65차: 관리자 앨범 필터 state 리셋 (다시 로그인했을 때 깨끗한 상태)
   _adminAlbumFilter = 'all'; _adminAlbumSort = 'photos'; _adminAlbumSearch = ''; _adminAlbumFilterOpen = false;
+  // 65차 B: 관리자 학생 캐시 리셋 (재로그인 시 최신 데이터 다시 불러옴)
+  _studentsByTeacher = {}; _studentsByTeacherLoaded = false;
   _notifications  = [];
   if (STATE.role === 'student') saveChatLogIfNeeded();
   STATE = { role:null, user:null, emotions:[...STATE.emotions], students:[], dashboard:null,
@@ -3133,17 +3135,40 @@ async function renderAdminAccountMgmt() {
   var el = document.getElementById('adminTeacherList');
   if (!el) return;
 
-  // 캐시 있으면 즉시 렌더 (등록/수정 후 캐시 초기화로 갱신 보장)
-  if (_teacherAll.length) {
+  // 캐시 있으면 즉시 렌더 (등록/수정/비활성 후 캐시 초기화로 갱신 보장)
+  // 65차 B: teachers + students 둘 다 캐시된 경우만 즉시 렌더 (일괄 로드 구조)
+  if (_teacherAll.length && _studentsByTeacherLoaded) {
     _renderAdminTeacherList();
     return;
   }
 
   el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div>';
 
-  // 60차(Δ): Supabase 직접 조회
+  // 65차 B: Supabase 직접 조회 — teachers + students 병렬 로드
+  // 토글 시점마다 get_students를 GAS로 부르던 구조 제거 (cold start 사라짐)
   try {
-    _teacherAll = await _sbGetTeachersAll();
+    var pair = await Promise.all([
+      _sbGetTeachersAll(),
+      _sbFetch('students', {})   // active 무관 — 비활성 학생도 목록에 포함됨
+    ]);
+    _teacherAll = pair[0] || [];
+    var allStudents = pair[1] || [];
+    // 교사별 그룹핑 + 정렬 (active 우선, 그 안에서 num 오름차순 — GAS getStudents와 동일 규칙)
+    _studentsByTeacher = {};
+    allStudents.forEach(function(s) {
+      if (!s.teacher_uid) return;
+      if (!_studentsByTeacher[s.teacher_uid]) _studentsByTeacher[s.teacher_uid] = [];
+      _studentsByTeacher[s.teacher_uid].push(s);
+    });
+    Object.keys(_studentsByTeacher).forEach(function(tid) {
+      _studentsByTeacher[tid].sort(function(a, b) {
+        var aActive = a.active === 'Y' ? 0 : 1;
+        var bActive = b.active === 'Y' ? 0 : 1;
+        if (aActive !== bActive) return aActive - bActive;
+        return (Number(a.num) || 0) - (Number(b.num) || 0);
+      });
+    });
+    _studentsByTeacherLoaded = true;
   } catch(e) {
     el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오기 실패</div>';
     return;
@@ -3219,6 +3244,8 @@ function _buildTeacherCard(t) {
   var active = t.active === 'Y';
   var tid = t.teacher_uid;
   var tname = t.name;
+  // 65차 B: 학생 영역을 미리 렌더 — 토글 시 API 호출 없이 display만 바꿔도 됨
+  var studentsHtml = _buildStudentListHTML(_studentsByTeacher[tid] || []);
   return '<div class="card" style="margin-bottom:8px;padding:10px 12px">' +
     '<div style="display:flex;align-items:center;gap:8px;min-width:0">' +
       // 아바타
@@ -3254,47 +3281,20 @@ function _buildTeacherCard(t) {
         '</div>' : '') +
       '</div>' +
     '</div>' +
-    // 학생 목록 영역 (기본 숨김)
+    // 65차 B: 학생 목록 영역 — 미리 렌더된 HTML을 처음부터 담아두기 (display:none)
     '<div id="adm-stu-' + tid + '" style="display:none;margin-top:8px;border-top:1px solid var(--lgray);padding-top:6px">' +
-      '<div style="color:var(--gray);font-size:12px;text-align:center;padding:6px">불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div>' +
+      studentsHtml +
     '</div>' +
   '</div>';
 }
 
-function adminSortBy(mode) {
-  _admSortMode = mode;
-  _renderAdminTeacherList();
-}
-
-function toggleAdminSchoolGroup(headerEl, groupId) {
-  var body = document.getElementById(groupId);
-  if (!body) return;
-  var arrow = headerEl.querySelector('.grp-arrow');
-  var isOpen = body.style.display !== 'none';
-  body.style.display = isOpen ? 'none' : 'block';
-  if (arrow) arrow.textContent = isOpen ? '▶' : '▼';
-}
-
-async function toggleAdminStudents(btn, teacherUid) {
-  var wrap = document.getElementById('adm-stu-' + teacherUid);
-  if (!wrap) return;
-  var isOpen = btn.getAttribute('data-open') === '1';
-  if (isOpen) {
-    wrap.style.display = 'none';
-    btn.textContent = '학생 ▼';
-    btn.setAttribute('data-open', '0');
-    return;
+// 65차 B: 학생 목록 HTML 생성 헬퍼 (교사 카드 펼침 영역용)
+// 기존 toggleAdminStudents 안의 렌더 로직을 함수로 추출 — 관리자 일괄 로드 구조로 전환
+function _buildStudentListHTML(students) {
+  if (!students || !students.length) {
+    return '<div style="color:var(--gray);font-size:12px;text-align:center;padding:8px">등록된 학생이 없어요</div>';
   }
-  wrap.style.display = 'block';
-  btn.textContent = '학생 ▲';
-  btn.setAttribute('data-open', '1');
-
-  var res = await api('get_students', { teacher_uid: teacherUid });
-  if (res.status !== 'ok' || !res.data.students.length) {
-    wrap.innerHTML = '<div style="color:var(--gray);font-size:12px;text-align:center;padding:8px">등록된 학생이 없어요</div>';
-    return;
-  }
-  wrap.innerHTML = res.data.students.map(function(s) {
+  return students.map(function(s) {
     var uid2 = s.student_uid, nm2 = s.name;
     var active = s.active === 'Y';
     return '<div class="student-item ' + (active ? '' : 'inactive') + '" style="padding:6px 0">' +
@@ -3320,8 +3320,42 @@ async function toggleAdminStudents(btn, teacherUid) {
   }).join('');
 }
 
+function adminSortBy(mode) {
+  _admSortMode = mode;
+  _renderAdminTeacherList();
+}
+
+function toggleAdminSchoolGroup(headerEl, groupId) {
+  var body = document.getElementById(groupId);
+  if (!body) return;
+  var arrow = headerEl.querySelector('.grp-arrow');
+  var isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  if (arrow) arrow.textContent = isOpen ? '▶' : '▼';
+}
+
+// 65차 B: 일괄 로드 구조로 전환 — 토글 시점 API 호출 제거
+// 학생 목록은 renderAdminAccountMgmt 시점에 미리 DOM에 박혀있고, 여기선 display만 바꿈
+function toggleAdminStudents(btn, teacherUid) {
+  var wrap = document.getElementById('adm-stu-' + teacherUid);
+  if (!wrap) return;
+  var isOpen = btn.getAttribute('data-open') === '1';
+  if (isOpen) {
+    wrap.style.display = 'none';
+    btn.textContent = '학생 ▼';
+    btn.setAttribute('data-open', '0');
+  } else {
+    wrap.style.display = 'block';
+    btn.textContent = '학생 ▲';
+    btn.setAttribute('data-open', '1');
+  }
+}
+
 // ── 관리자: 교사 학급 정보 변경 ──
 var _teacherAll = [];  // 60차 Δ(수정 Δ⁴): _sbGetTeachersAll 캐시 — 선언 누락으로 관리자 로그인 시 ReferenceError 발생하던 것 수정
+// 65차 B: 전체 학생 일괄 로드 캐시 (teacher_uid 단위 그룹핑)
+var _studentsByTeacher = {};        // { teacher_uid: [{...student}, ...] }
+var _studentsByTeacherLoaded = false;  // 무효화 구분용 플래그 (빈 객체 vs 캐시 초기화)
 var _teacherInfoTargetUid = '';
 function openChangeTeacherInfo(uid, name) {
   closeStuMenu();
@@ -6870,7 +6904,7 @@ async function submitTeacherForm() {
   if (res.status==='ok') {
     AUDIO.sfx('save');
     toast('교사 계정이 만들어졌어요 ✅');
-    if (STATE.role === 'admin') { _teacherAll = []; _adminAlbumCache = {}; renderAdminAccountMgmt(); }
+    if (STATE.role === 'admin') { _teacherAll = []; _adminAlbumCache = {}; _studentsByTeacher = {}; _studentsByTeacherLoaded = false; renderAdminAccountMgmt(); }
   } else {
     toast(res.message);
     openModal('modal-teacher-form');
@@ -6934,7 +6968,13 @@ async function submitStudentForm() {
     closeModal('modal-student-form');
     // 앨범 캐시 초기화 (새 학생 반영)
     _adminAlbumCache = {};
-    loadStudents();
+    // 65차 B: 관리자면 학생 캐시도 초기화하고 계정관리 재렌더, 교사면 loadStudents
+    if (STATE.role === 'admin') {
+      _studentsByTeacher = {}; _studentsByTeacherLoaded = false;
+      renderAdminAccountMgmt();
+    } else {
+      loadStudents();
+    }
   } else {
     hideLoading();
     toast(res.message);
@@ -6950,7 +6990,17 @@ function deactivateBtn(btn) {
 async function deactivate(uid, name) {
   if(!confirm(name+' 학생을 비활성화할까요?')) return;
   var res = await api('deactivate_student', { student_uid: uid });
-  if(res.status==='ok') { toast('비활성화 완료'); loadStudents(); }
+  if(res.status==='ok') {
+    toast('비활성화 완료');
+    // 65차 B: 관리자면 학생 캐시 초기화 + 관리자 화면 즉시 갱신
+    // (기존엔 loadStudents만 불러서 관리자 화면은 탭 재진입 전까진 안 바뀌던 부수 버그)
+    if (STATE.role === 'admin') {
+      _studentsByTeacher = {}; _studentsByTeacherLoaded = false;
+      renderAdminAccountMgmt();
+    } else {
+      loadStudents();
+    }
+  }
   else toast(res.message);
 }
 
