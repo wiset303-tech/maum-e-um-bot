@@ -9152,8 +9152,9 @@ async function loadTokenLog() {
         var isGain=!!GAIN[type], isSave=!isGain&&type!=='gift_sent';
         var sign=isGain?'+':(isSave?'-':'+');
         var label=TYPE_LBL[type]||type;
-        if(type==='gift_sent')   label=(r.from_student_name?_firstName(r.from_student_name)+'에게 선물':'선물 보냄');
-        if(type==='gift_received'||type==='gift_recv') label=(r.from_student_name?_firstName(r.from_student_name)+'에게서 선물':'선물 받음');
+        // 66차: 토큰 기록은 공식 기록이므로 전체 이름 표시 (_firstName 축약 사용하지 않음 — "또망이에게 선물" O, "망이에게 선물" X)
+        if(type==='gift_sent')   label=(r.from_student_name?r.from_student_name+'에게 선물':'선물 보냄');
+        if(type==='gift_received'||type==='gift_recv') label=(r.from_student_name?r.from_student_name+'에게서 선물':'선물 받음');
         var d=r.timestamp?new Date(new Date(r.timestamp).getTime()+9*3600000):null;
         var dateStr=d?((d.getUTCMonth()+1)+'/'+d.getUTCDate()):'';
         return {date:dateStr,label:label,amount:sign+amount,gain:isGain,type:type};
