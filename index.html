@@ -2722,7 +2722,7 @@ async function onLoginSuccess(data) {
         _sbFetch('album', { teacher_uid:'eq.'+teacherUid, order:'timestamp.desc',
           select:'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url' })
           .then(function(rows){
-            var filtered = (rows||[]).filter(function(a){ return a.is_deleted !== true && a.is_deleted !== 'TRUE' && a.is_deleted !== 'true'; });
+            var filtered = (rows||[]).filter(function(a){ return !_isAlbumDeleted(a.is_deleted); });
             _teacherAlbumAll = filtered; _teacherAlbumLoaded = true;
           })
           .catch(function(){}), // 57차: 조용히 실패 — 탭 진입 시 GAS fallback
@@ -2781,7 +2781,7 @@ async function onLoginSuccess(data) {
       _sbFetch('album', { student_uid:'eq.'+data.student_uid, order:'timestamp.desc',
         select:'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url' })
         .then(function(rows){
-          var filtered = (rows||[]).filter(function(a){ return a.is_deleted !== true && a.is_deleted !== 'TRUE' && a.is_deleted !== 'true'; });
+          var filtered = (rows||[]).filter(function(a){ return !_isAlbumDeleted(a.is_deleted); });
           _preloadedStudentAlbum = filtered;
         })
         .catch(function(){}), // 57차: 조용히 실패 — 탭 진입 시 GAS fallback
@@ -9826,14 +9826,13 @@ async function _loadAdminAlbumSchool(schoolName, teacherUids) {
       order: 'timestamp.desc',
       select: 'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url'
     });
-    // 63차: is_deleted 저장 형태가 true/'TRUE'/'true' 혼재 가능 — 3중 안전망 필터
-    all = (rows || []).filter(function(a){
-      return a.is_deleted !== true && a.is_deleted !== 'TRUE' && a.is_deleted !== 'true';
-    });
+    // 64차: _isAlbumDeleted 헬퍼로 통일 (어떤 형태든 잡음)
+    all = (rows || []).filter(function(a){ return !_isAlbumDeleted(a.is_deleted); });
   } catch(e) {
     console.error('[ADMIN-ALBUM FETCH ERROR] Supabase fallback to GAS:', e && e.message ? e.message : e);
     var res = await api('get_album_school', { school_name: schoolName });
-    all = (res.status === 'ok') ? res.data.album : [];
+    // 64차: GAS fallback에도 삭제 필터 적용 (63차 누락 수정)
+    all = (res.status === 'ok') ? (res.data.album || []).filter(function(a){ return !_isAlbumDeleted(a.is_deleted); }) : [];
   }
 
   if (!all.length) {
@@ -9999,7 +9998,7 @@ async function loadAlbum(loadAll) {
         student_uid:'eq.'+STATE.user.student_uid, order:'timestamp.desc',
         select:'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url'
       });
-      allItems = (rows||[]).filter(function(a){ return a.is_deleted !== true && a.is_deleted !== 'TRUE' && a.is_deleted !== 'true'; });
+      allItems = (rows||[]).filter(function(a){ return !_isAlbumDeleted(a.is_deleted); });
       _preloadedStudentAlbum = allItems; // 더보기 재사용 캐시
     } catch(e) {}
   }
@@ -10022,7 +10021,8 @@ async function loadAlbum(loadAll) {
       _albumLoaded = true; _albumAllLoaded = true;
       return;
     }
-    items = res.data.album;
+    // 64차: GAS fallback에도 삭제 필터 적용
+    items = (res.data.album || []).filter(function(a){ return !_isAlbumDeleted(a.is_deleted); });
     total = res.data.total || items.length;
     limited = !loadAll && res.data.limited;
   }
@@ -10155,11 +10155,12 @@ async function _loadTeacherClassAlbum() {
       teacher_uid:'eq.'+STATE.user.teacher_uid, order:'timestamp.desc',
       select:'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url'
     });
-    albumList = (rows||[]).filter(function(a){ return a.is_deleted !== true && a.is_deleted !== 'TRUE' && a.is_deleted !== 'true'; });
+    albumList = (rows||[]).filter(function(a){ return !_isAlbumDeleted(a.is_deleted); });
   } catch(e) {}
   if (!albumList) {
     var res = await api('get_album', { teacher_uid: STATE.user.teacher_uid });
-    albumList = (res.status === 'ok') ? res.data.album : [];
+    // 64차: GAS fallback에도 삭제 필터 적용
+    albumList = (res.status === 'ok') ? (res.data.album || []).filter(function(a){ return !_isAlbumDeleted(a.is_deleted); }) : [];
   }
   _teacherAlbumAll = albumList;
   _albumCache = [];
@@ -10219,6 +10220,9 @@ var _useWebP = (function() {
 // 1) thumb_url이 data:image/... 면 썸네일 base64
 // 2) image_url이 data:image/... 면 레거시 원본 base64 (30차 이전 9건)
 // 3) 그 외엔 빈 문자열 → onerror로 부모 숨김
+// 64차: 삭제 판별 헬퍼 — true/TRUE/true/True 등 어떤 형태든 잡음
+function _isAlbumDeleted(v) { return v === true || (typeof v === 'string' && v.toLowerCase() === 'true'); }
+
 function resolveAlbumThumb(a) {
   if (a && a.thumb_url && typeof a.thumb_url === 'string' && a.thumb_url.indexOf('data:image/') === 0) return a.thumb_url;
   if (a && a.image_url && typeof a.image_url === 'string' && a.image_url.indexOf('data:image/') === 0) return a.image_url;
