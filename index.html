@@ -242,9 +242,10 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   display:flex;align-items:center;justify-content:space-between;
   box-shadow:0 2px 12px rgba(0,0,0,.06);flex-shrink:0;
 }
-.app-header-title{font-family:'Black Han Sans',sans-serif;font-size:20px;color:var(--mint2)}
-.app-header-user{font-size:12px;color:var(--gray)}
+.app-header-title{font-family:'Black Han Sans',sans-serif;font-size:20px;color:var(--mint2);white-space:nowrap}
+.app-header-user{font-size:12px;color:var(--gray);word-break:keep-all;overflow-wrap:break-word}
 .app-header-right{display:flex;align-items:center;gap:10px}
+.app-header-right .btn{white-space:nowrap}
 
 /* ── 프로필 이미지 ── */
 .profile-avatar{
@@ -1139,7 +1140,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   <div class="app-header">
     <div style="display:flex;align-items:center;gap:8px">
       <button id="btnBackAdmin" class="hidden btn btn-sm" onclick="exitPreview()"
-        style="background:var(--lav2);color:var(--lav);border:1.5px solid var(--lav);font-size:12px;padding:6px 12px;width:auto;border-radius:10px">← 관리자로</button>
+        style="background:var(--lav2);color:var(--lav);border:1.5px solid var(--lav);font-size:12px;padding:6px 12px;width:auto;border-radius:10px;white-space:nowrap">← 관리자로</button>
       <div>
         <div class="app-header-title" style="font-family:'Gamja Flower',sans-serif;font-size:22px;color:var(--mint2)">마음이음🌈</div>
         <div class="app-header-user" id="headerUser"></div>
@@ -9587,7 +9588,7 @@ function _renderChatMessagesBody(body, msgs, isLegacy, c) {
       ? kwRaw.split(',').map(function(s){return s.trim();}).filter(Boolean).join(', ')
       : '(낱말 없음)';
     body.innerHTML =
-      '<div class="chat-hist-legacy">💡 이전 대화는 <b>요약</b>만 기록돼 있어요.<br>이 날짜부터는 원래 대화도 함께 저장됩니다.</div>' +
+      '<div class="chat-hist-legacy">💡 이 대화는 <b>요약</b>만 기록돼 있어요.<br><b>2026년 4월 15일</b>부터 나눈 대화는 원래 내용도 함께 볼 수 있어요.</div>' +
       '<div style="font-size:12px;color:var(--gray);margin-bottom:6px">그날의 주요 낱말</div>' +
       '<div style="font-size:13.5px;color:var(--navy);line-height:1.65">' + _escHtml(kwText) + '</div>';
     return;
@@ -9646,7 +9647,7 @@ async function openChatMessagesFromList(idx) {
       ? kwRaw.split(',').map(function(s){return s.trim();}).filter(Boolean).join(', ')
       : '(낱말 없음)';
     body.innerHTML =
-      '<div class="chat-hist-legacy">💡 이전 대화는 <b>요약</b>만 기록돼 있어요.<br>이 날짜부터는 원래 대화도 함께 저장됩니다.</div>' +
+      '<div class="chat-hist-legacy">💡 이 대화는 <b>요약</b>만 기록돼 있어요.<br><b>2026년 4월 15일</b>부터 나눈 대화는 원래 내용도 함께 볼 수 있어요.</div>' +
       '<div style="font-size:12px;color:var(--gray);margin-bottom:6px">그날의 주요 낱말</div>' +
       '<div style="font-size:13.5px;color:var(--navy);line-height:1.65">' + _escHtml(kwText) + '</div>';
     return;
