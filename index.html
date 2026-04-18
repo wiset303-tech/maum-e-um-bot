@@ -2838,9 +2838,14 @@ async function onLoginSuccess(data) {
 
   } else if (data.role === 'parent') {
     // 학부모 로그인 — 경량 모드 (폴링 없음)
+    // 66차: 대시보드 데이터를 스피너 돌고 있는 동안 프리로드 (이전엔 buildParentUI 후 비동기로 떠서 숫자 빈 채 보임)
+    showLoading('우리 아이 마음을 불러오는 중이에요 💗');
     buildParentUI();
+    await Promise.all([
+      loadNotifications(),
+      loadParentDashboard(),
+    ]);
     hideLoading();
-    loadNotifications();
     startNotificationRealtime(); // 65차 E: 알림 실시간 구독 (자녀 등교·위기 알림)
 
   } else {
@@ -3075,7 +3080,11 @@ function switchTab(idx) {
       var admBgm = document.getElementById('adm-set-bgm');
       if (admBgm) admBgm.checked = AUDIO.enabled.bgm;
     }
-    if (STATE.role === 'parent') onParentTabSwitch(idx);                   // 학부모 탭 전환
+  }
+  // 66차: 학부모 설정 탭 진입 시 BGM 토글 상태 동기화
+  if (STATE.role === 'parent' && idx === 2) {
+    var pBgm = document.getElementById('parent-set-bgm');
+    if (pBgm) pBgm.checked = AUDIO.enabled.bgm;
   }
 }
 // ════════════════════════════════════════
@@ -7984,14 +7993,15 @@ async function teacherUnlockEmotion(student_uid, student_name) {
 // 학생 UI
 // ════════════════════════════════════════
 // ════════════════════════════════════════
-// 학부모 UI (탭 2개, 폴링 없음)
+// 학부모 UI (탭 3개: 우리아이 현황 / 마음열기 / 설정 — 폴링 없음)
 // ════════════════════════════════════════
 function buildParentUI() {
   var u = STATE.user || {};
   document.getElementById('headerUser').textContent = u.student_name + ' 학부모님';
   buildTabs([
     { label: '📊 우리아이 현황', html: parentDashboardHTML() },
-    { label: '🔔 알림',         html: '<div id="parentNotifPanel" style="min-height:80px"></div>' },
+    { label: '📖 마음열기',     html: parentChatOpenHTML() },
+    { label: '⚙️ 설정',          html: parentSettingsHTML() },
   ]);
   loadParentDashboard();
 }
@@ -7999,31 +8009,66 @@ function buildParentUI() {
 function parentDashboardHTML() {
   var u = STATE.user || {};
   return '<div style="padding:4px 0">' +
-    '<div class="card" style="margin-bottom:12px;padding:14px 16px;display:flex;align-items:center;gap:12px">' +
-      '<div style="width:44px;height:44px;border-radius:50%;background:var(--lav2);display:flex;align-items:center;justify-content:center;font-size:22px">👦</div>' +
+    '<div class="card" style="margin-bottom:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;border-left:4px solid var(--mint)">' +
+      '<div style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--mint3),var(--mint));display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 2px 8px rgba(78,205,180,0.25)">👦</div>' +
       '<div>' +
         '<div style="font-weight:700;font-size:15px;color:var(--navy)">' + (u.student_name || '') + '</div>' +
         '<div style="font-size:12px;color:var(--gray)">' + (u.school_name || '') + '</div>' +
       '</div>' +
     '</div>' +
     '<div class="card" style="margin-bottom:12px">' +
-      '<div style="font-weight:700;font-size:13px;color:var(--navy);margin-bottom:10px">🌡️ 마음 온도</div>' +
+      '<div style="font-weight:700;font-size:13px;color:var(--mint2);margin-bottom:10px">🌡️ 마음 온도</div>' +
       '<div style="display:flex;align-items:center;gap:10px">' +
         '<span id="parentTempValue" style="font-size:28px;font-weight:900;color:#ff5e1a">—</span>' +
         '<span style="font-size:14px;color:#ff5e1a;font-weight:700">°</span>' +
-        '<div style="flex:1;height:8px;background:var(--lgray);border-radius:99px;overflow:hidden">' +
+        '<div style="flex:1;height:8px;background:var(--mint4);border-radius:99px;overflow:hidden">' +
           '<div id="parentTempBar" style="height:100%;background:linear-gradient(90deg,#ff5e1a,#ffb347);border-radius:99px;width:0%;transition:width .6s ease"></div>' +
         '</div>' +
       '</div>' +
     '</div>' +
     '<div class="card">' +
-      '<div style="font-weight:700;font-size:13px;color:var(--navy);margin-bottom:10px">😊 이번 주 감정</div>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">' +
+        '<div style="font-weight:700;font-size:13px;color:var(--mint2)">😊 이번 주 감정</div>' +
+        '<button onclick="loadParentDashboard()" title="새로고침" ' +
+          'style="background:none;border:none;padding:2px 4px;cursor:pointer;font-size:12px;color:var(--mint2);font-weight:600;display:inline-flex;align-items:center;gap:4px">' +
+          '🔄 <span>새로고침</span></button>' +
+      '</div>' +
       '<div id="parentEmotionList"><div style="color:var(--gray);font-size:12px;text-align:center;padding:16px">불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div></div>' +
     '</div>' +
-    '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">' +
-      '<button class="btn btn-secondary" style="flex:1;min-width:90px;font-size:12px" onclick="loadParentDashboard()">🔄 새로고침</button>' +
-      '<button class="btn btn-secondary" style="flex:1;min-width:90px;font-size:12px" onclick="openChatKeywords(\'' + (u.student_uid || '') + '\',\'' + (u.student_name || '') + '\')">📖 마음열기</button>' +
-      '<button class="btn btn-secondary" style="flex:1;min-width:90px;font-size:12px" onclick="openParentChangePw()">🔑 비밀번호 변경</button>' +
+  '</div>';
+}
+
+// 66차: 마음열기 탭 — 자녀 1:1 마음봇 대화 기록 모달 진입점
+function parentChatOpenHTML() {
+  var u = STATE.user || {};
+  var name = u.student_name || '자녀';
+  return '<div style="padding:16px 4px">' +
+    '<div class="card" style="text-align:center;padding:26px 18px;border-left:4px solid var(--mint);background:linear-gradient(180deg,var(--mint4),#fff)">' +
+      '<div style="font-size:42px;margin-bottom:8px">📖</div>' +
+      '<div style="font-family:\'Gamja Flower\',sans-serif;font-size:22px;color:var(--mint2);margin-bottom:6px">' + _escHtml(name) + ' 마음열기</div>' +
+      '<div style="font-size:12px;color:var(--gray);line-height:1.6;margin-bottom:16px">' +
+        '자녀가 마음봇과 나눈 대화의 <b>주요 감정 키워드</b>를<br>날짜별로 볼 수 있어요.' +
+      '</div>' +
+      '<button class="btn btn-mint" style="width:auto;padding:13px 26px;font-size:14px" ' +
+        'onclick="openChatKeywords(\'' + (u.student_uid || '') + '\',\'' + _escHtml(name).replace(/'/g,"\\'") + '\')">🔓 마음열기 창 열기</button>' +
+    '</div>' +
+  '</div>';
+}
+
+// 66차: 학부모 설정 탭 — BGM 토글 + 비밀번호 변경
+function parentSettingsHTML() {
+  var bgmChecked = AUDIO.enabled.bgm ? 'checked' : '';
+  return '<div style="padding:4px 0">' +
+    '<div class="card" style="margin-bottom:12px">' +
+      '<div style="font-weight:700;font-size:13px;color:var(--mint2);margin-bottom:12px">⚙️ 환경설정</div>' +
+      '<div class="settings-item">' +
+        '<div><div class="settings-label">🎵 배경음악</div><div class="settings-desc" style="font-size:11px;color:var(--gray);margin-top:2px">로그인 화면·알림 효과음</div></div>' +
+        '<label class="toggle"><input type="checkbox" id="parent-set-bgm" ' + bgmChecked + ' onchange="AUDIO.toggleBgm(this.checked)"><span class="toggle-slider"></span></label>' +
+      '</div>' +
+    '</div>' +
+    '<div class="card">' +
+      '<div style="font-weight:700;font-size:13px;color:var(--mint2);margin-bottom:12px">🔐 계정</div>' +
+      '<button class="btn btn-mint" style="width:100%" onclick="openParentChangePw()">🔑 비밀번호 변경</button>' +
     '</div>' +
   '</div>';
 }
@@ -8063,37 +8108,7 @@ async function loadParentDashboard() {
   }).join('');
 }
 
-// 학부모 탭 전환 시 알림 패널 로드
-function onParentTabSwitch(idx) {
-  if (idx === 1) renderParentNotifPanel();
-}
-
-function renderParentNotifPanel() {
-  var el = document.getElementById('parentNotifPanel');
-  if (!el) return;
-  var ICON = { attendance: '🏫', emotion_crisis: '⚡', token_gift: '💝', crisis_chat: '⚠️' };
-  if (!_notifications.length) {
-    el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:30px">새 알림이 없어요 🌱</div>';
-    return;
-  }
-  el.innerHTML = _notifications.slice(0, 30).map(function(n) {
-    var icon = ICON[n.type] || '🔔';
-    var time = _timeAgo(n.created_at);
-    var bg   = n.is_read ? '#fff' : 'var(--mint4)';
-    return '<div onclick="markNotifRead(\'' + n.notification_uid + '\',this)" style="' +
-      'padding:12px 14px;cursor:pointer;border-bottom:0.5px solid var(--lgray);background:' + bg + '">' +
-      '<div style="display:flex;gap:8px;align-items:flex-start">' +
-        '<span style="font-size:20px;flex-shrink:0">' + icon + '</span>' +
-        '<div style="flex:1">' +
-          '<div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:2px">' + n.title + '</div>' +
-          '<div style="font-size:11px;color:var(--gray)">' + n.body + '</div>' +
-          '<div style="font-size:10px;color:#bbb;margin-top:3px">' + time + '</div>' +
-        '</div>' +
-      '</div>' +
-    '</div>';
-  }).join('') +
-  '<div onclick="markAllNotifsRead()" style="padding:10px;text-align:center;font-size:11px;color:var(--mint2);cursor:pointer;font-weight:600">모두 읽음 처리</div>';
-}
+// (66차) 알림 탭 제거 — 🔔 헤더 버튼에서 모두 처리. onParentTabSwitch / renderParentNotifPanel 삭제
 
 function openParentChangePw() {
   document.getElementById('parent-create-body').innerHTML =
