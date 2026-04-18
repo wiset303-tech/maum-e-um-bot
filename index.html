@@ -2834,6 +2834,28 @@ async function onLoginSuccess(data) {
 
 // NFC 없이 직접 등록 기능은 27차에 제거됨 (마음카드 교체/등록은 NFC 태그로만 진행)
 
+// 66차 D: 세션 전환 시 전역 캐시 일괄 리셋 (logout / exitPreview / previewStudent / previewTeacher 공통)
+// 서로 다른 유저로 전환됐을 때 이전 유저 데이터가 노출되지 않게 한 곳에서 초기화한다.
+function _clearSessionCaches() {
+  // 앨범
+  _albumLoaded = false; _albumAllLoaded = false; _albumCache = [];
+  _preloadedStudentAlbum = null;
+  _teacherAlbumAll = []; _teacherAlbumLoaded = false; _teacherAlbumFilter = null;
+  _adminAlbumCache = {};
+  _adminAlbumFilter = 'all'; _adminAlbumSort = 'photos';
+  _adminAlbumSearch = ''; _adminAlbumFilterOpen = false;
+  // 계정관리
+  _studentsByTeacher = {}; _studentsByTeacherLoaded = false;
+  _teacherAll = [];
+  // 출석부·오늘 기록
+  _attendanceMap = {}; _preloadedTodayRecords = null;
+  // 알림 — state + DOM
+  _notifications = [];
+  _notifOpen = false; _notifPage = 0; _notifRendering = false;
+  var dd = document.getElementById('notifDropdown');
+  if (dd) dd.style.display = 'none';
+}
+
 function logout() {
   stopDashboardPoll();
   stopPersonaPoll();
@@ -2841,16 +2863,7 @@ function logout() {
   stopNotificationRealtime();  // 65차 E: 알림 Realtime 해제
   _lastSubmitCount  = -1;
   _lastEmotionSignal = '';
-  _albumLoaded    = false;
-  _albumAllLoaded = false;
-  _albumCache     = [];
-  _preloadedStudentAlbum = null; // 57차: 학생 앨범 프리로드 캐시 리셋
-  _teacherAlbumAll = []; _teacherAlbumLoaded = false; _teacherAlbumFilter = null; // 57차: 교사 앨범 캐시 리셋
-  // 65차: 관리자 앨범 필터 state 리셋 (다시 로그인했을 때 깨끗한 상태)
-  _adminAlbumFilter = 'all'; _adminAlbumSort = 'photos'; _adminAlbumSearch = ''; _adminAlbumFilterOpen = false;
-  // 65차 B: 관리자 학생 캐시 리셋 (재로그인 시 최신 데이터 다시 불러옴)
-  _studentsByTeacher = {}; _studentsByTeacherLoaded = false;
-  _notifications  = [];
+  _clearSessionCaches();       // 66차 D: 앨범·계정관리·출석·알림 일괄 리셋
   if (STATE.role === 'student') saveChatLogIfNeeded();
   STATE = { role:null, user:null, emotions:[...STATE.emotions], students:[], dashboard:null,
             nfcPending:null, selectedMacro:null, selectedMicro:null, chatHistory:[],
@@ -2871,6 +2884,7 @@ function logout() {
 
 // 관리자 미리보기 → 관리자 화면 복귀
 function exitPreview() {
+  showLoading(); // 66차 D: 미리보기 더미·관리자 캐시 재로딩 동안 스피너
   stopDashboardPoll();
   stopPersonaPoll(); // 미리보기 학생 폴링 정지
   STATE.isPreview = false;
@@ -2882,13 +2896,15 @@ function exitPreview() {
   STATE.chatHistory = [];
   STATE.tokenBalance = null;
   _studentShowCount = 5;
+  _clearSessionCaches(); // 66차 D: 미리보기 중 생긴 더미 + 관리자 캐시 일괄 초기화
   document.getElementById('btnBackAdmin').classList.add('hidden');
   document.getElementById('headerUser').textContent = (STATE.user?.name || '관리자') + ' (관리자)';
   buildAdminUI();
   loadDashboard();
   api('get_students', { teacher_uid: '' }).then(function(res) {
     if (res.status === 'ok') { STATE.students = res.data.students; renderStudentList(); }
-  });
+    hideLoading();
+  }).catch(function(){ hideLoading(); });
   stopEmotionSignalPoll(); // 미리보기 중 신호 폴링 정지
   startDashboardPoll();    // 관리자 60초 폴링 재개
   startNotificationRealtime(); // 65차 E: 관리자 uid로 알림 구독 재시작
@@ -3613,7 +3629,7 @@ function previewTeacher() {
   // ── 폴링 중지 — 미리보기 중 실 API 호출 방지 ─────────────
   stopEmotionSignalPoll();
   stopNotificationRealtime(); // 65차 E: STATE.user 교체로 uid 엉키지 않게 알림 구독도 정지
-  _preloadedTodayRecords = null; // 관리자 실데이터 캐시 제거 (출석부 탭 진입 시 loadRecords 우회 방지)
+  _clearSessionCaches(); // 66차 D: 관리자 캐시 제거 (교사 미리보기 중 노출 방지)
 
   // ── 학생 목록 + 감정 — 탭 전환 전에 동기적으로 준비 ──────
   STATE.students = [
@@ -3887,6 +3903,8 @@ function applyPreviewPreset(key) {
 }
 
 function previewStudent() {
+  _clearSessionCaches();       // 66차 D: 관리자 캐시 제거 (학생 미리보기 중 노출 방지)
+  stopNotificationRealtime();  // 66차 D: 관리자 uid 알림 구독 해제
   STATE.role = 'student';
   STATE.isPreview = true;
   STATE.adminUser = STATE.user;
