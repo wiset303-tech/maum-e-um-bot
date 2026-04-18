@@ -2076,6 +2076,39 @@ async function _sbGetTeachersAll() {
   }
 }
 
+// 66차: 학부모 대시보드 Supabase 직접 집계 (GAS getParentDashboard 대체)
+// emotions 최근 7일 + token_balance.total_saved → heart_temp. PARENTS 조회는 불필요 (data.student_uid 이미 있음)
+async function _sbGetParentDashboard(student_uid) {
+  var cutoff = new Date(Date.now() + 9*3600000 - 7*24*3600000).toISOString().slice(0,10);
+  var results = await Promise.all([
+    _sbFetch('emotions', {
+      student_uid: 'eq.' + student_uid,
+      timestamp: 'gte.' + cutoff + 'T00:00:00',
+      order: 'timestamp.desc',
+      select: 'timestamp,macro_emotion,micro_emotion,emotion_score'
+    }),
+    _sbFetch('token_balance', {
+      student_uid: 'eq.' + student_uid,
+      select: 'total_saved'
+    })
+  ]);
+  var emoRows = results[0] || [];
+  var tbRows  = results[1] || [];
+  var emotions = emoRows.map(function(r) {
+    return {
+      date          : String(r.timestamp || '').slice(0, 10),
+      macro_emotion : r.macro_emotion,
+      micro_emotion : r.micro_emotion,
+      emotion_score : r.emotion_score
+    };
+  });
+  var heart_temp = 0;
+  if (tbRows.length) {
+    heart_temp = Math.min(100, Math.floor((Number(tbRows[0].total_saved) || 0) / 2));
+  }
+  return { emotions: emotions, heart_temp: heart_temp };
+}
+
 // ════════════════════════════════════════
 // 오디오 시스템
 // ════════════════════════════════════════
@@ -8095,9 +8128,17 @@ function parentSettingsHTML() {
 
 async function loadParentDashboard() {
   var u = STATE.user || {};
-  var res = await api('get_parent_dashboard', { parent_uid: u.parent_uid });
-  if (res.status !== 'ok') return;
-  var d = res.data;
+  // 66차: Supabase 직접 우선 + 실패 시 GAS fallback (교사·관리자·학생 패턴 동일)
+  var d;
+  try {
+    if (!u.student_uid) throw new Error('student_uid missing');
+    d = await _sbGetParentDashboard(u.student_uid);
+  } catch(e) {
+    console.error('[SB PARENT DASH ERROR]', e && e.message ? e.message : e);
+    var res = await api('get_parent_dashboard', { parent_uid: u.parent_uid });
+    if (res.status !== 'ok') return;
+    d = res.data;
+  }
 
   // 마음 온도
   var temp = d.heart_temp || 0;
