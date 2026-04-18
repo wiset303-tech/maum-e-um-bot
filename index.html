@@ -98,6 +98,12 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .btn-secondary{
   background:var(--lgray);color:var(--navy);font-size:14px;padding:13px 18px;width:100%;
 }
+.btn-mint{
+  background:linear-gradient(135deg,#7ddcc5,var(--mint));
+  color:#fff;font-size:14px;font-weight:700;padding:15px 20px;letter-spacing:-0.2px;
+  box-shadow:0 3px 12px rgba(78,205,180,.28);
+}
+.btn-mint:hover{box-shadow:0 5px 18px rgba(78,205,180,.38)}
 .btn-peach{background:linear-gradient(135deg,#ffcba0,var(--peach));color:#fff;font-size:14px;font-weight:700;padding:12px 18px}
 .btn-lav{background:linear-gradient(135deg,#d4c0f8,var(--lav));color:#fff;font-size:14px;font-weight:700;padding:12px 18px}
 .btn-sm{font-size:12px;padding:7px 14px;border-radius:10px}
@@ -1547,7 +1553,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
         <div class="inp-label" style="color:var(--navy);font-weight:600;margin-bottom:8px">✏️ 이름 변경</div>
         <div style="display:flex;gap:6px">
           <input id="profileNameInput" class="inp" style="flex:1;margin:0" placeholder="새 이름을 써 주세요">
-          <button class="btn btn-secondary" style="width:auto;padding:0 14px;font-size:13px" onclick="submitProfileName()">변경</button>
+          <button class="btn btn-mint" style="width:auto;padding:11px 18px;font-size:13px" onclick="submitProfileName()">변경</button>
         </div>
       </div>
       <!-- 🔑 비밀번호 변경 카드 (현재PW + 새PW 2회) -->
