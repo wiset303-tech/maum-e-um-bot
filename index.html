@@ -1879,7 +1879,8 @@ async function _sbGetDashboard(teacher_uid) {
   });
   var classTemp=tempCount>0?Math.min(100,Math.round(tempSum/tempCount)):0;
   var warmCount=warmRows.length?Number(warmRows[0].current_count)||0:0;
-  var todayGifts=giftRows.map(function(g){ return {from_name:g.student_name, to_name:g.from_student_name}; });
+  // 65차 C: 변수명 정리 — 쿼리는 'gift_sent 최근 3건'이지 '오늘 선물'이 아니므로 todayGifts → recentGifts
+  var recentGifts=giftRows.map(function(g){ return {from_name:g.student_name, to_name:g.from_student_name}; });
 
   return {
     status:'ok',
@@ -1892,7 +1893,7 @@ async function _sbGetDashboard(teacher_uid) {
         return {student_name:e.student_name, macro_emotion:e.macro_emotion,
           micro_emotion:e.micro_emotion, custom_text:e.custom_text||'', timestamp:e.timestamp};
       }),
-      class_temp:classTemp, token_balances:tokenBalances, today_gifts:todayGifts
+      class_temp:classTemp, token_balances:tokenBalances, recent_gifts:recentGifts
     }
   };
 }
@@ -4683,8 +4684,8 @@ async function loadDashboard() {
   renderWordCloud(d.emotion_words || []);
   renderEmotionBarcode();
 
-  // 선물 피드 — 오늘 선물 현황
-  renderGiftFeed(d.today_gifts || []);
+  // 선물 피드 — 최근 선물 3건 (65차 C: today_gifts → recent_gifts 리네이밍)
+  renderGiftFeed(d.recent_gifts || []);
 
   // 전국 마음 온도 — Promise.all로 이미 받아온 결과 즉시 반영
 }
