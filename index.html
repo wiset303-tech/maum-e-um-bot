@@ -2842,7 +2842,7 @@ function _clearSessionCaches() {
   _preloadedStudentAlbum = null;
   _teacherAlbumAll = []; _teacherAlbumLoaded = false; _teacherAlbumFilter = null;
   _adminAlbumCache = {};
-  _adminAlbumFilter = 'all'; _adminAlbumSort = 'photos';
+  _adminAlbumFilter = 'all'; _adminAlbumSort = 'photos'; _adminAlbumSortDir = 'down';
   _adminAlbumSearch = ''; _adminAlbumFilterOpen = false;
   // 계정관리
   _studentsByTeacher = {}; _studentsByTeacherLoaded = false;
@@ -2884,7 +2884,7 @@ function logout() {
 
 // 관리자 미리보기 → 관리자 화면 복귀
 function exitPreview() {
-  showLoading(); // 66차 D: 미리보기 더미·관리자 캐시 재로딩 동안 스피너
+  showLoading('전국 마음을 불러오는 중이에요 💗'); // 66차 D: 관리자 복귀 · 캐시 재로딩
   stopDashboardPoll();
   stopPersonaPoll(); // 미리보기 학생 폴링 정지
   STATE.isPreview = false;
@@ -9897,6 +9897,7 @@ var ADMIN_ALBUM_ROW_SIZE = 4; // 기본 노출 개수
 // 65차: 관리자 마음앨범 학교 필터 드롭다운 state
 var _adminAlbumFilter = 'all';      // 'all' 또는 학교명 (선택된 학교)
 var _adminAlbumSort = 'photos';     // 'photos'(사진순) 또는 'name'(가나다)
+var _adminAlbumSortDir = 'down';    // 66차: 'down'(많→적/ㄱ→ㅎ) 또는 'up'(반대). 같은 칩 재클릭 시 토글
 var _adminAlbumSearch = '';         // 드롭다운 안 학교명 검색어
 var _adminAlbumFilterOpen = false;  // 드롭다운 펼침 상태
 // 65차 B 후속: innerHTML 교체 직후 이벤트 버블링으로 외부클릭 오인되는 것 방지 (notifDropdown _notifRendering 패턴)
@@ -10080,13 +10081,13 @@ function _renderAdminAlbumFilter() {
             (_adminAlbumSort === 'photos'
               ? 'background:#d0ebe1;color:#0f6e56;font-weight:500'
               : 'background:transparent;color:#666;border:0.5px solid #ddd') +
-            '">📷 사진순</span>' +
+            '">📷 사진순' + (_adminAlbumSort === 'photos' ? (_adminAlbumSortDir === 'down' ? ' ↓' : ' ↑') : '') + '</span>' +
           '<span onclick="setAdminAlbumSort(\'name\')" style="padding:4px 10px;border-radius:999px;' +
             'font-size:11px;cursor:pointer;' +
             (_adminAlbumSort === 'name'
               ? 'background:#d0ebe1;color:#0f6e56;font-weight:500'
               : 'background:transparent;color:#666;border:0.5px solid #ddd') +
-            '">🔤 가나다</span>' +
+            '">🔤 가나다' + (_adminAlbumSort === 'name' ? (_adminAlbumSortDir === 'down' ? ' ↓' : ' ↑') : '') + '</span>' +
         '</div>' +
         '<div id="adminAlbumFilterList" style="max-height:220px;overflow-y:auto"></div>' +
       '</div>'
@@ -10105,8 +10106,12 @@ function _renderAdminAlbumFilterList() {
   });
   if (q) items = items.filter(function(it) { return String(it.name).toLowerCase().indexOf(q) >= 0; });
   items.sort(function(a, b) {
-    if (_adminAlbumSort === 'photos' && b.count !== a.count) return b.count - a.count;
-    return String(a.name).localeCompare(String(b.name), 'ko');
+    if (_adminAlbumSort === 'photos' && b.count !== a.count) {
+      return _adminAlbumSortDir === 'down' ? (b.count - a.count) : (a.count - b.count);
+    }
+    var ko = String(a.name).localeCompare(String(b.name), 'ko');
+    if (_adminAlbumSort === 'name' && _adminAlbumSortDir === 'up') ko = -ko;
+    return ko;
   });
   var total = Object.keys(_adminAlbumCache).reduce(function(s, k) {
     return s + (_adminAlbumCache[k].items || []).length;
@@ -10187,7 +10192,13 @@ function onAdminAlbumSearchInput() {
 }
 
 function setAdminAlbumSort(mode) {
-  _adminAlbumSort = mode;
+  // 66차: 같은 칩 재클릭이면 방향 반전, 다른 칩 클릭이면 새 모드의 기본 방향(down)으로 리셋
+  if (_adminAlbumSort === mode) {
+    _adminAlbumSortDir = (_adminAlbumSortDir === 'down') ? 'up' : 'down';
+  } else {
+    _adminAlbumSort = mode;
+    _adminAlbumSortDir = 'down';
+  }
   _renderAdminAlbumFilter();
   _applyAdminAlbumSectionOrder();  // 65차 B 후속: 섹션 순서도 정렬 모드 반영
   setTimeout(function() {
@@ -10238,9 +10249,11 @@ function _applyAdminAlbumSectionOrder() {
     if (_adminAlbumSort === 'photos') {
       var ca = countMap[na] || 0;
       var cb = countMap[nb] || 0;
-      if (cb !== ca) return cb - ca;   // 사진 많은 순 내림차순
+      if (cb !== ca) return _adminAlbumSortDir === 'down' ? (cb - ca) : (ca - cb);
     }
-    return String(na).localeCompare(String(nb), 'ko');
+    var ko = String(na).localeCompare(String(nb), 'ko');
+    if (_adminAlbumSort === 'name' && _adminAlbumSortDir === 'up') ko = -ko;
+    return ko;
   });
 
   sections.forEach(function(sec) { list.appendChild(sec); });
