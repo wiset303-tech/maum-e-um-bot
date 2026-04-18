@@ -2842,8 +2842,8 @@ async function onLoginSuccess(data) {
     // 66차 추가: 마음열기 키워드도 같이 프리로드 — 카드 클릭 시 재로딩 없이 즉시 표시
     showLoading('우리 아이 마음을 불러오는 중이에요 💗');
     buildParentUI();
-    var _pSuid = data.user && data.user.student_uid;
-    var _pPuid = data.user && data.user.parent_uid;
+    var _pSuid = data.student_uid;
+    var _pPuid = data.parent_uid;
     await Promise.all([
       loadNotifications(),
       loadParentDashboard(),
@@ -9163,6 +9163,18 @@ function openChatKeywords(student_uid, student_name) {
   var titleEl = document.getElementById('chatKwTitle');
   if (titleEl) titleEl.textContent = '📖 ' + (student_name || '학생') + ' 마음열기';
   var body = document.getElementById('chatKwBody');
+
+  // 66차: 학부모 프리로드 캐시가 있으면 로딩 HTML 스킵, 바로 렌더 후 모달 오픈
+  // (로딩 애니메이션이 한 프레임이라도 번쩍이지 않도록 순서 변경)
+  if (role === 'parent' && STATE._preloadedChatKeywords && STATE._preloadedChatKeywords.student_uid === student_uid) {
+    var cachedChats = STATE._preloadedChatKeywords.chats || [];
+    STATE._preloadedChatKeywords = null;
+    _renderChatKeywords(cachedChats);
+    document.getElementById('modal-chat-keywords').classList.remove('hidden');
+    return;
+  }
+
+  // 캐시 없음: 로딩 애니메이션 → 모달 오픈 → fetch
   if (body) body.innerHTML = '<div style="text-align:center;padding:28px 0"><div style="position:relative;display:inline-block;font-size:38px;line-height:1"><span style="opacity:0.18">💜</span><span style="position:absolute;left:0;top:0;animation:ckwHeartFill 2s ease-in-out infinite">💜</span></div><div style="font-size:12px;color:#9b59b6;margin-top:8px">마음 데이터를 불러오고 있어요</div></div>';
   document.getElementById('modal-chat-keywords').classList.remove('hidden');
 
@@ -9175,15 +9187,6 @@ function openChatKeywords(student_uid, student_name) {
         { log_uid:'pv3', date:'2026-04-12', student_name:student_name, turn_count:12, dominant_keywords:'게임,형,즐거움,웃음' }
       ]);
     }, 200);
-    return;
-  }
-
-  // 66차: 학부모 프리로드 캐시가 있으면 즉시 렌더 (로그인 스피너 때 미리 받아둔 것)
-  // 한 번 쓰고 폐기 → 모달 재오픈 시엔 최신값 다시 fetch
-  if (role === 'parent' && STATE._preloadedChatKeywords && STATE._preloadedChatKeywords.student_uid === student_uid) {
-    var cachedChats = STATE._preloadedChatKeywords.chats || [];
-    STATE._preloadedChatKeywords = null;
-    _renderChatKeywords(cachedChats);
     return;
   }
 
