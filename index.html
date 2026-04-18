@@ -1879,7 +1879,8 @@ async function _sbGetDashboard(teacher_uid) {
   });
   var classTemp=tempCount>0?Math.min(100,Math.round(tempSum/tempCount)):0;
   var warmCount=warmRows.length?Number(warmRows[0].current_count)||0:0;
-  var todayGifts=giftRows.map(function(g){ return {from_name:g.student_name, to_name:g.from_student_name}; });
+  // 65차 C: 변수명 정리 — 쿼리는 'gift_sent 최근 3건'이지 '오늘 선물'이 아니므로 todayGifts → recentGifts
+  var recentGifts=giftRows.map(function(g){ return {from_name:g.student_name, to_name:g.from_student_name}; });
 
   return {
     status:'ok',
@@ -1892,7 +1893,7 @@ async function _sbGetDashboard(teacher_uid) {
         return {student_name:e.student_name, macro_emotion:e.macro_emotion,
           micro_emotion:e.micro_emotion, custom_text:e.custom_text||'', timestamp:e.timestamp};
       }),
-      class_temp:classTemp, token_balances:tokenBalances, today_gifts:todayGifts
+      class_temp:classTemp, token_balances:tokenBalances, recent_gifts:recentGifts
     }
   };
 }
@@ -2755,14 +2756,14 @@ async function onLoginSuccess(data) {
     hideLoading();
     startDashboardPoll();        // 관리자면 60초 전체 폴링
     if (STATE.role === 'teacher') startEmotionSignalPoll(); // 교사면 15초 신호 폴링
-    startNotifPoll();            // 64차: 알림 실시간 수신 (교사/관리자)
+    startNotificationRealtime(); // 65차 E: 알림 실시간 구독 (teacher/admin 공통 — admin은 함수 내부에서 uid 없으면 return)
 
   } else if (data.role === 'parent') {
     // 학부모 로그인 — 경량 모드 (폴링 없음)
     buildParentUI();
     hideLoading();
     loadNotifications();
-    startNotifPoll();            // 64차: 알림 실시간 수신 (부모)
+    startNotificationRealtime(); // 65차 E: 알림 실시간 구독 (자녀 등교·위기 알림)
 
   } else {
     // 학생: 헤더 설정 버튼 표시 (탭에 설정 없으므로 BGM 접근용)
@@ -2812,7 +2813,7 @@ async function onLoginSuccess(data) {
     ]);
     hideLoading();
     startPersonaPoll();
-    startNotifPoll();            // 64차: 알림 실시간 수신 (학생)
+    startNotificationRealtime(); // 65차 E: 알림 실시간 구독 (선물·마음봇 알림 등)
     if (data.teacher_uid) {
       // 55차: Supabase 직접 (GAS fallback)
       _sbFetch('students', { teacher_uid:'eq.'+data.teacher_uid })
@@ -2837,7 +2838,7 @@ function logout() {
   stopDashboardPoll();
   stopPersonaPoll();
   stopEmotionSignalPoll();     // 교사 신호 폴링 정지
-  stopNotifPoll();             // 64차: 알림 폴링 정지
+  stopNotificationRealtime();  // 65차 E: 알림 Realtime 해제
   _lastSubmitCount  = -1;
   _lastEmotionSignal = '';
   _albumLoaded    = false;
@@ -2845,14 +2846,11 @@ function logout() {
   _albumCache     = [];
   _preloadedStudentAlbum = null; // 57차: 학생 앨범 프리로드 캐시 리셋
   _teacherAlbumAll = []; _teacherAlbumLoaded = false; _teacherAlbumFilter = null; // 57차: 교사 앨범 캐시 리셋
+  // 65차: 관리자 앨범 필터 state 리셋 (다시 로그인했을 때 깨끗한 상태)
+  _adminAlbumFilter = 'all'; _adminAlbumSort = 'photos'; _adminAlbumSearch = ''; _adminAlbumFilterOpen = false;
+  // 65차 B: 관리자 학생 캐시 리셋 (재로그인 시 최신 데이터 다시 불러옴)
+  _studentsByTeacher = {}; _studentsByTeacherLoaded = false;
   _notifications  = [];
-  _notifPage      = 0;         // 64차: 알림 페이지 상태 초기화
-  _notifOpen      = false;     // 64차: 드롭다운 열림 상태 초기화
-  // 64차: 배지·드롭다운 DOM 클리어 (다음 계정에서 이전 잔재 방지)
-  var _badge = document.getElementById('notifBadge');
-  if (_badge) { _badge.style.display = 'none'; _badge.textContent = ''; }
-  var _dd = document.getElementById('notifDropdown');
-  if (_dd) { _dd.style.display = 'none'; _dd.innerHTML = ''; }
   if (STATE.role === 'student') saveChatLogIfNeeded();
   STATE = { role:null, user:null, emotions:[...STATE.emotions], students:[], dashboard:null,
             nfcPending:null, selectedMacro:null, selectedMicro:null, chatHistory:[],
@@ -2893,6 +2891,7 @@ function exitPreview() {
   });
   stopEmotionSignalPoll(); // 미리보기 중 신호 폴링 정지
   startDashboardPoll();    // 관리자 60초 폴링 재개
+  startNotificationRealtime(); // 65차 E: 관리자 uid로 알림 구독 재시작
 }
 
 // 관리자 전용 UI 빌드
@@ -3141,17 +3140,40 @@ async function renderAdminAccountMgmt() {
   var el = document.getElementById('adminTeacherList');
   if (!el) return;
 
-  // 캐시 있으면 즉시 렌더 (등록/수정 후 캐시 초기화로 갱신 보장)
-  if (_teacherAll.length) {
+  // 캐시 있으면 즉시 렌더 (등록/수정/비활성 후 캐시 초기화로 갱신 보장)
+  // 65차 B: teachers + students 둘 다 캐시된 경우만 즉시 렌더 (일괄 로드 구조)
+  if (_teacherAll.length && _studentsByTeacherLoaded) {
     _renderAdminTeacherList();
     return;
   }
 
   el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div>';
 
-  // 60차(Δ): Supabase 직접 조회
+  // 65차 B: Supabase 직접 조회 — teachers + students 병렬 로드
+  // 토글 시점마다 get_students를 GAS로 부르던 구조 제거 (cold start 사라짐)
   try {
-    _teacherAll = await _sbGetTeachersAll();
+    var pair = await Promise.all([
+      _sbGetTeachersAll(),
+      _sbFetch('students', {})   // active 무관 — 비활성 학생도 목록에 포함됨
+    ]);
+    _teacherAll = pair[0] || [];
+    var allStudents = pair[1] || [];
+    // 교사별 그룹핑 + 정렬 (active 우선, 그 안에서 num 오름차순 — GAS getStudents와 동일 규칙)
+    _studentsByTeacher = {};
+    allStudents.forEach(function(s) {
+      if (!s.teacher_uid) return;
+      if (!_studentsByTeacher[s.teacher_uid]) _studentsByTeacher[s.teacher_uid] = [];
+      _studentsByTeacher[s.teacher_uid].push(s);
+    });
+    Object.keys(_studentsByTeacher).forEach(function(tid) {
+      _studentsByTeacher[tid].sort(function(a, b) {
+        var aActive = a.active === 'Y' ? 0 : 1;
+        var bActive = b.active === 'Y' ? 0 : 1;
+        if (aActive !== bActive) return aActive - bActive;
+        return (Number(a.num) || 0) - (Number(b.num) || 0);
+      });
+    });
+    _studentsByTeacherLoaded = true;
   } catch(e) {
     el.innerHTML = '<div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오기 실패</div>';
     return;
@@ -3227,6 +3249,8 @@ function _buildTeacherCard(t) {
   var active = t.active === 'Y';
   var tid = t.teacher_uid;
   var tname = t.name;
+  // 65차 B: 학생 영역을 미리 렌더 — 토글 시 API 호출 없이 display만 바꿔도 됨
+  var studentsHtml = _buildStudentListHTML(_studentsByTeacher[tid] || []);
   return '<div class="card" style="margin-bottom:8px;padding:10px 12px">' +
     '<div style="display:flex;align-items:center;gap:8px;min-width:0">' +
       // 아바타
@@ -3262,47 +3286,20 @@ function _buildTeacherCard(t) {
         '</div>' : '') +
       '</div>' +
     '</div>' +
-    // 학생 목록 영역 (기본 숨김)
+    // 65차 B: 학생 목록 영역 — 미리 렌더된 HTML을 처음부터 담아두기 (display:none)
     '<div id="adm-stu-' + tid + '" style="display:none;margin-top:8px;border-top:1px solid var(--lgray);padding-top:6px">' +
-      '<div style="color:var(--gray);font-size:12px;text-align:center;padding:6px">불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div>' +
+      studentsHtml +
     '</div>' +
   '</div>';
 }
 
-function adminSortBy(mode) {
-  _admSortMode = mode;
-  _renderAdminTeacherList();
-}
-
-function toggleAdminSchoolGroup(headerEl, groupId) {
-  var body = document.getElementById(groupId);
-  if (!body) return;
-  var arrow = headerEl.querySelector('.grp-arrow');
-  var isOpen = body.style.display !== 'none';
-  body.style.display = isOpen ? 'none' : 'block';
-  if (arrow) arrow.textContent = isOpen ? '▶' : '▼';
-}
-
-async function toggleAdminStudents(btn, teacherUid) {
-  var wrap = document.getElementById('adm-stu-' + teacherUid);
-  if (!wrap) return;
-  var isOpen = btn.getAttribute('data-open') === '1';
-  if (isOpen) {
-    wrap.style.display = 'none';
-    btn.textContent = '학생 ▼';
-    btn.setAttribute('data-open', '0');
-    return;
+// 65차 B: 학생 목록 HTML 생성 헬퍼 (교사 카드 펼침 영역용)
+// 기존 toggleAdminStudents 안의 렌더 로직을 함수로 추출 — 관리자 일괄 로드 구조로 전환
+function _buildStudentListHTML(students) {
+  if (!students || !students.length) {
+    return '<div style="color:var(--gray);font-size:12px;text-align:center;padding:8px">등록된 학생이 없어요</div>';
   }
-  wrap.style.display = 'block';
-  btn.textContent = '학생 ▲';
-  btn.setAttribute('data-open', '1');
-
-  var res = await api('get_students', { teacher_uid: teacherUid });
-  if (res.status !== 'ok' || !res.data.students.length) {
-    wrap.innerHTML = '<div style="color:var(--gray);font-size:12px;text-align:center;padding:8px">등록된 학생이 없어요</div>';
-    return;
-  }
-  wrap.innerHTML = res.data.students.map(function(s) {
+  return students.map(function(s) {
     var uid2 = s.student_uid, nm2 = s.name;
     var active = s.active === 'Y';
     return '<div class="student-item ' + (active ? '' : 'inactive') + '" style="padding:6px 0">' +
@@ -3328,8 +3325,42 @@ async function toggleAdminStudents(btn, teacherUid) {
   }).join('');
 }
 
+function adminSortBy(mode) {
+  _admSortMode = mode;
+  _renderAdminTeacherList();
+}
+
+function toggleAdminSchoolGroup(headerEl, groupId) {
+  var body = document.getElementById(groupId);
+  if (!body) return;
+  var arrow = headerEl.querySelector('.grp-arrow');
+  var isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  if (arrow) arrow.textContent = isOpen ? '▶' : '▼';
+}
+
+// 65차 B: 일괄 로드 구조로 전환 — 토글 시점 API 호출 제거
+// 학생 목록은 renderAdminAccountMgmt 시점에 미리 DOM에 박혀있고, 여기선 display만 바꿈
+function toggleAdminStudents(btn, teacherUid) {
+  var wrap = document.getElementById('adm-stu-' + teacherUid);
+  if (!wrap) return;
+  var isOpen = btn.getAttribute('data-open') === '1';
+  if (isOpen) {
+    wrap.style.display = 'none';
+    btn.textContent = '학생 ▼';
+    btn.setAttribute('data-open', '0');
+  } else {
+    wrap.style.display = 'block';
+    btn.textContent = '학생 ▲';
+    btn.setAttribute('data-open', '1');
+  }
+}
+
 // ── 관리자: 교사 학급 정보 변경 ──
 var _teacherAll = [];  // 60차 Δ(수정 Δ⁴): _sbGetTeachersAll 캐시 — 선언 누락으로 관리자 로그인 시 ReferenceError 발생하던 것 수정
+// 65차 B: 전체 학생 일괄 로드 캐시 (teacher_uid 단위 그룹핑)
+var _studentsByTeacher = {};        // { teacher_uid: [{...student}, ...] }
+var _studentsByTeacherLoaded = false;  // 무효화 구분용 플래그 (빈 객체 vs 캐시 초기화)
 var _teacherInfoTargetUid = '';
 function openChangeTeacherInfo(uid, name) {
   closeStuMenu();
@@ -3581,6 +3612,7 @@ function previewTeacher() {
 
   // ── 폴링 중지 — 미리보기 중 실 API 호출 방지 ─────────────
   stopEmotionSignalPoll();
+  stopNotificationRealtime(); // 65차 E: STATE.user 교체로 uid 엉키지 않게 알림 구독도 정지
   _preloadedTodayRecords = null; // 관리자 실데이터 캐시 제거 (출석부 탭 진입 시 loadRecords 우회 방지)
 
   // ── 학생 목록 + 감정 — 탭 전환 전에 동기적으로 준비 ──────
@@ -4692,8 +4724,8 @@ async function loadDashboard() {
   renderWordCloud(d.emotion_words || []);
   renderEmotionBarcode();
 
-  // 선물 피드 — 오늘 선물 현황
-  renderGiftFeed(d.today_gifts || []);
+  // 선물 피드 — 최근 선물 3건 (65차 C: today_gifts → recent_gifts 리네이밍)
+  renderGiftFeed(d.recent_gifts || []);
 
   // 전국 마음 온도 — Promise.all로 이미 받아온 결과 즉시 반영
 }
@@ -6171,62 +6203,87 @@ function stopEmotionSignalPoll() {
   }
 }
 
-// ── 64차: 알림 실시간 수신 (워드클라우드 패턴 재사용) ──
-// Realtime INSERT 감지 → 즉시 재조회. 끊겼을 때를 대비한 30초 폴링 안전망.
-// 역할별(teacher/admin/student/parent) 모두 해당.
-var _notifChannel = null;
+// ============================================================
+// 65차 E: 알림 Supabase Realtime — 모든 역할 공통 (교사/학생/학부모)
+// 58차 감정 Realtime과 동일 패턴 — Realtime 구독 + 15초 폴링 안전망
+// ============================================================
+var _sbNotifChannel = null;
 var _notifPollTimer = null;
-var _notifPollCount = -1;
+var _notifPollCount = -1; // 폴링 안전망 기준값 (-1 = 초기화 전)
 
-function startNotifPoll() {
-  stopNotifPoll();
-  var role = STATE.role || (STATE.user && STATE.user.role);
-  var uid;
-  if (role === 'teacher' || role === 'admin') uid = STATE.user && STATE.user.teacher_uid;
-  else if (role === 'student')                uid = STATE.user && STATE.user.student_uid;
-  else if (role === 'parent')                 uid = STATE.user && STATE.user.parent_uid;
-  if (!uid) return;
+function startNotificationRealtime() {
+  stopNotificationRealtime();
+  // 역할별 자신의 uid 선택 (loadNotifications와 동일 규칙)
+  var role = STATE.role;
+  var myUid;
+  if (role === 'teacher' || role === 'admin') myUid = STATE.user && STATE.user.teacher_uid;
+  else if (role === 'student')                myUid = STATE.user && STATE.user.student_uid;
+  else if (role === 'parent')                 myUid = STATE.user && STATE.user.parent_uid;
+  if (!myUid) return;  // admin이 teacher_uid 없이 들어왔거나 기타 케이스 — 조용히 return
 
-  // Realtime (즉시 감지)
+  // ── Realtime 구독 (즉시 감지) ──
   try {
     if (!_sbClient && typeof supabase !== 'undefined') {
       _sbClient = supabase.createClient(SB_URL, SB_KEY);
     }
     if (_sbClient) {
-      _notifChannel = _sbClient
-        .channel('notifs-' + uid)
+      _sbNotifChannel = _sbClient
+        .channel('notif-' + myUid)
         .on('postgres_changes', {
           event: 'INSERT', schema: 'public', table: 'notifications',
-          filter: 'recipient_uid=eq.' + uid
-        }, function() {
-          _notifPollCount = -1;
-          loadNotifications();
+          filter: 'recipient_uid=eq.' + myUid
+        }, function(payload) {
+          _notifPollCount = -1; // 폴링 기준값 리셋
+          _onNewNotification(payload && payload.new);
         })
         .subscribe();
     }
   } catch(e) {}
 
-  // 30초 폴링 안전망
+  // ── 15초 폴링 안전망 (Realtime 끊겨도 반영) ──
   _notifPollTimer = setInterval(async function() {
     try {
-      var rows = await _sbFetch('notifications', { recipient_uid:'eq.'+uid, select:'notification_uid' });
+      var rows = await _sbFetch('notifications', {
+        recipient_uid: 'eq.' + myUid, select: 'notification_uid'
+      });
       var cnt = rows ? rows.length : 0;
-      if (_notifPollCount === -1) { _notifPollCount = cnt; return; }
+      if (_notifPollCount === -1) { _notifPollCount = cnt; return; } // 첫 회 기준값만 저장
       if (cnt !== _notifPollCount) {
         _notifPollCount = cnt;
-        loadNotifications();
+        loadNotifications(); // Realtime 놓친 변화 여기서 복구 (뱃지·드롭다운 자동 갱신)
       }
     } catch(e) {}
-  }, 30000);
+  }, 15000);
 }
 
-function stopNotifPoll() {
+function stopNotificationRealtime() {
   if (_notifPollTimer) { clearInterval(_notifPollTimer); _notifPollTimer = null; }
   _notifPollCount = -1;
-  if (_notifChannel && _sbClient) {
-    try { _sbClient.removeChannel(_notifChannel); } catch(e) {}
-    _notifChannel = null;
+  if (_sbNotifChannel && _sbClient) {
+    try { _sbClient.removeChannel(_sbNotifChannel); } catch(e) {}
+    _sbNotifChannel = null;
   }
+}
+
+// Realtime INSERT payload → _notifications 선두 prepend + 뱃지·드롭다운 갱신
+// 중복 방어: Realtime과 폴링 안전망이 동시에 같은 행을 잡을 수 있어서 uid 체크
+function _onNewNotification(row) {
+  if (!row || !row.notification_uid) return;
+  if (_notifications.some(function(x){ return x.notification_uid === row.notification_uid; })) return;
+  var n = {
+    notification_uid: row.notification_uid,
+    created_at: row.created_at,
+    type: row.type,
+    title: row.title || '🔔 새 알림',
+    body: row.body || '',
+    sender_name: row.sender_name || '',
+    is_read: row.is_read === true || String(row.is_read).toUpperCase() === 'TRUE',
+    related_uid: row.related_uid || ''
+  };
+  _notifications.unshift(n);
+  updateNotifBadge();
+  if (_notifOpen) { _notifPage = 0; renderNotifDropdown(); }  // 드롭다운 열려있으면 즉시 재렌더
+  toast(n.title);  // 예: "🏫 등교 완료" — 알림 제목이 자체로 친근하게 구성돼 있음
 }
 
 // 마음앨범 폴링 (120초, 마음앨범 탭 활성 시만)
@@ -6936,7 +6993,7 @@ async function submitTeacherForm() {
   if (res.status==='ok') {
     AUDIO.sfx('save');
     toast('교사 계정이 만들어졌어요 ✅');
-    if (STATE.role === 'admin') { _teacherAll = []; _adminAlbumCache = {}; renderAdminAccountMgmt(); }
+    if (STATE.role === 'admin') { _teacherAll = []; _adminAlbumCache = {}; _studentsByTeacher = {}; _studentsByTeacherLoaded = false; renderAdminAccountMgmt(); }
   } else {
     toast(res.message);
     openModal('modal-teacher-form');
@@ -7000,7 +7057,13 @@ async function submitStudentForm() {
     closeModal('modal-student-form');
     // 앨범 캐시 초기화 (새 학생 반영)
     _adminAlbumCache = {};
-    loadStudents();
+    // 65차 B: 관리자면 학생 캐시도 초기화하고 계정관리 재렌더, 교사면 loadStudents
+    if (STATE.role === 'admin') {
+      _studentsByTeacher = {}; _studentsByTeacherLoaded = false;
+      renderAdminAccountMgmt();
+    } else {
+      loadStudents();
+    }
   } else {
     hideLoading();
     toast(res.message);
@@ -7016,7 +7079,17 @@ function deactivateBtn(btn) {
 async function deactivate(uid, name) {
   if(!confirm(name+' 학생을 비활성화할까요?')) return;
   var res = await api('deactivate_student', { student_uid: uid });
-  if(res.status==='ok') { toast('비활성화 완료'); loadStudents(); }
+  if(res.status==='ok') {
+    toast('비활성화 완료');
+    // 65차 B: 관리자면 학생 캐시 초기화 + 관리자 화면 즉시 갱신
+    // (기존엔 loadStudents만 불러서 관리자 화면은 탭 재진입 전까진 안 바뀌던 부수 버그)
+    if (STATE.role === 'admin') {
+      _studentsByTeacher = {}; _studentsByTeacherLoaded = false;
+      renderAdminAccountMgmt();
+    } else {
+      loadStudents();
+    }
+  }
   else toast(res.message);
 }
 
@@ -9803,6 +9876,14 @@ function albumHTML() {
 var _adminAlbumCache = {}; // { school_name: { items: [], loaded: false } }
 var ADMIN_ALBUM_ROW_SIZE = 4; // 기본 노출 개수
 
+// 65차: 관리자 마음앨범 학교 필터 드롭다운 state
+var _adminAlbumFilter = 'all';      // 'all' 또는 학교명 (선택된 학교)
+var _adminAlbumSort = 'photos';     // 'photos'(사진순) 또는 'name'(가나다)
+var _adminAlbumSearch = '';         // 드롭다운 안 학교명 검색어
+var _adminAlbumFilterOpen = false;  // 드롭다운 펼침 상태
+// 65차 B 후속: innerHTML 교체 직후 이벤트 버블링으로 외부클릭 오인되는 것 방지 (notifDropdown _notifRendering 패턴)
+var _albumFilterRendering = false;
+
 async function renderAdminAlbum() {
   var el = document.getElementById('adminAlbumList');
   if (!el) return;
@@ -9810,6 +9891,10 @@ async function renderAdminAlbum() {
   // 캐시 있으면 즉시 렌더 후 백그라운드에서 갱신
   if (Object.keys(_adminAlbumCache).length) {
     _renderAdminAlbumFromCache(el);
+    // 65차: 필터 드롭다운 즉시 렌더 + 선택 학교 visibility 반영 (폴링·탭 재진입도 동일)
+    _renderAdminAlbumFilter();
+    _applyAdminAlbumSectionOrder();    // 65차 B 후속: 초기 렌더도 정렬 반영
+    _applyAdminAlbumSectionVisibility();
     // 백그라운드 갱신: 교사 목록 + 앨범 재로드 — 60차(Δ): Supabase 직접
     _sbGetTeachersAll().then(function(rows) {
       _teacherAll = rows || [];
@@ -9855,7 +9940,9 @@ async function renderAdminAlbum() {
   // 초기 뼈대 렌더링 (로딩 상태)
   el.innerHTML = schools.map(function(sn) {
     var sid = 'admAlb-' + sn.replace(/[^가-힣a-zA-Z0-9]/g, '_');
-    return '<div style="margin-bottom:20px">' +
+    var snEsc = String(sn).replace(/"/g, '&quot;');
+    // 65차: data-school 식별자 추가 (필터 선택 시 display 조작 타겟)
+    return '<div id="adm-sec-' + sid + '" data-school="' + snEsc + '" style="margin-bottom:20px">' +
       // 학교 헤더 (더보기 버튼 제거)
       '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;width:100%;box-sizing:border-box">' +
         '<span style="font-size:14px;flex-shrink:0">🏫</span>' +
@@ -9877,6 +9964,10 @@ async function renderAdminAlbum() {
   schools.forEach(function(sn) {
     _loadAdminAlbumSchool(sn, schoolMap[sn]);
   });
+  // 65차: 필터 드롭다운 초기 렌더 (각 학교 로드 완료 시마다 자동 갱신됨)
+  _renderAdminAlbumFilter();
+  _applyAdminAlbumSectionOrder();    // 65차 B 후속: 초기 섹션 순서도 정렬 반영 (개수는 로드 완료 시 재적용)
+  _applyAdminAlbumSectionVisibility();
 }
 
 function _renderAdminAlbumFromCache(el) {
@@ -9885,7 +9976,9 @@ function _renderAdminAlbumFromCache(el) {
   el.innerHTML = sids.map(function(sid) {
     var entry = _adminAlbumCache[sid];
     var displayName = entry.school_name || sid;
-    return '<div style="margin-bottom:20px">' +
+    var displayNameEsc = String(displayName).replace(/"/g, '&quot;');
+    // 65차: data-school 속성으로 섹션 식별 (필터 선택 시 display 조작 타겟)
+    return '<div id="adm-sec-' + sid + '" data-school="' + displayNameEsc + '" style="margin-bottom:20px">' +
       '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;width:100%;box-sizing:border-box">' +
         '<span style="font-size:14px;flex-shrink:0">\uD83C\uDFEB</span>' +
         '<span style="font-weight:700;font-size:13px;color:var(--navy);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + displayName + '</span>' +
@@ -9898,8 +9991,241 @@ function _renderAdminAlbumFromCache(el) {
   }).join('');
   sids.forEach(function(sid) {
     var moreBtn = document.getElementById('admAlbMoreBtn-' + sid);
-    _renderAdminAlbumGrid(sid, moreBtn);
+    var entry = _adminAlbumCache[sid];
+    // 65차: 빈 학교는 "사진이 없어요" 상태로 복원 (폴링/탭 재진입 회귀 방어)
+    if (!entry || !entry.items.length) {
+      var grid = document.getElementById(sid);
+      if (grid) grid.innerHTML = '<div style="grid-column:1/-1;color:var(--gray);font-size:12px;text-align:center;padding:10px">사진이 없어요 📷</div>';
+      if (moreBtn) moreBtn.style.display = 'none';
+    } else {
+      _renderAdminAlbumGrid(sid, moreBtn);
+    }
   });
+}
+
+// ============================================================
+// 65차: 관리자 마음앨범 학교 필터 드롭다운
+// - 드롭다운 버튼 + 펼침 패널(검색창 + 정렬 토글 + 학교 목록)
+// - 학교 선택 시 섹션 display 조작 (DOM 유지)
+// - 바깥 클릭 / 학교 선택 시 자동 닫힘 (notifDropdown 패턴 참고)
+// ============================================================
+
+function _renderAdminAlbumFilter() {
+  var wrap = document.getElementById('adminAlbumFilterWrap');
+  if (!wrap) return;
+
+  // 65차 B 후속: innerHTML 교체로 인해 방금 클릭된 요소가 DOM에서 사라지면
+  // 직후 document click 핸들러가 wrap.contains(e.target)=false로 판단해 드롭다운이 닫혀버림.
+  // notifDropdown의 _notifRendering 패턴으로 50ms 동안 외부클릭 이벤트를 무시한다.
+  _albumFilterRendering = true;
+  setTimeout(function(){ _albumFilterRendering = false; }, 50);
+
+  // 총 개수 + 현재 선택 학교 개수 계산
+  var total = 0, selCount = 0;
+  Object.keys(_adminAlbumCache).forEach(function(k) {
+    var cnt = (_adminAlbumCache[k].items || []).length;
+    total += cnt;
+    if (_adminAlbumCache[k].school_name === _adminAlbumFilter) selCount = cnt;
+  });
+  var labelText  = _adminAlbumFilter === 'all' ? '전체 학교' : _adminAlbumFilter;
+  var labelCount = _adminAlbumFilter === 'all' ? total : selCount;
+
+  wrap.innerHTML =
+    '<button id="adminAlbumFilterBtn" onclick="toggleAdminAlbumFilter()" ' +
+      'style="width:100%;padding:10px 14px;border-radius:10px;background:#fff;border:0.5px solid #ccc;' +
+      'font-size:13px;color:var(--navy);text-align:left;display:flex;justify-content:space-between;' +
+      'align-items:center;cursor:pointer">' +
+      '<span style="display:inline-flex;align-items:center;gap:6px">' +
+        '<span style="font-size:14px">🏫</span>' + _escHtml(labelText) +
+        ' <span style="color:#888;font-size:12px">(' + labelCount + ')</span>' +
+      '</span>' +
+      '<span style="color:#888;font-size:11px">' + (_adminAlbumFilterOpen ? '▲' : '▼') + '</span>' +
+    '</button>' +
+    (_adminAlbumFilterOpen ?
+      '<div id="adminAlbumFilterPanel" ' +
+        'style="position:absolute;top:100%;left:0;right:0;z-index:100;margin-top:4px;' +
+        'background:#fff;border:0.5px solid #ccc;border-radius:10px;padding:8px;' +
+        'box-shadow:0 4px 16px rgba(0,0,0,0.12)">' +
+        '<div style="position:relative;margin-bottom:8px">' +
+          '<input id="adminAlbumSearch" type="text" placeholder="학교 이름 검색" ' +
+            'oninput="onAdminAlbumSearchInput()" value="' + _escHtml(_adminAlbumSearch) + '" ' +
+            'style="width:100%;padding:7px 10px 7px 28px;font-size:12px;border-radius:8px;' +
+            'border:0.5px solid #ddd;background:#f7f7f7;box-sizing:border-box">' +
+          '<span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);' +
+            'font-size:13px;color:#999">🔍</span>' +
+        '</div>' +
+        '<div style="display:flex;gap:4px;padding:0 2px 8px;border-bottom:0.5px solid #eee;' +
+          'margin-bottom:6px;align-items:center">' +
+          '<span style="font-size:11px;color:#666;margin-right:4px">정렬</span>' +
+          '<span onclick="setAdminAlbumSort(\'photos\')" style="padding:4px 10px;border-radius:999px;' +
+            'font-size:11px;cursor:pointer;' +
+            (_adminAlbumSort === 'photos'
+              ? 'background:#d0ebe1;color:#0f6e56;font-weight:500'
+              : 'background:transparent;color:#666;border:0.5px solid #ddd') +
+            '">📷 사진순</span>' +
+          '<span onclick="setAdminAlbumSort(\'name\')" style="padding:4px 10px;border-radius:999px;' +
+            'font-size:11px;cursor:pointer;' +
+            (_adminAlbumSort === 'name'
+              ? 'background:#d0ebe1;color:#0f6e56;font-weight:500'
+              : 'background:transparent;color:#666;border:0.5px solid #ddd') +
+            '">🔤 가나다</span>' +
+        '</div>' +
+        '<div id="adminAlbumFilterList" style="max-height:220px;overflow-y:auto"></div>' +
+      '</div>'
+    : '');
+
+  if (_adminAlbumFilterOpen) _renderAdminAlbumFilterList();
+}
+
+function _renderAdminAlbumFilterList() {
+  var list = document.getElementById('adminAlbumFilterList');
+  if (!list) return;
+  var q = (_adminAlbumSearch || '').trim().toLowerCase();
+  var items = Object.keys(_adminAlbumCache).map(function(sid) {
+    var entry = _adminAlbumCache[sid];
+    return { name: entry.school_name, count: (entry.items || []).length };
+  });
+  if (q) items = items.filter(function(it) { return String(it.name).toLowerCase().indexOf(q) >= 0; });
+  items.sort(function(a, b) {
+    if (_adminAlbumSort === 'photos' && b.count !== a.count) return b.count - a.count;
+    return String(a.name).localeCompare(String(b.name), 'ko');
+  });
+  var total = Object.keys(_adminAlbumCache).reduce(function(s, k) {
+    return s + (_adminAlbumCache[k].items || []).length;
+  }, 0);
+
+  var html = '';
+  // "전체 학교" 옵션: 검색 없을 때만 최상단에
+  if (!q) {
+    var isAll = _adminAlbumFilter === 'all';
+    html += '<div onclick="selectAdminAlbumSchool(\'all\')" ' +
+      'style="padding:8px 10px;border-radius:6px;cursor:pointer;display:flex;' +
+      'justify-content:space-between;align-items:center;font-size:12px;margin-bottom:2px;' +
+      (isAll ? 'background:#d0ebe1;color:#0f6e56;font-weight:500' : 'color:var(--navy)') + '">' +
+      '<span style="display:inline-flex;align-items:center;gap:5px">' +
+        (isAll ? '<span style="font-size:11px">✓</span>' : '') + '전체 학교' +
+      '</span>' +
+      '<span style="font-size:11px' + (isAll ? '' : ';color:#888') + '">' + total + '</span>' +
+      '</div>';
+  }
+  if (!items.length) {
+    html += '<div style="padding:14px 10px;text-align:center;color:#999;font-size:12px">검색 결과가 없어요</div>';
+  } else {
+    items.forEach(function(it) {
+      // 학교명에 따옴표/백슬래시 섞여도 onclick 문자열 안전하게
+      var nameJs = String(it.name).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      var isSel = _adminAlbumFilter === it.name;
+      var dim = it.count === 0;
+      var rowStyle = 'padding:8px 10px;border-radius:6px;cursor:pointer;display:flex;' +
+        'justify-content:space-between;align-items:center;font-size:12px;margin-bottom:2px;' +
+        (isSel ? 'background:#d0ebe1;color:#0f6e56;font-weight:500'
+               : (dim ? 'color:#888' : 'color:var(--navy)'));
+      var countStyle = 'font-size:10px;' +
+        (isSel ? 'color:#0f6e56'
+               : (dim ? 'color:#bbb'
+                      : 'background:#f0f0f0;padding:1px 7px;border-radius:999px;color:#888'));
+      html += '<div onclick="selectAdminAlbumSchool(\'' + nameJs + '\')" style="' + rowStyle + '">' +
+        '<span style="display:inline-flex;align-items:center;gap:5px">' +
+          (isSel ? '<span style="font-size:11px">✓</span>' : '') + _escHtml(it.name) +
+        '</span>' +
+        '<span style="' + countStyle + '">' + it.count + '</span>' +
+        '</div>';
+    });
+  }
+  list.innerHTML = html;
+}
+
+function toggleAdminAlbumFilter() {
+  _adminAlbumFilterOpen = !_adminAlbumFilterOpen;
+  _renderAdminAlbumFilter();
+  if (_adminAlbumFilterOpen) {
+    setTimeout(function() {
+      var input = document.getElementById('adminAlbumSearch');
+      if (input) input.focus();
+      document.addEventListener('click', _albumFilterOutsideClick);
+    }, 10);
+  } else {
+    document.removeEventListener('click', _albumFilterOutsideClick);
+  }
+}
+
+function _albumFilterOutsideClick(e) {
+  // 65차 B 후속: innerHTML 교체 중 이벤트는 무시 (방금 클릭된 요소가 DOM에서 사라진 케이스 방어)
+  if (_albumFilterRendering) return;
+  var wrap = document.getElementById('adminAlbumFilterWrap');
+  if (wrap && !wrap.contains(e.target)) {
+    _adminAlbumFilterOpen = false;
+    _adminAlbumSearch = '';  // 바깥 클릭 닫힘 = 검색어도 리셋
+    _renderAdminAlbumFilter();
+    document.removeEventListener('click', _albumFilterOutsideClick);
+  }
+}
+
+function onAdminAlbumSearchInput() {
+  var input = document.getElementById('adminAlbumSearch');
+  if (!input) return;
+  _adminAlbumSearch = input.value || '';
+  _renderAdminAlbumFilterList();  // 목록만 재렌더 (검색창 자체는 건드리지 않아 focus 유지)
+}
+
+function setAdminAlbumSort(mode) {
+  _adminAlbumSort = mode;
+  _renderAdminAlbumFilter();
+  _applyAdminAlbumSectionOrder();  // 65차 B 후속: 섹션 순서도 정렬 모드 반영
+  setTimeout(function() {
+    var input = document.getElementById('adminAlbumSearch');
+    if (input) input.focus();
+  }, 10);
+}
+
+function selectAdminAlbumSchool(schoolName) {
+  _adminAlbumFilter  = schoolName;
+  _adminAlbumFilterOpen = false;
+  _adminAlbumSearch = '';
+  _renderAdminAlbumFilter();
+  _applyAdminAlbumSectionVisibility();
+  document.removeEventListener('click', _albumFilterOutsideClick);
+}
+
+function _applyAdminAlbumSectionVisibility() {
+  var list = document.getElementById('adminAlbumList');
+  if (!list) return;
+  var sections = list.querySelectorAll('div[data-school]');
+  for (var i = 0; i < sections.length; i++) {
+    var sn = sections[i].getAttribute('data-school');
+    sections[i].style.display = (_adminAlbumFilter === 'all' || sn === _adminAlbumFilter) ? '' : 'none';
+  }
+}
+
+// 65차 B 후속: 학교 섹션 DOM 순서를 현재 정렬 모드(_adminAlbumSort)에 맞춰 재배치
+// - 사진순: 사진 많은 학교 먼저, 동률이면 가나다
+// - 가나다: 학교명 한국어 순
+// appendChild는 이미 DOM에 있는 요소에 호출하면 "이동"이 되므로 재생성 없이 순서만 바뀜
+function _applyAdminAlbumSectionOrder() {
+  var list = document.getElementById('adminAlbumList');
+  if (!list) return;
+  var sections = Array.prototype.slice.call(list.querySelectorAll('div[data-school]'));
+  if (!sections.length) return;
+
+  // 학교명 → 사진 개수 매핑 (캐시 기반)
+  var countMap = {};
+  Object.keys(_adminAlbumCache).forEach(function(k) {
+    var entry = _adminAlbumCache[k];
+    countMap[entry.school_name] = (entry.items || []).length;
+  });
+
+  sections.sort(function(a, b) {
+    var na = a.getAttribute('data-school');
+    var nb = b.getAttribute('data-school');
+    if (_adminAlbumSort === 'photos') {
+      var ca = countMap[na] || 0;
+      var cb = countMap[nb] || 0;
+      if (cb !== ca) return cb - ca;   // 사진 많은 순 내림차순
+    }
+    return String(na).localeCompare(String(nb), 'ko');
+  });
+
+  sections.forEach(function(sec) { list.appendChild(sec); });
 }
 
 async function _loadAdminAlbumSchool(schoolName, teacherUids) {
@@ -9932,6 +10258,9 @@ async function _loadAdminAlbumSchool(schoolName, teacherUids) {
 
   if (!all.length) {
     grid.innerHTML = '<div style="grid-column:1/-1;color:var(--gray);font-size:12px;text-align:center;padding:10px">사진이 없어요 📷</div>';
+    // 65차 버그 수정: 빈 학교도 캐시에 저장해야 폴링/재렌더 시에도 목록에 남음
+    _adminAlbumCache[sid] = { items: [], expanded: false, school_name: schoolName };
+    if (typeof _renderAdminAlbumFilter === 'function') { _renderAdminAlbumFilter(); _applyAdminAlbumSectionOrder(); _applyAdminAlbumSectionVisibility(); }
     return;
   }
 
@@ -9942,6 +10271,8 @@ async function _loadAdminAlbumSchool(schoolName, teacherUids) {
   _adminAlbumCache[sid] = { items: all, expanded: false, school_name: schoolName };
 
   _renderAdminAlbumGrid(sid, moreBtn);
+  // 65차: 개수가 확정됐으니 드롭다운(버튼 라벨·목록) 갱신 + 현재 필터 선택 상태 반영 + 섹션 순서 재적용
+  if (typeof _renderAdminAlbumFilter === 'function') { _renderAdminAlbumFilter(); _applyAdminAlbumSectionOrder(); _applyAdminAlbumSectionVisibility(); }
 }
 
 function _renderAdminAlbumGrid(sid, moreBtn) {
@@ -9989,8 +10320,9 @@ function toggleAdminAlbumMore(sid) {
 function albumTeacherHTML() {
   var isAdmin = STATE.role === 'admin';
   if (isAdmin) {
-    // 관리자: 학교별 레이아웃
+    // 관리자: 학교별 레이아웃 (65차: 상단에 학교 필터 드롭다운)
     return '<div id="adminAlbumSection">' +
+      '<div id="adminAlbumFilterWrap" style="position:relative;margin-bottom:12px"></div>' +
       '<div id="adminAlbumList"><div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div></div>' +
     '</div>';
   }
