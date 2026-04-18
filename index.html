@@ -833,8 +833,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .chat-hist-legacy{
   background:#fff9e6;color:#6b5a1f;
   border-left:3px solid #f0c14b;border-radius:8px;
-  padding:10px 12px;font-size:12px;line-height:1.6;
-  margin-bottom:12px;
+  padding:12px 14px;font-size:12px;line-height:1.7;
+  margin-bottom:12px;text-align:center;
 }
 .chat-hist-msg{
   display:flex;gap:8px;margin-bottom:10px;max-width:90%;
@@ -9588,7 +9588,7 @@ function _renderChatMessagesBody(body, msgs, isLegacy, c) {
       ? kwRaw.split(',').map(function(s){return s.trim();}).filter(Boolean).join(', ')
       : '(낱말 없음)';
     body.innerHTML =
-      '<div class="chat-hist-legacy">💡 이 대화는 <b>요약</b>만 기록돼 있어요.<br><b>2026년 4월 15일</b>부터 나눈 대화는 원래 내용도 함께 볼 수 있어요.</div>' +
+      '<div class="chat-hist-legacy">💡 이 대화는 <b>요약</b>만 기록돼 있어요.<br><b>2026년 4월 15일</b>부터 나눈 대화는<br>원래 내용도 함께 볼 수 있어요.</div>' +
       '<div style="font-size:12px;color:var(--gray);margin-bottom:6px">그날의 주요 낱말</div>' +
       '<div style="font-size:13.5px;color:var(--navy);line-height:1.65">' + _escHtml(kwText) + '</div>';
     return;
@@ -9647,7 +9647,7 @@ async function openChatMessagesFromList(idx) {
       ? kwRaw.split(',').map(function(s){return s.trim();}).filter(Boolean).join(', ')
       : '(낱말 없음)';
     body.innerHTML =
-      '<div class="chat-hist-legacy">💡 이 대화는 <b>요약</b>만 기록돼 있어요.<br><b>2026년 4월 15일</b>부터 나눈 대화는 원래 내용도 함께 볼 수 있어요.</div>' +
+      '<div class="chat-hist-legacy">💡 이 대화는 <b>요약</b>만 기록돼 있어요.<br><b>2026년 4월 15일</b>부터 나눈 대화는<br>원래 내용도 함께 볼 수 있어요.</div>' +
       '<div style="font-size:12px;color:var(--gray);margin-bottom:6px">그날의 주요 낱말</div>' +
       '<div style="font-size:13.5px;color:var(--navy);line-height:1.65">' + _escHtml(kwText) + '</div>';
     return;
