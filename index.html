@@ -2625,7 +2625,8 @@ function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 function closeModalOutside(e, id) { if(e.target.id===id) closeModal(id); }
 
 // 66차: 브라우저 confirm() 대체 — 앱 톤앤매너(민트·네이비·라운드) 공통 확인 모달
-// opts = { danger:true → ok 버튼 빨강 / okLabel / cancelLabel / onCancel }
+// 67차: alertMode(취소 버튼 숨김) 옵션 추가. appConfirm/appAlert Promise 래퍼 함께 제공.
+// opts = { danger:true → ok 버튼 빨강 / okLabel / cancelLabel / onCancel / alertMode }
 function _uiConfirm(title, message, onOk, opts) {
   opts = opts || {};
   var titleEl  = document.getElementById('confirmTitle');
@@ -2640,6 +2641,12 @@ function _uiConfirm(title, message, onOk, opts) {
   msgEl.innerHTML = lines.join('<br>');
   okBtn.textContent     = opts.okLabel     || '확인';
   cancelBtn.textContent = opts.cancelLabel || '취소';
+  // 67차: alertMode면 취소 버튼 숨기고 확인 버튼만 full-width
+  if (opts.alertMode) {
+    cancelBtn.style.display = 'none';
+  } else {
+    cancelBtn.style.display = '';
+  }
   // 위험 액션이면 ok 버튼 빨강 / 평소엔 btn-primary 색
   if (opts.danger) {
     okBtn.classList.remove('btn-primary');
@@ -2660,6 +2667,22 @@ function _uiConfirm(title, message, onOk, opts) {
   };
   openModal('modal-confirm');
   setTimeout(function(){ okBtn.focus(); }, 50);
+}
+
+// 67차: Promise 기반 appConfirm/appAlert — 기존 네이티브 confirm()/alert() 대체용
+// 사용: var ok = await appConfirm('제목', '메시지', { danger:true, okLabel:'삭제' });
+//       await appAlert('안내', '긴 메시지', { okLabel:'확인' });
+function appConfirm(title, message, opts) {
+  return new Promise(function(resolve) {
+    var o = Object.assign({}, opts || {}, { onCancel: function(){ resolve(false); } });
+    _uiConfirm(title, message, function(){ resolve(true); }, o);
+  });
+}
+function appAlert(title, message, opts) {
+  return new Promise(function(resolve) {
+    var o = Object.assign({ alertMode:true }, opts || {}, { onCancel: function(){ resolve(); } });
+    _uiConfirm(title, message, function(){ resolve(); }, o);
+  });
 }
 function openLoginModal() { openModal('modal-login'); }
 function openSettings() {
@@ -2727,28 +2750,32 @@ function _onTokenResetSchoolChange() {
 async function submitTokenReset() {
   if (STATE.role !== 'admin') return;
   var teacher_uid = document.getElementById('tr-teacher').value;
-  if (!teacher_uid) { alert('교사(학급)를 선택해주세요'); return; }
+  // 67차: alert → toast (짧은 안내), confirm → appConfirm, 결과 alert → appAlert
+  if (!teacher_uid) { toast('교사(학급)를 선택해주세요'); return; }
   var teacher = (_teacherAll || []).find(function(t){ return t.teacher_uid === teacher_uid; });
   var label = teacher ? ((teacher.school_name||'') + ' ' + (teacher.grade||'')+'학년 '+(teacher.class||'')+'반 ' + (teacher.name||'') + ' 선생님') : '선택한 학급';
-  if (!confirm(label + '\n\n이 학급 전체 학생의 마음토큰을 0으로 초기화합니다.\n\n계속할까요?')) return;
+  if (!(await appConfirm('마음토큰 초기화',
+    label + '\n\n이 학급 전체 학생의 마음토큰을 0으로 초기화합니다.\n계속할까요?',
+    { danger:true, okLabel:'초기화' }))) return;
 
   var btn = document.getElementById('tr-submit');
   if (btn) { btn.disabled = true; btn.textContent = '초기화 중...'; }
   showLoading('마음토큰 초기화 중...');
   try {
     var res = await api('reset_teacher_tokens', { teacher_uid: teacher_uid });
+    hideLoading();
     if (res.status === 'ok') {
       var n = (res.data && res.data.reset_count) || 0;
-      alert('✅ 초기화 완료 — ' + n + '명 학생의 마음토큰이 0으로 리셋되었습니다');
       closeModal('modal-token-reset');
+      await appAlert('초기화 완료', '✅ ' + n + '명 학생의 마음토큰이 0으로 리셋되었어요');
     } else {
-      alert('❌ 초기화 실패: ' + (res.message || '알 수 없는 오류'));
+      await appAlert('초기화 실패', '❌ ' + (res.message || '알 수 없는 오류'));
     }
   } catch(e) {
-    console.error('[TOKEN-RESET]', e);
-    alert('❌ 초기화 실패: ' + e.message);
-  } finally {
     hideLoading();
+    console.error('[TOKEN-RESET]', e);
+    await appAlert('초기화 실패', '❌ ' + (e && e.message ? e.message : e));
+  } finally {
     if (btn) { btn.disabled = false; btn.textContent = '🌡️ 마음토큰 초기화'; }
   }
 }
@@ -3913,7 +3940,8 @@ async function confirmTransferTeacher() {
     + '이 학반의 모든 기록(학생·감정·토큰·앨범·훈훈습도계 등)이 '
     + toT.name + ' 선생님에게 넘어가요.\n'
     + fromT.name + ' 선생님 계정은 자동으로 비활성 처리돼요.\n\n진행할까요?';
-  if (!confirm(confirmMsg)) return;
+  // 67차: 네이티브 confirm → 앱 톤앤매너 모달
+  if (!(await appConfirm('담임 이양', confirmMsg, { danger:true, okLabel:'이양하기' }))) return;
 
   closeModal('modal-transfer-teacher');
   showLoading('담임을 이양하는 중이에요 🔄');
@@ -4032,7 +4060,10 @@ function triggerNfcFromTeacherEdit() {
 // 교사 비활성화
 async function deactivateTeacherUI(uid, name) {
   closeStuMenu();
-  if (!confirm(name + ' 선생님을 비활성화할까요?')) return;
+  // 67차: 네이티브 confirm → 앱 톤앤매너 모달
+  if (!(await appConfirm('선생님 비활성화',
+    name + ' 선생님을 비활성화할까요?\n(학생·기록은 그대로 보존돼요)',
+    { danger:true, okLabel:'비활성화' }))) return;
   showLoading('비활성화하는 중이에요...');
   var res = await api('deactivate_teacher', { teacher_uid: uid });
   hideLoading();
@@ -7626,24 +7657,30 @@ function deactivateBtn(btn) {
   deactivate(uid, name);
 }
 async function deactivate(uid, name) {
-  if(!confirm(name+' 학생을 비활성화할까요?\n(토큰·감정·앨범 기록은 그대로 보존돼요)')) return;
-  var res = await api('deactivate_student', { student_uid: uid });
-  if(res.status==='ok') {
-    toast('비활성화 완료');
-    // 65차 B: 관리자면 학생 캐시 초기화 + 관리자 화면 즉시 갱신
-    // 67차: 감정바코드·훈훈습도계 goal·학급 평균 마음온도 등 학생수 의존 UI를
-    //       탭 재진입 없이 즉시 반영하도록 대시보드도 함께 호출
+  // 67차: 네이티브 confirm → 앱 톤앤매너 모달 + 로딩 스피너 + 대시보드 갱신 완료까지 대기
+  var ok = await appConfirm('학생 비활성화',
+    name + ' 학생을 비활성화할까요?\n(토큰·감정·앨범 기록은 그대로 보존돼요)',
+    { danger:true, okLabel:'비활성화' });
+  if (!ok) return;
+  showLoading('비활성화 중이에요 ⏳');
+  try {
+    var res = await api('deactivate_student', { student_uid: uid });
+    if (res.status !== 'ok') { hideLoading(); toast(res.message); return; }
+    // 65차 B: 관리자면 학생 캐시 초기화 / 67차: 학생수 의존 UI(감정바코드·훈훈습도계·학급 평균 온도)
+    //         까지 반영 완료된 후 스피너 내림
     if (STATE.role === 'admin') {
       _studentsByTeacher = {}; _studentsByTeacherLoaded = false;
-      Promise.all([
-        Promise.resolve(renderAdminAccountMgmt()),
-        loadAdminDashboard()
-      ]).catch(function(){});
+      renderAdminAccountMgmt();
+      await loadAdminDashboard();
     } else {
-      Promise.all([ loadStudents(), loadDashboard() ]).catch(function(){});
+      await Promise.all([ loadStudents(), loadDashboard() ]);
     }
+    hideLoading();
+    toast('비활성화 완료');
+  } catch(e) {
+    hideLoading();
+    toast('비활성화 실패: ' + (e && e.message ? e.message : e));
   }
-  else toast(res.message);
 }
 
 function replaceCard(btn, mode) {
@@ -7866,7 +7903,9 @@ async function resetPwToDefault() {
   var mode = document.getElementById('changePwInput').dataset.mode;
   if (mode !== 'teacher') { toast('이 기능은 관리자 전용이에요'); return; }
   if (!_teacherPwTargetUid) { toast('교사 정보를 찾을 수 없어요'); return; }
-  if (!confirm('이 선생님의 비밀번호를 maum1234로 초기화할까요?')) return;
+  // 67차: 네이티브 confirm → 앱 톤앤매너 모달
+  if (!(await appConfirm('비밀번호 초기화', '이 선생님의 비밀번호를 maum1234로 초기화할까요?',
+    { danger:true, okLabel:'초기화' }))) return;
   if (STATE.isPreview) { toast('미리보기에서는 저장되지 않아요'); return; }
   closeModal('modal-change-pw');
   showLoading('비밀번호를 초기화하는 중이에요 🔑');
@@ -7881,7 +7920,10 @@ async function resetPwToDefault() {
 
 async function resetStudentPw(uid, name) {
   closeStuMenu();
-  if (!confirm(name + ' 학생의 비밀번호를 초기화할까요?')) return;
+  // 67차: 네이티브 confirm → 앱 톤앤매너 모달
+  if (!(await appConfirm('비밀번호 초기화',
+    name + ' 학생의 비밀번호를 초기화할까요?',
+    { danger:true, okLabel:'초기화' }))) return;
   showLoading('비밀번호를 초기화하는 중이에요 🔄');
   var res = await api('reset_student_password', { student_uid: uid });
   hideLoading();
@@ -11495,7 +11537,8 @@ async function openAlbumPopup(idx) {
 
 async function deleteAlbumItem() {
   if (!_popupAlbumUid) return;
-  if (!confirm('이 사진을 삭제할까요?')) return;
+  // 67차: 네이티브 confirm → 앱 톤앤매너 모달
+  if (!(await appConfirm('사진 삭제', '이 사진을 삭제할까요?', { danger:true, okLabel:'삭제' }))) return;
   closeModal('modal-album-popup');
   showLoading('삭제 중이에요 🗑');
   var res = await api('delete_album', { album_uid: _popupAlbumUid });
@@ -11597,7 +11640,8 @@ async function submitAlbumUpload() {
     _albumLoaded = false; // 캐시 무효화 → 재로드
     loadAlbum();
   } else if (res.message && res.message.includes('이미')) {
-    if (confirm('오늘 사진이 이미 있어요. 새 사진으로 교체할까요?')) {
+    // 67차: 네이티브 confirm → 앱 톤앤매너 모달
+    if (await appConfirm('사진 교체', '오늘 사진이 이미 있어요.\n새 사진으로 교체할까요?', { okLabel:'교체' })) {
       showLoading('교체하는 중이에요 📸');
       payload.is_update = true;
       var res2 = await api('save_album', payload);
@@ -11699,8 +11743,9 @@ async function initWebNFC() {
 async function testWebNFC() {
   if (!('NDEFReader' in window)) {
     toast('❌ 이 기기는 WebNFC를 지원하지 않아요');
+    // 67차: 네이티브 alert → 앱 톤앤매너 모달
     setTimeout(function(){
-      alert('WebNFC 미지원\n\n대신 ACR122U USB 리더기를 연결하면\nPC에서도 NFC 태깅이 가능해요.');
+      appAlert('WebNFC 미지원', '대신 ACR122U USB 리더기를 연결하면\nPC에서도 NFC 태깅이 가능해요.');
     }, 300);
     return;
   }
@@ -11738,14 +11783,19 @@ async function testWebNFC() {
       }
       // 테스트 모드: UID 표시
       toast('\uD83C\uDF89 NFC 인식! UID: ' + uid.toUpperCase());
+      // 67차: 네이티브 alert → 앱 톤앤매너 모달
       setTimeout(function(){
-        alert('NFC 태깅 성공! \uD83C\uDF89\nUID: ' + uid.toUpperCase() + '\n\n이제 카드를 등록하거나 로그인에 사용할 수 있어요!');
+        appAlert('🎉 NFC 태깅 성공!',
+          'UID: ' + uid.toUpperCase() + '\n\n이제 카드를 등록하거나 로그인에 사용할 수 있어요!');
       }, 300);
     };
   } catch(err) {
     if (err.name === 'NotAllowedError') {
       toast('❌ NFC 권한이 거부됐어요');
-      alert('설정에서 NFC 권한을 허용해주세요.');
+      // 67차: 네이티브 alert → 앱 톤앤매너 모달
+      setTimeout(function(){
+        appAlert('NFC 권한 필요', '설정에서 NFC 권한을 허용해주세요.');
+      }, 300);
     } else {
       toast('❌ ' + err.message);
     }
