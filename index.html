@@ -1114,8 +1114,10 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   #screen-nfc,#screen-loading{max-width:480px;left:50%;transform:translateX(-50%)}
 }
 
-/* ── 훈훈습도계 하트 애니메이션 ── */
-.warmth-heart {
+/* ── 훈훈습도계 달성 시 뿅뿅 파티클 ── */
+/* 67차: 기존 .warmth-heart는 위쪽에 있는 "하트 5개 고정 아이콘" 클래스와 이름 충돌.
+   파티클은 .warmth-heart-pop로 분리해서 학생 화면 하트 아이콘이 사라지지 않게. */
+.warmth-heart-pop {
   position: fixed;
   bottom: 80px;
   font-size: 28px;
@@ -2555,7 +2557,7 @@ function showWarmthBonus() {
     (function(idx) {
       setTimeout(function() {
         var el = document.createElement('div');
-        el.className = 'warmth-heart';
+        el.className = 'warmth-heart-pop'; // 67차: 하트 아이콘(.warmth-heart)과 충돌 방지
         // 3번째 파티클마다 선물 이모지 (1/3 확률)
         var useGift = (idx % 3 === 0);
         var pool = useGift ? giftEmojis : heartEmojis;
@@ -6496,14 +6498,28 @@ function renderWordCloud(words) {
     negative: ['#c4b0f5','#d81b60','#9575cd','#7986cb'],
   };
 
-  // ── 위치 풀 (40개, 전체 박스에 고르게 분포) ────────────────
-  // 값: [left%, top%] — 중앙 기준 흩어지게 배치
+  // ── 위치 풀 ────────────────
+  // 67차: 중앙 수직선에 몰리던 POS 분산 재배치 + 사후 충돌 회피로 겹침 방지
+  // 격자(5행×4~5열) 기반 + count 순서대로 중앙→바깥 나선
   var POS = [
-    [50,50],[28,35],[72,42],[38,65],[63,28],[20,55],[78,60],[46,22],
-    [56,75],[30,48],[68,30],[22,70],[80,38],[42,80],[60,18],
-    [35,25],[66,68],[24,42],[76,22],[50,82],[15,30],[84,55],[40,58],
-    [55,38],[26,62],[72,75],[45,12],[62,85],[18,78],[82,18],
-    [50,65],[34,50],[68,50],[28,18],[72,82],[15,55],[85,42],[48,38],[55,62],[32,72],
+    // 중앙 (가장 큰 단어 1~2개)
+    [50,50],
+    // 중앙 십자 4분면 (큰 단어들)
+    [28,32],[72,32],[28,68],[72,68],
+    // 중간 계층
+    [50,20],[50,80],[14,50],[86,50],
+    // 대각 보조
+    [38,40],[62,40],[38,60],[62,60],
+    // 외곽 행 분포
+    [20,15],[80,15],[20,85],[80,85],
+    // 추가 간격 배치
+    [40,14],[60,14],[40,86],[60,86],
+    [16,30],[84,30],[16,70],[84,70],
+    [30,50],[70,50],[50,36],[50,64],
+    // 넉넉 여백
+    [22,45],[78,45],[22,55],[78,55],
+    [45,28],[55,28],[45,72],[55,72],
+    [10,40],[90,40],[10,60],[90,60],
   ];
 
   var maxCount = Math.max.apply(null, words.map(function(w){ return w.count; })) || 1;
@@ -6547,6 +6563,46 @@ function renderWordCloud(words) {
         el.style.transform = 'translate(-50%,-50%)';
       });
     });
+  });
+
+  // 67차: 렌더 후 충돌 감지·회피 (POS 고정 배치만으로 해결 안 되는 경계 케이스 방어)
+  // DOM 정착 후 bounding rect 비교해서 이전 단어와 겹치면 살짝 밀어내기
+  setTimeout(function(){
+    if (myGen !== _wcGen) return;
+    _wcResolveCollisions(wrap);
+  }, 60);
+}
+
+// 67차: 워드클라우드 겹침 회피 — 렌더된 .wc-word 단어들을 이전 단어와 겹치지 않게 top% 미세 조정
+function _wcResolveCollisions(wrap) {
+  var els = wrap.querySelectorAll('.wc-word');
+  if (!els.length) return;
+  var PAD_X = 4, PAD_Y = 3, MAX_TRY = 22;
+  var placed = [];
+  els.forEach(function(el) {
+    var tries = 0;
+    var rect;
+    while (tries < MAX_TRY) {
+      rect = el.getBoundingClientRect();
+      var hit = false;
+      for (var k = 0; k < placed.length; k++) {
+        var p = placed[k];
+        if (rect.right + PAD_X > p.left && rect.left < p.right + PAD_X &&
+            rect.bottom + PAD_Y > p.top && rect.top < p.bottom + PAD_Y) {
+          hit = true; break;
+        }
+      }
+      if (!hit) break;
+      var curTop = parseFloat(el.style.top) || 50;
+      // 짝수 시도는 아래, 홀수는 위. 진폭 점진 증가
+      var step = 3 + Math.floor(tries / 2) * 2;
+      var newTop = (tries % 2 === 0) ? curTop + step : curTop - step;
+      if (newTop < 8)  newTop = 8;
+      if (newTop > 92) newTop = 92;
+      el.style.top = newTop + '%';
+      tries++;
+    }
+    placed.push({ left:rect.left, top:rect.top, right:rect.right, bottom:rect.bottom });
   });
 }
 
