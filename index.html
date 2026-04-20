@@ -3133,7 +3133,7 @@ async function onLoginSuccess(data) {
         var active=(list||[]).filter(function(s){return s.active==='Y';});
         var inactive=(list||[]).filter(function(s){return s.active!=='Y';});
         active.sort(function(a,b){return a.num-b.num;});
-        STATE.students=active.concat(inactive); _studentShowCount=5; renderStudentList();
+        STATE.students=active.concat(inactive); _studentShowCount=999; renderStudentList(); // 67차: 기본 모두 보기
       }
       function _applyEmotions(list) {
         CAL.data={}; _attendanceMap={};
@@ -3347,7 +3347,7 @@ function exitPreview() {
   STATE.dashboard = null;
   STATE.chatHistory = [];
   STATE.tokenBalance = null;
-  _studentShowCount = 5;
+  _studentShowCount = 999; // 67차: 기본 모두 보기
   _clearSessionCaches(); // 66차 D: 미리보기 중 생긴 더미 + 관리자 캐시 일괄 초기화
   document.getElementById('btnBackAdmin').classList.add('hidden');
   document.getElementById('headerUser').textContent = (STATE.user?.name || '관리자') + ' (관리자)';
@@ -7113,10 +7113,37 @@ async function saveProfileImage(imageUrl) {
 // 학생 목록
 // ════════════════════════════════════════
 async function loadStudents() {
-  var res = await api('get_students', { teacher_uid: STATE.user?.teacher_uid });
+  // 67차: Supabase 직접 조회 (GAS cold start 제거). 실패 시 GAS fallback.
+  var tUid = STATE.user && STATE.user.teacher_uid;
+  try {
+    var q = tUid ? { teacher_uid:'eq.'+tUid } : {};
+    q.select = 'student_uid,student_id,name,teacher_uid,grade,class,num,nfc_uid,active,created_at,gender';
+    var rows = await _sbFetch('students', q);
+    if (Array.isArray(rows)) {
+      var mapped = rows.map(function(r){
+        return {
+          student_uid:r.student_uid, student_id:r.student_id, name:r.name,
+          teacher_uid:r.teacher_uid, grade:r.grade, class:r.class, num:r.num,
+          nfc_uid:r.nfc_uid||'', active:r.active, created_at:r.created_at,
+          gender:r.gender||''
+        };
+      });
+      var active = mapped.filter(function(s){ return s.active === 'Y'; });
+      var inactive = mapped.filter(function(s){ return s.active !== 'Y'; });
+      active.sort(function(a,b){ return (Number(a.num)||0) - (Number(b.num)||0); });
+      STATE.students = active.concat(inactive);
+      _studentShowCount = 999; // 67차: 기본 모두 보기
+      renderStudentList();
+      return;
+    }
+  } catch(e) {
+    console.error('[STU FETCH ERROR] Supabase fallback to GAS:', e && e.message ? e.message : e);
+  }
+  // GAS fallback
+  var res = await api('get_students', { teacher_uid: tUid });
   if(res.status!=='ok') return;
   STATE.students = res.data.students;
-  _studentShowCount = 5; // 초기화
+  _studentShowCount = 999; // 67차: 기본 모두 보기
   renderStudentList();
 }
 
@@ -7133,7 +7160,8 @@ async function reloadStudentsTab() {
   }
 }
 
-var _studentShowCount = 5;
+// 67차: 기본 "모두 보기" — 5명씩 끊기 불편해서 초기 대량 표시. showLessStudents로 5명 축소 가능.
+var _studentShowCount = 999;
 
 var _stuSortMode = 'num'; // 'num' | 'name'
 
@@ -7142,7 +7170,7 @@ function stuSortBy(mode) {
   document.querySelectorAll('.adm-sort-btn').forEach(function(b){ b.classList.remove('active-sort'); });
   var btn = document.getElementById('stu-sort-' + mode);
   if (btn) btn.classList.add('active-sort');
-  _studentShowCount = 5;
+  _studentShowCount = 999; // 67차: 정렬 바꿔도 기본 모두 보기 유지
   renderStudentList();
 }
 
@@ -7218,12 +7246,13 @@ function renderStudentList() {
   }).join('');
 
 
+  // 67차: 기본 "모두 보기". 학생 6명 이상 + 현재 전체 표시 중이면 "5명만 보기" 버튼 표시.
   var moreBtn;
   if (hasMore) {
     var nextStep = Math.min(5, sorted.length - _studentShowCount);
     moreBtn = '<button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px" onclick="showMoreStudents()">+' + nextStep + '명 더보기</button>';
-  } else if (_studentShowCount > 5) {
-    moreBtn = '<button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px" onclick="showLessStudents()">접기</button>';
+  } else if (_studentShowCount > 5 && sorted.length > 5) {
+    moreBtn = '<button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px" onclick="showLessStudents()">5명만 보기</button>';
   } else {
     moreBtn = '';
   }
@@ -7664,16 +7693,29 @@ async function deactivate(uid, name) {
   if (!ok) return;
   showLoading('비활성화 중이에요 ⏳');
   try {
-    var res = await api('deactivate_student', { student_uid: uid });
-    if (res.status !== 'ok') { hideLoading(); toast(res.message); return; }
-    // 65차 B: 관리자면 학생 캐시 초기화 / 67차: 학생수 의존 UI(감정바코드·훈훈습도계·학급 평균 온도)
-    //         까지 반영 완료된 후 스피너 내림
+    // 67차: Supabase 직접 PATCH로 즉시 반영 (GAS cold start 제거).
+    //       Sheets 동기화는 GAS deactivate_student가 백그라운드로 수행 (fire-and-forget).
+    var supabaseOk = false;
+    try {
+      await _sbPatch('students', { student_uid:'eq.'+uid }, { active:'N' });
+      supabaseOk = true;
+      api('deactivate_student', { student_uid: uid }).catch(function(){}); // Sheets 동기화
+    } catch(sbErr) {
+      // Supabase 실패 시 GAS 완전 fallback (느리지만 Sheets→Supabase 동기화됨)
+      console.error('[DEACTIVATE] Supabase fallback to GAS:', sbErr && sbErr.message ? sbErr.message : sbErr);
+      var res = await api('deactivate_student', { student_uid: uid });
+      if (res.status !== 'ok') { hideLoading(); toast(res.message); return; }
+    }
+    // 학생수 의존 UI(감정바코드·훈훈습도계·학급 평균 온도) 반영
+    // 67차: 교사도 순차 실행 — loadDashboard 안의 renderEmotionBarcode가
+    //       STATE.students를 참조하므로 loadStudents 완료 후에 불러야 최신 반영
     if (STATE.role === 'admin') {
       _studentsByTeacher = {}; _studentsByTeacherLoaded = false;
       renderAdminAccountMgmt();
       await loadAdminDashboard();
     } else {
-      await Promise.all([ loadStudents(), loadDashboard() ]);
+      await loadStudents();
+      await loadDashboard();
     }
     hideLoading();
     toast('비활성화 완료');
