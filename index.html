@@ -562,18 +562,28 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   transition:clip-path .5s cubic-bezier(0.4,0,0.2,1);
 }
 
-/* ── 마음 온도 (학생 개인) ── */
+/* ── 마음 온도 (학생 개인) — 67차: 0~100도 단계별 효과 ── */
 .heart-temp-widget{
   background:#fff;border-radius:var(--r);padding:16px 18px;
   margin-bottom:14px;box-shadow:var(--shadow2);
   display:flex;align-items:center;gap:14px;
+  position:relative;
 }
-.heart-temp-icon{font-size:36px;line-height:1;flex-shrink:0}
-.heart-temp-info{flex:1}
+.heart-temp-icon{
+  font-size:36px;line-height:1;flex-shrink:0;
+  position:relative;
+  transition:transform .35s ease, filter .35s ease;
+}
+.heart-temp-info{flex:1;min-width:0}
 .heart-temp-label{font-size:12px;color:var(--gray);margin-bottom:2px}
 .heart-temp-value{
   font-family:'Noto Sans KR',sans-serif;font-weight:900;
   font-size:32px;color:#ff5e1a;letter-spacing:-1px;line-height:1;
+  transition:color .4s ease, text-shadow .4s ease;
+}
+.heart-temp-deg{
+  font-size:14px;color:#ff5e1a;font-weight:700;
+  transition:color .4s ease, text-shadow .4s ease;
 }
 .heart-temp-bar-wrap{
   height:8px;border-radius:4px;background:var(--lgray);
@@ -582,7 +592,95 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .heart-temp-bar{
   height:100%;border-radius:4px;
   background:linear-gradient(90deg,#ffb347,#ff5e1a);
-  transition:width 1s cubic-bezier(.4,0,.2,1);
+  transition:width 1s cubic-bezier(.4,0,.2,1), background .5s ease, box-shadow .5s ease;
+}
+
+/* 0~29도: 연노랑-주황 (쌀쌀한 시작) */
+.heart-temp-widget.temp-cold .heart-temp-value,
+.heart-temp-widget.temp-cold .heart-temp-deg{ color:#e8a83a; }
+.heart-temp-widget.temp-cold .heart-temp-bar{ background:linear-gradient(90deg,#ffe6a7,#ffbf5e); }
+.heart-temp-widget.temp-cold .heart-temp-icon{ filter:grayscale(.25) brightness(.98); }
+
+/* 30~59도: 주황 (따뜻해짐) */
+.heart-temp-widget.temp-warm .heart-temp-value,
+.heart-temp-widget.temp-warm .heart-temp-deg{ color:#ff8a2a; }
+.heart-temp-widget.temp-warm .heart-temp-bar{ background:linear-gradient(90deg,#ffcf70,#ff8f3a); }
+
+/* 60~89도: 진주황→빨강 (뜨끈) */
+.heart-temp-widget.temp-hot .heart-temp-value,
+.heart-temp-widget.temp-hot .heart-temp-deg{ color:#ff5e1a; text-shadow:0 0 6px rgba(255,110,20,.35); }
+.heart-temp-widget.temp-hot .heart-temp-bar{
+  background:linear-gradient(90deg,#ff8f3a,#ff4a1a);
+  box-shadow:0 0 8px rgba(255,90,20,.4);
+}
+.heart-temp-widget.temp-hot .heart-temp-icon{ transform:scale(1.04); }
+
+/* 90~99도: 강한 글로우 + 맥동 (직전 단계) */
+.heart-temp-widget.temp-very-hot .heart-temp-value,
+.heart-temp-widget.temp-very-hot .heart-temp-deg{
+  color:#ff2a0a;
+  text-shadow:0 0 10px rgba(255,50,0,.7);
+}
+.heart-temp-widget.temp-very-hot .heart-temp-bar{
+  background:linear-gradient(90deg,#ff6a1a,#ff1a00);
+  animation:heartTempPulse 1.3s infinite ease-in-out;
+}
+.heart-temp-widget.temp-very-hot .heart-temp-icon{
+  transform:scale(1.08);
+  filter:drop-shadow(0 0 8px rgba(255,70,0,.7));
+}
+@keyframes heartTempPulse{
+  0%,100% { box-shadow:0 0 8px rgba(255,60,0,.55), inset 0 0 6px rgba(255,210,140,.35); }
+  50%     { box-shadow:0 0 18px rgba(255,30,0,.95), inset 0 0 10px rgba(255,240,180,.6); }
+}
+
+/* 100도: 타오름 + 불꽃 파티클 */
+.heart-temp-widget.temp-blazing .heart-temp-value,
+.heart-temp-widget.temp-blazing .heart-temp-deg{
+  animation:heartTempBurnText .9s infinite alternate ease-in-out;
+}
+@keyframes heartTempBurnText{
+  0%   { color:#ff5e00; text-shadow:0 0 10px rgba(255,90,0,.85); }
+  100% { color:#ff1a00; text-shadow:0 0 20px rgba(255,30,0,1), 0 0 4px rgba(255,200,40,.8); }
+}
+.heart-temp-widget.temp-blazing .heart-temp-bar{
+  animation:heartTempBurnBar .9s infinite alternate ease-in-out;
+}
+@keyframes heartTempBurnBar{
+  0%   { background:linear-gradient(90deg,#ff8a00,#ff3300); box-shadow:0 0 10px rgba(255,60,0,.7); }
+  100% { background:linear-gradient(90deg,#ffcf5a,#ff1a00); box-shadow:0 0 22px rgba(255,20,0,1), inset 0 0 10px rgba(255,230,160,.6); }
+}
+.heart-temp-widget.temp-blazing .heart-temp-icon{
+  animation:heartTempShake .5s infinite alternate ease-in-out;
+  filter:drop-shadow(0 0 10px rgba(255,90,0,.9));
+}
+@keyframes heartTempShake{
+  0%   { transform:rotate(-4deg) scale(1.04); }
+  100% { transform:rotate(4deg)  scale(1.12); }
+}
+
+/* 불꽃 파티클 — 기본 숨김, blazing 때만 재생 */
+.heart-temp-flame{
+  position:absolute;
+  pointer-events:none;
+  opacity:0;
+  z-index:5;
+  line-height:1;
+}
+.heart-temp-flame.f1{ top:-10px; left:-6px;  font-size:20px; }
+.heart-temp-flame.f2{ top:-24px; left:12px;  font-size:16px; }
+.heart-temp-flame.f3{ top:-10px; left:28px;  font-size:20px; }
+.heart-temp-widget.temp-blazing .heart-temp-flame{
+  animation:heartTempFlame 1.5s infinite ease-in-out;
+}
+.heart-temp-widget.temp-blazing .heart-temp-flame.f1{ animation-delay:0s; }
+.heart-temp-widget.temp-blazing .heart-temp-flame.f2{ animation-delay:.45s; }
+.heart-temp-widget.temp-blazing .heart-temp-flame.f3{ animation-delay:.9s; }
+@keyframes heartTempFlame{
+  0%   { opacity:0;   transform:translateY(6px)   scale(.7); }
+  30%  { opacity:.95; transform:translateY(-8px)  scale(1.15); }
+  65%  { opacity:.75; transform:translateY(-20px) scale(1); }
+  100% { opacity:0;   transform:translateY(-32px) scale(.6); }
 }
 
 /* ── 학급 온도계 (교사/관리자 대시보드) ── */
@@ -1058,6 +1156,30 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   30%  { transform: translate(-50%,-50%) scale(1); }
   70%  { opacity: 1; transform: translate(-50%,-50%) scale(1); }
   100% { opacity: 0; transform: translate(-50%,-50%) scale(1); }
+}
+/* 67차: 훈훈습도계 달성 시 "🎁 +2 🪙" 튀어오름 팝업 */
+.warmth-plus-two {
+  position: fixed;
+  top: 38%;
+  transform: translate(-50%, 0) scale(0.4);
+  font-family: 'Black Han Sans', 'Noto Sans KR', sans-serif;
+  font-size: 42px;
+  font-weight: 900;
+  color: #ff4a1a;
+  text-shadow: 0 4px 14px rgba(255,90,20,.55), 0 0 24px rgba(255,180,60,.7);
+  z-index: 10001;
+  pointer-events: none;
+  opacity: 0;
+  white-space: nowrap;
+  animation: plusTwoPop 2.6s ease-out forwards;
+}
+@keyframes plusTwoPop {
+  0%   { opacity: 0; transform: translate(-50%, 20px) scale(0.4) rotate(-8deg); }
+  18%  { opacity: 1; transform: translate(-50%, -10px) scale(1.25) rotate(4deg); }
+  32%  { transform: translate(-50%, 0) scale(0.95) rotate(-2deg); }
+  45%  { transform: translate(-50%, -4px) scale(1.05) rotate(1deg); }
+  75%  { opacity: 1; transform: translate(-50%, -30px) scale(1) rotate(0); }
+  100% { opacity: 0; transform: translate(-50%, -80px) scale(0.85); }
 }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
@@ -1944,12 +2066,15 @@ async function _sbGetDashboard(teacher_uid) {
     .filter(function(s){ return !submittedUids[s.student_uid]; })
     .map(function(s){ return {student_uid:s.student_uid,name:s.name,num:s.num}; });
 
+  // 67차: 학급 평균 마음온도는 active 학생만 반영 (비활성 학생 token_balance 제외)
+  var activeSet={};
+  students.forEach(function(s){ activeSet[s.student_uid]=true; });
   var tokenBalances={}, tempSum=0, tempCount=0;
   balances.forEach(function(b) {
     var bSaved=Number(b.total_saved)||0, bBal=Number(b.current_balance)||0;
     var bTemp=Math.min(100, bSaved/2);
     tokenBalances[b.student_uid]={current_balance:bBal, total_saved:bSaved, temp:bTemp};
-    tempSum+=bTemp; tempCount++;
+    if (activeSet[b.student_uid]) { tempSum+=bTemp; tempCount++; }
   });
   var classTemp=tempCount>0?Math.min(100,Math.round(tempSum/tempCount)):0;
   var warmCount=warmRows.length?Number(warmRows[0].current_count)||0:0;
@@ -2416,9 +2541,12 @@ function initBlurClouds() {
   }
 }
 
+// 67차: 훈훈습도계 학급 보너스 2개 지급에 맞춘 파티클·배너 업그레이드
+// — 하트 이모지 + 🎁/🪙 선물 이모지 섞어서 뿅, 배너 문구에 "2개" 강조
 function showWarmthBonus() {
-  var emojis = ['💕','❤️','🧡','💛','💚','💙','💜','🩷','🤍'];
-  var count = 10;
+  var heartEmojis = ['💕','❤️','🧡','💛','💚','💙','💜','🩷','🤍'];
+  var giftEmojis  = ['🎁','🪙','💝','🪙','🎁']; // 선물 토큰 2개 비주얼 강화 (🪙 중복 비중↑)
+  var count = 14;
   var container = document.getElementById('app') || document.body;
   var rect = container.getBoundingClientRect();
   var centerX = rect.left + rect.width / 2;
@@ -2428,22 +2556,33 @@ function showWarmthBonus() {
       setTimeout(function() {
         var el = document.createElement('div');
         el.className = 'warmth-heart';
-        el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
-        var spread = (Math.random() - 0.5) * Math.min(rect.width * 0.7, 200);
+        // 3번째 파티클마다 선물 이모지 (1/3 확률)
+        var useGift = (idx % 3 === 0);
+        var pool = useGift ? giftEmojis : heartEmojis;
+        el.textContent = pool[Math.floor(Math.random() * pool.length)];
+        var spread = (Math.random() - 0.5) * Math.min(rect.width * 0.75, 220);
         el.style.left = (centerX + spread) + 'px';
-        el.style.animationDuration = (1.8 + Math.random() * 0.8) + 's';
-        el.style.fontSize = (22 + Math.random() * 16) + 'px';
+        el.style.animationDuration = (1.8 + Math.random() * 0.9) + 's';
+        el.style.fontSize = (useGift ? 28 : 22) + Math.random() * 14 + 'px';
         document.body.appendChild(el);
-        setTimeout(function() { el.remove(); }, 3000);
-      }, idx * 140);
+        setTimeout(function() { el.remove(); }, 3200);
+      }, idx * 120);
     })(k);
   }
 
+  // +2 팝업 — 선물 상자 가운데에서 위로 튀어오름
+  var plusTwo = document.createElement('div');
+  plusTwo.className = 'warmth-plus-two';
+  plusTwo.innerHTML = '🎁 +2 🪙';
+  plusTwo.style.left = centerX + 'px';
+  document.body.appendChild(plusTwo);
+  setTimeout(function() { plusTwo.remove(); }, 2600);
+
   var banner = document.createElement('div');
   banner.className = 'warmth-banner';
-  banner.innerHTML = '🌡️ 훈훈습도계 달성!<br><span style="font-size:13px;font-weight:600;opacity:0.92">학급 전원에게 보너스 토큰이 지급됐어요 💝</span>';
+  banner.innerHTML = '🌡️ 훈훈습도계 달성!<br><span style="font-size:13px;font-weight:600;opacity:0.95">학급 전원에게 보너스 마음토큰 <b style="font-size:15px">2개</b>가 지급됐어요 🎁🪙</span>';
   document.body.appendChild(banner);
-  setTimeout(function() { banner.remove(); }, 3200);
+  setTimeout(function() { banner.remove(); }, 3400);
 }
 
 function toast(msg, dur=2500) {
@@ -2798,6 +2937,8 @@ async function handleNfcUid(uid) {
               name:r.name, teacher_uid:r.teacher_uid, school_name:r.school_name,
               grade:r.grade, class:r.class, num:r.num, gender:r.gender||'', profile_image_url:r.profile_image_url||'' };
             // 토큰 지급 + 등교 알림 — 백그라운드 비동기
+            // 67차: loadTokenBalance 낙관적 +1 트리거
+            STATE._justLoggedIn = true;
             api('post_login_student', { student_uid:r.student_uid, name:r.name,
               teacher_uid:r.teacher_uid, school_name:r.school_name }).catch(function(){});
             break;
@@ -2872,6 +3013,8 @@ async function loginByPw() {
             name:r.name, teacher_uid:r.teacher_uid, school_name:r.school_name,
             grade:r.grade, class:r.class, num:r.num, gender:r.gender||'', profile_image_url:r.profile_image_url||'' };
           // 토큰 지급 + 등교 알림 — 백그라운드 비동기 (기다리지 않음)
+          // 67차: loadTokenBalance 낙관적 +1 트리거
+          STATE._justLoggedIn = true;
           api('post_login_student', { student_uid:r.student_uid, name:r.name,
             teacher_uid:r.teacher_uid, school_name:r.school_name }).catch(function(){});
         } else {
@@ -3036,6 +3179,8 @@ async function onLoginSuccess(data) {
     buildStudentUI();
     // 62차: loadTokenBalance Supabase 전환으로 cold start 사라짐 → Promise.all 편입
     // (60차 Δ² 때는 GAS라 분리했으나, 지금은 같이 기다려도 되므로 스피너 꺼질 때 온도값 보장)
+    // 67차: 속도 우선 원칙에 따라 post_login_student(GAS) 기다리지 않음.
+    //       대신 loadTokenBalance 내부에서 STATE._justLoggedIn 플래그로 낙관적 +1 처리.
     var today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
     await Promise.all([
       loadTokenBalance(),
@@ -8408,10 +8553,14 @@ function emotionInputHTML() {
     '</div>' +
   '</div>' +
   '<div class="heart-temp-widget">' +
-    '<div class="heart-temp-icon">🌡️</div>' +
+    '<div class="heart-temp-icon">🌡️' +
+      '<span class="heart-temp-flame f1">🔥</span>' +
+      '<span class="heart-temp-flame f2">✨</span>' +
+      '<span class="heart-temp-flame f3">🔥</span>' +
+    '</div>' +
     '<div class="heart-temp-info">' +
       '<div class="heart-temp-label">내 마음의 온도</div>' +
-      '<div><span class="heart-temp-value" id="heartTempValue">—</span><span style="font-size:14px;color:#ff5e1a;font-weight:700">°</span></div>' +
+      '<div><span class="heart-temp-value" id="heartTempValue">—</span><span class="heart-temp-deg">°</span></div>' +
       '<div class="heart-temp-bar-wrap">' +
         '<div class="heart-temp-bar" id="heartTempBar" style="width:0%"></div>' +
       '</div>' +
@@ -9117,10 +9266,14 @@ async function saveChatLogIfNeeded() {
 // ── 마음토큰 ──
 function tokenHTML() {
   return '<div class="heart-temp-widget" style="margin-bottom:10px">' +
-      '<div class="heart-temp-icon">🌡️</div>' +
+      '<div class="heart-temp-icon">🌡️' +
+        '<span class="heart-temp-flame f1">🔥</span>' +
+        '<span class="heart-temp-flame f2">✨</span>' +
+        '<span class="heart-temp-flame f3">🔥</span>' +
+      '</div>' +
       '<div class="heart-temp-info">' +
         '<div class="heart-temp-label">내 마음의 온도</div>' +
-        '<div><span class="heart-temp-value" id="tokenTempValue">—</span><span style="font-size:14px;color:#ff5e1a;font-weight:700">°</span></div>' +
+        '<div><span class="heart-temp-value" id="tokenTempValue">—</span><span class="heart-temp-deg">°</span></div>' +
         '<div class="heart-temp-bar-wrap">' +
           '<div class="heart-temp-bar" id="tokenTempBar" style="width:0%"></div>' +
         '</div>' +
@@ -9268,6 +9421,9 @@ async function loadTokenBalance() {
         can_save_double: (r.can_save_double === true || String(r.can_save_double).toLowerCase() === 'true'),
         last_daily_date: r.last_daily_date || ''
       };
+      // 67차: 로그인 직후 낙관적 +1 — GAS post_login_student가 백그라운드로 +1 쓰는 동안
+      // 프론트가 오늘 첫 로그인임을 감지해 즉시 반영. 화면 깜빡임 없이 정확한 잔액 표시.
+      _applyOptimisticDailyToken(tb);
       STATE.tokenBalance = tb;
       _refreshTokenCards(tb);
       calcBannerMessage(tb);
@@ -9279,8 +9435,26 @@ async function loadTokenBalance() {
   }
   // GAS fallback — Supabase 실패 또는 행 누락 시
   var res = await api('get_token_balance', { student_uid: STATE.user.student_uid });
-  if (res.status === 'ok') { STATE.tokenBalance=res.data; _refreshTokenCards(res.data); calcBannerMessage(res.data); }
+  if (res.status === 'ok') {
+    _applyOptimisticDailyToken(res.data); // 67차: GAS fallback 경로에도 적용
+    STATE.tokenBalance=res.data; _refreshTokenCards(res.data); calcBannerMessage(res.data);
+  }
   else toast('잔액 정보를 불러오지 못했어요. 잠시 후 다시 시도해요 🙏');
+}
+
+// 67차: 학생 로그인 직후 첫 loadTokenBalance에서만 낙관적 +1 적용.
+// 플래그는 한 번 쓰면 내림 — 이후 호출은 실제 DB 값만 반영.
+// GAS post_login_student가 백그라운드로 Sheets+Supabase에 +1 쓰고 있으므로,
+// 다음 loadTokenBalance 호출 땐 실제 last_daily_date=today가 조회돼 자연 수렴.
+function _applyOptimisticDailyToken(tb) {
+  if (!STATE._justLoggedIn) return;
+  STATE._justLoggedIn = false;
+  var today = new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+  var ldd = tb && tb.last_daily_date ? String(tb.last_daily_date).slice(0,10) : '';
+  if (ldd === today) return; // 이미 오늘 지급됨 — 낙관 처리 불필요
+  tb.current_balance = (Number(tb.current_balance)||0) + 1;
+  tb.total_earned    = (Number(tb.total_earned)   ||0) + 1;
+  tb.last_daily_date = today;
 }
 
 function updateHeartTempUI(temp) {
@@ -9295,6 +9469,24 @@ function updateHeartTempUI(temp) {
   var b2 = document.getElementById('tokenTempBar');
   if (v2) v2.textContent = temp;
   if (b2) setTimeout(function(){ b2.style.width = pct; }, 100);
+  // 67차: 온도별 단계 클래스 적용 (두 위젯 공통)
+  _applyHeartTempStage(temp);
+}
+
+// 67차: 마음온도계 단계별 효과 — cold/warm/hot/very-hot/blazing
+function _applyHeartTempStage(temp) {
+  var t = Number(temp) || 0;
+  var stage = t >= 100 ? 'temp-blazing'
+            : t >= 90  ? 'temp-very-hot'
+            : t >= 60  ? 'temp-hot'
+            : t >= 30  ? 'temp-warm'
+            :            'temp-cold';
+  var widgets = document.querySelectorAll('.heart-temp-widget');
+  for (var i=0; i<widgets.length; i++) {
+    var w = widgets[i];
+    w.classList.remove('temp-cold','temp-warm','temp-hot','temp-very-hot','temp-blazing');
+    w.classList.add(stage);
+  }
 }
 
 // ── 학생 토큰 내역 로드 & 렌더 ──────────────────────────────
