@@ -7626,17 +7626,21 @@ function deactivateBtn(btn) {
   deactivate(uid, name);
 }
 async function deactivate(uid, name) {
-  if(!confirm(name+' 학생을 비활성화할까요?')) return;
+  if(!confirm(name+' 학생을 비활성화할까요?\n(토큰·감정·앨범 기록은 그대로 보존돼요)')) return;
   var res = await api('deactivate_student', { student_uid: uid });
   if(res.status==='ok') {
     toast('비활성화 완료');
     // 65차 B: 관리자면 학생 캐시 초기화 + 관리자 화면 즉시 갱신
-    // (기존엔 loadStudents만 불러서 관리자 화면은 탭 재진입 전까진 안 바뀌던 부수 버그)
+    // 67차: 감정바코드·훈훈습도계 goal·학급 평균 마음온도 등 학생수 의존 UI를
+    //       탭 재진입 없이 즉시 반영하도록 대시보드도 함께 호출
     if (STATE.role === 'admin') {
       _studentsByTeacher = {}; _studentsByTeacherLoaded = false;
-      renderAdminAccountMgmt();
+      Promise.all([
+        Promise.resolve(renderAdminAccountMgmt()),
+        loadAdminDashboard()
+      ]).catch(function(){});
     } else {
-      loadStudents();
+      Promise.all([ loadStudents(), loadDashboard() ]).catch(function(){});
     }
   }
   else toast(res.message);
