@@ -3002,6 +3002,11 @@ async function onLoginSuccess(data) {
     startDashboardPoll();        // 관리자면 60초 전체 폴링
     if (STATE.role === 'teacher' || STATE.role === 'admin') startEmotionSignalPoll(); // 교사: 자기 학급 / 관리자(66차): 전국 전체 Realtime
     startNotificationRealtime(); // 65차 E: 알림 실시간 구독 (teacher/admin 공통 — admin은 함수 내부에서 uid 없으면 return)
+    // 66차 C: 관리자는 헤더 ⚙️ 설정 아이콘 표시 (마음토큰 초기화 진입용)
+    if (STATE.role === 'admin') {
+      var _btnSetA = document.getElementById('btnSettings');
+      if (_btnSetA) _btnSetA.classList.remove('hidden');
+    }
 
   } else if (data.role === 'parent') {
     // 학부모 로그인 — 경량 모드 (폴링 없음)
