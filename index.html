@@ -536,16 +536,30 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .warmth-left{flex-shrink:0}
 .warmth-right{flex:1;min-width:0;border-left:1px solid var(--lgray);padding-left:12px}
 .warmth-title{font-family:'Black Han Sans',sans-serif;font-size:13px;color:var(--navy);margin-bottom:8px}
-.warmth-dots{display:flex;gap:8px}
-.warmth-dot{
-  width:32px;height:32px;border-radius:50%;
-  background:var(--lgray);font-size:18px;
-  display:flex;align-items:center;justify-content:center;
-  transition:background .3s, transform .2s;
+.warmth-dots{display:flex;gap:6px;align-items:center}
+/* 66차 D: 빈 하트 5개 고정. 선물 진척도(warmth_count/warmth_goal)에 비례해 아래→위 오렌지 채움 */
+.warmth-heart{
+  position:relative;
+  width:30px;height:30px;
+  font-size:30px;
+  line-height:1;
+  display:inline-block;
 }
-.warmth-dot.filled{
-  background:linear-gradient(135deg,#ff8c42,#ff5e1a);
-  transform:scale(1.1);
+.warmth-heart .wh-bg,
+.warmth-heart .wh-fill{
+  position:absolute;
+  top:0;left:0;
+  width:100%;
+  line-height:1;
+  pointer-events:none;
+}
+.warmth-heart .wh-bg{
+  color:#f1dfd2;
+}
+.warmth-heart .wh-fill{
+  color:#ff6b1a;
+  clip-path:inset(100% 0 0 0);
+  transition:clip-path .5s cubic-bezier(0.4,0,0.2,1);
 }
 
 /* ── 마음 온도 (학생 개인) ── */
@@ -1185,6 +1199,30 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <div><div class="settings-label">🎵 배경음악</div></div>
       <label class="toggle"><input type="checkbox" id="set-bgm-modal" onchange="AUDIO.toggleBgm(this.checked)"><span class="toggle-slider"></span></label>
     </div>
+    <!-- 66차 C: 관리자 전용 — 마음토큰 초기화 진입 -->
+    <div id="set-admin-section" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--lgray)">
+      <button class="btn btn-secondary" style="width:100%;font-size:13px;padding:10px;white-space:nowrap" onclick="openTokenResetModal()">🌡️ 학급 마음토큰 초기화</button>
+      <div style="font-size:11px;color:var(--gray);margin-top:6px;text-align:center">학교 → 교사(학급) 선택 후 전체 학생 일괄 초기화</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 모달: 마음토큰 초기화 (66차 C — 관리자 전용) ══ -->
+<div id="modal-token-reset" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-token-reset')">
+  <div class="modal-box" style="position:relative">
+    <div class="modal-title">🌡️ 학급 마음토큰 초기화</div>
+    <button class="modal-close" onclick="closeModal('modal-token-reset')">✕</button>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:14px;line-height:1.5">선택한 교사의 학급 전체 학생 마음토큰이 0으로 초기화됩니다. 토큰 기록(TOKENS)엔 "마음토큰 초기화" 흔적이 남고, 학생·교사 모두에게 알림이 갑니다.</div>
+    <div class="inp-label">🏫 학교</div>
+    <select class="inp" id="tr-school" style="margin-bottom:12px" onchange="_onTokenResetSchoolChange()">
+      <option value="">학교를 선택하세요</option>
+    </select>
+    <div class="inp-label">👩‍🏫 교사(학급)</div>
+    <select class="inp" id="tr-teacher" style="margin-bottom:14px">
+      <option value="">먼저 학교를 선택하세요</option>
+    </select>
+    <div id="tr-preview" style="font-size:12px;color:var(--navy);background:var(--mint4);border-radius:10px;padding:10px;margin-bottom:14px;display:none"></div>
+    <button class="btn btn-primary" id="tr-submit" onclick="submitTokenReset()" style="background:#e05050;border-color:#e05050">🌡️ 마음토큰 초기화</button>
   </div>
 </div>
 
@@ -1929,6 +1967,7 @@ async function _sbGetDashboard(teacher_uid) {
       total_students:students.length, submitted:todayEmo.length,
       not_submitted:notSubmitted, positive_count:pos, neutral_count:neu, negative_count:neg,
       weather:_calcWeather(pos,neu,neg,students.length), warmth_count:warmCount,
+      warmth_goal: Math.max(1, students.length), // 66차 D: 하트 5개 고정, goal=학생 수
       student_emotions:studentEmotions, emotion_words:emotion_words,
       today_emotions_list:todayEmo.slice(0,100).map(function(e){
         return {student_name:e.student_name, macro_emotion:e.macro_emotion,
@@ -2490,6 +2529,89 @@ function openSettings() {
   openModal('modal-settings');
   var m = document.getElementById('set-bgm-modal');
   if (m) m.checked = AUDIO.enabled.bgm;
+  // 66차 C: 관리자면 마음토큰 초기화 섹션 표시
+  var adm = document.getElementById('set-admin-section');
+  if (adm) adm.style.display = (STATE.role === 'admin') ? 'block' : 'none';
+}
+
+// 66차 C: 관리자 마음토큰 초기화 — 모달 진입 + 학교 드롭다운 채우기
+function openTokenResetModal() {
+  if (STATE.role !== 'admin') return;
+  closeModal('modal-settings');
+  var schoolSel = document.getElementById('tr-school');
+  var teacherSel = document.getElementById('tr-teacher');
+  var preview = document.getElementById('tr-preview');
+  if (schoolSel) schoolSel.innerHTML = '<option value="">학교를 선택하세요</option>';
+  if (teacherSel) teacherSel.innerHTML = '<option value="">먼저 학교를 선택하세요</option>';
+  if (preview) { preview.style.display = 'none'; preview.textContent = ''; }
+  // _teacherAll에서 active 학교 모음 (중복 제거)
+  var schools = {};
+  (_teacherAll || []).forEach(function(t) {
+    if (t.active !== 'Y' && t.active !== true) return;
+    if (t.school_name) schools[t.school_name] = true;
+  });
+  var schoolList = Object.keys(schools).sort(function(a,b){ return a.localeCompare(b,'ko'); });
+  schoolList.forEach(function(s) {
+    var opt = document.createElement('option');
+    opt.value = s; opt.textContent = s;
+    schoolSel.appendChild(opt);
+  });
+  openModal('modal-token-reset');
+}
+
+function _onTokenResetSchoolChange() {
+  var school = document.getElementById('tr-school').value;
+  var teacherSel = document.getElementById('tr-teacher');
+  var preview = document.getElementById('tr-preview');
+  teacherSel.innerHTML = '<option value="">교사를 선택하세요</option>';
+  if (preview) { preview.style.display = 'none'; preview.textContent = ''; }
+  if (!school) { teacherSel.innerHTML = '<option value="">먼저 학교를 선택하세요</option>'; return; }
+  var teachers = (_teacherAll || []).filter(function(t) {
+    return t.school_name === school && (t.active === 'Y' || t.active === true);
+  });
+  teachers.sort(function(a,b) {
+    var ag = Number(a.grade)||0, bg = Number(b.grade)||0;
+    if (ag !== bg) return ag - bg;
+    var ac = Number(a.class)||0, bc = Number(b.class)||0;
+    if (ac !== bc) return ac - bc;
+    return (a.name||'').localeCompare(b.name||'','ko');
+  });
+  teachers.forEach(function(t) {
+    var opt = document.createElement('option');
+    opt.value = t.teacher_uid;
+    var gcls = (t.grade ? t.grade+'학년 ' : '') + (t.class ? t.class+'반 ' : '');
+    opt.textContent = gcls + (t.name || '');
+    teacherSel.appendChild(opt);
+  });
+}
+
+async function submitTokenReset() {
+  if (STATE.role !== 'admin') return;
+  var teacher_uid = document.getElementById('tr-teacher').value;
+  if (!teacher_uid) { alert('교사(학급)를 선택해주세요'); return; }
+  var teacher = (_teacherAll || []).find(function(t){ return t.teacher_uid === teacher_uid; });
+  var label = teacher ? ((teacher.school_name||'') + ' ' + (teacher.grade||'')+'학년 '+(teacher.class||'')+'반 ' + (teacher.name||'') + ' 선생님') : '선택한 학급';
+  if (!confirm(label + '\n\n이 학급 전체 학생의 마음토큰을 0으로 초기화합니다.\n\n계속할까요?')) return;
+
+  var btn = document.getElementById('tr-submit');
+  if (btn) { btn.disabled = true; btn.textContent = '초기화 중...'; }
+  showLoading('마음토큰 초기화 중...');
+  try {
+    var res = await api('reset_teacher_tokens', { teacher_uid: teacher_uid });
+    if (res.status === 'ok') {
+      var n = (res.data && res.data.reset_count) || 0;
+      alert('✅ 초기화 완료 — ' + n + '명 학생의 마음토큰이 0으로 리셋되었습니다');
+      closeModal('modal-token-reset');
+    } else {
+      alert('❌ 초기화 실패: ' + (res.message || '알 수 없는 오류'));
+    }
+  } catch(e) {
+    console.error('[TOKEN-RESET]', e);
+    alert('❌ 초기화 실패: ' + e.message);
+  } finally {
+    hideLoading();
+    if (btn) { btn.disabled = false; btn.textContent = '🌡️ 마음토큰 초기화'; }
+  }
 }
 
 // ════════════════════════════════════════
@@ -3001,6 +3123,12 @@ function _clearSessionCaches() {
   // 66차: 학생 지난 대화 프리로드 캐시
   if (typeof STATE !== 'undefined' && STATE) STATE._preloadedChatHistory = null;
   _chatHistCache = [];
+  // 66차 D: 토큰·감정 STATE — 역할 전환 시 이전 컨텍스트 값 누설 방지
+  if (typeof STATE !== 'undefined' && STATE) {
+    STATE.tokenBalance = null;
+    STATE.tokenBalances = {};
+    STATE.studentEmotions = {};
+  }
 }
 
 function logout() {
@@ -3907,9 +4035,13 @@ function previewTeacher() {
     var cFill = document.getElementById('classTempFill');
     if (cFill) setTimeout(function(){ cFill.style.width = '27%'; }, 200);
     if (warmth) {
+      // 66차 D: 미리보기 진척도 60% → 하트 5개 중 3개 완전 채움
+      var _pvFill = 3;
       for (var i=1; i<=5; i++) {
-        var dot = document.getElementById('wd'+i);
-        if (dot) dot.classList.toggle('filled', i<=3);
+        var fillEl = document.getElementById('wd'+i+'f');
+        if (!fillEl) continue;
+        var _px = Math.max(0, Math.min(1, _pvFill - (i-1)));
+        fillEl.style.clipPath = 'inset(' + ((1-_px)*100).toFixed(2) + '% 0 0 0)';
       }
     }
     var miss = document.getElementById('notSubmitList');
@@ -4193,9 +4325,13 @@ function _openTeacherFormCreate(nfcUid) {
 
 function dashboardHTML() {
   if (STATE.role === 'admin') return adminDashboardHTML();
+  // 66차 D: 하트 5개 고정, 아래→위 오렌지 채움 (선물 goal=학생 수)
   var warmthDots = '';
   for (var wi=1; wi<=5; wi++) {
-    warmthDots += '<div class="warmth-dot" id="wd'+wi+'">🤍</div>';
+    warmthDots += '<div class="warmth-heart" id="wd'+wi+'">' +
+      '<span class="wh-bg">♥</span>' +
+      '<span class="wh-fill" id="wd'+wi+'f">♥</span>' +
+    '</div>';
   }
   return '<div class="dashboard-header">' +
     '<div class="dashboard-updated" id="dashUpdatedAt">불러오는 중...</div>' +
@@ -4364,6 +4500,7 @@ function studentMgmtHTML() {
   return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">' +
     '<button class="btn btn-primary" style="width:auto;flex-shrink:0;font-size:12px;padding:6px 14px;white-space:nowrap" onclick="openNfcRegister()">🪪 마음카드 등록</button>' +
     '<div style="display:flex;gap:5px;margin-left:auto">' +
+      '<button id="stu-refresh-btn" class="btn btn-sm btn-secondary" onclick="reloadStudentsTab()" title="학생 정보 새로고침" style="font-size:11px;padding:5px 9px;white-space:nowrap">🔄</button>' +
       '<button id="stu-sort-num"  class="btn btn-sm btn-secondary adm-sort-btn active-sort" onclick="stuSortBy(\'num\')" style="font-size:11px;padding:5px 10px;white-space:nowrap">번호순</button>' +
       '<button id="stu-sort-name" class="btn btn-sm btn-secondary adm-sort-btn" onclick="stuSortBy(\'name\')" style="font-size:11px;padding:5px 10px;white-space:nowrap">이름순</button>' +
     '</div>' +
@@ -4871,13 +5008,15 @@ async function loadDashboard() {
     renderEmotionBarcode(); // 우리반 감정 바코드 갱신
   }
 
+  // 66차 D: 하트 5개 고정, 선물 진척도(warmth_count/warmth_goal) × 5로 아래→위 오렌지 채움
+  var _wCount = Number(d.warmth_count)||0;
+  var _wGoal  = Math.max(1, Number(d.warmth_goal)||5);
+  var _heartFill = Math.min(5, (_wCount / _wGoal) * 5); // 0~5
   for (var i=1; i<=5; i++) {
-    var dot = document.getElementById('wd'+i);
-    if (dot) {
-      var isFilled = i <= (d.warmth_count||0);
-      dot.classList.toggle('filled', isFilled);
-      dot.textContent = isFilled ? '🧡' : '🤍';
-    }
+    var fillEl = document.getElementById('wd'+i+'f');
+    if (!fillEl) continue;
+    var x = Math.max(0, Math.min(1, _heartFill - (i-1))); // 0~1
+    fillEl.style.clipPath = 'inset(' + ((1-x)*100).toFixed(2) + '% 0 0 0)';
   }
 
   var dist = document.getElementById('emotionDist');
@@ -6738,6 +6877,19 @@ async function loadStudents() {
   STATE.students = res.data.students;
   _studentShowCount = 5; // 초기화
   renderStudentList();
+}
+
+// 66차 B: 교사 학생관리 탭 수동 새로고침 — 학생 목록 + 감정/토큰 동기화
+async function reloadStudentsTab() {
+  if (STATE.isPreview) return;
+  var btn = document.getElementById('stu-refresh-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  try {
+    await Promise.all([ loadStudents(), loadDashboard() ]);
+  } catch(e) { console.error('[STU-REFRESH]', e); }
+  finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄'; }
+  }
 }
 
 var _studentShowCount = 5;
