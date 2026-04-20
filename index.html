@@ -8786,6 +8786,15 @@ function addBotMsg(text) {
   STATE.chatHistory.push({ role:'model', text });
 }
 
+// 66차 C: 봇 임시/에러 메시지 — DOM에만 표시, chatHistory 안 쌓음
+// 쌓이면 ① CHAT_LOG(messages_json)에 박제되고 ② 다음 chat_bot 호출 시 AI가 자기 에러 답을 이전 발화로 착각
+function addBotTransientMsg(text) {
+  var wrap = document.getElementById('chatMessages');
+  if(!wrap) return;
+  wrap.innerHTML += '<div class="chat-msg bot"><div class="chat-avatar">🤖</div><div class="chat-bubble" style="opacity:0.75">'+text+'</div></div>';
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
 function addUserMsg(text) {
   var wrap = document.getElementById('chatMessages');
   if(!wrap) return;
@@ -9012,7 +9021,7 @@ async function sendChat() {
   if(typingEl) typingEl.remove();
 
   if(res.status==='ok') addBotMsg(res.data.reply);
-  else addBotMsg('잠시 후 다시 말해봐 💙');
+  else addBotTransientMsg('잠시 후 다시 말해봐 💙'); // 66차 C: 에러 fallback은 chatHistory에 쌓지 않음
 }
 
 
@@ -9306,7 +9315,8 @@ async function loadTokenLog() {
         'gift_sent':'선물 보냄','gift_received':'선물 받음','gift_recv':'선물 받음',
         'gift_save':'선물 1개 저축','gift_save_all':'선물 모두 저축','class_bonus':'학급 보너스',
         'game':'게임 보상','regular':'저축','gift_one':'선물 저축','gift_all':'선물 전체 저축',
-        'all':'전체 저축','legacy':'저축'};
+        'all':'전체 저축','legacy':'저축',
+        'admin_reset':'🌡️ 마음토큰 초기화'}; // 66차 C: 관리자 학급 일괄 초기화
       var GAIN={daily:1,gift_received:1,gift_recv:1,class_bonus:1,game:1};
       _tokenLogs = rows.map(function(r) {
         var type=String(r.type||''), amount=Math.abs(Number(r.amount||0));
@@ -9318,7 +9328,9 @@ async function loadTokenLog() {
         if(type==='gift_received'||type==='gift_recv') label=(r.from_student_name?r.from_student_name+'에게서 선물':'선물 받음');
         var d=r.timestamp?new Date(new Date(r.timestamp).getTime()+9*3600000):null;
         var dateStr=d?((d.getUTCMonth()+1)+'/'+d.getUTCDate()):'';
-        return {date:dateStr,label:label,amount:sign+amount,gain:isGain,type:type};
+        // 66차 C: admin_reset은 amount 칸 비움 (± 부호 없이 한 줄)
+        var amountStr = (type === 'admin_reset') ? '' : (sign + amount);
+        return {date:dateStr,label:label,amount:amountStr,gain:isGain,type:type};
       });
       _tokenLogPage=0; renderTokenLogPage(); return;
     }
@@ -9347,6 +9359,12 @@ function renderTokenLogPage() {
     var icon = '🪙';
     if (log.type === 'gift_received' || log.type === 'gift_recv') icon = '⬅️🪙';
     else if (log.type === 'gift_sent') icon = '➡️🪙';
+    // 66차 C: 마음토큰 초기화는 한 줄 간략 표시 (amount·아이콘 영역 비움, 라벨에 🌡️ 이미 포함)
+    if (log.type === 'admin_reset') {
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--lgray2);color:var(--gray)">' +
+        '<div><span style="color:var(--lgray);font-size:11px;margin-right:6px">' + log.date + '</span><span>' + log.label + '</span></div>' +
+      '</div>';
+    }
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--lgray2)">' +
       '<div><span style="color:var(--lgray);font-size:11px;margin-right:6px">' + log.date + '</span><span>' + log.label + '</span></div>' +
       '<span style="font-weight:800;color:' + color + ';flex-shrink:0;margin-left:8px">' + log.amount + ' ' + icon + '</span>' +
