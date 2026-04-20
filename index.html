@@ -2318,7 +2318,8 @@ async function api(action, data) {
     xhr.ontimeout = function() {
       resolve({ status:'error', message:'응답 시간이 초과됐어요. 잠시 후 다시 시도해주세요 ⏱' });
     };
-    xhr.timeout = 30000;
+    // 66차 C: 관리자 학급 일괄 작업(토큰 초기화 등)은 30초로 부족 — 90초로 연장
+    xhr.timeout = (action === 'reset_teacher_tokens') ? 90000 : 30000;
     xhr.send(payload);
   });
 }
