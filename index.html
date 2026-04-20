@@ -1199,11 +1199,6 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <div><div class="settings-label">🎵 배경음악</div></div>
       <label class="toggle"><input type="checkbox" id="set-bgm-modal" onchange="AUDIO.toggleBgm(this.checked)"><span class="toggle-slider"></span></label>
     </div>
-    <!-- 66차 C: 관리자 전용 — 마음토큰 초기화 진입 -->
-    <div id="set-admin-section" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--lgray)">
-      <button class="btn btn-secondary" style="width:100%;font-size:13px;padding:10px;white-space:nowrap" onclick="openTokenResetModal()">🌡️ 학급 마음토큰 초기화</button>
-      <div style="font-size:11px;color:var(--gray);margin-top:6px;text-align:center">학교 → 교사(학급) 선택 후 전체 학생 일괄 초기화</div>
-    </div>
   </div>
 </div>
 
@@ -2526,12 +2521,14 @@ function _uiConfirm(title, message, onOk, opts) {
 }
 function openLoginModal() { openModal('modal-login'); }
 function openSettings() {
+  // 66차 C: 관리자는 BGM 모달 대신 🛠 관리자 탭(idx 4)으로 이동 — 마음토큰 초기화도 거기에 있음
+  if (STATE.role === 'admin') {
+    switchTab(4);
+    return;
+  }
   openModal('modal-settings');
   var m = document.getElementById('set-bgm-modal');
   if (m) m.checked = AUDIO.enabled.bgm;
-  // 66차 C: 관리자면 마음토큰 초기화 섹션 표시
-  var adm = document.getElementById('set-admin-section');
-  if (adm) adm.style.display = (STATE.role === 'admin') ? 'block' : 'none';
 }
 
 // 66차 C: 관리자 마음토큰 초기화 — 모달 진입 + 학교 드롭다운 채우기
@@ -3425,13 +3422,19 @@ function adminHTML() {
       '<label class="toggle"><input type="checkbox" id="adm-set-bgm" onchange="AUDIO.toggleBgm(this.checked)"><span class="toggle-slider"></span></label>' +
     '</div>' +
   '</div>' +
-  '<div class="card card-sky">' +
+  '<div class="card card-sky" style="margin-bottom:10px">' +
     '<div class="card-label gaegu">👀 화면 미리보기</div>' +
     '<div style="font-size:12px;color:var(--gray);margin-bottom:10px">더미 데이터로 교사·학생 화면을 미리 볼 수 있어요</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
       '<button class="btn btn-peach" onclick="previewTeacher()">👩‍🏫 교사 화면</button>' +
       '<button class="btn btn-lav" onclick="previewStudent()">👧 학생 화면</button>' +
     '</div>' +
+  '</div>' +
+  // 66차 C: 관리자 전용 — 학급 마음토큰 초기화 (관리자 탭에 상주)
+  '<div class="card">' +
+    '<div class="card-label gaegu">🌡️ 학급 마음토큰 초기화</div>' +
+    '<div style="font-size:12px;color:var(--gray);margin-bottom:10px;line-height:1.5">선택한 학급 전체 학생의 누적 마음토큰을 0으로 리셋합니다. 선물·대화·앨범 등 <b>기록은 그대로 유지</b>되고, 토큰 잔액만 초기화돼요.</div>' +
+    '<button class="btn" style="width:100%;background:#fff4f1;border:1.5px solid #e05050;color:#e05050;font-weight:700;padding:11px;border-radius:10px" onclick="openTokenResetModal()">🌡️ 마음토큰 초기화 하기</button>' +
   '</div>';
 }
 
