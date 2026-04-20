@@ -11192,13 +11192,14 @@ async function openAlbumPopup(idx) {
   imgEl.src = preThumb;
   openModal('modal-album-popup');
 
-  // 역할별 caller_uid (관리자는 teacher_uid 사용하는 기존 관례 그대로)
+  // 역할별 caller_uid — 66차 C: 관리자는 admin_uid (teacher_uid 없음 → "권한 정보 없음" 토스트 버그 수정)
   var role = STATE.role || (STATE.user && STATE.user.role) || '';
   var callerUid = '';
   if (STATE.user) {
-    if (role === 'teacher' || role === 'admin') callerUid = STATE.user.teacher_uid || '';
-    else if (role === 'student')                callerUid = STATE.user.student_uid || '';
-    else if (role === 'parent')                 callerUid = STATE.user.parent_uid || '';
+    if (role === 'teacher')      callerUid = STATE.user.teacher_uid || '';
+    else if (role === 'admin')   callerUid = STATE.user.admin_uid || '';
+    else if (role === 'student') callerUid = STATE.user.student_uid || '';
+    else if (role === 'parent')  callerUid = STATE.user.parent_uid || '';
   }
 
   try {
