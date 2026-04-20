@@ -10281,6 +10281,18 @@ async function giftToken(friend) {
   // 탭 즉시 모달 닫기 (자연스러운 UX)
   closeModal('modal-gift-select');
 
+  // 66차 C: 프론트 사전 방어 — 받은 선물 토큰은 다시 선물 불가
+  // Supabase rpc_gift_token에 서버 방어 누락 시 왕복 선물로 훈훈습도계 폭주 문제 대응
+  // (RPC에도 동일 체크 넣는 2단계 조치와 병행)
+  if (!STATE.isPreview) {
+    var _tbG = STATE.tokenBalance || {};
+    var _giftable = (Number(_tbG.current_balance)||0) - (Number(_tbG.gift_balance)||0);
+    if (_giftable < 1) {
+      toast('선물받은 토큰은 다시 선물할 수 없어요 💝\n직접 획득한 토큰이 부족해요');
+      return;
+    }
+  }
+
   // 미리보기 모드: mock 성공
   if (STATE.isPreview) {
     toast(_firstName(friend.name) + '에게 선물했어요 💝\n잔액을 불러오는 중이에요 💌');
