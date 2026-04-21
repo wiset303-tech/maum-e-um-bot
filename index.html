@@ -569,11 +569,53 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   display:flex;align-items:center;gap:14px;
   position:relative;
 }
+/* 70차: 세로형 CSS 온도계 (SVG 금지) */
 .heart-temp-icon{
-  font-size:36px;line-height:1;flex-shrink:0;
+  width:42px;height:84px;flex-shrink:0;
   position:relative;
+  transform:rotate(-6deg);
   transition:transform .35s ease, filter .35s ease;
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.08));
 }
+.heart-temp-glass{
+  position:absolute;top:2px;left:50%;transform:translateX(-50%);
+  width:18px;height:62px;
+  background:#e0f2fe;border:2px solid #bae6fd;
+  border-radius:9px 9px 4px 4px;
+  overflow:hidden;
+  box-shadow:inset 2px 0 3px rgba(255,255,255,.6), inset -2px 0 3px rgba(0,0,0,.06);
+}
+.heart-temp-glass-inner{
+  position:absolute;left:4px;right:4px;top:4px;bottom:0;
+  background:#f1f5f9;border-radius:3px 3px 0 0;
+}
+.heart-temp-mercury-bar{
+  position:absolute;left:4px;right:4px;bottom:0;
+  height:0%;
+  background:#ffb380;
+  border-radius:3px 3px 0 0;
+  transition:height 1s cubic-bezier(.4,0,.2,1), background .5s ease, box-shadow .5s ease;
+}
+.heart-temp-bulb{
+  position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);
+  width:30px;height:30px;border-radius:50%;
+  background:#ffb380;border:2px solid #bae6fd;
+  box-shadow:inset 3px 3px 4px rgba(255,255,255,.35);
+  transition:background .5s ease, box-shadow .5s ease;
+}
+.heart-temp-bulb::after{
+  content:'';position:absolute;top:5px;left:6px;
+  width:8px;height:8px;border-radius:50%;
+  background:rgba(255,255,255,.55);
+}
+.heart-temp-tick{
+  position:absolute;left:-2px;
+  width:6px;height:2px;
+  background:#94a3b8;border-radius:1px;
+}
+.heart-temp-tick.t1{top:14px}
+.heart-temp-tick.t2{top:30px}
+.heart-temp-tick.t3{top:46px}
 .heart-temp-info{flex:1;min-width:0}
 .heart-temp-label{font-size:12px;color:var(--gray);margin-bottom:2px}
 .heart-temp-value{
@@ -595,16 +637,20 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   transition:width 1s cubic-bezier(.4,0,.2,1), background .5s ease, box-shadow .5s ease;
 }
 
-/* 0~29도: 연노랑-주황 (쌀쌀한 시작) */
+/* 0~29도: 연주황 (부드러운 시작 — 70차 변쌤 요청 "샛노랑 금지") */
 .heart-temp-widget.temp-cold .heart-temp-value,
-.heart-temp-widget.temp-cold .heart-temp-deg{ color:#e8a83a; }
-.heart-temp-widget.temp-cold .heart-temp-bar{ background:linear-gradient(90deg,#ffe6a7,#ffbf5e); }
-.heart-temp-widget.temp-cold .heart-temp-icon{ filter:grayscale(.25) brightness(.98); }
+.heart-temp-widget.temp-cold .heart-temp-deg{ color:#ff9a5a; }
+.heart-temp-widget.temp-cold .heart-temp-bar{ background:linear-gradient(90deg,#ffd4b0,#ffb380); }
+.heart-temp-widget.temp-cold .heart-temp-mercury-bar,
+.heart-temp-widget.temp-cold .heart-temp-bulb{ background:#ffb380; }
+.heart-temp-widget.temp-cold .heart-temp-icon{ filter:drop-shadow(0 2px 3px rgba(0,0,0,.08)) brightness(1.02); }
 
 /* 30~59도: 주황 (따뜻해짐) */
 .heart-temp-widget.temp-warm .heart-temp-value,
 .heart-temp-widget.temp-warm .heart-temp-deg{ color:#ff8a2a; }
 .heart-temp-widget.temp-warm .heart-temp-bar{ background:linear-gradient(90deg,#ffcf70,#ff8f3a); }
+.heart-temp-widget.temp-warm .heart-temp-mercury-bar,
+.heart-temp-widget.temp-warm .heart-temp-bulb{ background:#ff8a2a; }
 
 /* 60~89도: 진주황→빨강 (뜨끈) */
 .heart-temp-widget.temp-hot .heart-temp-value,
@@ -613,7 +659,9 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   background:linear-gradient(90deg,#ff8f3a,#ff4a1a);
   box-shadow:0 0 8px rgba(255,90,20,.4);
 }
-.heart-temp-widget.temp-hot .heart-temp-icon{ transform:scale(1.04); }
+.heart-temp-widget.temp-hot .heart-temp-mercury-bar{ background:#ff5e1a; box-shadow:0 0 6px rgba(255,90,20,.5); }
+.heart-temp-widget.temp-hot .heart-temp-bulb{ background:#ff5e1a; box-shadow:0 0 10px rgba(255,90,20,.6), inset 3px 3px 4px rgba(255,255,255,.3); }
+.heart-temp-widget.temp-hot .heart-temp-icon{ transform:rotate(-6deg) scale(1.03); }
 
 /* 90~99도: 강한 글로우 + 맥동 (직전 단계) */
 .heart-temp-widget.temp-very-hot .heart-temp-value,
@@ -625,8 +673,24 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   background:linear-gradient(90deg,#ff6a1a,#ff1a00);
   animation:heartTempPulse 1.3s infinite ease-in-out;
 }
+.heart-temp-widget.temp-very-hot .heart-temp-mercury-bar{
+  background:#ff2a0a;
+  animation:heartTempMercuryPulse 1.2s infinite ease-in-out;
+}
+.heart-temp-widget.temp-very-hot .heart-temp-bulb{
+  background:#ff2a0a;
+  animation:heartTempBulbPulse 1.2s infinite ease-in-out;
+}
+@keyframes heartTempMercuryPulse{
+  0%,100% { box-shadow:0 0 4px rgba(255,40,0,.6); }
+  50%     { box-shadow:0 0 12px rgba(255,20,0,1); }
+}
+@keyframes heartTempBulbPulse{
+  0%,100% { box-shadow:0 0 10px rgba(255,40,0,.7), inset 3px 3px 4px rgba(255,255,255,.3); }
+  50%     { box-shadow:0 0 22px rgba(255,20,0,1),  inset 3px 3px 5px rgba(255,240,180,.55); }
+}
 .heart-temp-widget.temp-very-hot .heart-temp-icon{
-  transform:scale(1.08);
+  transform:rotate(-6deg) scale(1.06);
   filter:drop-shadow(0 0 8px rgba(255,70,0,.7));
 }
 @keyframes heartTempPulse{
@@ -650,13 +714,27 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   0%   { background:linear-gradient(90deg,#ff8a00,#ff3300); box-shadow:0 0 10px rgba(255,60,0,.7); }
   100% { background:linear-gradient(90deg,#ffcf5a,#ff1a00); box-shadow:0 0 22px rgba(255,20,0,1), inset 0 0 10px rgba(255,230,160,.6); }
 }
+.heart-temp-widget.temp-blazing .heart-temp-mercury-bar{
+  animation:heartTempMercuryBurn .9s infinite alternate ease-in-out;
+}
+@keyframes heartTempMercuryBurn{
+  0%   { background:#ff5e00; box-shadow:0 0 6px rgba(255,90,0,.9); }
+  100% { background:#ff1a00; box-shadow:0 0 16px rgba(255,20,0,1); }
+}
+.heart-temp-widget.temp-blazing .heart-temp-bulb{
+  animation:heartTempBulbBurn .9s infinite alternate ease-in-out;
+}
+@keyframes heartTempBulbBurn{
+  0%   { background:#ff5e00; box-shadow:0 0 14px rgba(255,90,0,.9),  inset 3px 3px 4px rgba(255,255,255,.35); }
+  100% { background:#ff0000; box-shadow:0 0 28px rgba(255,20,0,1.0), inset 3px 3px 5px rgba(255,230,160,.6); }
+}
 .heart-temp-widget.temp-blazing .heart-temp-icon{
   animation:heartTempShake .5s infinite alternate ease-in-out;
   filter:drop-shadow(0 0 10px rgba(255,90,0,.9));
 }
 @keyframes heartTempShake{
-  0%   { transform:rotate(-4deg) scale(1.04); }
-  100% { transform:rotate(4deg)  scale(1.12); }
+  0%   { transform:rotate(-10deg) scale(1.04); }
+  100% { transform:rotate(-2deg)  scale(1.12); }
 }
 
 /* 불꽃 파티클 — 기본 숨김, blazing 때만 재생 */
@@ -8904,10 +8982,18 @@ function emotionInputHTML() {
     '</div>' +
   '</div>' +
   '<div class="heart-temp-widget">' +
-    '<div class="heart-temp-icon">🌡️' +
+    '<div class="heart-temp-icon">' +
       '<span class="heart-temp-flame f1">🔥</span>' +
       '<span class="heart-temp-flame f2">✨</span>' +
       '<span class="heart-temp-flame f3">🔥</span>' +
+      '<div class="heart-temp-glass">' +
+        '<div class="heart-temp-glass-inner"></div>' +
+        '<div class="heart-temp-mercury-bar"></div>' +
+      '</div>' +
+      '<div class="heart-temp-bulb"></div>' +
+      '<div class="heart-temp-tick t1"></div>' +
+      '<div class="heart-temp-tick t2"></div>' +
+      '<div class="heart-temp-tick t3"></div>' +
     '</div>' +
     '<div class="heart-temp-info">' +
       '<div class="heart-temp-label">내 마음의 온도</div>' +
@@ -9713,10 +9799,18 @@ async function saveChatLogIfNeeded() {
 // ── 마음토큰 ──
 function tokenHTML() {
   return '<div class="heart-temp-widget" style="margin-bottom:10px">' +
-      '<div class="heart-temp-icon">🌡️' +
+      '<div class="heart-temp-icon">' +
         '<span class="heart-temp-flame f1">🔥</span>' +
         '<span class="heart-temp-flame f2">✨</span>' +
         '<span class="heart-temp-flame f3">🔥</span>' +
+        '<div class="heart-temp-glass">' +
+          '<div class="heart-temp-glass-inner"></div>' +
+          '<div class="heart-temp-mercury-bar"></div>' +
+        '</div>' +
+        '<div class="heart-temp-bulb"></div>' +
+        '<div class="heart-temp-tick t1"></div>' +
+        '<div class="heart-temp-tick t2"></div>' +
+        '<div class="heart-temp-tick t3"></div>' +
       '</div>' +
       '<div class="heart-temp-info">' +
         '<div class="heart-temp-label">내 마음의 온도</div>' +
@@ -9921,8 +10015,9 @@ function updateHeartTempUI(temp) {
 }
 
 // 67차: 마음온도계 단계별 효과 — cold/warm/hot/very-hot/blazing
+// 70차: 세로형 CSS 온도계 수은주 height도 함께 설정 (SVG 금지, 순수 CSS)
 function _applyHeartTempStage(temp) {
-  var t = Number(temp) || 0;
+  var t = Math.max(0, Math.min(100, Number(temp) || 0));
   var stage = t >= 100 ? 'temp-blazing'
             : t >= 90  ? 'temp-very-hot'
             : t >= 60  ? 'temp-hot'
@@ -9933,6 +10028,9 @@ function _applyHeartTempStage(temp) {
     var w = widgets[i];
     w.classList.remove('temp-cold','temp-warm','temp-hot','temp-very-hot','temp-blazing');
     w.classList.add(stage);
+    // 수은주 높이 (0~100도 → 0~100%)
+    var merc = w.querySelector('.heart-temp-mercury-bar');
+    if (merc) merc.style.height = t + '%';
   }
 }
 
