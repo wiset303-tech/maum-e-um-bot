@@ -4717,7 +4717,7 @@ function dashboardHTML() {
       '<div class="class-temp-title" style="color:#0F6E56">🌍 전국 마음 온도</div>' +
       '<div style="display:flex;align-items:center;gap:8px">' +
         '<button class="btn btn-sm btn-secondary" style="font-size:11px;padding:4px 10px;white-space:nowrap" onclick="openNationalMapModal()">🗺️ 지도 보기</button>' +
-        '<div class="class-temp-degree" style="color:#0F6E56"><span id="nationalTempValue">—</span>°</div>' +
+        '<div class="class-temp-degree" style="color:#0F6E56;white-space:nowrap"><span id="nationalTempValue">—</span>°</div>' +
       '</div>' +
     '</div>' +
     '<div class="class-temp-track">' +
@@ -5309,25 +5309,10 @@ async function loadDashboard() {
   if (btnRef) btnRef.classList.remove('spinning');
   if (res.status !== 'ok') return;
 
-  // 58차: 전국 마음온도 — Supabase 즉시 집계 (숫자만), 지도 데이터는 GAS 백그라운드
-  if (!_nationalMapCache) {
-    // 숫자 먼저 (Supabase ~100ms)
-    _sbFetch('token_balance', { select:'total_saved' }).then(function(allBal) {
-      if (!allBal || !allBal.length) return;
-      var sum = 0;
-      allBal.forEach(function(b){ sum += Math.min((Number(b.total_saved)||0)/2, 100); });
-      var avgTemp = Math.round(sum / allBal.length);
-      setText('nationalTempValue', avgTemp);
-      var natFill = document.getElementById('nationalTempFill');
-      if (natFill) setTimeout(function(){ natFill.style.width = avgTemp + '%'; }, 150);
-    }).catch(function(){});
-    // 지도 데이터 (GAS 백그라운드 — 모달 열 때 사용)
-    _sbGetAdminDashboard().then(function(natRes) {
-      if (natRes && natRes.status === 'ok') {
-        _nationalMapCache = natRes.data.schools || [];
-      }
-    }).catch(function(){});
-  }
+  // 69차: 전국 마음온도 — 기존 _sbFetch('token_balance',{select:...}) 경로가
+  //   빈 결과 반환 문제 있어 dead code였던 _preloadNationalTemp() 사용
+  //   (_sbGetAdminDashboard 경유 · nation_temp + schools 한 번에 캐시)
+  _preloadNationalTemp();
 
   var d = res.data;
   STATE.dashboard = d;
