@@ -2190,10 +2190,15 @@ async function _sbGetAdminDashboard() {
     _sbFetch('students',      { active:'eq.Y' }),
     _sbFetch('emotions',      { timestamp:'gte.'+todayStart, type:'eq.checkin' }),
     _sbFetch('token_balance', {}),
+    // 68차 B: GAS에서 "현재 연속 3회 negative 학생 + 오늘 crisis_flag=Y 학생 unique 수" 집계
+    //        Supabase만으론 최근 3개 체크인 연속 판정이 어려워 GAS 병렬 호출로 처리
+    api('get_today_crisis_count', {}).catch(function(){ return { status:'error', data:{ count:0 } }; })
   ]);
   var sbSchools = results[0]||[], teachers = results[1]||[];
   var students  = results[2]||[], todayEmo = results[3]||[];
   var balances  = results[4]||[];
+  var crisisRes = results[5];
+  var gasCrisisCount = (crisisRes && crisisRes.data && Number(crisisRes.data.count)) || 0;
 
   // 1. schoolRegionMap: school_name → region
   var schoolRegionMap = {};
@@ -2221,8 +2226,11 @@ async function _sbGetAdminDashboard() {
     }
   });
 
-  // 4. schoolEmo: school_name → {pos, neu, neg, submitted_uids{}}; nationCrisis
-  var schoolEmo = {}, nationCrisis = 0;
+  // 4. schoolEmo: school_name → {pos, neu, neg, submitted_uids{}}
+  //    68차 B: nationCrisis는 GAS get_today_crisis_count 결과로 대체
+  //            (여기선 학교별 감정 분포 집계만 담당)
+  var schoolEmo = {};
+  var nationCrisis = gasCrisisCount;
   todayEmo.forEach(function(e) {
     var esn = e.school_name;
     if (!esn && teacherMap[e.teacher_uid]) esn = teacherMap[e.teacher_uid].school_name;
@@ -2231,7 +2239,7 @@ async function _sbGetAdminDashboard() {
     var mac = e.macro_emotion;
     if (mac==='positive') schoolEmo[esn].pos++;
     else if (mac==='neutral') schoolEmo[esn].neu++;
-    else if (mac==='negative') { schoolEmo[esn].neg++; nationCrisis++; }
+    else if (mac==='negative') schoolEmo[esn].neg++;
     schoolEmo[esn].submitted_uids[e.student_uid] = true;
   });
 
