@@ -270,6 +270,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .tab-bar{
   display:flex;background:#fff;border-bottom:2px solid var(--mint3);
   flex-shrink:0;
+  padding-right:10px; /* 70차: 탭을 살짝 왼쪽으로 당겨 오른쪽 여백 확보 */
 }
 .tab-bar::-webkit-scrollbar{display:none}
 .tab-btn{
@@ -1622,7 +1623,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     </div>
     <div class="inp-label" id="sf-pw-label">비밀번호</div>
     <input class="inp" id="sf-pw" placeholder="기본: maum1234" style="margin-bottom:4px">
-    <div data-mode="create" style="font-size:11px;color:var(--gray);margin-bottom:12px">비워두면 maum1234로 자동 설정</div>
+    <div data-mode="create" style="font-size:11px;color:var(--gray);margin-bottom:12px">비워두면 maum1234로 자동 설정 (직접 입력 시: 8자 이상 · 영문+숫자)</div>
     <button class="btn btn-primary" id="sf-submit-btn" onclick="submitStudentForm()">등록 완료</button>
   </div>
 </div>
@@ -8310,7 +8311,7 @@ function openChangePwSelf() {
 function openChangePw(uid, name) {
   closeStuMenu();
   _pwTargetUid = uid;
-  document.getElementById('changePwDesc').textContent = name + ' 학생의 새 비밀번호를 입력하세요 (6자 이상)';
+  document.getElementById('changePwDesc').textContent = name + ' 학생의 새 비밀번호를 입력하세요 (8자 이상 · 영문+숫자)';
   document.getElementById('changePwInput').value = '';
   document.getElementById('changePwInput').dataset.mode = 'student';
   var cwrap = document.getElementById('changePwCurrentWrap');
@@ -9066,7 +9067,7 @@ function openParentChangePw() {
     '<div class="inp-label">현재 비밀번호 <span style="color:#e05050">*</span></div>' +
     '<input class="inp" id="pcp-old" type="password" placeholder="현재 비밀번호" style="margin-bottom:10px">' +
     '<div class="inp-label">새 비밀번호 <span style="color:#e05050">*</span></div>' +
-    '<input class="inp" id="pcp-new" type="password" placeholder="6자 이상" style="margin-bottom:16px"' +
+    '<input class="inp" id="pcp-new" type="password" placeholder="8자 이상 · 영문+숫자" style="margin-bottom:16px"' +
       ' onkeydown="if(event.key===\'Enter\')confirmParentChangePw()">' +
     '<div style="display:flex;gap:8px">' +
       '<button class="btn btn-secondary" style="flex:1" onclick="closeModal(\'modal-parent-create\')">취소</button>' +
@@ -9269,6 +9270,29 @@ function _paintStuAttGrid() {
   body.innerHTML = html;
 }
 
+// 70차: 감정 제출 직후 오늘 row를 출석부 캐시에 즉시 주입 + 현재 달 보고 있으면 재렌더
+function _updateStuAttCacheForToday(row) {
+  try {
+    var todayKst = new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+    if (typeof _stuAtt !== 'object' || !_stuAtt) return;
+    if (!_stuAtt.map) _stuAtt.map = {};
+    _stuAtt.map[todayKst] = {
+      macro: row.macro || '',
+      micro: row.micro || '',
+      is_custom: !!row.is_custom,
+      custom_text: row.custom_text || '',
+      is_modified: !!row.is_modified,
+      modified_at: row.modified_at || ''
+    };
+    // 현재 열어둔 달이 이번 달이면 그리드 즉시 재렌더
+    var t = new Date(Date.now()+9*3600000);
+    if (_stuAtt.year === t.getUTCFullYear() && _stuAtt.month === t.getUTCMonth()) {
+      var body = document.getElementById('stuAttBody');
+      if (body && body.querySelector('.stu-att-grid')) _paintStuAttGrid();
+    }
+  } catch(e) { /* UI 반영 실패해도 저장은 이미 완료 */ }
+}
+
 function changeStuAttMonth(offset) {
   var today = new Date(Date.now() + 9*3600000);
   var newMonth = _stuAtt.month + offset;
@@ -9464,6 +9488,38 @@ async function submitEmotion() {
 
   var micro = STATE.selectedMicro;
   var scoreMap = {'positive':2,'neutral':0,'negative':-2};
+  var todayKstStr = new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+
+  // 70차: 제출 직전 Supabase 실시간 재확인 — 프론트 STATE 플래그가 stale일 수 있음
+  // (로그인 프리로드가 엉뚱한 row를 "오늘"로 잡거나 자정 경계 직후 잔상 방어)
+  try {
+    var verifyRows = await _sbFetch('emotions', {
+      student_uid:'eq.'+STATE.user.student_uid,
+      type:'eq.checkin',
+      timestamp:'gte.'+todayKstStr+'T00:00:00',
+      order:'timestamp.desc', limit:'1',
+      select:'emotion_uid,timestamp,is_modified'
+    });
+    var hasTodayRow = false;
+    if (verifyRows && verifyRows.length) {
+      var vd = String(verifyRows[0].timestamp || '').slice(0,10);
+      hasTodayRow = (vd === todayKstStr);
+    }
+    if (hasTodayRow) {
+      STATE.todayEmotionSubmitted = true;
+      STATE.todayEmotionModified  = verifyRows[0].is_modified === true ||
+                                    verifyRows[0].is_modified === 'TRUE' ||
+                                    verifyRows[0].is_modified === 'true';
+      STATE.todayEmotionDate      = todayKstStr;
+    } else {
+      STATE.todayEmotionSubmitted = false;
+      STATE.todayEmotionModified  = false;
+      STATE.todayEmotionDate      = null;
+    }
+  } catch(vErr) {
+    console.error('[EMOTION VERIFY]', vErr && vErr.message ? vErr.message : vErr);
+    // 네트워크 오류 시 기존 STATE 유지 — 서버 RPC가 최종 판단
+  }
 
   // 이미 제출 상태이면 수정 모드
   var isModify = !!STATE.todayEmotionSubmitted;
@@ -9504,6 +9560,15 @@ async function submitEmotion() {
     STATE.todayEmotionModified  = isModify;
     STATE.todayEmotionDate      = new Date(Date.now()+9*3600000).toISOString().slice(0,10); // 70차
     STATE.selectedMacro = rpcRes.macro_emotion || STATE.selectedMacro;
+    // 70차: 학생 마음출석부 즉시 반영
+    _updateStuAttCacheForToday({
+      macro: STATE.selectedMacro,
+      micro: (micro && micro.word) || '',
+      is_custom: micro && micro.id === 'custom',
+      custom_text: micro && micro.id === 'custom' ? micro.word : '',
+      is_modified: isModify,
+      modified_at: isModify ? new Date(Date.now()+9*3600000).toISOString().slice(0,19) : ''
+    });
     updateEmotionSubmittedBanner();
     toast(isModify ? '감정을 수정했어요 ✏️' : '감정을 저장했어요 💛');
     if (!isModify) { switchTab(1); startBotGreeting(); }
@@ -9568,6 +9633,15 @@ async function submitEmotion() {
     STATE.todayEmotionSubmitted = true;
     STATE.todayEmotionModified  = isModify;
     STATE.todayEmotionDate      = new Date(Date.now()+9*3600000).toISOString().slice(0,10); // 70차
+    // 70차: 학생 마음출석부 즉시 반영 (GAS fallback 경로)
+    _updateStuAttCacheForToday({
+      macro: STATE.selectedMacro,
+      micro: (micro && micro.word) || '',
+      is_custom: micro && micro.id === 'custom',
+      custom_text: micro && micro.id === 'custom' ? micro.word : '',
+      is_modified: isModify,
+      modified_at: isModify ? new Date(Date.now()+9*3600000).toISOString().slice(0,19) : ''
+    });
     updateEmotionSubmittedBanner();
     toast(isModify ? '감정을 수정했어요 ✏️' : '감정을 저장했어요 💛');
     if (!isModify) { switchTab(1); startBotGreeting(); }
