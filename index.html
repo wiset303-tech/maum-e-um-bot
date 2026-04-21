@@ -5,13 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>마음이음</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Serif+KR:wght@600;700&family=Gamja+Flower&display=swap" rel="stylesheet">
-<!-- 오디오 preload (첫 방문 딜레이 제거) -->
-<link rel="preload" as="audio" href="./sounds/bgm.mp3">
-<link rel="preload" as="audio" href="./sounds/sfx_login.mp3">
-<link rel="preload" as="audio" href="./sounds/sfx_error.mp3">
-<link rel="preload" as="audio" href="./sounds/sfx_gift.mp3">
-<link rel="preload" as="audio" href="./sounds/sfx_tab.mp3">
-<link rel="preload" as="audio" href="./sounds/sfx_intro.mp3">
 <style>
 :root {
   --mint:    #4ecdb4;
@@ -2496,7 +2489,8 @@ var AUDIO = {
   sfxCache: {},
 
   preloadAll: function() {
-    var types = ['login','error','nfc','save','gift','tap'];
+    // 69차: 실제 sounds/ 폴더에 존재하는 파일만 preload (없는 파일 404 방지)
+    var types = ['login','error','gift','tab'];
     var self = this;
     types.forEach(function(t) {
       try {
@@ -2515,11 +2509,9 @@ var AUDIO = {
 
   sfx: function(type) {
     if (!this.enabled.sfx) return;
+    // 69차: preloadAll에서 등록 안 된 타입은 조용히 skip (없는 파일 404 방지)
+    if (!this.sfxCache[type]) return;
     try {
-      var fileName = './sounds/sfx_' + type + '.mp3';
-      if (!this.sfxCache[type]) {
-        this.sfxCache[type] = new Audio(fileName);
-      }
       var a = this.sfxCache[type];
       a.currentTime = 0;
       a.play().catch(function(){});
@@ -2933,6 +2925,10 @@ async function submitTokenReset() {
 // 로딩 화면
 // ════════════════════════════════════════
 async function startLoading() {
+  // 69차: 오디오 preload를 로딩 시작 시점에 호출 — 로딩 3~4초 동안 백그라운드로 다운로드
+  //   (기존엔 로딩 끝난 뒤 호출되어 첫 클릭 시 딜레이 발생)
+  try { AUDIO.preloadAll(); } catch(e) {}
+
   var bar    = document.getElementById('loadingBar');
   var status = document.getElementById('loadingStatus');
   var title  = document.getElementById('loadingTitle');
@@ -2970,8 +2966,7 @@ async function startLoading() {
   }
 
   await sleep(600);
-  // 오디오 미리 로드
-  AUDIO.preloadAll();
+  // 69차: AUDIO.preloadAll() 는 startLoading 시작부로 이동 (중복 호출 제거)
 
   // 로딩 완료 → 마음잇기 버튼 표시 (버튼 클릭으로 BGM 시작)
   var btn = document.getElementById('btnMaumIt');
