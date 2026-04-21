@@ -10934,7 +10934,7 @@ async function _sendTeacherGift() {
       p_teacher_uid: STATE.user.teacher_uid,
       p_teacher_name: STATE.user.name,
       p_school_name: STATE.user.school_name || '',
-      p_to_uids: to_uids,
+      p_to_uids: to_uids.join(','), // 68차: Supabase UI가 text[] 미지원 → CSV text로 전달
       p_amount: amount,
       p_message: msg
     });
