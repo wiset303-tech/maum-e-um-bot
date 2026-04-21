@@ -12218,12 +12218,14 @@ async function uploadAlbum() {
         { size:300, q:0.45 },
         { size:300, q:0.32 },
       ];
-      // 원본(뷰어용): Drive에 저장됨. 720px q75 기준으로 시작, 복잡한 사진은 단계적 축소
+      // 원본(뷰어용): Drive에 저장됨. 70차 화질 개선 — 1280px q82 기준, 복잡한 사진은 단계적 축소
       var imgConfigs = [
-        { size:720, q:0.75 },
-        { size:640, q:0.70 },
-        { size:560, q:0.65 },
-        { size:480, q:0.60 },
+        { size:1280, q:0.82 },
+        { size:1280, q:0.72 },
+        { size:1080, q:0.78 },
+        { size:960,  q:0.75 },
+        { size:800,  q:0.72 },
+        { size:720,  q:0.70 },
       ];
       compressToLimit(rawData, LIMIT, thumbConfigs, function(thumbUrl) {
         hideLoading();
@@ -12231,7 +12233,7 @@ async function uploadAlbum() {
           toast('사진을 올릴 수 없어요. 더 작은 사진을 선택해주세요 📷');
           return;
         }
-        compressToLimit(rawData, 1200000, imgConfigs, function(imageUrl) {
+        compressToLimit(rawData, 2000000, imgConfigs, function(imageUrl) {
           // imageUrl은 Drive에 저장됨 (이전엔 Sheets 셀). GAS 1.4MB 가드 안쪽 여유값.
           _albumUploadData.imageUrl = imageUrl || thumbUrl; // fallback
           _albumUploadData.thumbUrl = thumbUrl;
