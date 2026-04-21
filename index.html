@@ -1523,25 +1523,25 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 
 <!-- ══ 모달: 선물할 친구 선택 ══ -->
 <div id="modal-gift-select" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-gift-select')">
-  <div class="modal-box" style="position:relative;max-height:80vh;overflow-y:auto">
+  <div class="modal-box" style="position:relative;max-height:86vh;overflow:hidden;box-sizing:border-box">
     <button class="modal-close" onclick="closeModal('modal-gift-select')">✕</button>
     <!-- 68차: 2단계 스텝 전환 (친구 선택 → 메시지 입력) -->
     <div id="giftStep1">
       <div class="modal-title">💌 친구에게 선물하기</div>
       <p style="font-size:13px;color:var(--gray);margin-bottom:14px">토큰을 선물할 친구를 골라요</p>
-      <div id="giftFriendList" style="display:flex;flex-direction:column;gap:8px"></div>
+      <div id="giftFriendList" style="display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto;overflow-x:hidden;padding-right:2px"></div>
     </div>
     <div id="giftStep2" class="hidden">
       <div class="modal-title">💌 마음 메시지</div>
-      <div id="giftStep2Recipient" style="background:linear-gradient(135deg,#fde8f5,#ffe9fb);border-radius:12px;padding:12px;margin-bottom:14px;text-align:center;font-size:14px;font-weight:700;color:#9b2368"></div>
+      <div id="giftStep2Recipient" style="background:linear-gradient(135deg,#fde8f5,#ffe9fb);border-radius:12px;padding:12px;margin-bottom:14px;text-align:center;font-size:14px;font-weight:700;color:#9b2368;word-break:keep-all"></div>
       <textarea id="giftMessageInput" maxlength="40" placeholder="마음을 담아 한마디 (생략 가능)" style="width:100%;min-height:72px;padding:11px 12px;border:1px solid var(--lgray);border-radius:10px;font-size:14px;line-height:1.5;resize:none;font-family:inherit;box-sizing:border-box" oninput="_giftMsgCountUpdate()"></textarea>
       <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 2px 14px;font-size:11px;color:var(--gray)">
         <span>마음을 짧게 전하면 더 잘 닿아요 💝</span>
         <span id="giftMsgCount">0/40</span>
       </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-secondary" style="flex:0 0 auto;padding:12px 16px" onclick="_giftBackToStep1()">◀ 뒤로</button>
-        <button class="btn btn-lav" style="flex:1;padding:12px" onclick="_sendGiftWithMessage()">💌 선물 보내기</button>
+      <div style="display:flex;gap:10px;align-items:stretch">
+        <button class="btn btn-secondary" style="width:56px;min-width:56px;flex:0 0 56px;padding:12px 0;font-size:18px" onclick="_giftBackToStep1()" aria-label="뒤로">◀</button>
+        <button class="btn btn-lav" style="width:auto;flex:1 1 auto;padding:12px;white-space:nowrap;font-size:15px" onclick="_sendGiftWithMessage()">💌 선물 보내기</button>
       </div>
     </div>
   </div>
