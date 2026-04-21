@@ -5309,6 +5309,7 @@ function skipAttendEmotion() {
 }
 
 async function loadDashboard() {
+  _checkDayBoundary(); // 70차: 자정 지난 상태면 캐시 리셋 후 최신 조회
   if (STATE.isPreview) return; // 미리보기 모드: 더미 데이터 사용, 실 API 호출 금지
   if (STATE.role === 'admin') { await loadAdminDashboard(); return; }
 
@@ -5821,6 +5822,7 @@ async function openNationalMapModal() {
 
 // 전국 지도 렌더링 (admRenderMap 의 교사 모달용 버전)
 function renderNationalMap(container, legEl, schools) {
+  _checkDayBoundary(); // 70차: 전국 마음 지도 렌더 직전 자정 경계 체크
   if (!container) return;
   var regionMap = {};
   (schools || []).forEach(function(s) {
@@ -9036,6 +9038,7 @@ function openMoreEmotions(cat) {
 async function submitEmotion() {
   if(!STATE.selectedMacro) { toast('감정을 먼저 골라요'); return; }
   if(!STATE.selectedMicro) { toast('세부 감정도 골라줘야 저장할 수 있어요 😊'); return; }
+  _checkDayBoundary();      // 70차: 1분 interval 전이라도 경계 즉시 포착
   _checkEmotionDayReset(); // 70차: 자정 넘었으면 어제 상태 리셋
 
   // 이중 탭 방지
@@ -9166,6 +9169,79 @@ async function submitEmotion() {
     toast(res.message||'오류가 발생했어요');
   }
 }
+
+// 70차: 자정 경계 중앙 감지기 — 1분 interval + visibilitychange + focus
+// 프론트 전역 "오늘" 플래그·캐시를 일괄 무효화 (감정/대화 세션/전국 마음 지도/앨범/출석부)
+function _getTodayKSTLocal() {
+  return new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+}
+var _lastSeenKstDate = _getTodayKSTLocal();
+function _checkDayBoundary() {
+  var curr = _getTodayKSTLocal();
+  if (curr === _lastSeenKstDate) return;
+  var prev = _lastSeenKstDate;
+  _lastSeenKstDate = curr;
+  _onDayBoundaryCrossed(prev, curr);
+}
+function _onDayBoundaryCrossed(prev, curr) {
+  console.log('[DAY BOUNDARY] ' + prev + ' → ' + curr);
+  // 공용 today 변수 재계산 (출석부 weekStart·캘린더 year/month)
+  try {
+    _todayKST  = curr;
+    _todayDate = new Date(curr + 'T12:00:00');
+    if (typeof CAL === 'object' && CAL) {
+      CAL.year      = _todayDate.getFullYear();
+      CAL.month     = _todayDate.getMonth();
+      if (typeof _getWeekSunday === 'function') CAL.weekStart = _getWeekSunday(curr + 'T12:00:00');
+      CAL._selectedDate = null;
+    }
+  } catch(e) {}
+  // 감정 상태 리셋
+  if (typeof STATE === 'object' && STATE) {
+    STATE.todayEmotionSubmitted = false;
+    STATE.todayEmotionModified  = false;
+    STATE.todayEmotionDate      = null;
+    STATE.selectedMacro         = null;
+    STATE.selectedMicro         = null;
+    // 대화 세션 마감 — 어제 로그 finalize 후 새 uid 준비
+    try {
+      if (STATE.messages && STATE.messages.length && typeof saveChatLog === 'function') {
+        saveChatLog(); // fire-and-forget
+      }
+    } catch(e) {}
+    STATE.chatLogUid   = '';
+    STATE.chatLogSaved = false;
+  }
+  // 캐시 무효화 — 다음 렌더/조회 시 재로드 (전국 마음 지도·앨범)
+  try { _nationalMapCache      = null;  } catch(e) {}
+  try { _albumLoaded            = false; } catch(e) {}
+  try { _preloadedStudentAlbum  = null;  } catch(e) {}
+  try { _teacherAlbumLoaded     = false; } catch(e) {}
+  try { _teacherAlbumAll        = [];    } catch(e) {}
+  // 현재 화면 UI 갱신
+  try { if (typeof updateEmotionSubmittedBanner === 'function') updateEmotionSubmittedBanner(); } catch(e) {}
+  // 교사/관리자가 대시보드를 열어둔 상태면 즉시 재로드 (전국 온도·학급 현황 새로고침)
+  try {
+    if (STATE && !STATE.isPreview) {
+      if (STATE.role === 'teacher' && typeof loadDashboard === 'function') loadDashboard();
+      if (STATE.role === 'admin'   && typeof _sbGetAdminDashboard === 'function' && typeof renderAdminDashboard === 'function') renderAdminDashboard();
+    }
+  } catch(e) {}
+}
+var _dayBoundaryWatcherStarted = false;
+function _startDayBoundaryWatcher() {
+  if (_dayBoundaryWatcherStarted) return;
+  _dayBoundaryWatcherStarted = true;
+  setInterval(_checkDayBoundary, 60000); // 1분마다 체크
+  try {
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible') _checkDayBoundary();
+    });
+    window.addEventListener('focus', _checkDayBoundary);
+  } catch(e) {}
+}
+// 스크립트 로드 즉시 감시 시작 — STATE 미구성 시에도 guard로 안전
+_startDayBoundaryWatcher();
 
 // 70차: 자정 경계 감지 — 감정 상태가 어제 날짜라면 리셋
 // 토큰 last_daily_date와 동일 패턴. 탭 전환/배너 갱신/제출 직전에 호출
@@ -9460,6 +9536,7 @@ async function sendPersonaChat(msg) {
 }
 
 async function startBotGreeting() {
+  _checkDayBoundary(); // 70차: 대화 시작 시 경계 체크 — 어제 이어가던 대화는 새 log_uid로
   var u = STATE.user;
   // macro 영어 raw값 → 한국어 감정어 변환 (절대 영어 그대로 노출 금지)
   var macroKo = { positive:'기쁜', neutral:'그저그런', negative:'힘든' };
@@ -9508,6 +9585,7 @@ var _chatInFlight = false; // 채팅 전송 중 이중 전송 방지
 
 async function sendChat() {
   if (_chatInFlight) return; // 응답 대기 중이면 무시
+  _checkDayBoundary(); // 70차: 자정 넘었으면 현재 세션 로그 마감 + 새 log_uid로 시작
   var inp = document.getElementById('chatInput');
   var msg = inp?.value.trim();
   if(!msg) return;
