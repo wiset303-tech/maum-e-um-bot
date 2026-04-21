@@ -2400,7 +2400,7 @@ var AUDIO = {
   },
 
   initBgm: function(src) {
-    var file = src || './bgm.mp3';
+    var file = src || './sounds/bgm.mp3';
     if (this.bgm && this.bgm.src.endsWith(file.replace('./',''))) return;
     if (this.bgm) { this.bgm.pause(); this.bgm = null; }
     this.bgm = new Audio(file);
@@ -2480,7 +2480,7 @@ var AUDIO = {
     var self = this;
     types.forEach(function(t) {
       try {
-        var a = new Audio('./sfx_' + t + '.mp3');
+        var a = new Audio('./sounds/sfx_' + t + '.mp3');
         a.preload = 'auto';
         a.load();
         self.sfxCache[t] = a;
@@ -2489,14 +2489,14 @@ var AUDIO = {
     // BGM도 미리 로드
     self.initBgm();
     if (self.bgm) { self.bgm.preload = 'auto'; self.bgm.load(); }
-    // 68차: 이전 세션에 저장한 BGM on/off 복원 (관리자·부모·교사 공통)
-    self.loadLocalBgmPref();
+    // 68차 C: 로컬 seed 복원 제거 — 기본 ON 유지 ("마음잇기" 클릭 시 소리 시작)
+    //   · 로그인 후 서버값(admins/parents.bgm, 교사 SETTINGS 시트)이 덮어씀
   },
 
   sfx: function(type) {
     if (!this.enabled.sfx) return;
     try {
-      var fileName = './sfx_' + type + '.mp3';
+      var fileName = './sounds/sfx_' + type + '.mp3';
       if (!this.sfxCache[type]) {
         this.sfxCache[type] = new Audio(fileName);
       }
