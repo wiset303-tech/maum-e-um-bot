@@ -3411,6 +3411,7 @@ async function onLoginSuccess(data) {
             var e=rows[0];
             STATE.todayEmotionSubmitted=true;
             STATE.todayEmotionModified=!!(e.is_modified===true||e.is_modified==='TRUE');
+            STATE.todayEmotionDate=today; // 70차: 자정 경계 감지용
             STATE.selectedMacro=e.macro_emotion;
             STATE.selectedMicro={word:e.micro_emotion,id:e.is_custom?'custom':''};
             updateEmotionSubmittedBanner();
@@ -3422,6 +3423,7 @@ async function onLoginSuccess(data) {
               var e=res.data.emotions[0];
               STATE.todayEmotionSubmitted=true;
               STATE.todayEmotionModified=!!(e.is_modified===true||e.is_modified==='TRUE');
+              STATE.todayEmotionDate=today; // 70차
               STATE.selectedMacro=e.macro_emotion;
               STATE.selectedMicro={word:e.micro_emotion,id:e.is_custom?'custom':''};
               updateEmotionSubmittedBanner();
@@ -9034,6 +9036,7 @@ function openMoreEmotions(cat) {
 async function submitEmotion() {
   if(!STATE.selectedMacro) { toast('감정을 먼저 골라요'); return; }
   if(!STATE.selectedMicro) { toast('세부 감정도 골라줘야 저장할 수 있어요 😊'); return; }
+  _checkEmotionDayReset(); // 70차: 자정 넘었으면 어제 상태 리셋
 
   // 이중 탭 방지
   var submitBtn = document.querySelector('[onclick="submitEmotion()"]');
@@ -9082,6 +9085,7 @@ async function submitEmotion() {
     AUDIO.sfx('save');
     STATE.todayEmotionSubmitted = true;
     STATE.todayEmotionModified  = isModify;
+    STATE.todayEmotionDate      = new Date(Date.now()+9*3600000).toISOString().slice(0,10); // 70차
     STATE.selectedMacro = rpcRes.macro_emotion || STATE.selectedMacro;
     updateEmotionSubmittedBanner();
     toast(isModify ? '감정을 수정했어요 ✏️' : '감정을 저장했어요 💛');
@@ -9146,6 +9150,7 @@ async function submitEmotion() {
     AUDIO.sfx('save');
     STATE.todayEmotionSubmitted = true;
     STATE.todayEmotionModified  = isModify;
+    STATE.todayEmotionDate      = new Date(Date.now()+9*3600000).toISOString().slice(0,10); // 70차
     updateEmotionSubmittedBanner();
     toast(isModify ? '감정을 수정했어요 ✏️' : '감정을 저장했어요 💛');
     if (!isModify) { switchTab(1); startBotGreeting(); }
@@ -9162,8 +9167,25 @@ async function submitEmotion() {
   }
 }
 
+// 70차: 자정 경계 감지 — 감정 상태가 어제 날짜라면 리셋
+// 토큰 last_daily_date와 동일 패턴. 탭 전환/배너 갱신/제출 직전에 호출
+function _checkEmotionDayReset() {
+  var currentToday = new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+  if (STATE.todayEmotionDate && STATE.todayEmotionDate !== currentToday) {
+    STATE.todayEmotionSubmitted = false;
+    STATE.todayEmotionModified  = false;
+    STATE.todayEmotionDate      = null;
+    STATE.selectedMacro         = null;
+    STATE.selectedMicro         = null;
+    // 배너 비우고 저장 버튼 복구 (다음 updateEmotionSubmittedBanner 호출에서 자연 갱신)
+    var btn = document.querySelector('#microSection .btn-primary');
+    if (btn) { btn.style.display = 'flex'; btn.textContent = '오늘의 감정 저장하기 💛'; }
+  }
+}
+
 // 이미 제출한 경우 마음날씨 탭 상단에 상태 배너 갱신
 function updateEmotionSubmittedBanner() {
+  _checkEmotionDayReset();
   var banner = document.getElementById('emotionSubmittedBanner');
   if (!banner) return;
   var modified = STATE.todayEmotionModified;
@@ -11980,10 +12002,36 @@ async function openAlbumPopup(idx) {
   var entry = _albumCache[idx];
   if (!entry) return;
   var albumData = entry.data;
-  // 70차: 낙관적 업로드 중인 카드는 팝업 대신 안내
+  // 70차: 낙관적 업로드 중 카드는 탭 순간 Supabase 빠른 조회 → 있으면 즉시 팝업, 없으면 토스트
   if (albumData._pending || String(albumData.album_uid || '').indexOf('tmp_') === 0) {
-    toast('사진을 올리는 중이에요 🌸');
-    return;
+    var tempUid = albumData.album_uid;
+    var todayKst = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+    try {
+      var rows = await _sbFetch('album', {
+        student_uid:'eq.'+STATE.user.student_uid,
+        date:'eq.'+todayKst,
+        order:'timestamp.desc', limit:1,
+        select:'album_uid,timestamp,image_url,thumb_url,caption,hashtags,date,is_deleted,updated_at'
+      });
+      if (rows && rows.length && !_isAlbumDeleted(rows[0].is_deleted)) {
+        _resolveOptimisticAlbumCard(tempUid, {
+          album_uid : rows[0].album_uid,
+          image_url : rows[0].image_url,
+          timestamp : rows[0].timestamp,
+        });
+        // 교체된 후 현재 idx의 데이터가 실제로 업데이트됐는지 확인
+        entry = _albumCache[idx];
+        albumData = entry && entry.data;
+        if (!albumData || albumData._pending) { toast('사진을 올리는 중이에요 🌸'); return; }
+        // 통과 → 팝업 열기 진행
+      } else {
+        toast('사진을 올리는 중이에요 🌸');
+        return;
+      }
+    } catch(e) {
+      toast('사진을 올리는 중이에요 🌸');
+      return;
+    }
   }
   var canDelete = entry.canDelete;
   _popupAlbumUid = albumData.album_uid;
@@ -12165,8 +12213,51 @@ async function submitAlbumUpload() {
     date         : today,
   };
 
+  // 70차: GAS 응답이 지연돼도 Supabase에 기록이 찍히면 즉시 resolve (Drive 업로드 10초+ 케이스 대비)
+  var resolved = false;
+  var pollHandle = setInterval(async function() {
+    if (resolved) { clearInterval(pollHandle); return; }
+    var tmpCard = document.querySelector('.album-item[data-album-uid="' + tempUid + '"]');
+    if (!tmpCard) { clearInterval(pollHandle); return; } // 카드가 사라졌으면 중단
+    try {
+      var rows = await _sbFetch('album', {
+        student_uid:'eq.'+STATE.user.student_uid,
+        date:'eq.'+today,
+        order:'timestamp.desc', limit:1,
+        select:'album_uid,timestamp,image_url,thumb_url,caption,hashtags,date,is_deleted,updated_at'
+      });
+      if (rows && rows.length && !_isAlbumDeleted(rows[0].is_deleted)) {
+        // 이미 실 album_uid로 카드 렌더된 경우(다른 탭에서 생성 등) 중복 방지
+        var dup = _albumCache.some(function(c){ return c.data.album_uid === rows[0].album_uid && !c.data._pending; });
+        if (dup) return;
+        resolved = true;
+        clearInterval(pollHandle);
+        _resolveOptimisticAlbumCard(tempUid, {
+          album_uid : rows[0].album_uid,
+          image_url : rows[0].image_url,
+          timestamp : rows[0].timestamp,
+        });
+        AUDIO.sfx('save');
+        toast('마음앨범에 저장됐어요 🌸');
+      }
+    } catch(e) {}
+  }, 4000);
+  // 60초 타임아웃 — 그 안에 GAS 응답도 Supabase 기록도 없으면 롤백
+  var pollTimeout = setTimeout(function() {
+    if (resolved) return;
+    clearInterval(pollHandle);
+    if (document.querySelector('.album-item[data-album-uid="' + tempUid + '"]')) {
+      _removeOptimisticAlbumCard(tempUid);
+      toast('업로드에 시간이 너무 걸려요. 다시 시도해주세요 📷');
+    }
+  }, 60000);
+
   try {
     var res = await api('save_album', payload);
+    if (resolved) return; // 폴링이 먼저 처리했으면 여기서 중단
+    resolved = true;
+    clearInterval(pollHandle);
+    clearTimeout(pollTimeout);
     if (res.status === 'ok') {
       AUDIO.sfx('save');
       _resolveOptimisticAlbumCard(tempUid, {
@@ -12200,6 +12291,10 @@ async function submitAlbumUpload() {
       toast(res.message || '오류가 발생했어요');
     }
   } catch(e) {
+    if (resolved) return;
+    resolved = true;
+    clearInterval(pollHandle);
+    clearTimeout(pollTimeout);
     _removeOptimisticAlbumCard(tempUid);
     console.error('[ALBUM UPLOAD] ', e);
     toast('업로드에 실패했어요. 다시 시도해주세요 📷');
@@ -12265,6 +12360,7 @@ function _resolveOptimisticAlbumCard(tempUid, patch) {
     if (badge) badge.remove();
     card.setAttribute('data-album-uid', patch.album_uid);
   }
+  _albumLoaded = false; // 탭 재진입 시 Supabase 최신 조회로 완전 수렴
 }
 
 function _removeOptimisticAlbumCard(tempUid) {
@@ -12278,6 +12374,7 @@ function _removeOptimisticAlbumCard(tempUid) {
   var grid  = document.getElementById('albumGrid');
   var empty = document.getElementById('albumEmpty');
   if (grid && !grid.querySelector('.album-item') && empty) empty.style.display = 'block';
+  _albumLoaded = false; // 다음 탭 진입 시 재조회
 }
 
 // ════════════════════════════════════════
