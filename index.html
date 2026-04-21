@@ -762,6 +762,24 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 }
 .adm-sort-btn{ white-space:nowrap; }
 
+/* 68차: 교사 재량 선물 모달 */
+.tg-amount-btn{
+  flex:1;padding:10px 0;border:1.5px solid var(--lgray);background:#fff;border-radius:10px;
+  font-size:14px;font-weight:700;color:var(--navy);cursor:pointer;transition:all .15s;
+  font-family:'Noto Sans KR',sans-serif;
+}
+.tg-amount-btn.active{
+  background:linear-gradient(135deg,#d4c0f8,var(--lav));color:#fff;border-color:transparent;
+  box-shadow:0 3px 10px rgba(155,125,220,.28);
+}
+.tg-preset-chip{
+  padding:7px 12px;background:#fff8fd;border:1px solid #f0c8dd;border-radius:16px;
+  font-size:12px;color:#9b2368;cursor:pointer;transition:all .15s;
+  font-family:'Noto Sans KR',sans-serif;
+}
+.tg-preset-chip:hover{background:#fde8f5}
+.tg-preset-chip:active{transform:scale(.96)}
+
 /* 바운싱 로딩 점 애니메이션 */
 @keyframes dotBounce{
   0%,60%,100%{ transform:translateY(0); opacity:.5; }
@@ -1540,8 +1558,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
         <span id="giftMsgCount">0/40</span>
       </div>
       <div style="display:flex;gap:10px;align-items:stretch">
-        <button class="btn btn-secondary" style="width:56px;min-width:56px;flex:0 0 56px;padding:12px 0;font-size:18px" onclick="_giftBackToStep1()" aria-label="뒤로">◀</button>
-        <button class="btn btn-lav" style="width:auto;flex:1 1 auto;padding:12px;white-space:nowrap;font-size:15px" onclick="_sendGiftWithMessage()">💌 선물 보내기</button>
+        <button class="btn btn-secondary" style="width:56px;min-width:56px;flex:0 0 56px;padding:8px 0;font-size:18px" onclick="_giftBackToStep1()" aria-label="뒤로">◀</button>
+        <button class="btn btn-lav" style="width:auto;flex:1 1 auto;padding:9px 12px;white-space:nowrap;font-size:14.5px" onclick="_sendGiftWithMessage()">💌 선물 보내기</button>
       </div>
     </div>
   </div>
@@ -1550,7 +1568,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 <!-- ══ 68차: 선물받은 팝업 (수신자용) ══ -->
 <div id="modal-gift-received" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-gift-received')">
   <div class="modal-box" style="position:relative;max-width:340px;overflow:hidden">
-    <button class="modal-close" onclick="closeModal('modal-gift-received')">✕</button>
+    <button class="modal-close" onclick="closeModal('modal-gift-received')" style="z-index:5;background:rgba(255,255,255,0.85);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:#9b2368;font-size:16px;box-shadow:0 2px 6px rgba(155,35,104,0.18);top:12px;right:12px">✕</button>
     <div style="background:linear-gradient(135deg,#fde8f5,#ffe9fb,#fff0fa);border-radius:16px;padding:22px 18px 18px;margin:-4px -4px 12px;text-align:center;position:relative;overflow:hidden">
       <div id="giftRecvBox" style="font-size:72px;line-height:1;margin-bottom:10px;display:inline-block;animation:_giftBoxWiggle 0.9s 0.1s ease-in-out 2, _giftBoxPop 0.6s 2.0s ease-out forwards">🎁</div>
       <div id="giftRecvSender" style="font-size:16px;font-weight:800;color:#9b2368;margin-bottom:6px;animation:_fadeUpIn 0.5s 2.2s ease-out both"></div>
@@ -1561,6 +1579,35 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <div id="giftRecvMsg" style="font-size:14px;color:var(--navy);line-height:1.55;word-break:break-word"></div>
     </div>
     <button class="btn btn-lav" style="width:100%;padding:12px;opacity:0;animation:_fadeUpIn 0.5s 2.65s ease-out forwards" onclick="closeModal('modal-gift-received')">💝 고마워요!</button>
+  </div>
+</div>
+
+<!-- ══ 68차: 교사 재량 마음토큰 선물 (개별/전체 통합 모달) ══ -->
+<div id="modal-teacher-gift" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-teacher-gift')">
+  <div class="modal-box" style="position:relative;max-height:92vh;overflow:hidden;box-sizing:border-box">
+    <button class="modal-close" onclick="closeModal('modal-teacher-gift')">✕</button>
+    <div class="modal-title">🎁 마음토큰 선물</div>
+    <div id="tgTargetLabel" style="background:linear-gradient(135deg,#fde8f5,#ffe9fb);border-radius:12px;padding:11px 14px;margin-bottom:14px;text-align:center;font-size:14px;font-weight:700;color:#9b2368;word-break:keep-all"></div>
+
+    <div style="font-size:12px;color:var(--navy);font-weight:700;margin-bottom:6px">몇 개 선물할까요?</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button type="button" class="tg-amount-btn" data-amount="1" onclick="_tgSelectAmount(1)">1개 🪙</button>
+      <button type="button" class="tg-amount-btn" data-amount="2" onclick="_tgSelectAmount(2)">2개 🪙</button>
+      <button type="button" class="tg-amount-btn" data-amount="3" onclick="_tgSelectAmount(3)">3개 🪙</button>
+    </div>
+
+    <div style="font-size:12px;color:var(--navy);font-weight:700;margin-bottom:6px">마음 메시지</div>
+    <div id="tgPresetList" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+    <textarea id="tgMessageInput" maxlength="40" placeholder="마음을 담아 한마디 (생략 가능)" style="width:100%;min-height:60px;padding:10px 12px;border:1px solid var(--lgray);border-radius:10px;font-size:14px;line-height:1.5;resize:none;font-family:inherit;box-sizing:border-box" oninput="_tgMsgCountUpdate()"></textarea>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:4px 2px 14px;font-size:11px;color:var(--gray)">
+      <span>위 문구를 눌러 불러온 뒤 수정해도 돼요</span>
+      <span id="tgMsgCount">0/40</span>
+    </div>
+
+    <div style="display:flex;gap:10px;align-items:stretch">
+      <button class="btn btn-secondary" style="width:62px;min-width:62px;flex:0 0 62px;padding:8px 0;font-size:13px" onclick="closeModal('modal-teacher-gift')">취소</button>
+      <button class="btn btn-lav" style="width:auto;flex:1 1 auto;padding:9px 12px;white-space:nowrap;font-size:14.5px" onclick="_sendTeacherGift()">🎁 선물 보내기</button>
+    </div>
   </div>
 </div>
 
@@ -4719,6 +4766,7 @@ function studentMgmtHTML() {
   }
   return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">' +
     '<button class="btn btn-primary" style="width:auto;flex-shrink:0;font-size:12px;padding:6px 14px;white-space:nowrap" onclick="openNfcRegister()">🪪 마음카드 등록</button>' +
+    '<button class="btn btn-lav" style="width:auto;flex-shrink:0;font-size:12px;padding:6px 14px;white-space:nowrap" onclick="openTeacherGiftAll()">🎁 학급 전체 선물</button>' +
     '<div style="display:flex;gap:5px;margin-left:auto">' +
       '<button id="stu-refresh-btn" class="btn btn-sm btn-secondary" onclick="reloadStudentsTab()" title="학생 정보 새로고침" style="font-size:11px;padding:5px 9px;white-space:nowrap">🔄</button>' +
       '<button id="stu-sort-num"  class="btn btn-sm btn-secondary adm-sort-btn active-sort" onclick="stuSortBy(\'num\')" style="font-size:11px;padding:5px 10px;white-space:nowrap">번호순</button>' +
@@ -7259,6 +7307,8 @@ function renderStudentList() {
       ? '<div class="stu-menu-wrap">'
           + '<button class="stu-menu-btn" onclick="toggleStuMenu(this)" title="\ub354\ubcf4\uae30">\u22ef</button>'
           + '<div class="stu-dropdown" style="display:none">'
+            + '<button onclick="openTeacherGiftOne(\''+uid2+'\',\''+nm2+'\')">🎁 마음토큰 선물</button>'
+            + '<div class="divider"></div>'
             + '<button onclick="openChangePw(\''+uid2+'\',\''+nm2+'\')">&#128273; 암호변경</button>'
             + '<button onclick="resetStudentPw(\''+uid2+'\',\''+nm2+'\')">\uD83D\uDD04 \uc554\ud638\ucd08\uae30\ud654</button>'
             + (s.nfc_uid ? '<button onclick="openStudentEditById(\''+uid2+'\',\''+nm2+'\',\'replace\');closeStuMenu()" data-uid="'+uid2+'" data-name="'+nm2+'">🪪 마음카드 교체</button>' : '<button onclick="openStudentEditById(\''+uid2+'\',\''+nm2+'\',\'register\');closeStuMenu()" data-uid="'+uid2+'" data-name="'+nm2+'">🪪 마음카드 등록</button>')
@@ -7725,6 +7775,20 @@ async function deactivate(uid, name) {
     name + ' 학생을 비활성화할까요?\n(토큰·감정·앨범 기록은 그대로 보존돼요)',
     { danger:true, okLabel:'비활성화' });
   if (!ok) return;
+
+  // 68차: 낙관적 UI — 스피너가 돌기 시작할 땐 이미 비활성 반영된 상태로 보이게
+  //       (교사 경로만. 관리자 경로는 _studentsByTeacher 캐시 초기화 흐름 유지)
+  var _optRollback = null;
+  if (STATE.role !== 'admin') {
+    var _optStu = (STATE.students || []).filter(function(x){ return x.student_uid === uid; })[0];
+    if (_optStu) {
+      var _prevActive = _optStu.active;
+      _optStu.active = 'N';
+      renderStudentList();
+      _optRollback = function(){ _optStu.active = _prevActive; renderStudentList(); };
+    }
+  }
+
   showLoading('비활성화 중이에요 ⏳');
   try {
     // 67차: Supabase 직접 PATCH로 즉시 반영 (GAS cold start 제거).
@@ -7738,7 +7802,12 @@ async function deactivate(uid, name) {
       // Supabase 실패 시 GAS 완전 fallback (느리지만 Sheets→Supabase 동기화됨)
       console.error('[DEACTIVATE] Supabase fallback to GAS:', sbErr && sbErr.message ? sbErr.message : sbErr);
       var res = await api('deactivate_student', { student_uid: uid });
-      if (res.status !== 'ok') { hideLoading(); toast(res.message); return; }
+      if (res.status !== 'ok') {
+        hideLoading();
+        if (_optRollback) _optRollback();
+        toast(res.message);
+        return;
+      }
     }
     // 학생수 의존 UI(감정바코드·훈훈습도계·학급 평균 온도) 반영
     // 67차: 교사도 순차 실행 — loadDashboard 안의 renderEmotionBarcode가
@@ -7755,6 +7824,7 @@ async function deactivate(uid, name) {
     toast('비활성화 완료');
   } catch(e) {
     hideLoading();
+    if (_optRollback) _optRollback();
     toast('비활성화 실패: ' + (e && e.message ? e.message : e));
   }
 }
@@ -10755,6 +10825,145 @@ async function giftToken(friend, message) {
       if (res.data.class_bonus) { showWarmthBonus(); }
       _showGiftAnim(friend.name, friend.gender || '');
     } else { hideLoading(); toast(res.message); }
+  }
+}
+
+// 68차: 교사 재량 마음토큰 선물 (개별/전체 통합)
+// ────────────────────────────────────────────────────────
+var TEACHER_GIFT_PRESETS_ONE = [
+  '오늘 정말 멋졌어요 ✨',
+  '친구를 도와주는 모습이 멋져요 🤝',
+  '끝까지 집중했어요 🎯',
+  '용기를 냈네요 💪',
+  '마음이 참 따뜻해요 💗'
+];
+var TEACHER_GIFT_PRESETS_ALL = [
+  '오늘 우리 반 모두 수고했어요 🌟',
+  '힘을 모아 해냈어요 💪',
+  '서로 아껴주는 모습이 좋았어요 💗',
+  '분위기가 참 따뜻했어요 ☀️',
+  '함께 웃는 하루였어요 😊'
+];
+
+function openTeacherGiftOne(uid, name) {
+  closeStuMenu();
+  var s = (STATE.students || []).filter(function(x){ return x.student_uid === uid; })[0];
+  if (!s || s.active !== 'Y') { toast('비활성 학생에게는 선물할 수 없어요'); return; }
+  STATE._teacherGift = { mode:'one', target:s, amount:1, targets:[s] };
+  var emoji = s.gender === 'F' ? '👧' : s.gender === 'M' ? '👦' : '🧒';
+  document.getElementById('tgTargetLabel').innerHTML = emoji + ' ' + s.num + '번 <b>' + s.name + '</b> 학생에게';
+  _tgRenderPresets('one');
+  _tgReset();
+  openModal('modal-teacher-gift');
+}
+
+function openTeacherGiftAll() {
+  var active = (STATE.students || []).filter(function(x){ return x.active === 'Y'; });
+  if (!active.length) { toast('활성 학생이 없어요'); return; }
+  STATE._teacherGift = { mode:'all', target:null, amount:1, targets:active };
+  document.getElementById('tgTargetLabel').innerHTML = '🏫 학급 전체 <b>' + active.length + '명</b>에게';
+  _tgRenderPresets('all');
+  _tgReset();
+  openModal('modal-teacher-gift');
+}
+
+function _tgRenderPresets(mode) {
+  var presets = mode === 'all' ? TEACHER_GIFT_PRESETS_ALL : TEACHER_GIFT_PRESETS_ONE;
+  document.getElementById('tgPresetList').innerHTML = presets.map(function(p){
+    var safe = p.replace(/"/g, '&quot;').replace(/'/g, "\\'");
+    return '<button type="button" class="tg-preset-chip" onclick="_tgApplyPreset(\'' + safe + '\')">' + p + '</button>';
+  }).join('');
+}
+
+function _tgReset() {
+  var ta = document.getElementById('tgMessageInput');
+  if (ta) ta.value = '';
+  var cnt = document.getElementById('tgMsgCount');
+  if (cnt) cnt.textContent = '0/40';
+  _tgSelectAmount(1);
+}
+
+function _tgSelectAmount(n) {
+  if (STATE._teacherGift) STATE._teacherGift.amount = n;
+  var btns = document.querySelectorAll('.tg-amount-btn');
+  for (var i = 0; i < btns.length; i++) {
+    var v = Number(btns[i].getAttribute('data-amount'));
+    btns[i].classList.toggle('active', v === n);
+  }
+}
+
+function _tgApplyPreset(text) {
+  var ta = document.getElementById('tgMessageInput');
+  if (!ta) return;
+  ta.value = (text || '').slice(0, 40);
+  _tgMsgCountUpdate();
+  try { ta.focus(); } catch(e){}
+}
+
+function _tgMsgCountUpdate() {
+  var ta = document.getElementById('tgMessageInput');
+  if (!ta) return;
+  if (ta.value.indexOf('\n') >= 0) ta.value = ta.value.replace(/\n/g, ' ');
+  document.getElementById('tgMsgCount').textContent = ta.value.length + '/40';
+}
+
+async function _sendTeacherGift() {
+  var ctx = STATE._teacherGift;
+  if (!ctx) { toast('대상이 없어요'); return; }
+  var targets = ctx.targets || [];
+  if (!targets.length) { toast('받을 학생이 없어요'); return; }
+  var amount = Math.min(3, Math.max(1, Number(ctx.amount) || 1));
+  var ta = document.getElementById('tgMessageInput');
+  var msg = (ta && ta.value || '').trim().replace(/\s+/g, ' ').slice(0, 40);
+
+  closeModal('modal-teacher-gift');
+  STATE._teacherGift = null;
+
+  if (STATE.isPreview) {
+    toast('미리보기 모드에서는 선물이 보내지지 않아요');
+    return;
+  }
+
+  var label = ctx.mode === 'all' ? '학급 전체에' : (_firstName(ctx.target.name) + '에게');
+  showLoading(label + ' ' + amount + '개 선물하는 중이에요 🎁');
+
+  var to_uids = targets.map(function(t){ return t.student_uid; });
+
+  try {
+    var rpcRes = await _sbRpc('rpc_teacher_gift_token', {
+      p_teacher_uid: STATE.user.teacher_uid,
+      p_teacher_name: STATE.user.name,
+      p_school_name: STATE.user.school_name || '',
+      p_to_uids: to_uids,
+      p_amount: amount,
+      p_message: msg
+    });
+    hideLoading();
+    if (rpcRes && rpcRes.status === 'ok') {
+      toast('🎁 ' + label + ' ' + amount + '개 선물했어요');
+      // 학생들 Sheets 동기화 (fire-and-forget) + 대시보드/학생관리 갱신
+      api('teacher_gift_token_sync', { to_uids: to_uids }).catch(function(){});
+      Promise.all([loadStudents(), loadDashboard()]).catch(function(){});
+    } else {
+      toast((rpcRes && rpcRes.message) || '선물하지 못했어요');
+    }
+  } catch(e) {
+    console.error('[TG RPC ERROR]', e && e.message);
+    var res = await api('teacher_gift_token', {
+      teacher_uid: STATE.user.teacher_uid,
+      teacher_name: STATE.user.name,
+      school_name: STATE.user.school_name || '',
+      to_uids: to_uids,
+      amount: amount,
+      message: msg
+    });
+    hideLoading();
+    if (res.status === 'ok') {
+      toast('🎁 ' + label + ' ' + amount + '개 선물했어요');
+      Promise.all([loadStudents(), loadDashboard()]).catch(function(){});
+    } else {
+      toast(res.message || '선물하지 못했어요');
+    }
   }
 }
 
