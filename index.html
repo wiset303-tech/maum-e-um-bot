@@ -2436,7 +2436,7 @@ var AUDIO = {
 
   toggleBgm: function(on) {
     this.enabled.bgm = on;
-    // 68차: localStorage 저장 — 역할·재로그인·새로고침 후에도 유지
+    // 68차: localStorage 저장 — 로그인 전 seed 겸 같은 기기 재방문 빠른 복원
     this.saveLocalBgmPref();
     // 68차: 모든 역할의 토글 UI 동기화 (관리자·부모·교사·로그인 모달)
     var ids = ['set-bgm', 'set-bgm-modal', 'adm-set-bgm', 'parent-set-bgm'];
@@ -2445,6 +2445,19 @@ var AUDIO = {
       if (tog) tog.checked = on;
     }
     on ? this.playBgm() : this.stopBgm();
+    // 68차 C: 관리자/부모는 Supabase에 저장 (기기 간 동기화)
+    //   · 교사는 기존 saveSettingField('bgm') 경로로 별도 저장 (중복 방지)
+    try {
+      if (typeof STATE !== 'undefined' && STATE && STATE.user) {
+        if (STATE.role === 'admin' && STATE.user.admin_uid) {
+          _sbPatch('admins', { admin_uid: 'eq.' + STATE.user.admin_uid }, { bgm: on })
+            .catch(function(e){ console.error('[BGM] admin PATCH 실패:', e.message); });
+        } else if (STATE.role === 'parent' && STATE.user.parent_uid) {
+          _sbPatch('parents', { parent_uid: 'eq.' + STATE.user.parent_uid }, { bgm: on })
+            .catch(function(e){ console.error('[BGM] parent PATCH 실패:', e.message); });
+        }
+      }
+    } catch(e) { console.error('[BGM] toggle save 예외:', e.message); }
   },
 
   // 첫 사용자 제스처 시 BGM 시작 (버튼 클릭 등)
@@ -3212,6 +3225,19 @@ async function loginByPw() {
 async function onLoginSuccess(data) {
   STATE.role = data.role;
   STATE.user = data;
+
+  // 68차 C: 관리자/부모 BGM 서버 저장값 반영 (기기 간 동기화)
+  //   · Supabase admins/parents.bgm 컬럼 값 우선
+  //   · 값이 false일 때만 OFF, undefined/true는 ON (GAS fallback 호환)
+  if (data.role === 'admin' || data.role === 'parent') {
+    if (data.bgm === false) {
+      AUDIO.enabled.bgm = false;
+      AUDIO.stopBgm();
+    } else {
+      AUDIO.enabled.bgm = true;
+    }
+    AUDIO.saveLocalBgmPref(); // 같은 기기 재방문 시 seed
+  }
 
   document.getElementById('screen-nfc').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
