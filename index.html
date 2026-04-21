@@ -1119,6 +1119,116 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 }
 
 /* ════════════════════════════════════════
+   70차: 학생 마음출석부 — 달력 그리드 (학생 눈높이)
+════════════════════════════════════════ */
+.stu-att-wrap{
+  background:#fff;border-radius:var(--r);padding:16px 14px 14px;
+  margin-bottom:14px;box-shadow:var(--shadow2);
+}
+.stu-att-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:12px;gap:8px;
+}
+.stu-att-title{font-size:15px;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:6px}
+.stu-att-nav{display:flex;gap:6px;align-items:center}
+.stu-att-nav-btn{
+  width:30px;height:30px;border-radius:50%;border:none;
+  background:var(--mint3);color:var(--mint2);font-size:14px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:transform .12s, background .12s;
+}
+.stu-att-nav-btn:active{transform:scale(.92)}
+.stu-att-nav-btn:disabled{opacity:.3;cursor:default;background:#f1f5f9;color:#cbd5e1}
+.stu-att-month-label{
+  font-size:13px;color:var(--navy);font-weight:700;
+  min-width:78px;text-align:center;
+}
+.stu-att-grid{
+  display:grid;grid-template-columns:repeat(7, 1fr);gap:4px;
+  margin-top:6px;
+}
+.stu-att-dow{
+  font-size:11px;color:var(--gray);font-weight:700;
+  text-align:center;padding:4px 0;
+}
+.stu-att-dow.sun{color:#e05050}
+.stu-att-dow.sat{color:#4da3ff}
+.stu-att-cell{
+  aspect-ratio:1;border-radius:10px;background:#f5f5f5;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  position:relative;cursor:pointer;
+  transition:transform .12s, box-shadow .15s;
+  user-select:none;-webkit-tap-highlight-color:transparent;
+}
+.stu-att-cell:active:not(.future):not(.blank){transform:scale(.92)}
+.stu-att-cell.blank{background:transparent;cursor:default;box-shadow:none}
+.stu-att-cell.future{background:#fafafa;opacity:.45;cursor:default}
+.stu-att-cell.sat{background:#f2f6fc}
+.stu-att-cell.hol{background:#fdf3f3}
+.stu-att-cell.empty{background:#f5f5f5}
+.stu-att-cell-day{
+  font-size:10px;color:var(--gray);font-weight:600;
+  margin-top:2px;line-height:1;
+}
+.stu-att-cell.hol .stu-att-cell-day{color:#e05050}
+.stu-att-cell.sat .stu-att-cell-day{color:#4da3ff}
+.stu-att-cell-icon{font-size:18px;line-height:1;margin-top:2px}
+/* 감정별 컬러풀 배경 */
+.stu-att-cell.em-positive{
+  background:linear-gradient(135deg,#fff2a8,#ffd866);
+  box-shadow:inset 0 -2px 0 rgba(240,170,0,.25);
+}
+.stu-att-cell.em-neutral{
+  background:linear-gradient(135deg,#e3f3ee,#b8dfd4);
+  box-shadow:inset 0 -2px 0 rgba(110,170,150,.25);
+}
+.stu-att-cell.em-negative{
+  background:linear-gradient(135deg,#dde8ff,#b3c9f0);
+  box-shadow:inset 0 -2px 0 rgba(90,130,190,.28);
+}
+.stu-att-cell.em-positive .stu-att-cell-day,
+.stu-att-cell.em-neutral  .stu-att-cell-day,
+.stu-att-cell.em-negative .stu-att-cell-day{color:rgba(30,40,60,.6)}
+/* 오늘 강조 */
+.stu-att-cell.today{
+  box-shadow:0 0 0 2.5px var(--mint2), 0 3px 10px rgba(30,180,150,.25);
+  animation:stuAttTodayPulse 2s infinite ease-in-out;
+}
+@keyframes stuAttTodayPulse{
+  0%,100%{box-shadow:0 0 0 2.5px var(--mint2), 0 3px 10px rgba(30,180,150,.25)}
+  50%    {box-shadow:0 0 0 3px   var(--mint2), 0 3px 14px rgba(30,180,150,.45)}
+}
+/* 수정됨 도트 */
+.stu-att-cell .em-modified-dot{
+  position:absolute;top:3px;right:3px;
+  font-size:9px;line-height:1;
+  background:#fff;border-radius:50%;
+  width:14px;height:14px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 1px 3px rgba(0,0,0,.18);
+}
+/* 월 통계 chip */
+.stu-att-stats{
+  display:flex;gap:6px;justify-content:center;flex-wrap:wrap;
+  margin-top:14px;padding-top:12px;border-top:1px dashed #e5e7eb;
+}
+.stu-att-stat-chip{
+  font-size:11.5px;color:var(--navy);font-weight:600;
+  background:#f7faf9;border-radius:14px;
+  padding:5px 11px;display:inline-flex;align-items:center;gap:4px;
+}
+.stu-att-empty-msg{
+  text-align:center;font-size:12px;color:var(--gray);
+  padding:18px 10px;
+}
+/* 월 안내 배너 */
+.stu-att-legend{
+  display:flex;gap:8px;justify-content:center;flex-wrap:wrap;
+  margin-bottom:10px;font-size:11px;color:var(--gray);
+}
+.stu-att-legend-item{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+
+/* ════════════════════════════════════════
    마음앨범
 ════════════════════════════════════════ */
 .album-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -3579,6 +3689,8 @@ function _clearSessionCaches() {
     STATE.tokenBalances = {};
     STATE.studentEmotions = {};
   }
+  // 70차: 학생 마음출석부 캐시
+  try { if (typeof _stuAtt === 'object' && _stuAtt) { _stuAtt.year = null; _stuAtt.month = null; _stuAtt.map = {}; } } catch(e) {}
 }
 
 function logout() {
@@ -3689,6 +3801,7 @@ function switchTab(idx) {
   if (STATE.role === 'student') {
     if (idx === 1) checkPersonaModeForStudent();          // 마음봇
     if (idx === 3) loadAlbumIfNeeded();                   // 마음앨범 (캐시 체크)
+    if (idx === 4) renderStudentAttendance();             // 70차: 마음출석부
   }
 
   // ── 교사·관리자 탭 액션 ──
@@ -8968,10 +9081,202 @@ function buildStudentUI() {
     { label:'🤖 마음봇',   html: chatHTML() },
     { label:'🪙 마음토큰', html: tokenHTML() },
     { label:'📸 마음앨범', html: albumHTML() },
+    { label:'📋 마음출석부', html: studentAttendanceHTML() }, // 70차: 학생 마음출석부
   ]);
   renderEmotionGrid();
   updateBannerProfile();
-  // 앨범은 탭 클릭 시 로드 (로그인 시 불필요한 API 호출 제거)
+  // 앨범·출석부는 탭 클릭 시 로드 (로그인 시 불필요한 API 호출 제거)
+}
+
+// 70차: 학생 마음출석부 — 달력 그리드 + 월 네비 + 통계
+function studentAttendanceHTML() {
+  return '<div class="stu-att-wrap">' +
+    '<div class="stu-att-header">' +
+      '<div class="stu-att-title">📋 내 마음출석부</div>' +
+      '<div class="stu-att-nav">' +
+        '<button class="stu-att-nav-btn" onclick="changeStuAttMonth(-1)" aria-label="이전 달">◀</button>' +
+        '<div class="stu-att-month-label" id="stuAttMonthLabel">—</div>' +
+        '<button class="stu-att-nav-btn" id="stuAttNextBtn" onclick="changeStuAttMonth(1)" aria-label="다음 달">▶</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="stu-att-legend">' +
+      '<span class="stu-att-legend-item">☀️ 좋음</span>' +
+      '<span class="stu-att-legend-item">☁️ 그저 그래</span>' +
+      '<span class="stu-att-legend-item">☔ 속상함</span>' +
+      '<span class="stu-att-legend-item">✏️ 고쳐 썼어요</span>' +
+    '</div>' +
+    '<div id="stuAttBody">' +
+      '<div class="stu-att-empty-msg">달력을 불러오는 중이에요 🌸</div>' +
+    '</div>' +
+  '</div>';
+}
+
+// 학생 출석부 상태
+var _stuAtt = { year:null, month:null, map:{} }; // map: { '2026-04-22': { macro, micro, is_modified, custom_text } }
+
+async function renderStudentAttendance() {
+  _checkDayBoundary();
+  if (!STATE.user || STATE.role !== 'student') return;
+  var body = document.getElementById('stuAttBody');
+  if (!body) return;
+  // 최초 진입 시 오늘 달
+  if (_stuAtt.year == null) {
+    var today = new Date(Date.now() + 9*3600000);
+    _stuAtt.year  = today.getUTCFullYear();
+    _stuAtt.month = today.getUTCMonth(); // 0-indexed
+  }
+  _renderStuAttHeader();
+  body.innerHTML = '<div class="stu-att-empty-msg">달력을 불러오는 중이에요 🌸</div>';
+  try {
+    await _loadStuAttMap(_stuAtt.year, _stuAtt.month);
+  } catch(e) {
+    console.error('[STU ATT LOAD]', e);
+  }
+  _paintStuAttGrid();
+}
+
+function _renderStuAttHeader() {
+  var lbl = document.getElementById('stuAttMonthLabel');
+  if (lbl) lbl.textContent = _stuAtt.year + '년 ' + (_stuAtt.month + 1) + '월';
+  var nextBtn = document.getElementById('stuAttNextBtn');
+  if (nextBtn) {
+    var today = new Date(Date.now() + 9*3600000);
+    var isCurrentOrFuture = (_stuAtt.year > today.getUTCFullYear()) ||
+                            (_stuAtt.year === today.getUTCFullYear() && _stuAtt.month >= today.getUTCMonth());
+    nextBtn.disabled = isCurrentOrFuture;
+  }
+}
+
+async function _loadStuAttMap(year, month) {
+  var pad = function(n){ return n<10 ? '0'+n : ''+n; };
+  var firstDateStr = year + '-' + pad(month+1) + '-01';
+  var lastDay  = new Date(Date.UTC(year, month+1, 0)).getUTCDate();
+  var lastDateStr = year + '-' + pad(month+1) + '-' + pad(lastDay);
+  var firstTs = firstDateStr + 'T00:00:00';
+  var uid = STATE.user.student_uid;
+  _stuAtt.map = {};
+  try {
+    // JS 객체라 동일 키 lte는 직접 못 실음 — gte만 서버 필터로 쓰고 lte는 클라이언트에서 필터
+    // limit 500이면 하루 1~2행 × 250~500일 커버 — 과거 몇 개월 조회에도 여유
+    var rows = await _sbFetch('emotions', {
+      student_uid:'eq.'+uid, type:'eq.checkin',
+      timestamp:'gte.'+firstTs,
+      order:'timestamp.asc', limit:'500',
+      select:'timestamp,macro_emotion,micro_emotion,is_custom,custom_text,is_modified,modified_at'
+    });
+    (rows||[]).forEach(function(e){
+      var d = String(e.timestamp||'').slice(0,10);
+      if (!d) return;
+      if (d < firstDateStr) return;
+      if (d > lastDateStr)  return;
+      // 한 날 여러 row (수정 이력 등) 있으면 마지막(최신) 유지
+      _stuAtt.map[d] = {
+        macro: e.macro_emotion || '',
+        micro: e.micro_emotion || '',
+        is_custom: !!e.is_custom,
+        custom_text: e.custom_text || '',
+        is_modified: e.is_modified === true || e.is_modified === 'TRUE' || e.is_modified === 'true',
+        modified_at: e.modified_at || ''
+      };
+    });
+  } catch(err) {
+    // 실패 시 조용히 — 빈 달력 표시
+    console.error('[STU ATT FETCH]', err && err.message ? err.message : err);
+  }
+}
+
+function _paintStuAttGrid() {
+  var body = document.getElementById('stuAttBody');
+  if (!body) return;
+  var year = _stuAtt.year, month = _stuAtt.month;
+  var pad = function(n){ return n<10 ? '0'+n : ''+n; };
+  var todayKst = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+  var firstDow = new Date(Date.UTC(year, month, 1)).getUTCDay(); // 0=일
+  var lastDay  = new Date(Date.UTC(year, month+1, 0)).getUTCDate();
+  var macroIcon = { positive:'☀️', neutral:'☁️', negative:'☔' };
+  var macroClass = { positive:'em-positive', neutral:'em-neutral', negative:'em-negative' };
+
+  var html = '<div class="stu-att-grid">';
+  var dowNames = ['일','월','화','수','목','금','토'];
+  for (var i=0; i<7; i++) {
+    var cls = 'stu-att-dow' + (i===0?' sun':'') + (i===6?' sat':'');
+    html += '<div class="'+cls+'">'+dowNames[i]+'</div>';
+  }
+  for (var b=0; b<firstDow; b++) html += '<div class="stu-att-cell blank"></div>';
+
+  var pos=0, neu=0, neg=0, total=0;
+  for (var day=1; day<=lastDay; day++) {
+    var dateStr = year + '-' + pad(month+1) + '-' + pad(day);
+    var rec = _stuAtt.map[dateStr];
+    var dow = new Date(Date.UTC(year, month, day)).getUTCDay();
+    var classes = ['stu-att-cell'];
+    var isFuture = dateStr > todayKst;
+    if (isFuture) classes.push('future');
+    if (dow === 0) classes.push('hol');
+    else if (dow === 6) classes.push('sat');
+    if (dateStr === todayKst) classes.push('today');
+    var icon = '';
+    if (rec && !isFuture) {
+      classes.push(macroClass[rec.macro] || 'empty');
+      icon = macroIcon[rec.macro] || '·';
+      if (rec.macro === 'positive') pos++;
+      else if (rec.macro === 'neutral') neu++;
+      else if (rec.macro === 'negative') neg++;
+      total++;
+    } else if (!isFuture) {
+      classes.push('empty');
+    }
+    var mod = rec && rec.is_modified ? '<div class="em-modified-dot">✏️</div>' : '';
+    var onclickAttr = (rec && !isFuture) ? ' onclick="openStuAttCell(\''+dateStr+'\')"' : '';
+    html += '<div class="'+classes.join(' ')+'"'+onclickAttr+'>' +
+              (icon ? '<div class="stu-att-cell-icon">'+icon+'</div>' : '') +
+              '<div class="stu-att-cell-day">'+day+'</div>' +
+              mod +
+            '</div>';
+  }
+  html += '</div>';
+
+  // 월 통계
+  if (total > 0) {
+    html += '<div class="stu-att-stats">' +
+      '<span class="stu-att-stat-chip">☀️ '+pos+'일</span>' +
+      '<span class="stu-att-stat-chip">☁️ '+neu+'일</span>' +
+      '<span class="stu-att-stat-chip">☔ '+neg+'일</span>' +
+      '<span class="stu-att-stat-chip">📝 기록 '+total+'일</span>' +
+    '</div>';
+  } else {
+    html += '<div class="stu-att-stats"><span class="stu-att-stat-chip" style="color:var(--gray)">이 달엔 아직 기록이 없어요 🌱</span></div>';
+  }
+  body.innerHTML = html;
+}
+
+function changeStuAttMonth(offset) {
+  var today = new Date(Date.now() + 9*3600000);
+  var newMonth = _stuAtt.month + offset;
+  var newYear  = _stuAtt.year;
+  if (newMonth < 0) { newMonth = 11; newYear--; }
+  if (newMonth > 11){ newMonth = 0;  newYear++; }
+  // 미래 달은 차단
+  if (newYear > today.getUTCFullYear() ||
+      (newYear === today.getUTCFullYear() && newMonth > today.getUTCMonth())) return;
+  _stuAtt.year = newYear;
+  _stuAtt.month = newMonth;
+  renderStudentAttendance();
+}
+
+function openStuAttCell(dateStr) {
+  var rec = _stuAtt.map[dateStr];
+  if (!rec) return;
+  var macroName = { positive:'좋음 ☀️', neutral:'그저그래 ☁️', negative:'속상함 ☔' };
+  var line1 = macroName[rec.macro] || rec.macro || '기록 있음';
+  var microText = rec.is_custom ? (rec.custom_text || rec.micro) : rec.micro;
+  var d = new Date(dateStr + 'T12:00:00');
+  var weekday = ['일','월','화','수','목','금','토'][d.getDay()];
+  var dateLabel = (d.getMonth()+1) + '월 ' + d.getDate() + '일 (' + weekday + '요일)';
+  var msg = line1;
+  if (microText) msg += '\n그날의 마음: ' + microText;
+  if (rec.is_modified) msg += '\n✏️ 이 날은 고쳐 썼어요';
+  appAlert(dateLabel, msg, { okLabel:'닫기' });
 }
 
 // ── 감정 입력 ──
