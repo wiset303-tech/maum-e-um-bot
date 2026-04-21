@@ -1296,6 +1296,10 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   "></div>
   <!-- ACR122U HID 입력 수신용 숨김 인풋 -->
   <input id="nfc-input" type="text" autocomplete="off" readonly>
+  <!-- 69차: 로그인 전 화면 하단 저작권·개인정보처리방침 -->
+  <div style="padding:24px 10px 12px;text-align:center;font-size:10px;color:rgba(255,255,255,0.55);line-height:1.6">
+    © 2026 마음이음 무지개 · <a href="./privacy" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">개인정보처리방침</a><br>All rights reserved
+  </div>
 </div>
 
 <!-- ══ 앱 메인 ══ -->
@@ -1324,6 +1328,10 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   </div>
   <div class="tab-bar" id="tabBar"></div>
   <div class="tab-panels" id="tabPanels"></div>
+  <!-- 69차: 앱 메인 하단 저작권·개인정보처리방침 (모든 역할 공통) -->
+  <div style="text-align:center;padding:22px 12px 16px;margin-top:24px;border-top:1px solid var(--lgray);font-size:10px;color:var(--gray);opacity:0.6;line-height:1.6">
+    © 2026 마음이음 무지개 · <a href="./privacy" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">개인정보처리방침</a> · All rights reserved
+  </div>
 </div>
 
 <!-- ══ 모달: 로그인 ══ -->
@@ -1347,6 +1355,11 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <div class="settings-item">
       <div><div class="settings-label">🎵 배경음악</div></div>
       <label class="toggle"><input type="checkbox" id="set-bgm-modal" onchange="AUDIO.toggleBgm(this.checked)"><span class="toggle-slider"></span></label><!-- 68차: 모달 open 시 renderLoginSettingsModal에서 checked 동기화 (AUDIO.loadLocalBgmPref 기반) -->
+    </div>
+    <!-- 69차: 개인정보처리방침 -->
+    <div class="settings-item" style="cursor:pointer" onclick="window.open('./privacy','_blank','noopener')">
+      <div><div class="settings-label">🔒 개인정보처리방침</div></div>
+      <span style="color:var(--gray);font-size:16px">›</span>
     </div>
   </div>
 </div>
@@ -3151,37 +3164,50 @@ async function loginByPw() {
   try {
     var hash = await _sha256(pw);
     var data = null;
+    var inactiveFound = false;  // 69차: 비활성 계정 구분 (id+hash 일치했으나 active='N')
 
     if (id.slice(-2) === '_p') {
-      // 부모 로그인
-      var rows = await _sbFetch('parents', { parent_id:'eq.'+id, pw_hash:'eq.'+hash, active:'eq.Y' });
+      // 부모 로그인 — 69차: active 필터 제거하고 조회 후 분기
+      var rows = await _sbFetch('parents', { parent_id:'eq.'+id, pw_hash:'eq.'+hash });
       if (rows.length) {
         var r = rows[0];
-        data = { role:'parent', parent_uid:r.parent_uid, student_uid:r.student_uid,
-          student_name:r.student_name, teacher_uid:r.teacher_uid,
-          school_name:r.school_name, parent_id:r.parent_id };
+        if (r.active === 'Y') {
+          data = { role:'parent', parent_uid:r.parent_uid, student_uid:r.student_uid,
+            student_name:r.student_name, teacher_uid:r.teacher_uid,
+            school_name:r.school_name, parent_id:r.parent_id };
+        } else {
+          inactiveFound = true;
+        }
       }
     } else {
-      // 교사 시도
-      var tRows = await _sbFetch('teachers', { teacher_id:'eq.'+id, pw_hash:'eq.'+hash, active:'eq.Y' });
+      // 교사 시도 — 69차: active 필터 제거하고 조회 후 분기
+      var tRows = await _sbFetch('teachers', { teacher_id:'eq.'+id, pw_hash:'eq.'+hash });
       if (tRows.length) {
         var r = tRows[0];
-        data = { role:'teacher', teacher_uid:r.teacher_uid, name:r.name,
-          school_name:r.school_name, school_type:r.school_type,
-          year:r.year, grade:r.grade, class:r.class, profile_image_url:r.profile_image_url||'' };
+        if (r.active === 'Y') {
+          data = { role:'teacher', teacher_uid:r.teacher_uid, name:r.name,
+            school_name:r.school_name, school_type:r.school_type,
+            year:r.year, grade:r.grade, class:r.class, profile_image_url:r.profile_image_url||'' };
+        } else {
+          inactiveFound = true;
+        }
       } else {
-        // 학생 시도
-        var sRows = await _sbFetch('students', { student_id:'eq.'+id, pw_hash:'eq.'+hash, active:'eq.Y' });
+        // 학생 시도 — 69차: active 필터 제거하고 조회 후 분기
+        var sRows = await _sbFetch('students', { student_id:'eq.'+id, pw_hash:'eq.'+hash });
         if (sRows.length) {
           var r = sRows[0];
-          data = { role:'student', student_uid:r.student_uid, student_id:r.student_id,
-            name:r.name, teacher_uid:r.teacher_uid, school_name:r.school_name,
-            grade:r.grade, class:r.class, num:r.num, gender:r.gender||'', profile_image_url:r.profile_image_url||'' };
-          // 토큰 지급 + 등교 알림 — 백그라운드 비동기 (기다리지 않음)
-          // 67차: loadTokenBalance 낙관적 +1 트리거
-          STATE._justLoggedIn = true;
-          api('post_login_student', { student_uid:r.student_uid, name:r.name,
-            teacher_uid:r.teacher_uid, school_name:r.school_name }).catch(function(){});
+          if (r.active === 'Y') {
+            data = { role:'student', student_uid:r.student_uid, student_id:r.student_id,
+              name:r.name, teacher_uid:r.teacher_uid, school_name:r.school_name,
+              grade:r.grade, class:r.class, num:r.num, gender:r.gender||'', profile_image_url:r.profile_image_url||'' };
+            // 토큰 지급 + 등교 알림 — 백그라운드 비동기 (기다리지 않음)
+            // 67차: loadTokenBalance 낙관적 +1 트리거
+            STATE._justLoggedIn = true;
+            api('post_login_student', { student_uid:r.student_uid, name:r.name,
+              teacher_uid:r.teacher_uid, school_name:r.school_name }).catch(function(){});
+          } else {
+            inactiveFound = true;
+          }
         } else {
           // 60차 Δ²: 관리자 시도 (Supabase admins) — 테이블 없으면 조용히 throw → 외부 GAS fallback
           try {
@@ -3199,6 +3225,14 @@ async function loginByPw() {
       AUDIO.sfx('login');
       closeModal('modal-login');
       onLoginSuccess(data);
+      return;
+    }
+
+    // 69차: 비활성 감지 시 GAS fallback 건너뛰고 즉시 안내
+    if (inactiveFound) {
+      hideLoading();
+      AUDIO.sfx('error');
+      toast('비활성화된 계정이에요. 선생님께 문의해 주세요');
       return;
     }
 
