@@ -3564,6 +3564,10 @@ function _clearSessionCaches() {
   _notifOpen = false; _notifPage = 0; _notifRendering = false;
   var dd = document.getElementById('notifDropdown');
   if (dd) dd.style.display = 'none';
+  // 70차: badge DOM도 즉시 리셋 — 관리자 등 알림 uid 없는 역할로 전환 시 이전 세션 unread 카운트 잔상 방지
+  try { if (typeof updateNotifBadge === 'function') updateNotifBadge(); } catch(e) {}
+  var nb = document.getElementById('notifBadge');
+  if (nb) { nb.style.display = 'none'; nb.textContent = ''; }
   // 66차: 학부모 마음열기 프리로드 캐시
   if (typeof STATE !== 'undefined' && STATE) STATE._preloadedChatKeywords = null;
   // 66차: 학생 지난 대화 프리로드 캐시
