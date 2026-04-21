@@ -1069,6 +1069,17 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   font-size:11px;color:rgba(255,255,255,.85);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
+/* 70차: 낙관적 업로드 중 카드 */
+.album-item.album-pending img{opacity:.55;filter:saturate(.85)}
+.album-item .album-pending-badge{
+  position:absolute;top:6px;right:6px;
+  background:rgba(0,0,0,.62);color:#fff;
+  font-size:11px;font-weight:700;
+  padding:3px 9px;border-radius:10px;
+  pointer-events:none;
+  animation:alb-pending-pulse 1.2s infinite ease-in-out;
+}
+@keyframes alb-pending-pulse{0%,100%{opacity:.8}50%{opacity:1}}
 /* 앨범 스켈레톤 로딩 */
 @keyframes alb-shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
 .alb-skeleton{
@@ -11969,6 +11980,11 @@ async function openAlbumPopup(idx) {
   var entry = _albumCache[idx];
   if (!entry) return;
   var albumData = entry.data;
+  // 70차: 낙관적 업로드 중인 카드는 팝업 대신 안내
+  if (albumData._pending || String(albumData.album_uid || '').indexOf('tmp_') === 0) {
+    toast('사진을 올리는 중이에요 🌸');
+    return;
+  }
   var canDelete = entry.canDelete;
   _popupAlbumUid = albumData.album_uid;
 
@@ -12107,6 +12123,7 @@ async function uploadAlbum() {
   input.click();
 }
 
+// 70차: 앨범 낙관적 UI — 프리펜드 → GAS 백그라운드 → 응답 후 in-place 교체/롤백
 async function submitAlbumUpload() {
   if (!_albumUploadData.imageUrl) { toast('사진을 먼저 선택해주세요 📷'); return; }
   var caption  = document.getElementById('albumCaptionInput').value.trim();
@@ -12114,9 +12131,28 @@ async function submitAlbumUpload() {
   var tags     = parseHashtags(rawTags);
   var hashtags = tags.join(' ');
   var today    = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+  var nowKst   = new Date(Date.now() + 9*3600000).toISOString().slice(0,19);
+  var tempUid  = 'tmp_' + Date.now();
 
   closeModal('modal-album-upload');
-  showLoading('마음앨범에 저장하는 중이에요 🌸');
+
+  var tempRow = {
+    album_uid   : tempUid,
+    timestamp   : nowKst,
+    student_uid : STATE.user.student_uid,
+    student_name: STATE.user.name || '',
+    teacher_uid : STATE.user.teacher_uid,
+    image_url   : _albumUploadData.imageUrl,
+    thumb_url   : _albumUploadData.thumbUrl,
+    caption     : caption,
+    hashtags    : hashtags,
+    emotion_id  : (STATE.selectedMicro && STATE.selectedMicro.id) || '',
+    date        : today,
+    is_deleted  : false,
+    updated_at  : nowKst,
+    _pending    : true,
+  };
+  _prependOptimisticAlbumCard(tempRow);
 
   var payload = {
     student_uid  : STATE.user.student_uid,
@@ -12129,27 +12165,119 @@ async function submitAlbumUpload() {
     date         : today,
   };
 
-  var res = await api('save_album', payload);
-  hideLoading();
-
-  if (res.status === 'ok') {
-    AUDIO.sfx('save');
-    toast('마음앨범에 저장됐어요 🌸');
-    _albumLoaded = false; // 캐시 무효화 → 재로드
-    loadAlbum();
-  } else if (res.message && res.message.includes('이미')) {
-    // 67차: 네이티브 confirm → 앱 톤앤매너 모달
-    if (await appConfirm('사진 교체', '오늘 사진이 이미 있어요.\n새 사진으로 교체할까요?', { okLabel:'교체' })) {
-      showLoading('교체하는 중이에요 📸');
-      payload.is_update = true;
-      var res2 = await api('save_album', payload);
-      hideLoading();
-      if (res2.status === 'ok') { toast('사진이 교체됐어요 📸'); _albumLoaded = false; loadAlbum(); }
-      else toast(res2.message || '오류가 발생했어요');
+  try {
+    var res = await api('save_album', payload);
+    if (res.status === 'ok') {
+      AUDIO.sfx('save');
+      _resolveOptimisticAlbumCard(tempUid, {
+        album_uid : res.album_uid || tempUid,
+        image_url : res.image_url || tempRow.image_url,
+        timestamp : res.timestamp || nowKst,
+      });
+      toast('마음앨범에 저장됐어요 🌸');
+    } else if (res.message && res.message.includes('이미')) {
+      // 67차: 네이티브 confirm → 앱 톤앤매너 모달
+      if (await appConfirm('사진 교체', '오늘 사진이 이미 있어요.\n새 사진으로 교체할까요?', { okLabel:'교체' })) {
+        payload.is_update = true;
+        var res2 = await api('save_album', payload);
+        if (res2.status === 'ok') {
+          AUDIO.sfx('save');
+          _resolveOptimisticAlbumCard(tempUid, {
+            album_uid : res2.album_uid || tempUid,
+            image_url : res2.image_url || tempRow.image_url,
+            timestamp : res2.updated_at || nowKst,
+          });
+          toast('사진이 교체됐어요 📸');
+        } else {
+          _removeOptimisticAlbumCard(tempUid);
+          toast(res2.message || '오류가 발생했어요');
+        }
+      } else {
+        _removeOptimisticAlbumCard(tempUid);
+      }
+    } else {
+      _removeOptimisticAlbumCard(tempUid);
+      toast(res.message || '오류가 발생했어요');
     }
-  } else {
-    toast(res.message || '오류가 발생했어요');
+  } catch(e) {
+    _removeOptimisticAlbumCard(tempUid);
+    console.error('[ALBUM UPLOAD] ', e);
+    toast('업로드에 실패했어요. 다시 시도해주세요 📷');
   }
+}
+
+// 70차: 낙관적 앨범 카드 헬퍼
+function _prependOptimisticAlbumCard(row) {
+  var grid  = document.getElementById('albumGrid');
+  var empty = document.getElementById('albumEmpty');
+  if (!grid) return;
+  if (empty) empty.style.display = 'none';
+  // 스켈레톤이 남아있으면 제거 (첫 업로드 케이스)
+  var skels = grid.querySelectorAll('.alb-skeleton');
+  for (var k=0; k<skels.length; k++) skels[k].remove();
+  // 프리로드 캐시에도 unshift (loadAlbum 재진입 시 최상단 유지)
+  if (_preloadedStudentAlbum) _preloadedStudentAlbum.unshift(row);
+  // 캐시 push + 카드 DOM 생성 (전용 렌더 — data-album-uid로 나중에 찾기)
+  var idx = _albumCache.length;
+  _albumCache.push({ data: row, canDelete: false });
+  var thumb = resolveAlbumThumb(row);
+  var dateStr = String(row.date).slice(0,10);
+  var html =
+    '<div class="album-item album-pending" data-album-uid="' + row.album_uid + '" onclick="openAlbumPopup(' + idx + ')">' +
+      '<img src="' + thumb + '" alt="마음앨범" loading="lazy">' +
+      '<div class="album-pending-badge">올리는 중…</div>' +
+      '<div class="album-date">' +
+        '<div>' + dateStr + '</div>' +
+        (row.caption ? '<div class="album-caption-thumb">' + row.caption + '</div>' : '') +
+      '</div>' +
+    '</div>';
+  grid.insertAdjacentHTML('afterbegin', html);
+  _albumLoaded = true; // 프리로드 캐시 유효 유지
+}
+
+function _resolveOptimisticAlbumCard(tempUid, patch) {
+  // 캐시 in-place 교체
+  for (var i=0; i<_albumCache.length; i++) {
+    if (_albumCache[i].data.album_uid === tempUid) {
+      _albumCache[i].data.album_uid = patch.album_uid;
+      _albumCache[i].data.image_url = patch.image_url;
+      _albumCache[i].data.timestamp = patch.timestamp;
+      _albumCache[i].data._pending  = false;
+      break;
+    }
+  }
+  if (_preloadedStudentAlbum) {
+    for (var j=0; j<_preloadedStudentAlbum.length; j++) {
+      if (_preloadedStudentAlbum[j].album_uid === tempUid) {
+        _preloadedStudentAlbum[j].album_uid = patch.album_uid;
+        _preloadedStudentAlbum[j].image_url = patch.image_url;
+        _preloadedStudentAlbum[j].timestamp = patch.timestamp;
+        _preloadedStudentAlbum[j]._pending  = false;
+        break;
+      }
+    }
+  }
+  // DOM 업데이트: 뱃지 제거 + data 속성 교체
+  var card = document.querySelector('.album-item[data-album-uid="' + tempUid + '"]');
+  if (card) {
+    card.classList.remove('album-pending');
+    var badge = card.querySelector('.album-pending-badge');
+    if (badge) badge.remove();
+    card.setAttribute('data-album-uid', patch.album_uid);
+  }
+}
+
+function _removeOptimisticAlbumCard(tempUid) {
+  _albumCache = _albumCache.filter(function(c){ return c.data.album_uid !== tempUid; });
+  if (_preloadedStudentAlbum) {
+    _preloadedStudentAlbum = _preloadedStudentAlbum.filter(function(a){ return a.album_uid !== tempUid; });
+  }
+  var card = document.querySelector('.album-item[data-album-uid="' + tempUid + '"]');
+  if (card) card.remove();
+  // 마지막 카드였다면 empty 상태 복원
+  var grid  = document.getElementById('albumGrid');
+  var empty = document.getElementById('albumEmpty');
+  if (grid && !grid.querySelector('.album-item') && empty) empty.style.display = 'block';
 }
 
 // ════════════════════════════════════════
