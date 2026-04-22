@@ -1377,6 +1377,14 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   70%  { opacity: 1; transform: translate(-50%,-50%) scale(1); }
   100% { opacity: 0; transform: translate(-50%,-50%) scale(1); }
 }
+/* 71차: 신청 검토 카드 하이라이트 펄스 (알림 클릭 → 탭 점프 시 해당 신청 강조) */
+.signup-req-card{transition:box-shadow .2s,background .2s}
+.signup-req-card.signup-req-flash{animation:signupReqFlash 1.6s ease-out}
+@keyframes signupReqFlash{
+  0%{box-shadow:0 0 0 0 rgba(78,205,180,.75);background:#e8fbf5}
+  60%{box-shadow:0 0 0 12px rgba(78,205,180,0);background:#f3faf8}
+  100%{box-shadow:0 0 0 0 rgba(78,205,180,0);background:#fff}
+}
 /* 67차: 훈훈습도계 달성 시 "🎁 +2 🪙" 튀어오름 팝업 */
 .warmth-plus-two {
   position: fixed;
@@ -1405,6 +1413,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-cloud/1.2.5/d3.layout.cloud.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- 71차: Google Identity Services (GIS) — Google 로그인 버튼 렌더용 -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -1537,6 +1547,149 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <div class="inp-label" style="margin-top:8px">비밀번호</div>
     <input class="inp" id="login-pw" type="password" placeholder="비밀번호를 입력하세요" onkeydown="if(event.key===&quot;Enter&quot;)loginByPw()">
     <button class="btn btn-primary" style="margin-top:16px" onclick="loginByPw()">로그인하기</button>
+    <!-- 71차: Google Sign-In (교사·관리자 전용 — email 매칭) -->
+    <div style="text-align:center;margin:14px 0 4px;position:relative">
+      <span style="display:inline-block;background:#fff;padding:0 12px;font-size:11.5px;color:var(--gray);position:relative;z-index:1">또는</span>
+      <div style="position:absolute;left:0;right:0;top:50%;height:1px;background:#e5e7eb;z-index:0"></div>
+    </div>
+    <div id="google-signin-btn" style="display:flex;justify-content:center;margin-top:8px"></div>
+    <div style="font-size:10.5px;color:var(--gray);text-align:center;margin-top:6px;line-height:1.5">
+      Google 계정의 이메일을 서비스에 연동하는 것에<br>동의하는 것으로 간주돼요.
+    </div>
+    <!-- 70차: 교사 회원가입 신청 링크 (학생은 NFC로 로그인하므로 교사 대상 안내) -->
+    <div style="text-align:center;margin-top:14px;padding-top:12px;border-top:1px dashed #e5e7eb">
+      <a href="#" onclick="event.preventDefault();openTeacherSignup()" style="font-size:12.5px;color:var(--gray);text-decoration:none">
+        📝 (교사) 아이디가 없어요
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 모달: Google 로그인 — 미가입 이메일 안내 (71차) ══ -->
+<div id="modal-google-unregistered" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-google-unregistered')">
+  <div class="modal-box" style="position:relative">
+    <div class="modal-title">🔐 가입된 계정이 없어요</div>
+    <button class="modal-close" onclick="closeModal('modal-google-unregistered')">✕</button>
+    <div style="font-size:13px;color:var(--navy);margin-bottom:14px;line-height:1.6" id="gu-summary"></div>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:14px;line-height:1.5">
+      기존 계정이 있다면 아이디로 로그인 후 <b>⚙️ 설정 → 📧 이메일 등록/변경</b>에서 이메일을 등록하면 다음부터 Google 로그인이 가능해요.
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-google-unregistered');openLoginModal()">🔑 아이디로 로그인</button>
+      <button class="btn btn-primary" style="flex:1" onclick="_gotoTeacherSignupFromGoogle()">📝 회원가입 신청</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 모달: 교사 회원가입 신청 (70차 신설) ══ -->
+<div id="modal-teacher-signup" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-teacher-signup')">
+  <div class="modal-box" style="position:relative;max-height:85vh;overflow-y:auto">
+    <div class="modal-title">📝 교사 회원가입 신청</div>
+    <button class="modal-close" onclick="closeModal('modal-teacher-signup')">✕</button>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:14px;line-height:1.6">
+      신청 후 관리자가 확인하고 <b>이메일로 결과</b>를 알려드려요.<br>
+      수집 항목은 <a href="./privacy" target="_blank" style="color:var(--mint2)">개인정보처리방침</a>에 따라 최소한만 받습니다.
+    </div>
+
+    <div class="inp-label">이름 <span style="color:#e05050">*</span></div>
+    <input class="inp" id="ts-name" placeholder="선생님 성함" style="margin-bottom:10px" autocomplete="off">
+
+    <div class="inp-label">학교명 <span style="color:#e05050">*</span></div>
+    <input class="inp" id="ts-school" placeholder="예: 학장초등학교" style="margin-bottom:10px" autocomplete="off">
+
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <div style="flex:1">
+        <div class="inp-label">학년 <span style="color:#e05050">*</span></div>
+        <input class="inp" id="ts-grade" type="number" min="1" max="6" placeholder="1~6" autocomplete="off">
+      </div>
+      <div style="flex:1">
+        <div class="inp-label">반 <span style="color:#e05050">*</span></div>
+        <input class="inp" id="ts-class" type="number" min="1" placeholder="반" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="inp-label">희망 아이디 <span style="color:#e05050">*</span></div>
+    <input class="inp" id="ts-id" placeholder="영문+숫자 (승인 후 로그인 아이디)" style="margin-bottom:10px" autocomplete="off">
+
+    <div class="inp-label">이메일 <span style="color:#e05050">*</span></div>
+    <input class="inp" id="ts-email" type="email" placeholder="승인 결과를 받을 이메일" style="margin-bottom:10px" autocomplete="off">
+
+    <div class="inp-label">신청 사유 <span style="color:var(--gray)">(선택)</span></div>
+    <textarea class="inp" id="ts-reason" rows="2" placeholder="한 줄 자기소개나 신청 이유" style="margin-bottom:14px;resize:none;font-family:inherit"></textarea>
+
+    <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--navy);margin-bottom:14px;cursor:pointer;line-height:1.5">
+      <input type="checkbox" id="ts-agree" style="margin-top:2px;flex-shrink:0">
+      <span>개인정보 수집·이용에 동의합니다. (<a href="./privacy" target="_blank" style="color:var(--mint2)" onclick="event.stopPropagation()">자세히</a>)</span>
+    </label>
+
+    <button class="btn btn-primary" style="width:100%" onclick="submitTeacherSignup()">신청하기</button>
+  </div>
+</div>
+
+<!-- ══ 모달: 신청 수락 (71차 — 관리자 전용) ══ -->
+<div id="modal-signup-accept" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-signup-accept')">
+  <div class="modal-box" style="position:relative;max-height:85vh;overflow-y:auto">
+    <div class="modal-title">✅ 가입 신청 수락</div>
+    <button class="modal-close" onclick="closeModal('modal-signup-accept')">✕</button>
+    <div id="sa-summary" style="font-size:12.5px;color:var(--navy);background:var(--mint4);border-radius:10px;padding:10px 12px;margin-bottom:14px;line-height:1.6"></div>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:10px;line-height:1.5">
+      신청 폼에 없는 정보만 선택해 주세요. 초기 비밀번호는 <b>maum1234</b>로 설정되고, 승인 이메일로 안내돼요.
+    </div>
+    <div class="inp-label">학교 유형 <span style="color:#e05050">*</span></div>
+    <select class="inp" id="sa-school-type" style="margin-bottom:10px">
+      <option value="e">초등학교</option>
+      <option value="m">중학교</option>
+      <option value="h">고등학교</option>
+    </select>
+    <div class="inp-label">지역(시/도) <span style="color:#e05050">*</span></div>
+    <select class="inp" id="sa-region" style="margin-bottom:10px">
+      <option value="">선택</option>
+      <option>서울</option><option>부산</option><option>대구</option><option>인천</option>
+      <option>광주</option><option>대전</option><option>울산</option><option>세종</option>
+      <option>경기</option><option>강원</option><option>충북</option><option>충남</option>
+      <option>전북</option><option>전남</option><option>경북</option><option>경남</option>
+      <option>제주</option>
+    </select>
+    <div class="inp-label">학년도</div>
+    <input class="inp" id="sa-year" type="number" value="2026" style="margin-bottom:14px">
+    <input type="hidden" id="sa-request-uid">
+    <button class="btn btn-primary" style="width:100%" onclick="submitSignupAccept()">✅ 수락하고 등록</button>
+  </div>
+</div>
+
+<!-- ══ 모달: 신청 거절 (71차 — 관리자 전용) ══ -->
+<div id="modal-signup-reject" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-signup-reject')">
+  <div class="modal-box" style="position:relative">
+    <div class="modal-title">🙅 가입 신청 거절</div>
+    <button class="modal-close" onclick="closeModal('modal-signup-reject')">✕</button>
+    <div id="sr-summary" style="font-size:12.5px;color:var(--navy);background:#fef2f2;border-radius:10px;padding:10px 12px;margin-bottom:14px;line-height:1.6"></div>
+    <div class="inp-label">거절 사유 <span style="color:#e05050">*</span></div>
+    <textarea class="inp" id="sr-reason" rows="3" placeholder="예: 학교명이 확인되지 않아 관리자 확인이 필요합니다" style="margin-bottom:14px;resize:none;font-family:inherit"></textarea>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:14px;line-height:1.5">이 내용은 신청자 이메일로 그대로 발송돼요. 정중하게 적어주세요.</div>
+    <input type="hidden" id="sr-request-uid">
+    <button class="btn btn-primary" style="width:100%;background:#e05050;border-color:#e05050" onclick="submitSignupReject()">🙅 거절 처리</button>
+  </div>
+</div>
+
+<!-- ══ 모달: 이메일 등록/변경 (71차 — 교사·관리자 공용, Google 로그인 연동용) ══ -->
+<div id="modal-email-edit" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-email-edit')">
+  <div class="modal-box" style="position:relative">
+    <div class="modal-title">📧 이메일 등록/변경</div>
+    <button class="modal-close" onclick="closeModal('modal-email-edit')">✕</button>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:14px;line-height:1.6">
+      Google 로그인을 사용하려면 <b>Google 계정과 같은 이메일</b>을 입력해 주세요.<br>
+      등록 시 <a href="./privacy" target="_blank" style="color:var(--mint2)">개인정보처리방침</a>에 따라 이메일(선택 수집)에 동의하게 됩니다.
+    </div>
+    <div class="inp-label">이메일 주소</div>
+    <input class="inp" id="ee-email" type="email" placeholder="example@gmail.com" style="margin-bottom:14px" autocomplete="off">
+    <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--navy);margin-bottom:14px;cursor:pointer;line-height:1.5">
+      <input type="checkbox" id="ee-agree" style="margin-top:2px;flex-shrink:0">
+      <span>Google 계정의 이메일을 서비스에 연동하는 것에 동의합니다.</span>
+    </label>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-secondary" style="flex:1" onclick="submitEmailEdit(true)">🗑 연동 해제</button>
+      <button class="btn btn-primary" style="flex:2" onclick="submitEmailEdit(false)">💾 저장</button>
+    </div>
   </div>
 </div>
 
@@ -2184,7 +2337,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <input class="inp" id="changePwConfirmInput" type="password" placeholder="새 비밀번호 다시 한 번"
         onkeydown="if(event.key==='Enter')confirmChangePw()" style="margin-bottom:6px">
     </div>
-    <div style="font-size:11px;color:var(--gray);margin-bottom:16px">네 자 이상 써 주세요</div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:16px">8자 이상 · 영문·숫자 조합 (관리자는 10자 이상 + 특수문자)</div>
     <button class="btn btn-primary" style="width:100%" onclick="confirmChangePw()">변경하기</button>
     <!-- teacher 모드 전용: maum1234 초기화 보조 버튼 (openChangeTeacherPw에서만 표시) -->
     <div id="changePwResetWrap" style="display:none;border-top:1px solid var(--lgray);margin-top:14px;padding-top:14px">
@@ -3025,7 +3178,349 @@ function appAlert(title, message, opts) {
     _uiConfirm(title, message, function(){ resolve(); }, o);
   });
 }
-function openLoginModal() { openModal('modal-login'); }
+function openLoginModal() {
+  openModal('modal-login');
+  // 71차: Google Sign-In 버튼 렌더 (첫 호출에만 GIS 초기화, 이후는 재렌더만)
+  if (typeof _renderGoogleSignIn === 'function') _renderGoogleSignIn();
+}
+
+// ─────────── 71차: Google SSO G-A ───────────
+// Client ID — 변쌤이 Google Cloud Console에서 발급 후 이 상수만 바꾸면 됨
+// (발급 전엔 빈 값 → 버튼은 숨겨진 상태로 유지)
+var GOOGLE_CLIENT_ID = (window.GOOGLE_CLIENT_ID || '').trim();
+
+var _gisInited = false;
+var _googleUnregCache = null; // not_registered 응답 캐시 (신청 폼 프리필용)
+
+function _renderGoogleSignIn() {
+  var host = document.getElementById('google-signin-btn');
+  if (!host) return;
+  // Client ID 미설정이면 버튼 영역 숨김 (변쌤 발급 전)
+  if (!GOOGLE_CLIENT_ID) {
+    host.innerHTML = '<div style="font-size:11px;color:var(--gray);padding:6px 10px">Google 로그인 준비 중…</div>';
+    return;
+  }
+  if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+    // GIS 스크립트 아직 로드 안 됨 — 300ms 후 재시도 (최대 10회)
+    host._retry = (host._retry || 0) + 1;
+    if (host._retry < 10) setTimeout(_renderGoogleSignIn, 300);
+    return;
+  }
+  host._retry = 0;
+  try {
+    if (!_gisInited) {
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: _onGoogleCredential,
+        auto_select: false,
+        ux_mode: 'popup'
+      });
+      _gisInited = true;
+    }
+    host.innerHTML = '';
+    window.google.accounts.id.renderButton(host, {
+      type: 'standard', theme: 'outline', size: 'large',
+      text: 'signin_with', shape: 'pill', logo_alignment: 'left', width: 260
+    });
+  } catch(e) {
+    console.error('[GIS RENDER]', e && e.message ? e.message : e);
+  }
+}
+
+// GIS 콜백 — credential(ID token) 받음 → GAS login_by_google 호출
+async function _onGoogleCredential(resp) {
+  if (!resp || !resp.credential) { toast('Google 로그인 응답이 비어있어요'); return; }
+  showLoading('Google 계정을 확인하는 중이에요 🔐');
+  try {
+    var r = await api('login_by_google', { id_token: resp.credential });
+    hideLoading();
+    if (r.status !== 'ok') { toast(r.message || 'Google 로그인 실패'); return; }
+    var d = r.data;
+    if (d.role === 'teacher' || d.role === 'admin') {
+      closeModal('modal-login');
+      onLoginSuccess(d);
+      return;
+    }
+    // 미가입 이메일 — 안내 모달로 분기
+    if (d.role === 'not_registered') {
+      _googleUnregCache = d; // 신청 폼 프리필용
+      document.getElementById('gu-summary').innerHTML =
+        '📧 <b>' + _escHtml(d.email || '') + '</b><br>이 Google 계정으로 가입된 교사·관리자를 찾지 못했어요.';
+      closeModal('modal-login');
+      openModal('modal-google-unregistered');
+      return;
+    }
+    toast('알 수 없는 응답 역할: ' + d.role);
+  } catch(e) {
+    hideLoading();
+    console.error('[GOOGLE LOGIN]', e && e.message ? e.message : e);
+    toast('Google 로그인 중 오류가 발생했어요');
+  }
+}
+
+// 미가입 모달 → 신청 폼으로 이동 + 이메일·이름 프리필
+function _gotoTeacherSignupFromGoogle() {
+  var cache = _googleUnregCache || {};
+  closeModal('modal-google-unregistered');
+  openTeacherSignup();
+  setTimeout(function(){
+    if (cache.email) document.getElementById('ts-email').value = cache.email;
+    if (cache.name)  document.getElementById('ts-name').value  = cache.name;
+  }, 350);
+}
+
+// 70차: 교사 회원가입 신청 모달 열기
+function openTeacherSignup() {
+  ['ts-name','ts-school','ts-grade','ts-class','ts-id','ts-email','ts-reason'].forEach(function(id){
+    var el = document.getElementById(id); if (el) el.value = '';
+  });
+  var agree = document.getElementById('ts-agree');
+  if (agree) agree.checked = false;
+  closeModal('modal-login');
+  openModal('modal-teacher-signup');
+  setTimeout(function(){
+    var first = document.getElementById('ts-name');
+    if (first) first.focus();
+  }, 300);
+}
+
+async function submitTeacherSignup() {
+  var name   = (document.getElementById('ts-name')   || {}).value || '';
+  var school = (document.getElementById('ts-school') || {}).value || '';
+  var grade  = (document.getElementById('ts-grade')  || {}).value || '';
+  var cls    = (document.getElementById('ts-class')  || {}).value || '';
+  var id     = (document.getElementById('ts-id')     || {}).value || '';
+  var email  = (document.getElementById('ts-email')  || {}).value || '';
+  var reason = (document.getElementById('ts-reason') || {}).value || '';
+  var agree  = !!(document.getElementById('ts-agree') || {}).checked;
+
+  name   = name.trim(); school = school.trim(); grade = grade.trim(); cls = cls.trim();
+  id     = id.trim();   email  = email.trim();  reason = reason.trim();
+
+  if (!name)   { toast('이름을 입력해주세요'); return; }
+  if (!school) { toast('학교명을 입력해주세요'); return; }
+  if (!grade || !cls) { toast('학년·반을 모두 입력해주세요'); return; }
+  var gradeNum = parseInt(grade, 10), clsNum = parseInt(cls, 10);
+  if (isNaN(gradeNum) || gradeNum < 1 || gradeNum > 6) { toast('학년은 1~6 사이로 입력해주세요'); return; }
+  if (isNaN(clsNum)   || clsNum  < 1)                  { toast('반을 올바르게 입력해주세요'); return; }
+  if (!id) { toast('희망 아이디를 입력해주세요'); return; }
+  if (!/^[A-Za-z0-9_]{3,}$/.test(id)) { toast('아이디는 영문/숫자/밑줄 3자 이상이에요'); return; }
+  if (!email) { toast('이메일을 입력해주세요'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('이메일 형식을 확인해주세요'); return; }
+  if (!agree) { toast('개인정보 수집·이용 동의가 필요해요'); return; }
+
+  showLoading('신청을 보내는 중이에요 📨');
+  try {
+    var res = await api('request_teacher_signup', {
+      name: name, school_name: school,
+      grade: gradeNum, class: clsNum,
+      teacher_id: id, email: email, reason: reason
+    });
+    hideLoading();
+    if (res.status === 'ok') {
+      closeModal('modal-teacher-signup');
+      await appAlert('신청 완료 ✅',
+        '관리자가 확인 후 이메일로 결과를 알려드릴게요.\n승인되면 입력하신 아이디로 로그인할 수 있어요.',
+        { okLabel:'확인' });
+    } else {
+      toast(res.message || '신청에 실패했어요');
+    }
+  } catch(e) {
+    hideLoading();
+    console.error('[SIGNUP SUBMIT]', e && e.message ? e.message : e);
+    toast('신청 중 오류가 발생했어요');
+  }
+}
+
+// 71차: 관리자 — 가입 신청 검토 카드 렌더
+async function renderSignupReviewCard() {
+  var box = document.getElementById('signupReviewCard');
+  if (!box) return;
+  if (STATE.role !== 'admin' || STATE.isPreview) { box.innerHTML = ''; return; }
+
+  try {
+    var res = await api('list_signup_requests', { status_filter: 'pending' });
+    if (!res || res.status !== 'ok') { box.innerHTML = ''; return; }
+    var list = (res.data && res.data.requests) || [];
+    if (!list.length) { box.innerHTML = ''; return; }
+
+    var rows = list.map(function(r){
+      var reason = r.reason ? ('<div style="font-size:11.5px;color:var(--gray);margin-top:4px;white-space:pre-wrap">💬 ' + _escHtml(r.reason) + '</div>') : '';
+      return '<div class="card signup-req-card" data-ruid="' + _escHtml(r.request_uid) + '" style="margin-bottom:8px;padding:12px 14px">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">' +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-size:14px;font-weight:700;color:var(--navy)">👩‍🏫 ' + _escHtml(r.name) + ' 선생님</div>' +
+            '<div style="font-size:12px;color:var(--gray);margin-top:2px">' + _escHtml(r.school_name) + ' · ' + r.grade + '학년 ' + r.class + '반 · 아이디 <code>' + _escHtml(r.teacher_id) + '</code></div>' +
+            '<div style="font-size:11px;color:var(--gray);margin-top:2px">📧 ' + _escHtml(r.email) + ' · 🕑 ' + _timeAgo(r.timestamp) + '</div>' +
+            reason +
+          '</div>' +
+          '<div style="display:flex;gap:6px;flex-shrink:0">' +
+            '<button class="btn btn-sm btn-primary" style="font-size:11.5px;padding:7px 12px" onclick="_openSignupAcceptModal(\'' + _escHtml(r.request_uid) + '\')">✅ 수락</button>' +
+            '<button class="btn btn-sm btn-secondary" style="font-size:11.5px;padding:7px 12px;background:#fef2f2;border-color:#fecaca;color:#b91c1c" onclick="_openSignupRejectModal(\'' + _escHtml(r.request_uid) + '\')">🙅 거절</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    box.innerHTML =
+      '<div class="card card-lav" style="padding:12px 14px;margin-bottom:8px">' +
+        '<div class="card-label gaegu" style="margin-bottom:6px">📋 가입 신청 검토 <span style="color:#e05050;font-weight:700">(' + list.length + '건)</span></div>' +
+        '<div style="font-size:12px;color:var(--gray);line-height:1.5">관리자가 확인 후 수락하면 <b>기본 비밀번호 <code>maum1234</code></b>로 교사 계정이 자동 생성돼요. 거절 시 사유가 이메일로 발송돼요.</div>' +
+      '</div>' + rows;
+
+    // 신청 데이터 캐시 (모달에서 사용)
+    window._signupPending = {};
+    list.forEach(function(r){ window._signupPending[r.request_uid] = r; });
+  } catch(e) {
+    console.error('[SIGNUP LIST]', e && e.message ? e.message : e);
+    box.innerHTML = '';
+  }
+}
+
+// 71차: 수락 모달 열기 — school_type · region · year 입력
+function _openSignupAcceptModal(ruid) {
+  var r = (window._signupPending || {})[ruid];
+  if (!r) { toast('신청 정보를 찾을 수 없어요'); return; }
+  document.getElementById('sa-request-uid').value = ruid;
+  document.getElementById('sa-summary').innerHTML =
+    '<b>' + _escHtml(r.name) + ' 선생님</b> · ' + _escHtml(r.school_name) + ' ' + r.grade + '-' + r.class + '<br>' +
+    '아이디 <code>' + _escHtml(r.teacher_id) + '</code> · 📧 ' + _escHtml(r.email);
+  document.getElementById('sa-school-type').value = 'e';
+  document.getElementById('sa-region').value = '';
+  document.getElementById('sa-year').value = String(new Date().getFullYear());
+  openModal('modal-signup-accept');
+}
+
+// 71차: 수락 실행
+async function submitSignupAccept() {
+  var ruid = document.getElementById('sa-request-uid').value;
+  var stype = document.getElementById('sa-school-type').value;
+  var region = (document.getElementById('sa-region').value || '').trim();
+  var year = parseInt(document.getElementById('sa-year').value, 10) || new Date().getFullYear();
+  if (!region) { toast('지역(시/도)을 선택해주세요'); return; }
+
+  showLoading('교사 계정을 만들고 있어요 ✨');
+  try {
+    var res = await api('accept_signup', { request_uid: ruid, school_type: stype, region: region, year: year });
+    hideLoading();
+    if (res.status === 'ok') {
+      closeModal('modal-signup-accept');
+      toast('수락됐어요. 승인 메일 발송됨 📧');
+      // 캐시 리셋 후 교사 목록 재로드 + 신청 카드 갱신
+      _teacherAll = []; _studentsByTeacherLoaded = false;
+      renderAdminAccountMgmt();
+    } else {
+      toast(res.message || '수락 처리 실패');
+    }
+  } catch(e) {
+    hideLoading();
+    console.error('[SIGNUP ACCEPT]', e && e.message ? e.message : e);
+    toast('수락 중 오류가 발생했어요');
+  }
+}
+
+// 71차: 거절 모달 열기
+function _openSignupRejectModal(ruid) {
+  var r = (window._signupPending || {})[ruid];
+  if (!r) { toast('신청 정보를 찾을 수 없어요'); return; }
+  document.getElementById('sr-request-uid').value = ruid;
+  document.getElementById('sr-summary').innerHTML =
+    '<b>' + _escHtml(r.name) + ' 선생님</b> · ' + _escHtml(r.school_name) + ' ' + r.grade + '-' + r.class + '<br>' +
+    '📧 ' + _escHtml(r.email);
+  document.getElementById('sr-reason').value = '';
+  openModal('modal-signup-reject');
+}
+
+// 71차: 거절 실행
+async function submitSignupReject() {
+  var ruid = document.getElementById('sr-request-uid').value;
+  var reason = (document.getElementById('sr-reason').value || '').trim();
+  if (!reason) { toast('거절 사유를 입력해주세요'); return; }
+
+  showLoading('거절 처리 중…');
+  try {
+    var res = await api('reject_signup', { request_uid: ruid, reason: reason });
+    hideLoading();
+    if (res.status === 'ok') {
+      closeModal('modal-signup-reject');
+      toast('거절 처리됐어요. 거절 메일 발송됨 📧');
+      renderSignupReviewCard(); // 카드만 갱신 (교사 목록은 변화 없음)
+    } else {
+      toast(res.message || '거절 처리 실패');
+    }
+  } catch(e) {
+    hideLoading();
+    console.error('[SIGNUP REJECT]', e && e.message ? e.message : e);
+    toast('거절 중 오류가 발생했어요');
+  }
+}
+
+// 71차: 교사 본인 — 내 마음카드 등록/교체 진입점
+function triggerNfcFromSelf() {
+  if (STATE.isPreview) { toast('미리보기 모드에서는 사용할 수 없어요'); return; }
+  var u = STATE.user;
+  if (!u || !u.teacher_uid) { toast('로그인 정보가 없어요'); return; }
+  STATE.nfcPending = { mode: 'replace_teacher_self', teacher_uid: u.teacher_uid, name: u.name };
+  var animIcon = u.nfc_uid ? '🔄' : '🪪';
+  document.getElementById('nfcRegisterStatus').textContent = (u.name || '') + ' 선생님의 마음카드를 띠링-';
+  document.getElementById('nfcRegisterUid').textContent = '';
+  document.getElementById('nfcRegisterAnim').textContent = animIcon;
+  if (typeof _updateNfcSkipVisibility === 'function') _updateNfcSkipVisibility();
+  openModal('modal-nfc-register');
+  if (typeof focusNfcInput === 'function') focusNfcInput();
+}
+
+// 71차: 이메일 편집 모달 열기 (교사·관리자 공용)
+function openEmailEdit() {
+  if (STATE.isPreview) { toast('미리보기 모드에서는 사용할 수 없어요'); return; }
+  var u = STATE.user || {};
+  var currentEmail = u.email || '';
+  document.getElementById('ee-email').value = currentEmail;
+  document.getElementById('ee-agree').checked = !!currentEmail; // 이미 등록된 상태면 동의 기본 체크
+  openModal('modal-email-edit');
+  setTimeout(function(){ var el = document.getElementById('ee-email'); if (el) el.focus(); }, 300);
+}
+
+// 71차: 이메일 저장/해제 — unlink=true면 빈 값으로 저장 (연동 해제)
+async function submitEmailEdit(unlink) {
+  var role = STATE.role;
+  if (role !== 'teacher' && role !== 'admin') { toast('지원되지 않는 역할이에요'); return; }
+  var email = '';
+  if (!unlink) {
+    email = (document.getElementById('ee-email').value || '').trim();
+    if (!email) { toast('이메일을 입력해주세요'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('이메일 형식을 확인해주세요'); return; }
+    if (!document.getElementById('ee-agree').checked) { toast('동의에 체크해주세요'); return; }
+  }
+
+  var action, payload;
+  if (role === 'teacher') {
+    action = 'update_teacher_email';
+    payload = { teacher_uid: STATE.user.teacher_uid, email: email };
+  } else {
+    action = 'update_admin_email';
+    payload = { admin_uid: STATE.user.admin_uid, email: email };
+  }
+
+  showLoading(unlink ? '연동을 해제하는 중…' : '이메일을 저장하는 중…');
+  try {
+    var res = await api(action, payload);
+    hideLoading();
+    if (res.status === 'ok') {
+      STATE.user.email = email; // 로컬 반영
+      closeModal('modal-email-edit');
+      toast(res.data && res.data.message ? res.data.message : '저장됐어요 ✅');
+      if (role === 'teacher') renderTeacherInfo();
+    } else {
+      toast(res.message || '저장 실패');
+    }
+  } catch(e) {
+    hideLoading();
+    console.error('[EMAIL EDIT]', e && e.message ? e.message : e);
+    toast('저장 중 오류가 발생했어요');
+  }
+}
+
 function openSettings() {
   // 66차 C: 관리자는 BGM 모달 대신 🛠 관리자 탭(idx 4)으로 이동 — 마음토큰 초기화도 거기에 있음
   if (STATE.role === 'admin') {
@@ -3550,6 +4045,7 @@ async function onLoginSuccess(data) {
     startDashboardPoll();        // 관리자면 60초 전체 폴링
     if (STATE.role === 'teacher' || STATE.role === 'admin') startEmotionSignalPoll(); // 교사: 자기 학급 / 관리자(66차): 전국 전체 Realtime
     startNotificationRealtime(); // 65차 E: 알림 실시간 구독 (teacher/admin 공통 — admin은 함수 내부에서 uid 없으면 return)
+    startTokenRealtime();        // 70차: 교사 tokens INSERT → 훈훈습도계·학급 온도 즉시 갱신
     // 66차 C: 관리자는 헤더 ⚙️ 설정 아이콘 표시 (마음토큰 초기화 진입용)
     if (STATE.role === 'admin') {
       var _btnSetA = document.getElementById('btnSettings');
@@ -3635,6 +4131,7 @@ async function onLoginSuccess(data) {
     hideLoading();
     startPersonaPoll();
     startNotificationRealtime(); // 65차 E: 알림 실시간 구독 (선물·마음봇 알림 등)
+    startTokenRealtime();        // 70차: 학생 token_balance UPDATE → 상단 뱃지·마음온도계 즉시 갱신
     if (data.teacher_uid) {
       // 55차: Supabase 직접 (GAS fallback)
       _sbFetch('students', { teacher_uid:'eq.'+data.teacher_uid })
@@ -3699,6 +4196,7 @@ function logout() {
   stopPersonaPoll();
   stopEmotionSignalPoll();     // 교사 신호 폴링 정지
   stopNotificationRealtime();  // 65차 E: 알림 Realtime 해제
+  stopTokenRealtime();         // 70차: 토큰 Realtime 해제
   _lastSubmitCount  = -1;
   _lastEmotionSignal = '';
   _clearSessionCaches();       // 66차 D: 앨범·계정관리·출석·알림 일괄 리셋
@@ -3747,6 +4245,7 @@ function exitPreview() {
   startDashboardPoll();    // 관리자 60초 폴링 재개
   startEmotionSignalPoll(); // 66차: 관리자 전국 감정 Realtime 재개
   startNotificationRealtime(); // 65차 E: 관리자 uid로 알림 구독 재시작
+  startTokenRealtime();        // 70차: 토큰 Realtime (관리자는 내부에서 role 체크로 skip)
 }
 
 // 관리자 전용 UI 빌드
@@ -3876,6 +4375,9 @@ function settingsHTML() {
       '<div style="font-size:11px;color:var(--gray);margin-top:8px;padding:8px 10px;background:var(--lgray);border-radius:8px">🔒 학교·학년·반 정보는 관리자만 변경할 수 있어요</div>' +
       '<button class="btn btn-secondary" style="margin-top:10px;width:100%;font-size:13px;padding:13px 18px" onclick="openChangeTeacherName()">✏️ 이름 변경</button>' +
       '<button class="btn btn-secondary" style="margin-top:8px;width:100%;font-size:13px;padding:13px 18px" onclick="openChangePwSelf()">🔑 비밀번호 변경</button>' +
+      // 71차: 교사 본인 NFC 등록/교체 + 이메일 등록/변경 (Google 로그인 연동용)
+      '<button class="btn btn-secondary" style="margin-top:8px;width:100%;font-size:13px;padding:13px 18px" onclick="triggerNfcFromSelf()">🪪 내 마음카드 등록/교체</button>' +
+      '<button class="btn btn-secondary" style="margin-top:8px;width:100%;font-size:13px;padding:13px 18px" onclick="openEmailEdit()">📧 이메일 등록/변경</button>' +
     '</div>' +
     '<button class="btn btn-secondary" style="margin-top:8px" onclick="logout()">로그아웃</button>';
 }
@@ -3949,11 +4451,15 @@ function renderTeacherInfo() {
   var u   = STATE.user;
   var box = document.getElementById('teacherInfoBox');
   if (!u || !box) return;
+  var emailLine = u.email
+    ? '이메일: <b style="color:var(--mint2)">' + _escHtml(u.email) + '</b> 🔗'
+    : '이메일: <span style="color:var(--gray)">미등록</span>';
   box.innerHTML =
     '이름: <b>' + u.name + '</b> 선생님<br>' +
     '학교: ' + (u.school_name || '-') + '<br>' +
     '학급: ' + (u.grade||'-') + '학년 ' + (u.class||'-') + '반<br>' +
-    '아이디: ' + (u.teacher_id || u.id || '-');
+    '아이디: ' + (u.teacher_id || u.id || '-') + '<br>' +
+    emailLine;
 }
 
 function buildTeacherUI() {
@@ -3988,6 +4494,8 @@ function adminHTML() {
       '<div><div class="settings-label">🎵 배경음악</div></div>' +
       '<label class="toggle"><input type="checkbox" id="adm-set-bgm" '+(AUDIO.enabled.bgm?'checked':'')+' onchange="AUDIO.toggleBgm(this.checked)"><span class="toggle-slider"></span></label>' +
     '</div>' +
+    // 71차: 관리자 이메일 등록/변경 (Google 로그인 연동용)
+    '<button class="btn btn-secondary" style="margin-top:10px;width:100%;font-size:13px;padding:13px 18px" onclick="openEmailEdit()">📧 이메일 등록/변경</button>' +
   '</div>' +
   '<div class="card card-sky" style="margin-bottom:10px">' +
     '<div class="card-label gaegu">👀 화면 미리보기</div>' +
@@ -4050,6 +4558,8 @@ async function renderAdminAccountMgmt() {
     return;
   }
   _renderAdminTeacherList();
+  // 71차: 신청 검토 카드도 같이 갱신 (병렬)
+  renderSignupReviewCard();
 }
 
 function _renderAdminTeacherList() {
@@ -4491,6 +5001,7 @@ function previewTeacher() {
   // ── 폴링 중지 — 미리보기 중 실 API 호출 방지 ─────────────
   stopEmotionSignalPoll();
   stopNotificationRealtime(); // 65차 E: STATE.user 교체로 uid 엉키지 않게 알림 구독도 정지
+  stopTokenRealtime();        // 70차: 토큰 Realtime도 uid 엉키지 않게 정지
   _clearSessionCaches(); // 66차 D: 관리자 캐시 제거 (교사 미리보기 중 노출 방지)
 
   // ── 학생 목록 + 감정 — 탭 전환 전에 동기적으로 준비 ──────
@@ -4772,6 +5283,7 @@ function previewStudent() {
   _clearSessionCaches();       // 66차 D: 관리자 캐시 제거 (학생 미리보기 중 노출 방지)
   stopNotificationRealtime();  // 66차 D: 관리자 uid 알림 구독 해제
   stopEmotionSignalPoll();     // 66차: 관리자 전국 감정 Realtime 해제
+  stopTokenRealtime();         // 70차: 토큰 Realtime도 정지
   STATE.role = 'student';
   STATE.isPreview = true;
   STATE.adminUser = STATE.user;
@@ -5065,6 +5577,8 @@ function studentMgmtHTML() {
   var isAdmin = (STATE.role === 'admin');
   if (isAdmin) {
     return '<div id="adminAccountMgmt">' +
+      // 71차: 가입 신청 검토 카드 (pending 있을 때만 표시 — renderSignupReviewCard가 채움)
+      '<div id="signupReviewCard" style="margin-bottom:12px"></div>' +
       // 상단 버튼 + 필터 행
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">' +
         '<button class="btn btn-primary" style="flex-shrink:0" onclick="openTeacherForm()">👩‍🏫 + 교사 계정 만들기</button>' +
@@ -6728,7 +7242,7 @@ function renderNotifDropdown(page) {
   if (!dd) return;
   if (page !== undefined) _notifPage = page;
 
-  var ICON = { token_gift:'💝', emotion_crisis:'⚡', attendance:'🏫', crisis_chat:'⚠️' };
+  var ICON = { token_gift:'💝', emotion_crisis:'⚡', attendance:'🏫', crisis_chat:'⚠️', signup_request:'📝' }; // 71차: 교사 가입 신청
   var total = _notifications.length;
   var totalPages = Math.max(1, Math.ceil(total / NOTIF_PER_PAGE));
   if (_notifPage >= totalPages) _notifPage = totalPages - 1;
@@ -6802,6 +7316,22 @@ async function markNotifRead(uid, el) {
     loadTokenBalance();
     loadTokenLog();
     openGiftReceivedModal(notif);
+  }
+  // 71차: 가입 신청 알림 클릭 → 관리자 계정관리 탭으로 점프 + 신청 카드 하이라이트
+  if (notif && notif.type === 'signup_request' && STATE.role === 'admin') {
+    try { document.getElementById('notifDropdown').style.display = 'none'; } catch(e) {}
+    switchTab(1); // 🔑 계정관리
+    // 렌더 완료 후 해당 신청 카드 스크롤+하이라이트
+    setTimeout(function(){
+      try {
+        var card = document.querySelector('.signup-req-card[data-ruid="' + notif.related_uid + '"]');
+        if (card) {
+          card.scrollIntoView({ behavior:'smooth', block:'center' });
+          card.classList.add('signup-req-flash');
+          setTimeout(function(){ card.classList.remove('signup-req-flash'); }, 1600);
+        }
+      } catch(e) {}
+    }, 350);
   }
 }
 
@@ -7232,10 +7762,12 @@ function _onNewNotification(row) {
   toast(n.title);  // 예: "🏫 등교 완료" — 알림 제목이 자체로 친근하게 구성돼 있음
 }
 
-// 마음앨범 폴링 (120초, 마음앨범 탭 활성 시만)
+// 마음앨범 폴링 (120초, 마음앨범 탭 활성 시만) + 70차: Supabase Realtime 즉시 반영
 function startAlbumPoll() {
   stopAlbumPoll();
   if (STATE.role !== 'teacher' && STATE.role !== 'admin') return;
+  // 70차: 학생 제출 즉시 반영을 위한 album Realtime (58차 emotions / 65차 notifications 동일 패턴)
+  startAlbumRealtime();
   _albumPollTimer = setInterval(function() {
     var panel = document.getElementById('panel-3');
     if (!panel || !panel.classList.contains('active')) return;
@@ -7244,10 +7776,105 @@ function startAlbumPoll() {
 }
 function stopAlbumPoll() {
   if (_albumPollTimer) { clearInterval(_albumPollTimer); _albumPollTimer = null; }
+  stopAlbumRealtime();
 }
 function refreshAlbum() {
   if (STATE.role === 'teacher') renderAlbumStudentPicker();
   else if (STATE.role === 'admin') renderAdminAlbum();
+}
+
+// 70차: 마음앨범 Supabase Realtime — 학생 제출(INSERT)·수정/삭제(UPDATE) 즉시 감지
+var _sbAlbumChannel = null;
+function startAlbumRealtime() {
+  stopAlbumRealtime();
+  var isAdmin   = STATE.role === 'admin';
+  var isTeacher = STATE.role === 'teacher';
+  if (!isAdmin && !isTeacher) return;
+  var tUid = STATE.user && STATE.user.teacher_uid;
+  if (!isAdmin && !tUid) return;
+  try {
+    if (!_sbClient && typeof supabase !== 'undefined') {
+      _sbClient = supabase.createClient(SB_URL, SB_KEY);
+    }
+    if (!_sbClient) return;
+    var channelName = isAdmin ? 'album-admin' : 'album-' + tUid;
+    var insertCfg = { event:'INSERT', schema:'public', table:'album' };
+    var updateCfg = { event:'UPDATE', schema:'public', table:'album' };
+    if (!isAdmin) {
+      insertCfg.filter = 'teacher_uid=eq.' + tUid;
+      updateCfg.filter = 'teacher_uid=eq.' + tUid;
+    }
+    var onChange = function() {
+      // 캐시 무효화 — 다음 렌더 시 최신 데이터로 로드
+      _teacherAlbumLoaded = false;
+      try { _adminAlbumCache = {}; } catch(e) {}
+      // 앨범 탭이 현재 열려 있으면 즉시 재렌더
+      var panel = document.getElementById('panel-3');
+      if (panel && panel.classList.contains('active')) refreshAlbum();
+    };
+    _sbAlbumChannel = _sbClient
+      .channel(channelName)
+      .on('postgres_changes', insertCfg, onChange)
+      .on('postgres_changes', updateCfg, onChange)
+      .subscribe();
+  } catch(e) { console.error('[ALBUM RT]', e && e.message ? e.message : e); }
+}
+function stopAlbumRealtime() {
+  if (_sbAlbumChannel && _sbClient) {
+    try { _sbClient.removeChannel(_sbAlbumChannel); } catch(e) {}
+    _sbAlbumChannel = null;
+  }
+}
+
+// 70차: 토큰 Supabase Realtime
+// - 교사: 자기 학급 학생 tokens INSERT → 훈훈습도계·학급 마음 온도 즉시 갱신 (loadDashboard)
+// - 학생: 본인 token_balance UPDATE → 상단 뱃지·마음온도계 즉시 갱신 (loadTokenBalance)
+var _sbTokenChannel = null;
+function startTokenRealtime() {
+  stopTokenRealtime();
+  var role = STATE.role;
+  if (role !== 'teacher' && role !== 'student') return;
+  try {
+    if (!_sbClient && typeof supabase !== 'undefined') {
+      _sbClient = supabase.createClient(SB_URL, SB_KEY);
+    }
+    if (!_sbClient) return;
+    if (role === 'teacher') {
+      var tUid = STATE.user && STATE.user.teacher_uid;
+      if (!tUid) return;
+      _sbTokenChannel = _sbClient
+        .channel('tokens-teacher-' + tUid)
+        .on('postgres_changes', {
+          event: 'INSERT', schema: 'public', table: 'tokens',
+          filter: 'teacher_uid=eq.' + tUid
+        }, function() {
+          // 대시보드 탭 열려 있을 때만 즉시 재렌더 (다른 탭 중이면 복귀 시 자연 갱신)
+          var panel = document.getElementById('panel-0');
+          if (panel && panel.classList.contains('active')) {
+            loadDashboard();
+          }
+        })
+        .subscribe();
+    } else if (role === 'student') {
+      var sUid = STATE.user && STATE.user.student_uid;
+      if (!sUid) return;
+      _sbTokenChannel = _sbClient
+        .channel('balance-' + sUid)
+        .on('postgres_changes', {
+          event: 'UPDATE', schema: 'public', table: 'token_balance',
+          filter: 'student_uid=eq.' + sUid
+        }, function() {
+          loadTokenBalance(); // 상단 뱃지 + 세로 온도계 자동 갱신
+        })
+        .subscribe();
+    }
+  } catch(e) { console.error('[TOKEN RT]', e && e.message ? e.message : e); }
+}
+function stopTokenRealtime() {
+  if (_sbTokenChannel && _sbClient) {
+    try { _sbClient.removeChannel(_sbTokenChannel); } catch(e) {}
+    _sbTokenChannel = null;
+  }
 }
 
 
@@ -7811,6 +8438,21 @@ async function handleRegisterNfc(uid) {
     } else {
       toast(res.message);
       if (fromEdit) openModal('modal-student-form');
+    }
+    return;
+  }
+
+  // 71차: 교사 본인 마음카드 등록/교체 (settings → 내 마음카드 등록)
+  if (STATE.nfcPending && STATE.nfcPending.mode === 'replace_teacher_self') {
+    var pSelf = STATE.nfcPending;
+    STATE.nfcPending = null;
+    showLoading('내 마음카드를 저장하는 중이에요 🪪');
+    var resSelf = await api('replace_teacher_card', { teacher_uid: pSelf.teacher_uid, new_nfc_uid: uid });
+    hideLoading();
+    if (resSelf.status === 'ok') {
+      toast('마음카드가 저장됐어요 ✅');
+    } else {
+      toast(resSelf.message || '저장 실패');
     }
     return;
   }
