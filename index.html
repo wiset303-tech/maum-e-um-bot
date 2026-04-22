@@ -1448,9 +1448,9 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .login-divider{position:relative;text-align:center;margin:16px 0 10px}
 .login-divider::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:#e5e7eb}
 .login-divider span{position:relative;display:inline-block;background:#fff;padding:0 12px;font-size:11.5px;color:var(--gray);font-weight:500}
-/* 71차: GIS 버튼 자연 높이 존중(잘림 방지) + min-height로 jitter만 방어 */
-.login-alt-google{display:flex;justify-content:center;align-items:center;margin-bottom:8px;min-height:44px;padding:2px 0;overflow:visible}
-#google-signin-btn iframe{border:0!important}
+/* 71차: iframe 42px 고정(jitter 방어) + 컨테이너 여유로 pill 테두리 잘림 방지 */
+.login-alt-google{display:flex;justify-content:center;align-items:center;margin-bottom:8px;height:48px;min-height:48px;padding:4px 0;overflow:visible}
+#google-signin-btn iframe{height:42px!important;border:0!important}
 .login-alt-btn{
   display:flex;align-items:center;
   width:260px;height:40px;margin:0 auto;
