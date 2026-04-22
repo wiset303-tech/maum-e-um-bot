@@ -1416,6 +1416,24 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .gu-summary{font-size:13px;color:var(--navy);background:var(--mint4);border-radius:10px;padding:10px 12px;margin-bottom:14px;line-height:1.55}
 .gu-choice{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 
+/* 71차: 역할 선택 버튼 — 두 버튼 사이즈·레이아웃 완전 동일, 관리자만 primary 강조 */
+.role-choice{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.role-choice-btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  height:72px;padding:8px 10px;
+  border:1.5px solid transparent;border-radius:14px;
+  font-family:inherit;font-size:14px;font-weight:700;letter-spacing:-.2px;
+  cursor:pointer;word-break:keep-all;
+  transition:transform .12s ease,box-shadow .18s ease,filter .18s ease;
+}
+.role-choice-btn:hover{transform:translateY(-1px);box-shadow:0 6px 18px -8px rgba(26,77,90,.35)}
+.role-choice-btn:active{transform:translateY(0);filter:brightness(.97)}
+.role-choice-primary{background:linear-gradient(135deg,#4ecdb4,#3fb8a3);color:#fff;box-shadow:0 4px 12px -6px rgba(78,205,180,.6)}
+.role-choice-secondary{background:#fff;color:var(--navy);border-color:#e5e7eb}
+.role-choice-secondary:hover{border-color:#4ecdb4;background:#f3faf8}
+.role-choice-icon{font-size:24px;line-height:1}
+.role-choice-label{font-size:14px;font-weight:700}
+
 /* 이메일 연동 모달 — 2섹션 */
 .ee-section{padding:12px 14px;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:10px;background:#fcfcfd}
 .ee-section:last-child{margin-bottom:0}
@@ -1430,10 +1448,9 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .login-divider{position:relative;text-align:center;margin:16px 0 10px}
 .login-divider::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:#e5e7eb}
 .login-divider span{position:relative;display:inline-block;background:#fff;padding:0 12px;font-size:11.5px;color:var(--gray);font-weight:500}
-/* 71차: GIS iframe 높이 고정 (jitter 방지) + hover shadow는 컨테이너 여유로 살림 */
-.login-alt-google{display:flex;justify-content:center;align-items:center;margin-bottom:8px;height:44px;min-height:44px;padding:2px 0}
-#google-signin-btn iframe{height:40px!important;border:0!important}
-#google-signin-btn > div{height:40px}
+/* 71차: GIS 버튼 자연 높이 존중(잘림 방지) + min-height로 jitter만 방어 */
+.login-alt-google{display:flex;justify-content:center;align-items:center;margin-bottom:8px;min-height:44px;padding:2px 0;overflow:visible}
+#google-signin-btn iframe{border:0!important}
 .login-alt-btn{
   display:flex;align-items:center;
   width:260px;height:40px;margin:0 auto;
@@ -1634,9 +1651,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <div class="modal-title">🎭 어느 계정으로 로그인할까요?</div>
     <button class="modal-close" onclick="closeModal('modal-google-role')">✕</button>
     <div id="gr-summary" class="summary-box summary-mint"></div>
-    <div class="gu-choice">
-      <button class="btn btn-secondary" onclick="_pickGoogleRole('admin')">🛠 관리자</button>
-      <button class="btn btn-primary" onclick="_pickGoogleRole('teacher')">👩‍🏫 교사</button>
+    <div class="role-choice">
+      <button type="button" class="role-choice-btn role-choice-primary" onclick="_pickGoogleRole('admin')">
+        <span class="role-choice-icon">🌈</span>
+        <span class="role-choice-label">관리자</span>
+      </button>
+      <button type="button" class="role-choice-btn role-choice-secondary" onclick="_pickGoogleRole('teacher')">
+        <span class="role-choice-icon">👩‍🏫</span>
+        <span class="role-choice-label">교사</span>
+      </button>
     </div>
   </div>
 </div>
