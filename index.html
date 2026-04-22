@@ -1438,21 +1438,26 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 /* 이메일 편집 모달 */
 .ee-actions{display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-top:4px}
 
-/* 71차: 로그인 모달 보조 수단 — Google 로그인 + 교사 회원가입 outline 톤 */
+/* 71차: 로그인 모달 보조 수단 — Google 버튼(260×40 pill)과 완전 동일 사이즈·배치 */
 .login-divider{position:relative;text-align:center;margin:16px 0 10px}
 .login-divider::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:#e5e7eb}
 .login-divider span{position:relative;display:inline-block;background:#fff;padding:0 12px;font-size:11.5px;color:var(--gray);font-weight:500}
 .login-alt-google{display:flex;justify-content:center;margin-bottom:8px;min-height:40px}
 .login-alt-btn{
-  display:block;width:100%;padding:10px 14px;
+  display:flex;align-items:center;
+  width:260px;height:40px;margin:0 auto;
+  padding:0 12px;
   background:#fff;color:var(--navy);
   border:1.5px solid #dadce0;border-radius:999px;
-  font-family:inherit;font-size:13px;font-weight:600;letter-spacing:-.2px;
+  font-family:inherit;font-size:14px;font-weight:500;letter-spacing:-.2px;
   cursor:pointer;word-break:keep-all;
   transition:border-color .18s ease,background .18s ease,box-shadow .18s ease;
 }
 .login-alt-btn:hover{border-color:#4ecdb4;background:#f3faf8;box-shadow:0 2px 10px -6px rgba(78,205,180,.4)}
 .login-alt-btn:active{background:#e8f7f1}
+/* 🌈 이모지 — Google 로고(18px)와 같은 좌측 고정 위치 */
+.login-alt-icon{width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.login-alt-label{flex:1;text-align:center;padding-right:18px;font-weight:600;color:var(--navy)}
 .login-alt-note{font-size:10.5px;color:var(--gray);text-align:center;margin-top:10px;line-height:1.55;word-break:keep-all}
 /* 67차: 훈훈습도계 달성 시 "🎁 +2 🪙" 튀어오름 팝업 */
 .warmth-plus-two {
@@ -1623,10 +1628,24 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <div class="login-divider"><span>또는</span></div>
     <div id="google-signin-btn" class="login-alt-google"></div>
     <button type="button" class="login-alt-btn" onclick="openSignupChoice()">
-      📝 교사 회원가입
+      <span class="login-alt-icon">🌈</span>
+      <span class="login-alt-label">마음이음 전용 회원가입</span>
     </button>
     <div class="login-alt-note">
       Google 로그인은 Google 계정의 이메일을 서비스에<br>연동하는 것에 동의하는 것으로 간주돼요.
+    </div>
+  </div>
+</div>
+
+<!-- ══ 모달: Google 로그인 — 역할 선택 (같은 이메일이 교사·관리자 둘 다) (71차) ══ -->
+<div id="modal-google-role" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-google-role')">
+  <div class="modal-box modal-kb" style="position:relative">
+    <div class="modal-title">🎭 어느 계정으로 로그인할까요?</div>
+    <button class="modal-close" onclick="closeModal('modal-google-role')">✕</button>
+    <div id="gr-summary" class="summary-box summary-mint"></div>
+    <div class="gu-choice">
+      <button class="btn btn-secondary" onclick="_pickGoogleRole('admin')">🛠 관리자</button>
+      <button class="btn btn-primary" onclick="_pickGoogleRole('teacher')">👩‍🏫 교사</button>
     </div>
   </div>
 </div>
@@ -3273,16 +3292,21 @@ var GOOGLE_CLIENT_ID = (window.GOOGLE_CLIENT_ID || '').trim();
 var _gisInited = false;
 var _googleUnregCache = null; // not_registered 응답 캐시 (신청 폼 프리필용)
 
+// 71차 개선: 한 번 렌더되면 재열림 시 재렌더 skip → "드득"(reflow jitter) 제거
 function _renderGoogleSignIn() {
   var host = document.getElementById('google-signin-btn');
   if (!host) return;
-  // Client ID 미설정이면 버튼 영역 숨김 (변쌤 발급 전)
+  // Client ID 미설정이면 placeholder 유지 (중복 갱신 방지)
   if (!GOOGLE_CLIENT_ID) {
-    host.innerHTML = '<div style="font-size:11px;color:var(--gray);padding:6px 10px">Google 로그인 준비 중…</div>';
+    if (host.getAttribute('data-state') !== 'stub') {
+      host.innerHTML = '<div style="font-size:11px;color:var(--gray);padding:6px 10px">Google 로그인 준비 중…</div>';
+      host.setAttribute('data-state', 'stub');
+    }
     return;
   }
+  // 이미 렌더된 iframe 버튼이 살아있으면 그대로 둠 (재렌더 skip)
+  if (host.getAttribute('data-state') === 'rendered' && host.querySelector('iframe')) return;
   if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-    // GIS 스크립트 아직 로드 안 됨 — 300ms 후 재시도 (최대 10회)
     host._retry = (host._retry || 0) + 1;
     if (host._retry < 10) setTimeout(_renderGoogleSignIn, 300);
     return;
@@ -3303,12 +3327,42 @@ function _renderGoogleSignIn() {
       type: 'standard', theme: 'outline', size: 'large',
       text: 'signin_with', shape: 'pill', logo_alignment: 'left', width: 260
     });
+    host.setAttribute('data-state', 'rendered');
   } catch(e) {
     console.error('[GIS RENDER]', e && e.message ? e.message : e);
   }
 }
 
+// 71차: 페이지 로드 직후 GIS 선(先) init — 모달 첫 열기 전에 초기화 완료시켜 jitter 제거
+(function _gisEarlyInit(){
+  function tick(){
+    if (!GOOGLE_CLIENT_ID) return;
+    if (window.google && window.google.accounts && window.google.accounts.id) {
+      if (!_gisInited) {
+        try {
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: _onGoogleCredential,
+            auto_select: false,
+            ux_mode: 'popup'
+          });
+          _gisInited = true;
+        } catch(e) { console.error('[GIS EARLY INIT]', e && e.message ? e.message : e); }
+      }
+      return;
+    }
+    setTimeout(tick, 300);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(tick, 100); });
+  } else {
+    setTimeout(tick, 100);
+  }
+})();
+
 // GIS 콜백 — credential(ID token) 받음 → GAS login_by_google 호출
+var _googleAmbigCache = null; // 71차: 역할 모호 상태 캐시 (teacher/admin 정보 둘 다)
+
 async function _onGoogleCredential(resp) {
   if (!resp || !resp.credential) { toast('Google 로그인 응답이 비어있어요'); return; }
   showLoading('Google 계정을 확인하는 중이에요 🔐');
@@ -3322,9 +3376,22 @@ async function _onGoogleCredential(resp) {
       onLoginSuccess(d);
       return;
     }
+    // 71차: 같은 이메일이 교사·관리자 양쪽에 등록 → 역할 선택 모달
+    if (d.role === 'ambiguous') {
+      _googleAmbigCache = d;
+      var tInfo = d.teacher || {};
+      var aInfo = d.admin || {};
+      document.getElementById('gr-summary').innerHTML =
+        '📧 <b>' + _escHtml(d.email || '') + '</b><br>' +
+        '이 Google 계정은 <b>관리자</b>와 <b>교사</b>로 모두 등록돼 있어요.<br>' +
+        '<span style="font-size:11.5px;color:var(--gray)">관리자: ' + _escHtml(aInfo.name || '-') + ' · 교사: ' + _escHtml(tInfo.name || '-') + ' (' + _escHtml(tInfo.school_name || '-') + ')</span>';
+      closeModal('modal-login');
+      openModal('modal-google-role');
+      return;
+    }
     // 미가입 이메일 — 안내 모달로 분기
     if (d.role === 'not_registered') {
-      _googleUnregCache = d; // 신청 폼 프리필용
+      _googleUnregCache = d;
       document.getElementById('gu-summary').innerHTML =
         '📧 <b>' + _escHtml(d.email || '') + '</b><br>이 Google 계정으로 가입된 교사·관리자를 찾지 못했어요.';
       closeModal('modal-login');
@@ -3337,6 +3404,17 @@ async function _onGoogleCredential(resp) {
     console.error('[GOOGLE LOGIN]', e && e.message ? e.message : e);
     toast('Google 로그인 중 오류가 발생했어요');
   }
+}
+
+// 71차: 역할 선택 모달 — 선택한 역할로 기존 onLoginSuccess 흐름 진입
+function _pickGoogleRole(role) {
+  var cache = _googleAmbigCache;
+  if (!cache) { toast('세션이 만료됐어요. 다시 로그인해 주세요'); closeModal('modal-google-role'); return; }
+  var payload = (role === 'admin') ? cache.admin : cache.teacher;
+  if (!payload) { toast('선택한 역할 정보를 찾을 수 없어요'); return; }
+  _googleAmbigCache = null;
+  closeModal('modal-google-role');
+  onLoginSuccess(payload);
 }
 
 // 71차: Google 미가입 → Google 회원가입 폼으로 (email·이름 prefill, 이미 Google 인증 성공 상태)
