@@ -1385,6 +1385,75 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   60%{box-shadow:0 0 0 12px rgba(78,205,180,0);background:#f3faf8}
   100%{box-shadow:0 0 0 0 rgba(78,205,180,0);background:#fff}
 }
+/* ───── 71차 톤앤매너 업그레이드 ───── */
+/* 한국어 어절 단위 줄바꿈 — 외톨이글자 방지 */
+.modal-kb, .modal-kb *{word-break:keep-all;overflow-wrap:break-word}
+
+/* 회원가입 선택 모달 — 큰 버튼 2개 한화면 배치 */
+#modal-signup-choice .modal-box{max-width:340px;padding:20px 22px 18px}
+.signup-choice-btn{
+  width:100%;display:block;margin-top:10px;padding:16px 18px;
+  border:none;border-radius:14px;cursor:pointer;text-align:center;
+  font-family:inherit;letter-spacing:-.2px;
+  transition:transform .12s ease,box-shadow .18s ease,filter .18s ease;
+}
+.signup-choice-btn:first-of-type{margin-top:14px}
+.signup-choice-btn:hover{transform:translateY(-1px);box-shadow:0 6px 18px -8px rgba(26,77,90,.3)}
+.signup-choice-btn:active{transform:translateY(0);filter:brightness(.97)}
+.signup-choice-primary{background:linear-gradient(135deg,#4ecdb4,#3fb8a3);color:#fff;box-shadow:0 4px 12px -6px rgba(78,205,180,.6)}
+.signup-choice-secondary{background:#fff;color:var(--navy);border:1.5px solid #e5e7eb}
+.signup-choice-secondary:hover{border-color:#4ecdb4;background:#f3faf8}
+.signup-choice-main{font-size:15px;font-weight:700;line-height:1.35}
+.signup-choice-sub{font-size:11.5px;font-weight:500;margin-top:3px;opacity:.8;line-height:1.4}
+.signup-choice-foot{font-size:10.5px;color:var(--gray);text-align:center;margin-top:14px;line-height:1.5}
+.signup-choice-foot a{color:var(--mint2);text-decoration:none}
+
+/* 신청 폼 — 조밀하게 */
+.modal-signup-form .inp{margin-bottom:8px}
+.modal-signup-form .inp-label{margin-bottom:3px}
+.modal-signup-form .ts-row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:0}
+.modal-signup-form .ts-row2 .inp{margin-bottom:8px}
+.ts-banner{font-size:12px;color:#1a4d5a;background:var(--mint4);border-radius:10px;padding:8px 12px;margin-bottom:12px;line-height:1.45}
+.inp-sub{font-size:11px;color:var(--gray);font-weight:400;margin-left:2px}
+.req{color:#e05050;font-weight:700;margin-left:2px}
+.inp-tight{resize:none;font-family:inherit;min-height:auto}
+.inp-readonly{background:#f4f4f5;color:var(--gray)}
+.inp-agree{display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--navy);margin:6px 0 12px;cursor:pointer;line-height:1.5}
+.inp-agree input{margin-top:2px;flex-shrink:0}
+.inp-agree a{color:var(--mint2);text-decoration:none}
+.signup-submit-btn{width:100%;margin-top:4px}
+.btn-danger{background:#e05050;border-color:#e05050;color:#fff}
+.btn-danger:hover{background:#c94545;border-color:#c94545}
+
+/* 요약 박스 (수락·거절·Google 미가입 공통) */
+.summary-box{font-size:12.5px;color:var(--navy);border-radius:10px;padding:10px 12px;margin-bottom:12px;line-height:1.55}
+.summary-mint{background:var(--mint4)}
+.summary-red{background:#fef2f2}
+.modal-hint{font-size:11.5px;color:var(--gray);margin-bottom:10px;line-height:1.5}
+
+/* Google 미가입 모달 */
+.gu-summary{font-size:13px;color:var(--navy);background:var(--mint4);border-radius:10px;padding:10px 12px;margin-bottom:14px;line-height:1.55}
+.gu-choice{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+/* 이메일 편집 모달 */
+.ee-actions{display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-top:4px}
+
+/* 71차: 로그인 모달 보조 수단 — Google 로그인 + 교사 회원가입 outline 톤 */
+.login-divider{position:relative;text-align:center;margin:16px 0 10px}
+.login-divider::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:#e5e7eb}
+.login-divider span{position:relative;display:inline-block;background:#fff;padding:0 12px;font-size:11.5px;color:var(--gray);font-weight:500}
+.login-alt-google{display:flex;justify-content:center;margin-bottom:8px;min-height:40px}
+.login-alt-btn{
+  display:block;width:100%;padding:10px 14px;
+  background:#fff;color:var(--navy);
+  border:1.5px solid #dadce0;border-radius:999px;
+  font-family:inherit;font-size:13px;font-weight:600;letter-spacing:-.2px;
+  cursor:pointer;word-break:keep-all;
+  transition:border-color .18s ease,background .18s ease,box-shadow .18s ease;
+}
+.login-alt-btn:hover{border-color:#4ecdb4;background:#f3faf8;box-shadow:0 2px 10px -6px rgba(78,205,180,.4)}
+.login-alt-btn:active{background:#e8f7f1}
+.login-alt-note{font-size:10.5px;color:var(--gray);text-align:center;margin-top:10px;line-height:1.55;word-break:keep-all}
 /* 67차: 훈훈습도계 달성 시 "🎁 +2 🪙" 튀어오름 팝업 */
 .warmth-plus-two {
   position: fixed;
@@ -1413,6 +1482,9 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-cloud/1.2.5/d3.layout.cloud.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- 71차: Google Client ID — Cloud Console에서 발급 후 아래 빈 문자열 자리에 붙여넣기
+     예) window.GOOGLE_CLIENT_ID = '1234567890-xxxxxxxx.apps.googleusercontent.com'; -->
+<script>window.GOOGLE_CLIENT_ID = '561749692044-c6e67ab5d4158og3er35rv3cits4o149.apps.googleusercontent.com';</script>
 <!-- 71차: Google Identity Services (GIS) — Google 로그인 버튼 렌더용 -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -1547,102 +1619,114 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <div class="inp-label" style="margin-top:8px">비밀번호</div>
     <input class="inp" id="login-pw" type="password" placeholder="비밀번호를 입력하세요" onkeydown="if(event.key===&quot;Enter&quot;)loginByPw()">
     <button class="btn btn-primary" style="margin-top:16px" onclick="loginByPw()">로그인하기</button>
-    <!-- 71차: Google Sign-In (교사·관리자 전용 — email 매칭) -->
-    <div style="text-align:center;margin:14px 0 4px;position:relative">
-      <span style="display:inline-block;background:#fff;padding:0 12px;font-size:11.5px;color:var(--gray);position:relative;z-index:1">또는</span>
-      <div style="position:absolute;left:0;right:0;top:50%;height:1px;background:#e5e7eb;z-index:0"></div>
-    </div>
-    <div id="google-signin-btn" style="display:flex;justify-content:center;margin-top:8px"></div>
-    <div style="font-size:10.5px;color:var(--gray);text-align:center;margin-top:6px;line-height:1.5">
-      Google 계정의 이메일을 서비스에 연동하는 것에<br>동의하는 것으로 간주돼요.
-    </div>
-    <!-- 70차: 교사 회원가입 신청 링크 (학생은 NFC로 로그인하므로 교사 대상 안내) -->
-    <div style="text-align:center;margin-top:14px;padding-top:12px;border-top:1px dashed #e5e7eb">
-      <a href="#" onclick="event.preventDefault();openTeacherSignup()" style="font-size:12.5px;color:var(--gray);text-decoration:none">
-        📝 (교사) 아이디가 없어요
-      </a>
+    <!-- 71차: 로그인 보조 수단 — Google 로그인 + 교사 회원가입 (outline 톤 통일) -->
+    <div class="login-divider"><span>또는</span></div>
+    <div id="google-signin-btn" class="login-alt-google"></div>
+    <button type="button" class="login-alt-btn" onclick="openSignupChoice()">
+      📝 교사 회원가입
+    </button>
+    <div class="login-alt-note">
+      Google 로그인은 Google 계정의 이메일을 서비스에<br>연동하는 것에 동의하는 것으로 간주돼요.
     </div>
   </div>
 </div>
 
 <!-- ══ 모달: Google 로그인 — 미가입 이메일 안내 (71차) ══ -->
 <div id="modal-google-unregistered" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-google-unregistered')">
-  <div class="modal-box" style="position:relative">
+  <div class="modal-box modal-kb" style="position:relative">
     <div class="modal-title">🔐 가입된 계정이 없어요</div>
     <button class="modal-close" onclick="closeModal('modal-google-unregistered')">✕</button>
-    <div style="font-size:13px;color:var(--navy);margin-bottom:14px;line-height:1.6" id="gu-summary"></div>
-    <div style="font-size:12px;color:var(--gray);margin-bottom:14px;line-height:1.5">
-      기존 계정이 있다면 아이디로 로그인 후 <b>⚙️ 설정 → 📧 이메일 등록/변경</b>에서 이메일을 등록하면 다음부터 Google 로그인이 가능해요.
-    </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-google-unregistered');openLoginModal()">🔑 아이디로 로그인</button>
-      <button class="btn btn-primary" style="flex:1" onclick="_gotoTeacherSignupFromGoogle()">📝 회원가입 신청</button>
+    <div class="gu-summary" id="gu-summary"></div>
+    <div class="gu-choice">
+      <button class="btn btn-secondary" onclick="closeModal('modal-google-unregistered');openLoginModal()">
+        🔑 아이디로 로그인
+      </button>
+      <button class="btn btn-primary" onclick="_gotoTeacherSignupFromGoogle()">
+        📝 Google로 회원가입
+      </button>
     </div>
   </div>
 </div>
 
-<!-- ══ 모달: 교사 회원가입 신청 (70차 신설) ══ -->
-<div id="modal-teacher-signup" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-teacher-signup')">
-  <div class="modal-box" style="position:relative;max-height:85vh;overflow-y:auto">
-    <div class="modal-title">📝 교사 회원가입 신청</div>
-    <button class="modal-close" onclick="closeModal('modal-teacher-signup')">✕</button>
-    <div style="font-size:12px;color:var(--gray);margin-bottom:14px;line-height:1.6">
-      신청 후 관리자가 확인하고 <b>이메일로 결과</b>를 알려드려요.<br>
-      수집 항목은 <a href="./privacy" target="_blank" style="color:var(--mint2)">개인정보처리방침</a>에 따라 최소한만 받습니다.
+<!-- ══ 모달: 회원가입 선택 (71차 — Google / 이메일 없이) ══ -->
+<div id="modal-signup-choice" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-signup-choice')">
+  <div class="modal-box modal-kb" style="position:relative">
+    <div class="modal-title">📝 교사 회원가입</div>
+    <button class="modal-close" onclick="closeModal('modal-signup-choice')">✕</button>
+    <button class="signup-choice-btn signup-choice-primary" onclick="openTeacherSignupGoogle()">
+      <div class="signup-choice-main">🔐 Google로 회원가입</div>
+      <div class="signup-choice-sub">이메일·이름 자동 입력</div>
+    </button>
+    <button class="signup-choice-btn signup-choice-secondary" onclick="openTeacherSignupEmailLess()">
+      <div class="signup-choice-main">✍️ 이메일 없이 회원가입</div>
+      <div class="signup-choice-sub">아이디·비밀번호로 가입</div>
+    </button>
+    <div class="signup-choice-foot">
+      모두 관리자 확인 후 승인돼요 · <a href="./privacy" target="_blank">개인정보처리방침</a>
     </div>
+  </div>
+</div>
 
-    <div class="inp-label">이름 <span style="color:#e05050">*</span></div>
-    <input class="inp" id="ts-name" placeholder="선생님 성함" style="margin-bottom:10px" autocomplete="off">
+<!-- ══ 모달: 교사 회원가입 신청 (70차 → 71차 signupMode 분기 추가) ══ -->
+<div id="modal-teacher-signup" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-teacher-signup')">
+  <div class="modal-box modal-kb modal-signup-form" style="position:relative;max-height:88vh;overflow-y:auto">
+    <div class="modal-title" id="ts-modal-title">📝 교사 회원가입 신청</div>
+    <button class="modal-close" onclick="closeModal('modal-teacher-signup')">✕</button>
+    <div id="ts-mode-banner" class="ts-banner" style="display:none"></div>
 
-    <div class="inp-label">학교명 <span style="color:#e05050">*</span></div>
-    <input class="inp" id="ts-school" placeholder="예: 학장초등학교" style="margin-bottom:10px" autocomplete="off">
+    <div class="inp-label">이름 <span class="req">*</span></div>
+    <input class="inp" id="ts-name" placeholder="선생님 성함" autocomplete="off">
 
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <div style="flex:1">
-        <div class="inp-label">학년 <span style="color:#e05050">*</span></div>
+    <div class="inp-label">학교명 <span class="req">*</span></div>
+    <input class="inp" id="ts-school" placeholder="예: 마음초등학교" autocomplete="off">
+
+    <div class="ts-row2">
+      <div>
+        <div class="inp-label">학년 <span class="req">*</span></div>
         <input class="inp" id="ts-grade" type="number" min="1" max="6" placeholder="1~6" autocomplete="off">
       </div>
-      <div style="flex:1">
-        <div class="inp-label">반 <span style="color:#e05050">*</span></div>
+      <div>
+        <div class="inp-label">반 <span class="req">*</span></div>
         <input class="inp" id="ts-class" type="number" min="1" placeholder="반" autocomplete="off">
       </div>
     </div>
 
-    <div class="inp-label">희망 아이디 <span style="color:#e05050">*</span></div>
-    <input class="inp" id="ts-id" placeholder="영문+숫자 (승인 후 로그인 아이디)" style="margin-bottom:10px" autocomplete="off">
+    <div class="inp-label">희망 아이디 <span class="req">*</span></div>
+    <input class="inp" id="ts-id" placeholder="영문+숫자 3자 이상" autocomplete="off">
 
-    <div class="inp-label">이메일 <span style="color:#e05050">*</span></div>
-    <input class="inp" id="ts-email" type="email" placeholder="승인 결과를 받을 이메일" style="margin-bottom:10px" autocomplete="off">
+    <!-- 71차: signupMode='google'일 때만 표시 -->
+    <div id="ts-email-wrap" style="display:none">
+      <div class="inp-label">이메일 <span class="inp-sub">(Google 계정)</span></div>
+      <input class="inp inp-readonly" id="ts-email" type="email" placeholder="example@gmail.com" autocomplete="off">
+    </div>
 
-    <div class="inp-label">신청 사유 <span style="color:var(--gray)">(선택)</span></div>
-    <textarea class="inp" id="ts-reason" rows="2" placeholder="한 줄 자기소개나 신청 이유" style="margin-bottom:14px;resize:none;font-family:inherit"></textarea>
+    <div class="inp-label">신청 사유 <span class="inp-sub">선택</span></div>
+    <textarea class="inp inp-tight" id="ts-reason" rows="2" placeholder="한 줄 자기소개"></textarea>
 
-    <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--navy);margin-bottom:14px;cursor:pointer;line-height:1.5">
-      <input type="checkbox" id="ts-agree" style="margin-top:2px;flex-shrink:0">
-      <span>개인정보 수집·이용에 동의합니다. (<a href="./privacy" target="_blank" style="color:var(--mint2)" onclick="event.stopPropagation()">자세히</a>)</span>
+    <label class="inp-agree">
+      <input type="checkbox" id="ts-agree">
+      <span>개인정보 수집·이용에 동의합니다. <a href="./privacy" target="_blank" onclick="event.stopPropagation()">자세히</a></span>
     </label>
 
-    <button class="btn btn-primary" style="width:100%" onclick="submitTeacherSignup()">신청하기</button>
+    <button class="btn btn-primary signup-submit-btn" onclick="submitTeacherSignup()">신청하기</button>
   </div>
 </div>
 
-<!-- ══ 모달: 신청 수락 (71차 — 관리자 전용) ══ -->
+<!-- ══ 모달: 신청 수락 (71차) ══ -->
 <div id="modal-signup-accept" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-signup-accept')">
-  <div class="modal-box" style="position:relative;max-height:85vh;overflow-y:auto">
-    <div class="modal-title">✅ 가입 신청 수락</div>
+  <div class="modal-box modal-kb" style="position:relative;max-height:88vh;overflow-y:auto">
+    <div class="modal-title">✅ 가입 수락</div>
     <button class="modal-close" onclick="closeModal('modal-signup-accept')">✕</button>
-    <div id="sa-summary" style="font-size:12.5px;color:var(--navy);background:var(--mint4);border-radius:10px;padding:10px 12px;margin-bottom:14px;line-height:1.6"></div>
-    <div style="font-size:12px;color:var(--gray);margin-bottom:10px;line-height:1.5">
-      신청 폼에 없는 정보만 선택해 주세요. 초기 비밀번호는 <b>maum1234</b>로 설정되고, 승인 이메일로 안내돼요.
-    </div>
-    <div class="inp-label">학교 유형 <span style="color:#e05050">*</span></div>
-    <select class="inp" id="sa-school-type" style="margin-bottom:10px">
+    <div id="sa-summary" class="summary-box summary-mint"></div>
+    <div class="modal-hint">초기 비밀번호는 <b>maum1234</b>로 설정돼요.</div>
+    <div class="inp-label">학교 유형 <span class="req">*</span></div>
+    <select class="inp" id="sa-school-type">
       <option value="e">초등학교</option>
       <option value="m">중학교</option>
       <option value="h">고등학교</option>
     </select>
-    <div class="inp-label">지역(시/도) <span style="color:#e05050">*</span></div>
-    <select class="inp" id="sa-region" style="margin-bottom:10px">
+    <div class="inp-label">지역(시/도) <span class="req">*</span></div>
+    <select class="inp" id="sa-region">
       <option value="">선택</option>
       <option>서울</option><option>부산</option><option>대구</option><option>인천</option>
       <option>광주</option><option>대전</option><option>울산</option><option>세종</option>
@@ -1651,44 +1735,41 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <option>제주</option>
     </select>
     <div class="inp-label">학년도</div>
-    <input class="inp" id="sa-year" type="number" value="2026" style="margin-bottom:14px">
+    <input class="inp" id="sa-year" type="number" value="2026">
     <input type="hidden" id="sa-request-uid">
-    <button class="btn btn-primary" style="width:100%" onclick="submitSignupAccept()">✅ 수락하고 등록</button>
+    <button class="btn btn-primary signup-submit-btn" onclick="submitSignupAccept()">✅ 수락하고 등록</button>
   </div>
 </div>
 
-<!-- ══ 모달: 신청 거절 (71차 — 관리자 전용) ══ -->
+<!-- ══ 모달: 신청 거절 (71차) ══ -->
 <div id="modal-signup-reject" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-signup-reject')">
-  <div class="modal-box" style="position:relative">
-    <div class="modal-title">🙅 가입 신청 거절</div>
+  <div class="modal-box modal-kb" style="position:relative">
+    <div class="modal-title">🙅 가입 거절</div>
     <button class="modal-close" onclick="closeModal('modal-signup-reject')">✕</button>
-    <div id="sr-summary" style="font-size:12.5px;color:var(--navy);background:#fef2f2;border-radius:10px;padding:10px 12px;margin-bottom:14px;line-height:1.6"></div>
-    <div class="inp-label">거절 사유 <span style="color:#e05050">*</span></div>
-    <textarea class="inp" id="sr-reason" rows="3" placeholder="예: 학교명이 확인되지 않아 관리자 확인이 필요합니다" style="margin-bottom:14px;resize:none;font-family:inherit"></textarea>
-    <div style="font-size:11px;color:var(--gray);margin-bottom:14px;line-height:1.5">이 내용은 신청자 이메일로 그대로 발송돼요. 정중하게 적어주세요.</div>
+    <div id="sr-summary" class="summary-box summary-red"></div>
+    <div class="inp-label">거절 사유 <span class="req">*</span></div>
+    <textarea class="inp inp-tight" id="sr-reason" rows="3" placeholder="예: 학교명 확인이 필요해요"></textarea>
+    <div class="modal-hint">신청자 이메일로 그대로 발송됩니다.</div>
     <input type="hidden" id="sr-request-uid">
-    <button class="btn btn-primary" style="width:100%;background:#e05050;border-color:#e05050" onclick="submitSignupReject()">🙅 거절 처리</button>
+    <button class="btn btn-primary signup-submit-btn btn-danger" onclick="submitSignupReject()">🙅 거절 처리</button>
   </div>
 </div>
 
 <!-- ══ 모달: 이메일 등록/변경 (71차 — 교사·관리자 공용, Google 로그인 연동용) ══ -->
 <div id="modal-email-edit" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-email-edit')">
-  <div class="modal-box" style="position:relative">
-    <div class="modal-title">📧 이메일 등록/변경</div>
+  <div class="modal-box modal-kb" style="position:relative">
+    <div class="modal-title">📧 이메일 등록</div>
     <button class="modal-close" onclick="closeModal('modal-email-edit')">✕</button>
-    <div style="font-size:12px;color:var(--gray);margin-bottom:14px;line-height:1.6">
-      Google 로그인을 사용하려면 <b>Google 계정과 같은 이메일</b>을 입력해 주세요.<br>
-      등록 시 <a href="./privacy" target="_blank" style="color:var(--mint2)">개인정보처리방침</a>에 따라 이메일(선택 수집)에 동의하게 됩니다.
-    </div>
+    <div class="modal-hint">Google 로그인을 쓰려면 Google 계정 이메일을 입력해 주세요.</div>
     <div class="inp-label">이메일 주소</div>
-    <input class="inp" id="ee-email" type="email" placeholder="example@gmail.com" style="margin-bottom:14px" autocomplete="off">
-    <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--navy);margin-bottom:14px;cursor:pointer;line-height:1.5">
-      <input type="checkbox" id="ee-agree" style="margin-top:2px;flex-shrink:0">
-      <span>Google 계정의 이메일을 서비스에 연동하는 것에 동의합니다.</span>
+    <input class="inp" id="ee-email" type="email" placeholder="example@gmail.com" autocomplete="off">
+    <label class="inp-agree">
+      <input type="checkbox" id="ee-agree">
+      <span>Google 계정 이메일 연동에 동의합니다.</span>
     </label>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-secondary" style="flex:1" onclick="submitEmailEdit(true)">🗑 연동 해제</button>
-      <button class="btn btn-primary" style="flex:2" onclick="submitEmailEdit(false)">💾 저장</button>
+    <div class="ee-actions">
+      <button class="btn btn-secondary" onclick="submitEmailEdit(true)">🗑 해제</button>
+      <button class="btn btn-primary" onclick="submitEmailEdit(false)">💾 저장</button>
     </div>
   </div>
 </div>
@@ -3258,33 +3339,107 @@ async function _onGoogleCredential(resp) {
   }
 }
 
-// 미가입 모달 → 신청 폼으로 이동 + 이메일·이름 프리필
+// 71차: Google 미가입 → Google 회원가입 폼으로 (email·이름 prefill, 이미 Google 인증 성공 상태)
 function _gotoTeacherSignupFromGoogle() {
   var cache = _googleUnregCache || {};
   closeModal('modal-google-unregistered');
-  openTeacherSignup();
-  setTimeout(function(){
-    if (cache.email) document.getElementById('ts-email').value = cache.email;
-    if (cache.name)  document.getElementById('ts-name').value  = cache.name;
-  }, 350);
+  _openSignupFormWithMode('google', { email: cache.email || '', name: cache.name || cache.given_name || '' });
 }
 
-// 70차: 교사 회원가입 신청 모달 열기
-function openTeacherSignup() {
+// 71차: 회원가입 선택 모달 진입 (Google / 이메일 없이 중 선택)
+function openSignupChoice() {
+  closeModal('modal-login');
+  closeModal('modal-google-unregistered');
+  openModal('modal-signup-choice');
+}
+
+// 71차: 이메일 없이 회원가입 — 기존 신청 폼 재사용, email 필드 숨김
+function openTeacherSignupEmailLess() {
+  closeModal('modal-signup-choice');
+  _openSignupFormWithMode('noemail', {});
+}
+
+// 71차: Google로 회원가입 — GIS oauth2 팝업으로 email/name 받아 폼에 prefill
+function openTeacherSignupGoogle() {
+  if (!GOOGLE_CLIENT_ID) { toast('Google 로그인 준비 중이에요'); return; }
+  if (!window.google || !google.accounts || !google.accounts.oauth2) {
+    toast('Google 인증 스크립트 로딩 중이에요. 잠시 후 다시 시도해 주세요');
+    return;
+  }
+  try {
+    var tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: 'openid email profile',
+      callback: async function(resp) {
+        if (!resp || !resp.access_token) { toast('Google 인증이 취소됐어요'); return; }
+        try {
+          var uRes = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
+            headers: { Authorization: 'Bearer ' + resp.access_token }
+          });
+          if (!uRes.ok) { toast('Google 계정 정보를 가져오지 못했어요'); return; }
+          var u = await uRes.json();
+          closeModal('modal-signup-choice');
+          _openSignupFormWithMode('google', { email: u.email || '', name: u.name || u.given_name || '' });
+        } catch(e) {
+          console.error('[GOOGLE USERINFO]', e && e.message ? e.message : e);
+          toast('Google 계정 정보 조회 실패');
+        }
+      }
+    });
+    tokenClient.requestAccessToken();
+  } catch(e) {
+    console.error('[GOOGLE SIGNUP]', e && e.message ? e.message : e);
+    toast('Google 회원가입 준비 실패');
+  }
+}
+
+// 71차: 신청 폼 공통 진입점 — mode별 UI 분기
+function _openSignupFormWithMode(mode, prefill) {
+  STATE._signupMode = mode;
   ['ts-name','ts-school','ts-grade','ts-class','ts-id','ts-email','ts-reason'].forEach(function(id){
     var el = document.getElementById(id); if (el) el.value = '';
   });
   var agree = document.getElementById('ts-agree');
   if (agree) agree.checked = false;
-  closeModal('modal-login');
+
+  var title = document.getElementById('ts-modal-title');
+  var banner = document.getElementById('ts-mode-banner');
+  var emailWrap = document.getElementById('ts-email-wrap');
+  var emailInp = document.getElementById('ts-email');
+  var emailNote = document.getElementById('ts-email-note');
+
+  if (mode === 'google') {
+    title.textContent = '🔐 Google로 회원가입';
+    banner.style.display = '';
+    banner.innerHTML = '🔐 Google 계정으로 가입 중이에요. 이메일과 이름은 자동으로 입력됐어요.';
+    emailWrap.style.display = '';
+    emailInp.value = prefill && prefill.email ? prefill.email : '';
+    emailInp.readOnly = true;
+    emailInp.style.background = '#f4f4f5';
+    emailInp.style.color = 'var(--gray)';
+    emailNote.textContent = '🔒 Google 계정 이메일 — 수정 불가';
+    if (prefill && prefill.name) document.getElementById('ts-name').value = prefill.name;
+  } else {
+    // noemail 모드
+    title.textContent = '✍️ 이메일 없이 회원가입';
+    banner.style.display = 'none';
+    emailWrap.style.display = 'none';
+    emailInp.readOnly = false;
+    emailInp.style.background = '';
+    emailInp.style.color = '';
+  }
+
   openModal('modal-teacher-signup');
   setTimeout(function(){
-    var first = document.getElementById('ts-name');
-    if (first) first.focus();
+    var focusEl = (mode === 'google' && !document.getElementById('ts-name').value)
+      ? document.getElementById('ts-name')
+      : (mode === 'google' ? document.getElementById('ts-school') : document.getElementById('ts-name'));
+    if (focusEl) focusEl.focus();
   }, 300);
 }
 
 async function submitTeacherSignup() {
+  var mode   = STATE._signupMode || 'noemail';
   var name   = (document.getElementById('ts-name')   || {}).value || '';
   var school = (document.getElementById('ts-school') || {}).value || '';
   var grade  = (document.getElementById('ts-grade')  || {}).value || '';
@@ -3295,7 +3450,7 @@ async function submitTeacherSignup() {
   var agree  = !!(document.getElementById('ts-agree') || {}).checked;
 
   name   = name.trim(); school = school.trim(); grade = grade.trim(); cls = cls.trim();
-  id     = id.trim();   email  = email.trim();  reason = reason.trim();
+  id     = id.trim();   email  = (mode === 'google' ? email.trim() : '');  reason = reason.trim();
 
   if (!name)   { toast('이름을 입력해주세요'); return; }
   if (!school) { toast('학교명을 입력해주세요'); return; }
@@ -3305,8 +3460,10 @@ async function submitTeacherSignup() {
   if (isNaN(clsNum)   || clsNum  < 1)                  { toast('반을 올바르게 입력해주세요'); return; }
   if (!id) { toast('희망 아이디를 입력해주세요'); return; }
   if (!/^[A-Za-z0-9_]{3,}$/.test(id)) { toast('아이디는 영문/숫자/밑줄 3자 이상이에요'); return; }
-  if (!email) { toast('이메일을 입력해주세요'); return; }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('이메일 형식을 확인해주세요'); return; }
+  if (mode === 'google') {
+    if (!email) { toast('Google 이메일을 확인할 수 없어요. 다시 시도해 주세요'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('이메일 형식이 올바르지 않아요'); return; }
+  }
   if (!agree) { toast('개인정보 수집·이용 동의가 필요해요'); return; }
 
   showLoading('신청을 보내는 중이에요 📨');
@@ -3319,9 +3476,10 @@ async function submitTeacherSignup() {
     hideLoading();
     if (res.status === 'ok') {
       closeModal('modal-teacher-signup');
-      await appAlert('신청 완료 ✅',
-        '관리자가 확인 후 이메일로 결과를 알려드릴게요.\n승인되면 입력하신 아이디로 로그인할 수 있어요.',
-        { okLabel:'확인' });
+      var msg = (mode === 'google')
+        ? '관리자가 확인 후 이메일로 결과를 알려드릴게요.\n승인되면 Google 로그인 또는 아이디로 들어올 수 있어요.'
+        : '관리자가 확인 후 결과를 알려드릴게요.\n승인 후에는 입력하신 아이디로 로그인하세요. (이메일이 없어 메일 안내는 생략됩니다)';
+      await appAlert('신청 완료 ✅', msg, { okLabel:'확인' });
     } else {
       toast(res.message || '신청에 실패했어요');
     }
@@ -3405,7 +3563,8 @@ async function submitSignupAccept() {
     hideLoading();
     if (res.status === 'ok') {
       closeModal('modal-signup-accept');
-      toast('수락됐어요. 승인 메일 발송됨 📧');
+      var sentToApplicant = res.data && res.data.applicant_email_sent;
+      toast(sentToApplicant ? '수락 · 신청자 메일 발송 📧' : '수락 · 이메일 없어 구두 안내 필요 📣');
       // 캐시 리셋 후 교사 목록 재로드 + 신청 카드 갱신
       _teacherAll = []; _studentsByTeacherLoaded = false;
       renderAdminAccountMgmt();
@@ -3443,7 +3602,8 @@ async function submitSignupReject() {
     hideLoading();
     if (res.status === 'ok') {
       closeModal('modal-signup-reject');
-      toast('거절 처리됐어요. 거절 메일 발송됨 📧');
+      var rSent = res.data && res.data.applicant_email_sent;
+      toast(rSent ? '거절 처리 · 신청자 메일 발송 📧' : '거절 처리 · 이메일 없어 구두 안내 필요 📣');
       renderSignupReviewCard(); // 카드만 갱신 (교사 목록은 변화 없음)
     } else {
       toast(res.message || '거절 처리 실패');
