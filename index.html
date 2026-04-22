@@ -1430,8 +1430,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .login-divider{position:relative;text-align:center;margin:16px 0 10px}
 .login-divider::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:#e5e7eb}
 .login-divider span{position:relative;display:inline-block;background:#fff;padding:0 12px;font-size:11.5px;color:var(--gray);font-weight:500}
-.login-alt-google{display:flex;justify-content:center;align-items:center;margin-bottom:8px;height:40px;min-height:40px;overflow:hidden}
-/* GIS iframe 비동기 로드 중 높이 변동 방지 — 모달 박스 재중앙정렬 jitter 제거 */
+/* 71차: GIS iframe 높이 고정 (jitter 방지) + hover shadow는 컨테이너 여유로 살림 */
+.login-alt-google{display:flex;justify-content:center;align-items:center;margin-bottom:8px;height:44px;min-height:44px;padding:2px 0}
 #google-signin-btn iframe{height:40px!important;border:0!important}
 #google-signin-btn > div{height:40px}
 .login-alt-btn{
