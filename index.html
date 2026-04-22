@@ -3551,24 +3551,53 @@ async function submitTeacherSignup() {
     google_email: (mode === 'google') ? email : ''
   };
 
-  showLoading('신청을 보내는 중이에요 📨');
+  // 72차: Supabase 선검증 — 중복 pending·기존 교사 아이디/Google 이메일 즉시 안내 (GAS 왕복 전에)
   try {
-    var res = await api('request_teacher_signup', payload);
-    hideLoading();
-    if (res.status === 'ok') {
-      closeModal('modal-teacher-signup');
-      var msg = (mode === 'google')
-        ? '관리자가 확인 후 이메일로 결과를 알려드릴게요.\n승인되면 Google 로그인 또는 아이디로 들어올 수 있어요.'
-        : '관리자가 확인 후 결과를 알려드릴게요.\n승인 후에는 입력하신 아이디로 로그인하세요. (이메일이 없어 메일 안내는 생략됩니다)';
-      await appAlert('신청 완료 ✅', msg, { okLabel:'확인' });
-    } else {
-      toast(res.message || '신청에 실패했어요');
+    var pendingRows = await _sbFetch('signup_requests', {
+      status: 'eq.pending', teacher_id: 'eq.' + encodeURIComponent(id), select: 'request_uid', limit: '1'
+    });
+    if (pendingRows && pendingRows.length) {
+      toast('이미 접수된 신청이 있어요. 관리자 확인을 기다려 주세요'); return;
+    }
+    if (mode === 'google' && email) {
+      var pendingG = await _sbFetch('signup_requests', {
+        status: 'eq.pending', google_email: 'eq.' + encodeURIComponent(email), select: 'request_uid', limit: '1'
+      });
+      if (pendingG && pendingG.length) {
+        toast('이 Google 계정으로 이미 신청이 접수됐어요'); return;
+      }
+    }
+    var tRows = await _sbFetch('teachers', {
+      teacher_id: 'eq.' + encodeURIComponent(id), select: 'teacher_uid', limit: '1'
+    });
+    if (tRows && tRows.length) { toast('이미 사용 중인 아이디예요'); return; }
+    if (mode === 'google' && email) {
+      var tG = await _sbFetch('teachers', {
+        google_email: 'eq.' + encodeURIComponent(email), select: 'teacher_uid', limit: '1'
+      });
+      if (tG && tG.length) { toast('이 Google 계정은 이미 다른 교사 계정에 연동돼 있어요'); return; }
     }
   } catch(e) {
-    hideLoading();
-    console.error('[SIGNUP SUBMIT]', e && e.message ? e.message : e);
-    toast('신청 중 오류가 발생했어요');
+    // Supabase 실패해도 앱 멈추지 않고 서버에서 재검증 — 로그만 남김
+    console.error('[SIGNUP PRECHECK]', e && e.message ? e.message : e);
   }
+
+  // 72차: 낙관적 UI — 모달 닫고 즉시 안내, GAS는 백그라운드 fire-and-forget
+  closeModal('modal-teacher-signup');
+  var msg = (mode === 'google')
+    ? '관리자가 확인 후 이메일로 결과를 알려드릴게요.\n승인되면 Google 로그인 또는 아이디로 들어올 수 있어요.'
+    : '관리자가 확인 후 결과를 알려드릴게요.\n승인 후에는 입력하신 아이디로 로그인하세요. (이메일이 없어 메일 안내는 생략됩니다)';
+  appAlert('신청 접수됐어요 📨', msg, { okLabel:'확인' });
+
+  api('request_teacher_signup', payload).then(function(res){
+    if (!res || res.status !== 'ok') {
+      console.error('[SIGNUP SUBMIT]', (res && res.message) || 'unknown');
+      toast('⚠️ ' + ((res && res.message) || '신청 저장 지연 — 잠시 후 다시 시도해 주세요'));
+    }
+  }).catch(function(e){
+    console.error('[SIGNUP SUBMIT]', e && e.message ? e.message : e);
+    toast('⚠️ 신청 저장이 지연됐어요. 로그인 안 되면 다시 신청해 주세요');
+  });
 }
 
 // 71차: 관리자 — 가입 신청 검토 카드 렌더
@@ -7510,11 +7539,13 @@ function natMapClosePopup() {
 // ══════════════════════════════════════════════
 async function loadNotifications() {
   // 역할별로 자신의 uid만 사용 (teacher_uid는 학생도 갖고 있어서 || 방식 금지)
+  // 72차: admin은 admin_uid · teacher는 teacher_uid로 분리 (관리자 알림 미수신 버그 fix)
   var uid;
   var role = STATE.role || (STATE.user && STATE.user.role);
-  if (role === 'teacher' || role === 'admin') uid = STATE.user && STATE.user.teacher_uid;
-  else if (role === 'student')                uid = STATE.user && STATE.user.student_uid;
-  else if (role === 'parent')                 uid = STATE.user && STATE.user.parent_uid;
+  if (role === 'admin')       uid = STATE.user && STATE.user.admin_uid;
+  else if (role === 'teacher') uid = STATE.user && STATE.user.teacher_uid;
+  else if (role === 'student') uid = STATE.user && STATE.user.student_uid;
+  else if (role === 'parent')  uid = STATE.user && STATE.user.parent_uid;
   if (!uid) return;
   // 55차: Supabase 직접 조회, GAS fallback
   try {
@@ -8035,12 +8066,14 @@ var _notifPollCount = -1; // 폴링 안전망 기준값 (-1 = 초기화 전)
 function startNotificationRealtime() {
   stopNotificationRealtime();
   // 역할별 자신의 uid 선택 (loadNotifications와 동일 규칙)
+  // 72차: admin은 admin_uid · teacher는 teacher_uid로 분리
   var role = STATE.role;
   var myUid;
-  if (role === 'teacher' || role === 'admin') myUid = STATE.user && STATE.user.teacher_uid;
-  else if (role === 'student')                myUid = STATE.user && STATE.user.student_uid;
-  else if (role === 'parent')                 myUid = STATE.user && STATE.user.parent_uid;
-  if (!myUid) return;  // admin이 teacher_uid 없이 들어왔거나 기타 케이스 — 조용히 return
+  if (role === 'admin')        myUid = STATE.user && STATE.user.admin_uid;
+  else if (role === 'teacher') myUid = STATE.user && STATE.user.teacher_uid;
+  else if (role === 'student') myUid = STATE.user && STATE.user.student_uid;
+  else if (role === 'parent')  myUid = STATE.user && STATE.user.parent_uid;
+  if (!myUid) return;
 
   // ── Realtime 구독 (즉시 감지) ──
   try {
