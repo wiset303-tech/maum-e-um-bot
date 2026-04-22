@@ -4358,10 +4358,11 @@ async function onLoginSuccess(data) {
     var teacherUid = data.teacher_uid || '';
 
     if (data.role === 'admin') {
-      // 관리자: 학교 단위 대시보드 + 교사 목록 (admin은 알림 수신자 아님)
-      // 60차(Δ): get_teachers GAS → Supabase 직접 조회 (로그인 체감 병목 해소)
+      // 관리자: 학교 단위 대시보드 + 교사 목록 + 알림
+      // 72차: 신청 알림 수신자라 loadNotifications 추가 (과거엔 admin이 수신자 아니어서 빠져있었음)
       await Promise.all([
         loadAdminDashboard(),
+        loadNotifications(),
         _sbGetTeachersAll().then(function(rows) {
           _teacherAll = rows || [];
           _renderAdminTeacherList();
