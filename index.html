@@ -4207,14 +4207,15 @@ async function loginByPw() {
         }
       }
     } else {
-      // 교사 시도 — 69차: active 필터 제거하고 조회 후 분기
+      // 교사 시도 — 69차: active 필터 제거하고 조회 후 분기 / 71차: email·google_email 응답 포함
       var tRows = await _sbFetch('teachers', { teacher_id:'eq.'+id, pw_hash:'eq.'+hash });
       if (tRows.length) {
         var r = tRows[0];
         if (r.active === 'Y') {
           data = { role:'teacher', teacher_uid:r.teacher_uid, name:r.name,
             school_name:r.school_name, school_type:r.school_type,
-            year:r.year, grade:r.grade, class:r.class, profile_image_url:r.profile_image_url||'' };
+            year:r.year, grade:r.grade, class:r.class, profile_image_url:r.profile_image_url||'',
+            email: r.email || '', google_email: r.google_email || '' };
         } else {
           inactiveFound = true;
         }
@@ -4237,11 +4238,13 @@ async function loginByPw() {
           }
         } else {
           // 60차 Δ²: 관리자 시도 (Supabase admins) — 테이블 없으면 조용히 throw → 외부 GAS fallback
+          // 71차: email·google_email 응답에 포함
           try {
             var aRows = await _sbFetch('admins', { admin_id:'eq.'+id, pw_hash:'eq.'+hash, active:'eq.Y' });
             if (aRows.length) {
               var r = aRows[0];
-              data = { role:'admin', admin_uid:r.admin_uid, name:r.name||'관리자' };
+              data = { role:'admin', admin_uid:r.admin_uid, name:r.name||'관리자',
+                email: r.email || '', google_email: r.google_email || '' };
             }
           } catch(ae) { /* admins 테이블 없으면 하단 GAS fallback으로 */ }
         }
