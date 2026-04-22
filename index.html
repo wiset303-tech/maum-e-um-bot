@@ -1697,6 +1697,28 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 
     <div class="ts-row2">
       <div>
+        <div class="inp-label">학교 유형 <span class="req">*</span></div>
+        <select class="inp" id="ts-school-type">
+          <option value="e">초등학교</option>
+          <option value="m">중학교</option>
+          <option value="h">고등학교</option>
+        </select>
+      </div>
+      <div>
+        <div class="inp-label">지역 <span class="req">*</span></div>
+        <select class="inp" id="ts-region">
+          <option value="">선택</option>
+          <option>서울</option><option>부산</option><option>대구</option><option>인천</option>
+          <option>광주</option><option>대전</option><option>울산</option><option>세종</option>
+          <option>경기</option><option>강원</option><option>충북</option><option>충남</option>
+          <option>전북</option><option>전남</option><option>경북</option><option>경남</option>
+          <option>제주</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="ts-row2">
+      <div>
         <div class="inp-label">학년 <span class="req">*</span></div>
         <input class="inp" id="ts-grade" type="number" min="1" max="6" placeholder="1~6" autocomplete="off">
       </div>
@@ -1733,7 +1755,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <div class="modal-title">✅ 가입 수락</div>
     <button class="modal-close" onclick="closeModal('modal-signup-accept')">✕</button>
     <div id="sa-summary" class="summary-box summary-mint"></div>
-    <div class="modal-hint">초기 비밀번호는 <b>maum1234</b>로 설정돼요.</div>
+    <div class="modal-hint">신청서에서 받은 값이 미리 채워져 있어요. 필요하면 수정하고 수락하세요. 초기 비밀번호는 <b>maum1234</b>로 설정돼요.</div>
     <div class="inp-label">학교 유형 <span class="req">*</span></div>
     <select class="inp" id="sa-school-type">
       <option value="e">초등학교</option>
@@ -3439,9 +3461,11 @@ function openSignupAsGeneral() {
 // 71차: 신청 폼 공통 진입점 — mode별 UI 분기
 function _openSignupFormWithMode(mode, prefill) {
   STATE._signupMode = mode;
-  ['ts-name','ts-school','ts-grade','ts-class','ts-id','ts-email','ts-reason'].forEach(function(id){
+  ['ts-name','ts-school','ts-grade','ts-class','ts-id','ts-email','ts-reason','ts-region'].forEach(function(id){
     var el = document.getElementById(id); if (el) el.value = '';
   });
+  var schoolTypeEl = document.getElementById('ts-school-type');
+  if (schoolTypeEl) schoolTypeEl.value = 'e'; // 기본값 초등학교
   var agree = document.getElementById('ts-agree');
   if (agree) agree.checked = false;
 
@@ -3482,25 +3506,34 @@ function _openSignupFormWithMode(mode, prefill) {
 }
 
 async function submitTeacherSignup() {
-  var mode   = STATE._signupMode || 'noemail';
-  var name   = (document.getElementById('ts-name')   || {}).value || '';
-  var school = (document.getElementById('ts-school') || {}).value || '';
-  var grade  = (document.getElementById('ts-grade')  || {}).value || '';
-  var cls    = (document.getElementById('ts-class')  || {}).value || '';
-  var id     = (document.getElementById('ts-id')     || {}).value || '';
-  var email  = (document.getElementById('ts-email')  || {}).value || '';
-  var reason = (document.getElementById('ts-reason') || {}).value || '';
-  var agree  = !!(document.getElementById('ts-agree') || {}).checked;
+  var mode       = STATE._signupMode || 'noemail';
+  var name       = (document.getElementById('ts-name')        || {}).value || '';
+  var school     = (document.getElementById('ts-school')      || {}).value || '';
+  var schoolType = (document.getElementById('ts-school-type') || {}).value || '';
+  var region     = (document.getElementById('ts-region')      || {}).value || '';
+  var grade      = (document.getElementById('ts-grade')       || {}).value || '';
+  var cls        = (document.getElementById('ts-class')       || {}).value || '';
+  var id         = (document.getElementById('ts-id')          || {}).value || '';
+  var email      = (document.getElementById('ts-email')       || {}).value || '';
+  var reason     = (document.getElementById('ts-reason')      || {}).value || '';
+  var agree      = !!(document.getElementById('ts-agree') || {}).checked;
 
-  name   = name.trim(); school = school.trim(); grade = grade.trim(); cls = cls.trim();
-  id     = id.trim();   email  = (mode === 'google' ? email.trim() : '');  reason = reason.trim();
+  name   = name.trim(); school = school.trim(); region = region.trim();
+  grade  = grade.trim(); cls = cls.trim();
+  id     = id.trim();   email = (mode === 'google' ? email.trim() : '');  reason = reason.trim();
 
-  if (!name)   { toast('이름을 입력해주세요'); return; }
-  if (!school) { toast('학교명을 입력해주세요'); return; }
+  if (!name)       { toast('이름을 입력해주세요'); return; }
+  if (!school)     { toast('학교명을 입력해주세요'); return; }
+  if (!schoolType || ['e','m','h'].indexOf(schoolType) < 0) { toast('학교 유형을 선택해주세요'); return; }
+  if (!region)     { toast('지역(시/도)을 선택해주세요'); return; }
   if (!grade || !cls) { toast('학년·반을 모두 입력해주세요'); return; }
   var gradeNum = parseInt(grade, 10), clsNum = parseInt(cls, 10);
-  if (isNaN(gradeNum) || gradeNum < 1 || gradeNum > 6) { toast('학년은 1~6 사이로 입력해주세요'); return; }
-  if (isNaN(clsNum)   || clsNum  < 1)                  { toast('반을 올바르게 입력해주세요'); return; }
+  // 학교 유형별 최대 학년 (초 6 / 중·고 3)
+  var maxGrade = (schoolType === 'e') ? 6 : 3;
+  if (isNaN(gradeNum) || gradeNum < 1 || gradeNum > maxGrade) {
+    toast('학년은 1~' + maxGrade + ' 사이로 입력해주세요'); return;
+  }
+  if (isNaN(clsNum) || clsNum < 1) { toast('반을 올바르게 입력해주세요'); return; }
   if (!id) { toast('희망 아이디를 입력해주세요'); return; }
   if (!/^[A-Za-z0-9_]{6,}$/.test(id)) { toast('아이디는 영문·숫자·밑줄 6자 이상이에요'); return; }
   if (mode === 'google') {
@@ -3509,13 +3542,13 @@ async function submitTeacherSignup() {
   }
   if (!agree) { toast('개인정보 수집·이용 동의가 필요해요'); return; }
 
-  // 71차: Google 가입 모드에선 email을 google_email로 전송, email(연락용)도 기본 같은 값으로
+  // 71차: Google 가입 모드 → email·google_email 둘 다 Google 값. 일반 모드 → google_email 빈 값.
   var payload = {
-    name: name, school_name: school,
+    name: name, school_name: school, school_type: schoolType, region: region,
     grade: gradeNum, class: clsNum,
     teacher_id: id, reason: reason,
-    email: (mode === 'google') ? email : email,       // 연락용 (google 모드에서는 Google 값 그대로)
-    google_email: (mode === 'google') ? email : ''    // Google 연동 (일반 모드에선 빈 값)
+    email: email,
+    google_email: (mode === 'google') ? email : ''
   };
 
   showLoading('신청을 보내는 중이에요 📨');
@@ -3588,16 +3621,21 @@ async function renderSignupReviewCard() {
   }
 }
 
-// 71차: 수락 모달 열기 — school_type · region · year 입력
+// 71차: 수락 모달 열기 — 신청값으로 school_type · region prefill, 관리자가 확인·수정 가능
 function _openSignupAcceptModal(ruid) {
   var r = (window._signupPending || {})[ruid];
   if (!r) { toast('신청 정보를 찾을 수 없어요'); return; }
   document.getElementById('sa-request-uid').value = ruid;
+  var mailBits = [];
+  if (r.email)        mailBits.push('📮 ' + _escHtml(r.email));
+  if (r.google_email) mailBits.push('🔐 ' + _escHtml(r.google_email));
+  var mailLine = mailBits.length ? mailBits.join(' · ') : '<span style="color:#bbb">이메일 없음</span>';
   document.getElementById('sa-summary').innerHTML =
     '<b>' + _escHtml(r.name) + ' 선생님</b> · ' + _escHtml(r.school_name) + ' ' + r.grade + '-' + r.class + '<br>' +
-    '아이디 <code>' + _escHtml(r.teacher_id) + '</code> · 📧 ' + _escHtml(r.email);
-  document.getElementById('sa-school-type').value = 'e';
-  document.getElementById('sa-region').value = '';
+    '아이디 <code>' + _escHtml(r.teacher_id) + '</code> · ' + mailLine;
+  // 71차: 신청값 prefill (없으면 기본값)
+  document.getElementById('sa-school-type').value = (r.school_type && ['e','m','h'].indexOf(r.school_type) >= 0) ? r.school_type : 'e';
+  document.getElementById('sa-region').value = r.region || '';
   document.getElementById('sa-year').value = String(new Date().getFullYear());
   openModal('modal-signup-accept');
 }
