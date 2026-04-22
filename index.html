@@ -1414,7 +1414,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 
 /* Google 미가입 모달 */
 .gu-summary{font-size:13px;color:var(--navy);background:var(--mint4);border-radius:10px;padding:10px 12px;margin-bottom:14px;line-height:1.55}
-.gu-choice{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gu-choice{display:flex;flex-direction:column;gap:8px}
+.gu-choice .btn{width:100%;height:44px;padding:0 16px;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;white-space:nowrap}
 
 /* 71차: 역할 선택 버튼 — 두 버튼 사이즈·레이아웃 완전 동일, 관리자만 primary 강조 */
 .role-choice{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -1671,11 +1672,11 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <button class="modal-close" onclick="closeModal('modal-google-unregistered')">✕</button>
     <div class="gu-summary" id="gu-summary"></div>
     <div class="gu-choice">
-      <button class="btn btn-secondary" onclick="closeModal('modal-google-unregistered');openLoginModal()">
-        🔑 아이디로 로그인
-      </button>
       <button class="btn btn-primary" onclick="_gotoTeacherSignupFromGoogle()">
         📝 Google로 회원가입
+      </button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-google-unregistered');openLoginModal()">
+        🔑 아이디로 로그인
       </button>
     </div>
   </div>
@@ -1706,7 +1707,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     </div>
 
     <div class="inp-label">희망 아이디 <span class="req">*</span></div>
-    <input class="inp" id="ts-id" placeholder="영문+숫자 3자 이상" autocomplete="off">
+    <input class="inp" id="ts-id" placeholder="영문+숫자 6자 이상" autocomplete="off">
 
     <!-- 71차: mode별 분기 — google=자동 readonly / noemail=선택 입력 -->
     <div id="ts-email-wrap">
@@ -3451,7 +3452,7 @@ function _openSignupFormWithMode(mode, prefill) {
   var emailSub  = document.getElementById('ts-email-sub');
 
   if (mode === 'google') {
-    title.textContent = '🔐 Google로 회원가입';
+    title.textContent = 'Google로 회원가입';
     banner.style.display = '';
     banner.innerHTML = '🔐 Google 계정으로 가입 중이에요. Google 이메일은 자동 입력됐어요.';
     emailLbl.textContent = 'Google 계정 이메일';
@@ -3501,7 +3502,7 @@ async function submitTeacherSignup() {
   if (isNaN(gradeNum) || gradeNum < 1 || gradeNum > 6) { toast('학년은 1~6 사이로 입력해주세요'); return; }
   if (isNaN(clsNum)   || clsNum  < 1)                  { toast('반을 올바르게 입력해주세요'); return; }
   if (!id) { toast('희망 아이디를 입력해주세요'); return; }
-  if (!/^[A-Za-z0-9_]{3,}$/.test(id)) { toast('아이디는 영문/숫자/밑줄 3자 이상이에요'); return; }
+  if (!/^[A-Za-z0-9_]{6,}$/.test(id)) { toast('아이디는 영문·숫자·밑줄 6자 이상이에요'); return; }
   if (mode === 'google') {
     if (!email) { toast('Google 이메일을 확인할 수 없어요. 다시 시도해 주세요'); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('이메일 형식이 올바르지 않아요'); return; }
