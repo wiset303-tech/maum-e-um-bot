@@ -1785,7 +1785,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <button class="modal-close" onclick="closeModal('modal-signup-reject')">✕</button>
     <div id="sr-summary" class="summary-box summary-red"></div>
     <div class="inp-label">거절 사유 <span class="req">*</span></div>
-    <textarea class="inp inp-tight" id="sr-reason" rows="3" placeholder="예: 학교명 확인이 필요해요"></textarea>
+    <!-- 72차: 자주 쓰는 거절 사유 프리셋 — 클릭 시 textarea에 바로 채움 -->
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+      <button type="button" style="padding:6px 10px;font-size:11.5px;border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;border-radius:14px;cursor:pointer;word-break:keep-all" onclick="_srFillReason('학교·이름 정보가 실제와 달라 확인이 필요해요. 다시 한 번 확인하고 신청해 주세요.')">🏫 정보 불일치</button>
+      <button type="button" style="padding:6px 10px;font-size:11.5px;border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;border-radius:14px;cursor:pointer;word-break:keep-all" onclick="_srFillReason('해당 학급에 이미 다른 선생님이 등록돼 있어요. 전임 선생님과 상의 후 담임 이양을 진행해 주세요.')">👥 학급 중복</button>
+      <button type="button" style="padding:6px 10px;font-size:11.5px;border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;border-radius:14px;cursor:pointer;word-break:keep-all" onclick="_srFillReason('같은 아이디로 이미 가입되어 있어요. 비밀번호를 잊으셨다면 관리자에게 연락주세요.')">🆔 아이디 중복</button>
+      <button type="button" style="padding:6px 10px;font-size:11.5px;border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;border-radius:14px;cursor:pointer;word-break:keep-all" onclick="_srFillReason('신청 내용이 부족해요. 학교·학년·반·담당 학생을 다시 확인하고 신청해 주세요.')">📝 내용 부족</button>
+      <button type="button" style="padding:6px 10px;font-size:11.5px;border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;border-radius:14px;cursor:pointer;word-break:keep-all" onclick="_srFillReason('이용 대상(초·중·고 담임교사)에 해당하지 않는 것 같아요. 자세한 내용은 wiset303@gmail.com으로 문의해 주세요.')">🚫 대상 아님</button>
+    </div>
+    <textarea class="inp inp-tight" id="sr-reason" rows="4" placeholder="위 프리셋을 누르거나 직접 입력해 주세요"></textarea>
     <div class="modal-hint">신청자 이메일로 그대로 발송됩니다.</div>
     <input type="hidden" id="sr-request-uid">
     <button class="btn btn-primary signup-submit-btn btn-danger" onclick="submitSignupReject()">🙅 거절 처리</button>
@@ -3680,15 +3688,16 @@ async function submitSignupAccept() {
   showLoading('교사 계정을 만들고 있어요 ✨');
   try {
     var res = await api('accept_signup', { request_uid: ruid, school_type: stype, region: region, year: year });
-    hideLoading();
     if (res.status === 'ok') {
+      // 72차: 카드·목록 재렌더 기다린 뒤 hideLoading → 모달 닫기 → 토스트
+      _teacherAll = []; _studentsByTeacherLoaded = false;
+      await renderAdminAccountMgmt();
+      hideLoading();
       closeModal('modal-signup-accept');
       var sentToApplicant = res.data && res.data.applicant_email_sent;
       toast(sentToApplicant ? '수락 · 신청자 메일 발송 📧' : '수락 · 이메일 없어 구두 안내 필요 📣');
-      // 캐시 리셋 후 교사 목록 재로드 + 신청 카드 갱신
-      _teacherAll = []; _studentsByTeacherLoaded = false;
-      renderAdminAccountMgmt();
     } else {
+      hideLoading();
       toast(res.message || '수락 처리 실패');
     }
   } catch(e) {
@@ -3710,7 +3719,15 @@ function _openSignupRejectModal(ruid) {
   openModal('modal-signup-reject');
 }
 
+// 72차: 거절 사유 프리셋 채우기 (버튼 클릭 시 textarea에 즉시 반영)
+function _srFillReason(text) {
+  var ta = document.getElementById('sr-reason');
+  if (ta) { ta.value = text; ta.focus(); }
+}
+
 // 71차: 거절 실행
+// 72차: 순서 바로잡음 — 카드 재렌더 기다린 뒤 hideLoading → 모달 닫기 → 토스트
+// (기존: hideLoading이 먼저라 카드가 남아있는 상태로 "처리됨" 토스트 뜨는 현상)
 async function submitSignupReject() {
   var ruid = document.getElementById('sr-request-uid').value;
   var reason = (document.getElementById('sr-reason').value || '').trim();
@@ -3719,13 +3736,14 @@ async function submitSignupReject() {
   showLoading('거절 처리 중…');
   try {
     var res = await api('reject_signup', { request_uid: ruid, reason: reason });
-    hideLoading();
     if (res.status === 'ok') {
+      await renderSignupReviewCard(); // 카드 먼저 갱신 완료
+      hideLoading();
       closeModal('modal-signup-reject');
       var rSent = res.data && res.data.applicant_email_sent;
       toast(rSent ? '거절 처리 · 신청자 메일 발송 📧' : '거절 처리 · 이메일 없어 구두 안내 필요 📣');
-      renderSignupReviewCard(); // 카드만 갱신 (교사 목록은 변화 없음)
     } else {
+      hideLoading();
       toast(res.message || '거절 처리 실패');
     }
   } catch(e) {
@@ -4066,9 +4084,24 @@ function focusNfcInput() {
   if (inp) { inp.value = ''; inp.focus(); }
 }
 
+// 72차: NFC 관련 아닌 다른 모달이 열려있는지 판별 (회원가입·로그인·역할선택 등)
+// 열려있으면 NFC 키보드 캡처·포커스 복원 둘 다 중단 → 사용자 입력이 모달 필드로 정상 전달
+function _isNonNfcModalOpen() {
+  var mods = document.querySelectorAll('.modal-overlay');
+  for (var i = 0; i < mods.length; i++) {
+    if (mods[i].classList.contains('hidden')) continue;
+    var id = mods[i].id;
+    if (id === 'modal-nfc-register' || id === 'modal-attend-mode') continue;
+    return true;
+  }
+  return false;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   var nfcInp = document.getElementById('nfc-input');
   nfcInp.addEventListener('keydown', e => {
+    // 72차: 회원가입 등 다른 모달이 열려있으면 NFC 키보드 로직 중단
+    if (_isNonNfcModalOpen()) return;
     // 수정자 키 단독 입력 무시 (Shift, Ctrl, Alt, Meta, CapsLock, Tab 등)
     if (e.key.length > 1 && e.key !== 'Enter') return;
     if (e.ctrlKey || e.altKey || e.metaKey) return;
@@ -4097,8 +4130,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 200);
   });
 
-  // 화면 클릭 시 포커스 복원
+  // 화면 클릭 시 포커스 복원 — 단, 다른 모달 열려있으면 복원하지 않음 (포커스 탈취 방지)
   document.addEventListener('click', e => {
+    if (_isNonNfcModalOpen()) return;
     if (!e.target.matches('input,button,textarea,select,a')) {
       focusNfcInput();
     }
@@ -4460,7 +4494,8 @@ async function onLoginSuccess(data) {
       loadTokenLog(),
       loadNotifications(),
       // 55차: 오늘 감정 → Supabase 직접 (GAS fallback)
-      _sbFetch('emotions', { student_uid:'eq.'+data.student_uid, timestamp:'gte.'+today+'T00:00:00', type:'eq.checkin' })
+      // 72차: order/limit 추가 — 다중 행(중복 데이터) 상황에서도 최신 행 1개만 잡음
+      _sbFetch('emotions', { student_uid:'eq.'+data.student_uid, timestamp:'gte.'+today+'T00:00:00', type:'eq.checkin', order:'timestamp.desc', limit:'1' })
         .then(function(rows){
           if (rows && rows.length) {
             var e=rows[0];
