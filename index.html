@@ -3609,15 +3609,29 @@ async function submitTeacherSignup() {
 }
 
 // 71차: 관리자 — 가입 신청 검토 카드 렌더
+// 73차: Supabase 직접 조회로 전환 (signup_requests 미러링 — 72차 A에서 도입). GAS api fallback.
 async function renderSignupReviewCard() {
   var box = document.getElementById('signupReviewCard');
   if (!box) return;
   if (STATE.role !== 'admin' || STATE.isPreview) { box.innerHTML = ''; return; }
 
   try {
-    var res = await api('list_signup_requests', { status_filter: 'pending' });
-    if (!res || res.status !== 'ok') { box.innerHTML = ''; return; }
-    var list = (res.data && res.data.requests) || [];
+    var list = null;
+    try {
+      // Supabase 직접 — pending만, 최신순
+      var rows = await _sbFetch('signup_requests', { status: 'eq.pending', order: 'timestamp.desc' });
+      if (rows && Array.isArray(rows)) {
+        // 컬럼명 매핑 (signup_requests 테이블의 request_uid·timestamp·email·google_email·school_name·grade·class·teacher_id·name·reason·school_type·region 그대로 사용)
+        list = rows;
+      }
+    } catch(sbErr) {
+      console.warn('[SIGNUP LIST SB]', sbErr && sbErr.message);
+    }
+    if (!list) {
+      var res = await api('list_signup_requests', { status_filter: 'pending' });
+      if (!res || res.status !== 'ok') { box.innerHTML = ''; return; }
+      list = (res.data && res.data.requests) || [];
+    }
     if (!list.length) { box.innerHTML = ''; return; }
 
     var rows = list.map(function(r){
@@ -3678,6 +3692,8 @@ function _openSignupAcceptModal(ruid) {
 }
 
 // 71차: 수락 실행
+// 73차: 낙관적 UI — 사용자 클릭 즉시 모달 닫기 + 토스트, 백그라운드에서 GAS 처리
+//       성공 시 Supabase 미러로 캐시 갱신, 실패 시에만 토스트 + 카드 복구
 async function submitSignupAccept() {
   var ruid = document.getElementById('sa-request-uid').value;
   var stype = document.getElementById('sa-school-type').value;
@@ -3685,26 +3701,41 @@ async function submitSignupAccept() {
   var year = parseInt(document.getElementById('sa-year').value, 10) || new Date().getFullYear();
   if (!region) { toast('지역(시/도)을 선택해주세요'); return; }
 
-  showLoading('교사 계정을 만들고 있어요 ✨');
+  // 낙관적: 즉시 모달 닫고 카드에서 해당 신청 제거
+  closeModal('modal-signup-accept');
+  toast('수락 처리 중이에요 ✨');
+  _removeSignupCardOptimistic(ruid);
+
   try {
     var res = await api('accept_signup', { request_uid: ruid, school_type: stype, region: region, year: year });
     if (res.status === 'ok') {
-      // 72차: 카드·목록 재렌더 기다린 뒤 hideLoading → 모달 닫기 → 토스트
+      // 캐시 무효화 → 백그라운드 재렌더 (사용자는 이미 토스트 봤으므로 await 안 함)
       _teacherAll = []; _studentsByTeacherLoaded = false;
-      await renderAdminAccountMgmt();
-      hideLoading();
-      closeModal('modal-signup-accept');
+      renderAdminAccountMgmt();
       var sentToApplicant = res.data && res.data.applicant_email_sent;
-      toast(sentToApplicant ? '수락 · 신청자 메일 발송 📧' : '수락 · 이메일 없어 구두 안내 필요 📣');
+      toast(sentToApplicant ? '수락 완료 · 신청자 메일 발송 📧' : '수락 완료 · 이메일 없어 구두 안내 필요 📣');
     } else {
-      hideLoading();
-      toast(res.message || '수락 처리 실패');
+      toast(res.message || '수락 처리 실패 — 다시 시도해 주세요');
+      renderSignupReviewCard(); // 카드 복구
     }
   } catch(e) {
-    hideLoading();
     console.error('[SIGNUP ACCEPT]', e && e.message ? e.message : e);
     toast('수락 중 오류가 발생했어요');
+    renderSignupReviewCard(); // 카드 복구
   }
+}
+
+// 73차: 낙관적 UI 헬퍼 — 신청 카드 즉시 제거 (DOM에서 fade-out)
+function _removeSignupCardOptimistic(ruid) {
+  var card = document.querySelector('.signup-req-card[data-ruid="' + ruid + '"]');
+  if (!card) return;
+  card.style.transition = 'opacity .25s ease, transform .25s ease, max-height .3s ease';
+  card.style.opacity = '0';
+  card.style.transform = 'translateX(20px)';
+  card.style.maxHeight = card.offsetHeight + 'px';
+  setTimeout(function(){ card.style.maxHeight = '0'; card.style.padding = '0'; card.style.margin = '0'; }, 250);
+  setTimeout(function(){ if (card.parentNode) card.parentNode.removeChild(card); }, 600);
+  if (window._signupPending) delete window._signupPending[ruid];
 }
 
 // 71차: 거절 모달 열기
@@ -3726,30 +3757,31 @@ function _srFillReason(text) {
 }
 
 // 71차: 거절 실행
-// 72차: 순서 바로잡음 — 카드 재렌더 기다린 뒤 hideLoading → 모달 닫기 → 토스트
-// (기존: hideLoading이 먼저라 카드가 남아있는 상태로 "처리됨" 토스트 뜨는 현상)
+// 73차: 낙관적 UI — 즉시 모달 닫고 카드 fade-out + 토스트, 백그라운드에서 GAS(메일 발송 포함) 처리
+//       성공 시 "메일 발송" 토스트, 실패 시 토스트 + 카드 복구
 async function submitSignupReject() {
   var ruid = document.getElementById('sr-request-uid').value;
   var reason = (document.getElementById('sr-reason').value || '').trim();
   if (!reason) { toast('거절 사유를 입력해주세요'); return; }
 
-  showLoading('거절 처리 중…');
+  // 낙관적: 즉시 모달 닫고 카드 제거
+  closeModal('modal-signup-reject');
+  toast('거절 처리 중이에요 ✉️');
+  _removeSignupCardOptimistic(ruid);
+
   try {
     var res = await api('reject_signup', { request_uid: ruid, reason: reason });
     if (res.status === 'ok') {
-      await renderSignupReviewCard(); // 카드 먼저 갱신 완료
-      hideLoading();
-      closeModal('modal-signup-reject');
       var rSent = res.data && res.data.applicant_email_sent;
-      toast(rSent ? '거절 처리 · 신청자 메일 발송 📧' : '거절 처리 · 이메일 없어 구두 안내 필요 📣');
+      toast(rSent ? '거절 완료 · 신청자 메일 발송 📧' : '거절 완료 · 이메일 없어 구두 안내 필요 📣');
     } else {
-      hideLoading();
-      toast(res.message || '거절 처리 실패');
+      toast(res.message || '거절 처리 실패 — 다시 시도해 주세요');
+      renderSignupReviewCard(); // 카드 복구
     }
   } catch(e) {
-    hideLoading();
     console.error('[SIGNUP REJECT]', e && e.message ? e.message : e);
     toast('거절 중 오류가 발생했어요');
+    renderSignupReviewCard(); // 카드 복구
   }
 }
 
@@ -4392,15 +4424,14 @@ async function onLoginSuccess(data) {
     var teacherUid = data.teacher_uid || '';
 
     if (data.role === 'admin') {
-      // 관리자: 학교 단위 대시보드 + 교사 목록 + 알림
-      // 72차: 신청 알림 수신자라 loadNotifications 추가 (과거엔 admin이 수신자 아니어서 빠져있었음)
+      // 관리자: 학교 단위 대시보드 + 교사 목록 + 알림 + 계정관리 일괄(학생 캐시 + 신청 검토 카드)
+      // 72차: 신청 알림 수신자라 loadNotifications 추가
+      // 73차: renderAdminAccountMgmt + renderSignupReviewCard 로그인 시점 프리로드
+      //       → 계정관리 탭 진입·신청 수락/거절 시 로딩 스피너 보이지 않게
       await Promise.all([
         loadAdminDashboard(),
         loadNotifications(),
-        _sbGetTeachersAll().then(function(rows) {
-          _teacherAll = rows || [];
-          _renderAdminTeacherList();
-        }),
+        renderAdminAccountMgmt(),   // 내부에서 _sbGetTeachersAll + _sbFetch('students',{}) 병렬 + signup card
       ]);
     } else {
       // 교사: 학급 대시보드 + 학생 목록 + 출석부 맵 + 알림 — 동시 로드
@@ -5447,29 +5478,9 @@ function previewTeacher() {
     {student_uid:'s27',student_id:'mee264127',name:'오시온',  num:27,grade:4,class:1,nfc_uid:'04:AA:BB:27',active:'Y',gender:'M'},
     {student_uid:'s28',student_id:'mee264128',name:'윤채영',  num:28,grade:4,class:1,nfc_uid:'',            active:'Y',gender:'F'},
   ];
-  STATE.studentEmotions = {
-    's01':{ macro:'positive', micro:'설레는',     score:8 },
-    's02':{ macro:'positive', micro:'설레는',     score:8 },
-    's03':{ macro:'positive', micro:'신나는',     score:9 },
-    's04':{ macro:'positive', micro:'뿌듯한',     score:8 },
-    's05':{ macro:'positive', micro:'신나는',     score:9 },
-    's06':{ macro:'positive', micro:'기쁜',       score:7 },
-    's07':{ macro:'positive', micro:'행복한',     score:9 },
-    's08':{ macro:'positive', micro:'기쁜',       score:7 },
-    's09':{ macro:'positive', micro:'설레는',     score:8 },
-    's10':{ macro:'positive', micro:'활기참',     score:8 },
-    's11':{ macro:'positive', micro:'즐거워',     score:7 },
-    's12':{ macro:'positive', micro:'두근거리는', score:8 },
-    's13':{ macro:'neutral',  micro:'그냥그래',   score:5 },
-    's14':{ macro:'neutral',  micro:'그냥그래',   score:5 },
-    's15':{ macro:'neutral',  micro:'멍한',       score:5 },
-    's16':{ macro:'neutral',  micro:'심심한',     score:4 },
-    's17':{ macro:'neutral',  micro:'그냥그래',   score:5 },
-    's18':{ macro:'negative', micro:'걱정돼',     score:2 },
-    's19':{ macro:'negative', micro:'속상한',     score:2 },
-    's20':{ macro:'negative', micro:'외로운',     score:1 },
-    // s21~s28: 미제출
-  };
+  // 73차: 감정 하드코딩 제거 — applyPreviewPreset이 매번 분포대로 28명 셔플 분배
+  //       (1~20번 다 제출, 21~28 미제출 같은 인위적 패턴 제거)
+  STATE.studentEmotions = {};
   STATE.tokenBalances = {
     's01':{ temp:18, current_balance:3, can_save_double:false },
     's02':{ temp:24, current_balance:5, can_save_double:true  },
@@ -5546,14 +5557,10 @@ function previewTeacher() {
         fillEl.style.clipPath = 'inset(' + ((1-_px)*100).toFixed(2) + '% 0 0 0)';
       }
     }
-    var miss = document.getElementById('notSubmitList');
-    if (miss) renderNotSubmitList([
-      {num:21, name:'김서준'},{num:22, name:'박지은'},{num:23, name:'이도현'},
-      {num:24, name:'최수빈'},{num:25, name:'정우진'},{num:26, name:'한예린'},
-      {num:27, name:'오시온'},{num:28, name:'윤채영'},
-    ], false);
+    // 73차: 미제출 리스트는 _applyPreviewEmotionsByPreset이 동적으로 채움 (하드코딩 제거)
     renderStudentList();
-    renderEmotionBarcode();
+    // 바코드도 _applyPreviewEmotionsByPreset에서 호출되므로 여기서는 생략
+    // renderEmotionBarcode();
     setText('dashUpdatedAt', '미리보기 기준');
     renderGiftFeed([
       { from_name:'김민준', to_name:'이서연' },
@@ -5687,8 +5694,72 @@ function applyPreviewPreset(key) {
   setText('statSubmit', total);
   setText('statMiss',   28 - total);
 
+  // 73차: 28명 학생을 매번 다른 결정적 셔플로 분포에 분배 — 1~20번 다 제출 같은 인위적 패턴 제거
+  // (시드는 key별로 고정 → 같은 프리셋에서 같은 학생 분배. 프리셋 바꾸면 분배도 바뀜)
+  _applyPreviewEmotionsByPreset(key, p);
+
   // 워드클라우드
   renderWordCloud(p.words);
+}
+
+// 73차: 프리셋 분포(pos/neu/neg)에 맞춰 28명을 셔플 분배 + 바코드/미제출 리스트 갱신
+function _applyPreviewEmotionsByPreset(key, p) {
+  if (!STATE.isPreview || STATE.role !== 'teacher') return;
+  var students = (STATE.students || []).filter(function(s){ return s.active === 'Y'; });
+  if (!students.length) return;
+
+  // 프리셋별 시드 (학생을 다르게 흩어트림 — 같은 프리셋이면 항상 같은 결과)
+  var seedMap = { negative: 7, neutral: 13, positive: 19, rainbow: 23 };
+  var seed = seedMap[key] || 11;
+
+  // num 기반 결정적 셔플
+  var indices = students.map(function(s){ return s.num; });
+  indices.sort(function(a, b) {
+    var ha = ((a * 31 + seed) * 17) % 97;
+    var hb = ((b * 31 + seed) * 17) % 97;
+    return ha - hb;
+  });
+
+  // 분포대로 카테고리 배분
+  var assign = {};
+  var cuts = [['positive', p.pos], ['neutral', p.neu], ['negative', p.neg]];
+  var idx = 0;
+  cuts.forEach(function(c){
+    var cat = c[0], n = c[1];
+    for (var i = 0; i < n && idx < indices.length; i++, idx++) assign[indices[idx]] = cat;
+  });
+
+  // 카테고리별 micro 풀
+  var microPool = {
+    positive: ['설레는','신나는','기쁜','뿌듯한','행복한','두근거리는','활기참','즐거워'],
+    neutral : ['그냥그래','멍한','심심한','피곤해','보통이야','조용한'],
+    negative: ['걱정돼','속상한','외로운','힘들어','슬퍼요','짜증나','지쳐']
+  };
+  var scoreMap = { positive: 8, neutral: 5, negative: 2 };
+
+  // STATE.studentEmotions 새로 채움 (미배정 학생은 미제출 — 키 없음)
+  var newEmo = {};
+  students.forEach(function(s) {
+    var cat = assign[s.num];
+    if (!cat) return; // 미제출
+    var pool = microPool[cat];
+    var pick = pool[(s.num * 11 + seed) % pool.length];
+    newEmo[s.student_uid] = { macro: cat, micro: pick, score: scoreMap[cat] };
+  });
+  STATE.studentEmotions = newEmo;
+
+  // 미제출 리스트 — 학생 num 순으로 정렬해서 보여줌
+  var notSubmit = students
+    .filter(function(s){ return !newEmo[s.student_uid]; })
+    .sort(function(a, b){ return a.num - b.num; })
+    .map(function(s){ return { num: s.num, name: s.name }; });
+  if (typeof renderNotSubmitList === 'function') {
+    var miss = document.getElementById('notSubmitList');
+    if (miss) renderNotSubmitList(notSubmit, false);
+  }
+
+  // 바코드 즉시 갱신
+  if (typeof renderEmotionBarcode === 'function') renderEmotionBarcode();
 }
 
 function previewStudent() {
@@ -7758,12 +7829,13 @@ async function markAllNotifsRead() {
   updateNotifBadge();
   renderNotifDropdown(); // 드롭다운 그대로 유지하며 배경색만 업데이트
 
-  // ② 수신자 uid 결정
+  // ② 수신자 uid 결정 (73차: admin 분기 분리 — 72차 fix 누락분)
   var uid;
   var role = STATE.role || (STATE.user && STATE.user.role);
-  if (role === 'teacher' || role === 'admin') uid = STATE.user && STATE.user.teacher_uid;
-  else if (role === 'student')                uid = STATE.user && STATE.user.student_uid;
-  else if (role === 'parent')                 uid = STATE.user && STATE.user.parent_uid;
+  if (role === 'admin')        uid = STATE.user && STATE.user.admin_uid;
+  else if (role === 'teacher') uid = STATE.user && STATE.user.teacher_uid;
+  else if (role === 'student') uid = STATE.user && STATE.user.student_uid;
+  else if (role === 'parent')  uid = STATE.user && STATE.user.parent_uid;
   if (!uid) return;
 
   // ③ 56차(fix4): RPC 우선, 실패/0rows면 GAS fallback
@@ -11653,6 +11725,53 @@ function tokenLogMovePage(dir) {
   renderTokenLogPage();
 }
 
+// ── 73차: 미리보기 위기 시나리오 풀 + 학생별 결정 헬퍼 ─────
+// _previewCrisisCache: 마음열기에서 결정한 sample을 위기 모달이 그대로 사용
+window._previewCrisisCache = null; // { student_uid, sample }
+
+var _PV_CRISIS_SCENARIOS = [
+  { kw:'집에 가기 싫', sev:'mid',  reason:'집에 가기 싫다는 반복 발화', dom:'집,아빠,두려움',
+    msgs:[{r:'u',t:'오늘 학교 끝나고 집에 가기 싫어'},{r:'b',t:'무슨 일이 있었어?'},{r:'u',t:'아빠가 화내실 것 같아'},{r:'b',t:'걱정되는구나'},{r:'u',t:'집에 가기 싫어 진짜'}], hit:4 },
+  { kw:'사라지고 싶', sev:'high', reason:'존재 소멸 의사 표현', dom:'외로움,혼자,눈물',
+    msgs:[{r:'u',t:'요즘 너무 외로워'},{r:'b',t:'외로운 마음이 드는구나'},{r:'u',t:'아무도 내 얘기 안 들어줘'},{r:'b',t:'많이 힘들었겠다'},{r:'u',t:'그냥 사라지고 싶어'}], hit:4 },
+  { kw:'살기 싫',     sev:'high', reason:'삶 거부 발화', dom:'학교,시험,포기',
+    msgs:[{r:'u',t:'시험 또 망쳤어'},{r:'b',t:'속상하겠다'},{r:'u',t:'아무리 해도 안 돼'},{r:'b',t:'노력했는데 결과가 안 나오면 힘들지'},{r:'u',t:'그냥 살기 싫어'}], hit:4 },
+  { kw:'자해',        sev:'high', reason:'자해 언급', dom:'손,팔,아픔',
+    msgs:[{r:'u',t:'어제 손목에 상처 냈어'},{r:'b',t:'많이 아팠겠다... 무슨 일이 있었어?'},{r:'u',t:'화가 나면 아프게 해야 풀려'},{r:'b',t:'그렇게라도 마음을 풀고 싶었구나'},{r:'u',t:'자해하면 좀 진정돼'}], hit:4 },
+  { kw:'집이 무서',   sev:'mid',  reason:'가정 환경 불안 호소', dom:'집,밤,무서움',
+    msgs:[{r:'u',t:'밤만 되면 무서워'},{r:'b',t:'무엇이 무서워?'},{r:'u',t:'엄마 아빠가 또 싸울까 봐'},{r:'b',t:'많이 불안하겠다'},{r:'u',t:'집이 무서워'}], hit:4 },
+  { kw:'없어지고 싶', sev:'high', reason:'존재 소멸 의사 표현', dom:'친구,따돌림,외로움',
+    msgs:[{r:'u',t:'친구들이 나만 빼고 놀아'},{r:'b',t:'많이 속상했겠다'},{r:'u',t:'내가 뭘 잘못했는지 모르겠어'},{r:'b',t:'이유 없이 따돌림 받으면 정말 힘들어'},{r:'u',t:'그냥 없어지고 싶어'}], hit:4 },
+  { kw:'죽고 싶',     sev:'high', reason:'학생이 직접적으로 자살 의사를 표현함', dom:'공부,성적,압박',
+    msgs:[{r:'u',t:'오늘 학교에서 너무 힘들었어'},{r:'b',t:'무슨 일이 있었어?'},{r:'u',t:'친구들이 나만 빼고 놀아'},{r:'b',t:'많이 속상했겠다'},{r:'u',t:'죽고 싶어 진짜'}], hit:4 },
+  { kw:'아빠가 때리', sev:'high', reason:'가정 폭력 호소', dom:'아빠,멍,두려움',
+    msgs:[{r:'u',t:'팔에 멍이 들었어'},{r:'b',t:'어쩌다 그랬어?'},{r:'u',t:'어제 아빠가 화내면서 때렸어'},{r:'b',t:'많이 아팠겠다... 자주 그러시니?'},{r:'u',t:'아빠가 때리면 무서워'}], hit:4 },
+  { kw:'엄마가 무서', sev:'mid',  reason:'양육자 관련 불안 호소', dom:'엄마,혼남,눈치',
+    msgs:[{r:'u',t:'오늘 또 엄마한테 혼났어'},{r:'b',t:'많이 속상했겠다'},{r:'u',t:'잘못한 게 뭔지 모르겠는데 계속 화내'},{r:'b',t:'억울했겠다'},{r:'u',t:'엄마가 무서워서 말도 못 해'}], hit:4 },
+  { kw:'학교 가기 싫', sev:'mid', reason:'등교 거부 의사', dom:'학교,교실,답답함',
+    msgs:[{r:'u',t:'아침마다 배가 아파'},{r:'b',t:'어디가 안 좋아?'},{r:'u',t:'사실 학교 생각하면 그래'},{r:'b',t:'학교에서 무슨 일이 있어?'},{r:'u',t:'학교 가기 싫어 정말'}], hit:4 },
+  { kw:'무서운 꿈',   sev:'low',  reason:'반복적 악몽 호소', dom:'밤,꿈,잠',
+    msgs:[{r:'u',t:'요즘 잠을 못 자'},{r:'b',t:'무슨 일이 있어?'},{r:'u',t:'자꾸 무서운 꿈 꿔'},{r:'b',t:'어떤 꿈인지 말해줄 수 있어?'},{r:'u',t:'무서운 꿈에서 못 깨어나'}], hit:4 },
+  { kw:'친구가 때려', sev:'high', reason:'또래 폭력 피해 호소', dom:'친구,폭력,두려움',
+    msgs:[{r:'u',t:'쉬는시간이 제일 무서워'},{r:'b',t:'무슨 일이 있어?'},{r:'u',t:'몇 명이 자꾸 시비 걸어'},{r:'b',t:'많이 무섭겠다'},{r:'u',t:'친구가 때려서 멍 들었어'}], hit:4 }
+];
+
+function _previewSeed(student_uid, student_name) {
+  // student_uid 우선 (s01~s28 같은 결정적 식별자), 없으면 이름 해시
+  var key = student_uid || student_name || '';
+  var h = 0;
+  for (var i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+function _pickPreviewCrisisScenario(student_uid, student_name) {
+  var seed = _previewSeed(student_uid, student_name);
+  var sample = _PV_CRISIS_SCENARIOS[seed % _PV_CRISIS_SCENARIOS.length];
+  // 학생별 캐시 — 마음열기 모달에서 결정 후 위기 모달이 같은 sample 사용
+  window._previewCrisisCache = { student_uid: student_uid || null, sample: sample };
+  return sample;
+}
+
 // ── 48차 U1: 교사/관리자/부모 대화 키워드 뷰 ──────────────
 // 원문 접근 없음. list_chats의 dominant_keywords만 날짜별 그룹핑해서 보여줌
 // 진입점: 교사/관리자 학생 카드 ⋯ 드롭다운, 부모 대시보드 버튼 줄
@@ -11685,31 +11804,33 @@ function openChatKeywords(student_uid, student_name) {
   document.getElementById('modal-chat-keywords').classList.remove('hidden');
 
   // 관리자 미리보기: 더미 응답
-  //   68차: 위기 샘플을 학생마다 다르게 (이름 해시 기반으로 키워드/reason/dominant_keywords 선택)
+  //   73차: 위기 샘플 12개로 확장 + 메시지 시나리오까지 포함, 시드를 student_uid로 변경(이름 해시 충돌 회피)
+  //         결정한 sample은 _previewCrisisCache에 보관 → openCrisisContext가 그대로 사용
   if (STATE.isPreview) {
-    var _crisisSamples = [
-      { kw:'집에 가기 싫', sev:'mid',  reason:'집에 가기 싫다는 반복 발화',        dom:'집,아빠,두려움' },
-      { kw:'사라지고 싶', sev:'high', reason:'존재 소멸 의사 표현',             dom:'외로움,혼자,눈물' },
-      { kw:'살기 싫',     sev:'high', reason:'삶 거부 발화',                   dom:'학교,시험,포기' },
-      { kw:'자해',        sev:'high', reason:'자해 언급',                     dom:'손,팔,아픔' },
-      { kw:'집이 무서',   sev:'mid',  reason:'가정 환경 불안 호소',            dom:'집,밤,무서움' },
-      { kw:'없어지고 싶', sev:'high', reason:'존재 소멸 의사 표현',             dom:'친구,따돌림,외로움' },
-      { kw:'죽고 싶',     sev:'high', reason:'자살 의사 표현 (고위험)',         dom:'공부,성적,압박' },
-      { kw:'아빠가 때리', sev:'high', reason:'가정 폭력 호소',                dom:'아빠,멍,두려움' }
+    var _sample = _pickPreviewCrisisScenario(student_uid, student_name);
+    var _nonCrisisPool1 = [
+      '친구,놀이,속상함', '친구,웃음,학교', '쉬는시간,축구,재미', '그림,미술,기분좋음',
+      '체육,달리기,설렘', '점심,급식,행복', '짝꿍,수다,즐거움', '발표,긴장,뿌듯함',
+      '비밀,고민,복잡함', '시험,긴장,걱정', '음악,노래,신남', '동생,싸움,짜증'
     ];
-    // 이름으로 seed 만들어 학생마다 일관된 다른 샘플 선택
-    var _seed = 0;
-    for (var _si = 0; _si < (student_name||'').length; _si++) _seed += student_name.charCodeAt(_si);
-    var _sample = _crisisSamples[_seed % _crisisSamples.length];
-    var _nonCrisisDom1 = ['친구,놀이,속상함', '친구,웃음,학교', '쉬는시간,축구,재미', '그림,미술,기분좋음'];
-    var _nonCrisisDom2 = ['게임,형,즐거움,웃음', '엄마,주말,설렘', '강아지,산책,기분좋음', '책,도서관,집중'];
-    var _d1 = _nonCrisisDom1[_seed % _nonCrisisDom1.length];
-    var _d2 = _nonCrisisDom2[(_seed+3) % _nonCrisisDom2.length];
+    var _nonCrisisPool2 = [
+      '게임,형,즐거움,웃음', '엄마,주말,설렘', '강아지,산책,기분좋음', '책,도서관,집중',
+      '아빠,캐치볼,행복', '레고,블록,몰입', '유튜브,영상,재미', '학원,피곤,귀찮음',
+      '할머니,용돈,기쁨', '동물원,호랑이,놀라움', '바다,모래,자유로움', '눈,겨울,설렘'
+    ];
+    var _seed2 = _previewSeed(student_uid, student_name);
+    var _d1 = _nonCrisisPool1[_seed2 % _nonCrisisPool1.length];
+    var _d2 = _nonCrisisPool2[(_seed2 * 13 + 5) % _nonCrisisPool2.length];
+    var _date1 = _sample.date1 || '2026-04-14';
+    var _date2 = _sample.date2 || '2026-04-12';
+    var _turn1 = 6 + (_seed2 % 7);          // 6~12
+    var _turn2 = 8 + ((_seed2 * 3) % 9);    // 8~16
+    var _turn_c = _sample.msgs ? _sample.msgs.length : 5;
     setTimeout(function() {
       _renderChatKeywords([
-        { log_uid:'pv1', date:'2026-04-14', student_name:student_name, turn_count:8, dominant_keywords:_d1 },
-        { log_uid:'pv2', date:'2026-04-14', student_name:student_name, turn_count:5, dominant_keywords:_sample.dom, crisis_flag:'Y', crisis_severity:_sample.sev, crisis_keyword:_sample.kw, crisis_reason:_sample.reason },
-        { log_uid:'pv3', date:'2026-04-12', student_name:student_name, turn_count:12, dominant_keywords:_d2 }
+        { log_uid:'pv1', date:_date1, student_name:student_name, turn_count:_turn1, dominant_keywords:_d1 },
+        { log_uid:'pv2', date:_date1, student_name:student_name, turn_count:_turn_c, dominant_keywords:_sample.dom, crisis_flag:'Y', crisis_severity:_sample.sev, crisis_keyword:_sample.kw, crisis_reason:_sample.reason },
+        { log_uid:'pv3', date:_date2, student_name:student_name, turn_count:_turn2, dominant_keywords:_d2 }
       ]);
     }, 200);
     return;
@@ -11860,24 +11981,19 @@ function openCrisisContext(log_uid) {
   if (body) body.innerHTML = '<div style="text-align:center;padding:24px 0"><div style="position:relative;display:inline-block;font-size:38px;line-height:1"><span style="opacity:0.18">⚠️</span><span style="position:absolute;left:0;top:0;animation:ckwHeartFill 2s ease-in-out infinite">⚠️</span></div><div style="font-size:12px;color:#c0392b;margin-top:8px">마음 데이터를 불러오고 있어요</div></div>';
   document.getElementById('modal-crisis-detail').classList.remove('hidden');
 
-  // 관리자 미리보기: 더미
+  // 관리자 미리보기: 73차 — 마음열기에서 결정한 _previewCrisisCache 사용 (학생별 다른 시나리오)
   if (STATE.isPreview) {
+    var _pvSample = (window._previewCrisisCache && window._previewCrisisCache.sample) || _pickPreviewCrisisScenario(null, null);
     setTimeout(function() {
       _renderCrisisContext({
-        messages: [
-          { r:'u', t:'오늘 학교에서 너무 힘들었어' },
-          { r:'b', t:'무슨 일이 있었어?' },
-          { r:'u', t:'친구들이 나만 빼고 놀아' },
-          { r:'b', t:'많이 속상했겠다' },
-          { r:'u', t:'죽고 싶어 진짜' }
-        ],
-        hit_idx: 4,
-        total: 5,
+        messages: _pvSample.msgs,
+        hit_idx: _pvSample.hit,
+        total: _pvSample.msgs.length,
         crisis: {
           flag:'Y',
-          reason:'학생이 직접적으로 자살 의사를 표현함 (미리보기)',
-          keyword:'죽고 싶',
-          severity:'high'
+          reason:_pvSample.reason + ' (미리보기)',
+          keyword:_pvSample.kw,
+          severity:_pvSample.sev
         }
       });
     }, 200);
