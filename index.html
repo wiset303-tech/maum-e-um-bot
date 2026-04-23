@@ -4610,6 +4610,8 @@ function logout() {
             nfcPending:null, selectedMacro:null, selectedMicro:null, chatHistory:[],
             chatLogUid:'', chatLogSaved:false, tokenBalance:null,
             tokenBalances:{}, studentEmotions:{},
+            // 72차: 감정 관련 STATE 명시적 초기화 (누락되면 undefined로 동작하긴 하나 방어차원)
+            todayEmotionSubmitted:false, todayEmotionModified:false, todayEmotionDate:null,
             isPreview:false, adminUser:null, selectedGender:null,
             settings:{ alarm_checkin:true, alarm_crisis:true, bgm:true,
                        persona_mode_enabled:false, persona_mode_until:'' } };
@@ -10529,9 +10531,15 @@ function openMoreEmotions(cat) {
   openModal('modal-more-emotions');
 }
 
+// 72차: 감정 제출 in-flight 가드 — 동시 호출(더블탭·Enter·다른 탭) 방지
+var _emotionSubmitInFlight = false;
+
 async function submitEmotion() {
   if(!STATE.selectedMacro) { toast('감정을 먼저 골라요'); return; }
   if(!STATE.selectedMicro) { toast('세부 감정도 골라줘야 저장할 수 있어요 😊'); return; }
+  // 72차: in-flight 가드 — 이전 제출 완료 전 재진입 차단
+  if (_emotionSubmitInFlight) { toast('저장 중이에요. 잠시만요...'); return; }
+  _emotionSubmitInFlight = true;
   _checkDayBoundary();      // 70차: 1분 interval 전이라도 경계 즉시 포착
   _checkEmotionDayReset(); // 70차: 자정 넘었으면 어제 상태 리셋
 
@@ -10540,6 +10548,7 @@ async function submitEmotion() {
   if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = '0.5'; }
   var _restore = function() {
     if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ''; }
+    _emotionSubmitInFlight = false; // 72차: in-flight 플래그 해제
   };
 
   var micro = STATE.selectedMicro;
@@ -10819,9 +10828,53 @@ function _checkEmotionDayReset() {
   }
 }
 
+// 72차: 배너 stale 방어 — Supabase 실측과 STATE 일치 검증 (백그라운드, 30초 쿨다운)
+var _lastBannerVerifyAt = 0;
+async function _verifyBannerStateAgainstDb() {
+  if (STATE.role !== 'student') return;
+  if (!STATE.user || !STATE.user.student_uid) return;
+  // 쿨다운 — 탭 전환·폴링마다 과도한 호출 방지
+  var nowMs = Date.now();
+  if (nowMs - _lastBannerVerifyAt < 30000) return;
+  _lastBannerVerifyAt = nowMs;
+  try {
+    var today = new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+    var rows = await _sbFetch('emotions', {
+      student_uid:'eq.'+STATE.user.student_uid,
+      type:'eq.checkin',
+      timestamp:'gte.'+today+'T00:00:00',
+      order:'timestamp.desc', limit:'1',
+      select:'emotion_uid,is_modified'
+    });
+    var hasRow = rows && rows.length > 0;
+    // STATE와 실측 불일치 → STATE 교정 후 배너 재렌더
+    if (STATE.todayEmotionSubmitted && !hasRow) {
+      console.warn('[BANNER VERIFY] STATE=submitted but DB=empty → STATE 초기화');
+      STATE.todayEmotionSubmitted = false;
+      STATE.todayEmotionModified  = false;
+      STATE.todayEmotionDate      = null;
+      STATE.selectedMacro         = null;
+      STATE.selectedMicro         = null;
+      var btn = document.querySelector('#microSection .btn-primary');
+      if (btn) { btn.style.display = 'flex'; btn.textContent = '오늘의 감정 저장하기 💛'; }
+      updateEmotionSubmittedBanner();
+    } else if (!STATE.todayEmotionSubmitted && hasRow) {
+      console.warn('[BANNER VERIFY] STATE=empty but DB=submitted → STATE 보정');
+      STATE.todayEmotionSubmitted = true;
+      STATE.todayEmotionModified  = rows[0].is_modified === true || rows[0].is_modified === 'TRUE' || rows[0].is_modified === 'true';
+      STATE.todayEmotionDate      = today;
+      updateEmotionSubmittedBanner();
+    }
+  } catch(e) { /* 네트워크 실패 시 조용히 — 다음 기회에 재시도 */ }
+}
+
 // 이미 제출한 경우 마음날씨 탭 상단에 상태 배너 갱신
 function updateEmotionSubmittedBanner() {
   _checkEmotionDayReset();
+  // 72차: 배너 표시 직후 비동기로 Supabase 실측 재확인 (stale 자동 교정)
+  if (STATE.role === 'student' && STATE.user && !STATE.isPreview) {
+    setTimeout(_verifyBannerStateAgainstDb, 50);
+  }
   var banner = document.getElementById('emotionSubmittedBanner');
   if (!banner) return;
   var modified = STATE.todayEmotionModified;
