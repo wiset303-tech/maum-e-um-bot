@@ -14466,15 +14466,55 @@ async function deleteAlbumItem() {
   } else toast(res.message);
 }
 
+// 74차: 오늘 가장 먼저 올린 사진 찾기 (한도 초과 시 교체 대상)
+function _findOldestTodayAlbum() {
+  var today = _todayKstStr();
+  var src = _preloadedStudentAlbum || [];
+  var oldest = null;
+  for (var i=0; i<src.length; i++) {
+    var a = src[i];
+    if (a._pending) continue;
+    var d = String(a.date || a.timestamp || '').slice(0,10);
+    if (d !== today) continue;
+    if (_isAlbumDeleted(a.is_deleted)) continue;
+    if (!oldest || String(a.timestamp||'') < String(oldest.timestamp||'')) oldest = a;
+  }
+  return oldest;
+}
+
 // 업로드: 파일 선택 → 압축 → 모달 표시
 async function uploadAlbum() {
   // 74차: 학생 경로 사전 한도 체크 + 첫 업로드 안내
   if (STATE.role === 'student') {
     var limit = STATE.albumDailyLimit || 1;
     var cnt   = _countStudentTodayAlbums();
+    // 74차: 한도 초과 (2~3장 모드) — 가장 먼저 올린 사진 교체 안내 모달
+    //   1장 모드는 기존 서버 '이미' 응답 → '교체' 모달 흐름으로 처리되므로 그대로 통과
     if (cnt >= limit && limit !== 1) {
-      toast('오늘의 마음앨범 기록 횟수가 가득 찼어요.');
-      return;
+      var ok = await appConfirm('오늘 마음앨범이 가득 찼어요',
+        '오늘 이미 ' + cnt + '장 올렸어요.\n가장 먼저 올린 사진을 지우고 새 사진을 올릴까요?',
+        { okLabel:'지우고 올리기', danger:true });
+      if (!ok) return;
+      // 낙관적 UI: 가장 오래된 사진 즉시 화면·캐시에서 제거 + 백그라운드 삭제 API
+      var oldest = _findOldestTodayAlbum();
+      if (!oldest) { toast('오늘 사진을 찾을 수 없어요'); return; }
+      // 캐시·DOM에서 즉시 제거
+      if (_preloadedStudentAlbum) {
+        _preloadedStudentAlbum = _preloadedStudentAlbum.filter(function(a){ return a.album_uid !== oldest.album_uid; });
+      }
+      _albumCache = _albumCache.filter(function(c){ return c.data.album_uid !== oldest.album_uid; });
+      var card = document.querySelector('.album-item[data-album-uid="' + oldest.album_uid + '"]');
+      if (card) {
+        card.style.transition = 'opacity .3s';
+        card.style.opacity = '0';
+        setTimeout(function(){ card.remove(); }, 320);
+      }
+      _paintAlbumDailyCounter();
+      // 백그라운드 삭제 fire-and-forget (실패해도 업로드 진행)
+      api('delete_album', { album_uid: oldest.album_uid }).catch(function(e){
+        console.error('[ALB OLDEST DEL]', e);
+      });
+      // 이후 업로드 플로우 정상 진행 (아래 파일 선택 input.click)
     }
     // 오늘 첫 업로드 시도 시 1회 안내 (학생·오늘 기준)
     if (cnt === 0) {
