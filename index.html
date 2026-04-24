@@ -13786,7 +13786,7 @@ function albumTeacherHTML() {
   // 교사: 우리 반 전체 앨범 (학생 필터 포함)
   return '<div id="albumTeacherSection">' +
     '<div id="albumLimitBar" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">' +
-      '<span style="font-size:12px;color:var(--navy);font-weight:700;white-space:nowrap">📸 우리반 하루 업로드</span>' +
+      '<span style="font-size:12px;color:var(--navy);font-weight:700;white-space:nowrap">📸 마음앨범 일일 기록 개수</span>' +
       '<div id="albumLimitToggle" style="display:flex;gap:4px"></div>' +
     '</div>' +
     '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px">' +
@@ -13879,7 +13879,12 @@ function _paintAlbumDailyCounter() {
   if (!el || !btn) return;
   var limit = STATE.albumDailyLimit || 1;
   var cnt   = _countStudentTodayAlbums();
-  el.textContent = '오늘 ' + cnt + '/' + limit + '장';
+  if (cnt > limit) {
+    // 74차 A: 교사가 한도를 낮춘 경우 — 오늘 이미 초과분 보존, 내일부터 새 한도
+    el.textContent = '오늘 이미 ' + cnt + '장 올렸어요 (내일부터 ' + limit + '장)';
+  } else {
+    el.textContent = '오늘 ' + cnt + '/' + limit + '장';
+  }
   var full = cnt >= limit;
   btn.disabled      = full && limit !== 1; // 1장 모드는 교체 흐름 유지 위해 disable 안 함
   btn.style.opacity = full ? '0.55' : '';
@@ -13899,17 +13904,24 @@ function _paintAlbumLimitToggle() {
   }).join('');
 }
 
-// 학생이 자기 반 album_daily_limit 조회 (세션당 1회, fire-and-forget)
+// 74차 C: 학생이 자기 반 album_daily_limit 조회 — 앨범 탭 진입 시마다 fire-and-forget
+// 캐시값은 즉시 paint에 쓰고, fetch 성공 시 값이 바뀌었으면 재paint. 실패해도 기존 캐시 유지.
 function _fetchStudentAlbumLimit() {
   if (STATE.role !== 'student') return;
-  if (STATE.albumDailyLimit != null) return; // 이미 로드됨
   if (!STATE.user || !STATE.user.teacher_uid) return;
-  if (STATE.isPreview) { STATE.albumDailyLimit = 1; _paintAlbumDailyCounter(); return; }
+  if (STATE.isPreview) {
+    if (STATE.albumDailyLimit == null) STATE.albumDailyLimit = 1;
+    _paintAlbumDailyCounter();
+    return;
+  }
   api('get_settings', { teacher_uid: STATE.user.teacher_uid }).then(function(res) {
     if (res && res.status === 'ok' && res.data) {
       var n = parseInt(res.data.album_daily_limit, 10);
-      STATE.albumDailyLimit = (n >= 1 && n <= 3) ? n : 1;
-      _paintAlbumDailyCounter();
+      var newVal = (n >= 1 && n <= 3) ? n : 1;
+      if (STATE.albumDailyLimit !== newVal) {
+        STATE.albumDailyLimit = newVal;
+        _paintAlbumDailyCounter();
+      }
     }
   }).catch(function(e) { console.error('[ALBUM LIMIT FETCH]', e); });
 }
@@ -13921,14 +13933,14 @@ async function changeAlbumDailyLimit(n) {
   var old = STATE.settings.album_daily_limit || 1;
   if (old === n) return;
   // 74차: 확인 모달 먼저 — 잘못 터치 방지
-  var okGo = await appConfirm('우리반 하루 업로드 변경',
+  var okGo = await appConfirm('마음앨범 일일 기록 개수 변경',
     '마음앨범 일일 기록 개수를 ' + n + '장으로 바꿀까요?\n(학생들에게 변경 안내 알림이 가요)',
     { okLabel:'바꾸기' });
   if (!okGo) return;
   // 낙관적 UI: 확인 후 즉시 반영 + 토스트 + 백그라운드 저장
   STATE.settings.album_daily_limit = n;
   _paintAlbumLimitToggle();
-  toast('우리반 하루 업로드를 ' + n + '장으로 바꿨어요 📸');
+  toast('마음앨범 일일 기록 개수를 ' + n + '장으로 바꿨어요 📸');
   try {
     var payload = Object.assign({ teacher_uid: STATE.user.teacher_uid }, STATE.settings);
     var res = await api('save_settings', payload);
