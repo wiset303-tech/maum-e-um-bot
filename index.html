@@ -7837,24 +7837,35 @@ async function loadNotifications() {
   }
 }
 
-// 73차: 페이지 로드 시각보다 이전에 발송된 app_update 알림 자동 무시 + 읽음 처리
-//   · 새로고침 후 같은 알림 다시 떠서 모달 무한 등장하는 것을 방어
-//   · 사용자가 페이지 로드 후 새로 도착한 app_update만 살아있게 함
+// 73차: 페이지 로드 시각 이전 app_update 자동 무시 + 중복 app_update는 최신 1개만 남김
+//   · 새로고침 후 같은 알림 다시 떠서 모달 무한 등장 방어 (페이지 로드 시각 비교)
+//   · 학생이 X로 닫은 채 5분 후 관리자가 또 보내도 알림함에 1개만 남게 (dedupe)
+//   · 새로고침은 1번이면 충분 — 중복 쌓일 필요 없음
 function _filterStaleAppUpdateNotifs() {
   var loadAt = STATE.pageLoadAt || 0;
-  var stale = [];
+  var killed = [];
+  // 1단계: 페이지 로드 이전 stale 제거
   _notifications = _notifications.filter(function(n){
     if (n.type !== 'app_update') return true;
     var nMs = _tsToMs(n.created_at);
-    if (nMs && nMs < loadAt) {
-      // 페이지 로드 전 알림 — 의미 없으므로 제거 + 서버 측에도 읽음 처리(조용히)
-      stale.push(n.notification_uid);
-      return false;
-    }
+    if (nMs && nMs < loadAt) { killed.push(n.notification_uid); return false; }
     return true;
   });
+  // 2단계: 살아남은 app_update 중 최신(가장 큰 created_at) 1개만 남기고 나머지 자동 읽음
+  var liveAppUpd = _notifications.filter(function(n){ return n.type === 'app_update'; });
+  if (liveAppUpd.length > 1) {
+    // 최신순 정렬 (이미 desc로 정렬돼있지만 안전 차원)
+    liveAppUpd.sort(function(a, b){ return _tsToMs(b.created_at) - _tsToMs(a.created_at); });
+    var keep = liveAppUpd[0].notification_uid;
+    _notifications = _notifications.filter(function(n){
+      if (n.type !== 'app_update') return true;
+      if (n.notification_uid === keep) return true;
+      killed.push(n.notification_uid);
+      return false;
+    });
+  }
   // 백그라운드 읽음 처리 (실패해도 조용히)
-  stale.forEach(function(uid){
+  killed.forEach(function(uid){
     _sbRpc('rpc_mark_one_read', { p_notification_uid: uid }).catch(function(){});
   });
 }
@@ -8437,6 +8448,19 @@ function _onNewNotification(row) {
     related_uid: row.related_uid || ''
   };
   _notifications.unshift(n);
+  // 73차: app_update는 최신 1개만 살림 — 새 거 도착 시 기존 unread 자동 read 처리 (중복 방지)
+  if (n.type === 'app_update') {
+    var killed = [];
+    _notifications = _notifications.filter(function(x){
+      if (x.type !== 'app_update') return true;
+      if (x.notification_uid === n.notification_uid) return true; // 새 거만 살림
+      killed.push(x.notification_uid);
+      return false;
+    });
+    killed.forEach(function(uid){
+      _sbRpc('rpc_mark_one_read', { p_notification_uid: uid }).catch(function(){});
+    });
+  }
   updateNotifBadge();
   if (_notifOpen) { _notifPage = 0; renderNotifDropdown(); }  // 드롭다운 열려있으면 즉시 재렌더
   toast(n.title);  // 예: "🏫 등교 완료" — 알림 제목이 자체로 친근하게 구성돼 있음
