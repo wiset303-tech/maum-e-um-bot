@@ -6113,9 +6113,7 @@ function dashboardHTML() {
     '<div class="dashboard-updated" id="dashUpdatedAt">불러오는 중...</div>' +
     '<div style="display:flex;gap:6px;align-items:center">' +
       '<button class="btn btn-sm" style="font-size:11px;padding:4px 10px;white-space:nowrap;background:linear-gradient(135deg,#b39ddb,#9575cd);color:#fff;border:none;border-radius:20px;font-weight:700" onclick="openAttendanceMode()">🏃 연속등교</button>' +
-      '<button class="btn-refresh" id="btnRefresh" onclick="refreshDashboard()">' +
-        '<span class="refresh-icon">🔄</span> 새로고침' +
-      '</button>' +
+      '<button class="btn-refresh-mini" id="btnRefresh" onclick="refreshDashboard()" title="새로고침"><span class="refresh-icon">⟳</span></button>' +
     '</div>' +
   '</div>' +
   '<div class="class-temp-bar-wrap" style="border:1.5px dashed var(--mint3);background:linear-gradient(135deg,#f5fffe,#fff)">' +
@@ -6191,9 +6189,7 @@ function dashboardHTML() {
 function adminDashboardHTML() {
   return '<div class="dashboard-header">' +
     '<div class="dashboard-updated" id="dashUpdatedAt">불러오는 중...</div>' +
-    '<button class="btn-refresh" id="btnRefresh" onclick="refreshDashboard()">' +
-      '<span class="refresh-icon">🔄</span> 새로고침' +
-    '</button>' +
+    '<button class="btn-refresh-mini" id="btnRefresh" onclick="refreshDashboard()" title="새로고침"><span class="refresh-icon">⟳</span></button>' +
   '</div>' +
   // 전국 지표 카드 4개 (2x2 grid로 도 글자 문제 해결)
   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">' +
@@ -13980,8 +13976,9 @@ function _paintAlbumDailyCounter() {
   var limit = STATE.albumDailyLimit || 1;
   var cnt   = _countStudentTodayAlbums();
   if (cnt > limit) {
-    // 74차 A: 교사가 한도를 낮춘 경우 — 오늘 이미 초과분 보존, 내일부터 새 한도
-    el.textContent = '오늘 이미 ' + cnt + '장 올렸어요 (내일부터 ' + limit + '장)';
+    // 74차 A: 교사가 한도를 낮춘 경우 — 과거 기록 보존 + "오늘은 더 못 올려요" 문구만
+    //   "내일부터 N장" 표현은 한도가 하루짜리처럼 오해돼서 제거
+    el.textContent = '오늘 이미 ' + cnt + '장 올렸어요';
   } else {
     el.textContent = '오늘 ' + cnt + '/' + limit + '장';
   }
