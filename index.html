@@ -1818,6 +1818,48 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   </div>
 </div>
 
+<!-- ══ 모달: 관리자 학생 계정 파기 (75차 — 3-step) ══ -->
+<div id="modal-purge" class="modal-overlay hidden" style="z-index:3100" onclick="closeModalOutside(event,'modal-purge')">
+  <div class="modal-box modal-kb" style="position:relative;max-height:88vh;overflow-y:auto">
+    <button class="modal-close" onclick="closeModal('modal-purge')">✕</button>
+
+    <!-- Step 1: 대상 체크박스 목록 -->
+    <div id="purge-step-1">
+      <div class="modal-title">🗑 비활성 계정 정리</div>
+      <div class="modal-hint" style="word-break:keep-all">파기할 학생을 골라 주세요. <b>비활성화된 계정만</b> 나와요. (한 번에 최대 10명)</div>
+      <div id="purgeList" style="max-height:50vh;overflow-y:auto;border:1px solid #eee;border-radius:10px;padding:8px;margin-top:10px;background:#fafafa"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-secondary" onclick="closeModal('modal-purge')" style="flex:1">취소</button>
+        <button class="btn btn-primary btn-danger" id="purge-next-1" onclick="_purgeStepToWarn()" style="flex:1" disabled>다음 (0명)</button>
+      </div>
+    </div>
+
+    <!-- Step 2: 빨간 경고 + 대상 확인 -->
+    <div id="purge-step-2" style="display:none">
+      <div class="modal-title" style="color:#b91c1c">⚠️ 영구 파기 경고</div>
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:12px;margin-top:8px;color:#7f1d1d;font-size:13px;line-height:1.65;word-break:keep-all">
+        아래 학생의 <b>감정 기록·대화·마음앨범·마음토큰·페르소나·알림·학부모 계정·Drive 앨범 폴더</b>를<br>모두 영구 삭제합니다.<br><b>복구할 수 없어요.</b>
+      </div>
+      <div id="purgeTargets" style="margin-top:10px;font-size:13px;max-height:38vh;overflow-y:auto"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-secondary" onclick="_purgeSetStep(1)" style="flex:1">◀ 이전</button>
+        <button class="btn btn-primary btn-danger" onclick="_purgeStepToConfirm()" style="flex:1">이해했어요, 다음</button>
+      </div>
+    </div>
+
+    <!-- Step 3: "삭제" 문구 입력 -->
+    <div id="purge-step-3" style="display:none">
+      <div class="modal-title" style="color:#b91c1c">✍️ 마지막 확인</div>
+      <div style="font-size:13px;margin-top:10px;word-break:keep-all;line-height:1.6">정말 파기하시려면 아래에 <b style="color:#b91c1c">삭제</b> 를 정확히 입력해 주세요.</div>
+      <input id="purgeConfirmInput" class="inp" placeholder='"삭제" 입력' style="margin-top:10px" oninput="_purgeOnConfirmInput()" autocomplete="off">
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-secondary" onclick="_purgeSetStep(2)" style="flex:1">◀ 이전</button>
+        <button class="btn btn-primary btn-danger" id="purge-exec-btn" onclick="submitPurge()" style="flex:1" disabled>🗑 파기 실행</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ══ 모달: 이메일 등록 및 연동하기 (71차 — 교사·관리자 공용, 2섹션) ══ -->
 <div id="modal-email-edit" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-email-edit')">
   <div class="modal-box modal-kb" style="position:relative;max-height:88vh;overflow-y:auto">
@@ -3854,6 +3896,189 @@ async function submitSignupReject() {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// 75차: 관리자 학생 계정 파기 (active='N' 학생만, 최대 10명/회)
+// 3-step 확인: 선택 → 경고 → "삭제" 입력 → 실행
+// ═══════════════════════════════════════════════════════════════
+var _purgeSelected = {}; // { student_uid: true }
+
+async function renderInactiveStudentsCard() {
+  var box = document.getElementById('purgeInactiveCard');
+  if (!box) return;
+  var inactives = _collectInactiveStudents();
+  if (inactives.length === 0) { box.innerHTML = ''; return; }
+  box.innerHTML =
+    '<div class="card" style="padding:12px;background:#fef2f2;border:1px solid #fecaca">' +
+      '<div style="display:flex;align-items:center;gap:10px">' +
+        '<span style="font-size:22px;flex:0 0 auto">🗑</span>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-weight:700;color:#991b1b;word-break:keep-all">비활성 학생 계정 ' + inactives.length + '명</div>' +
+          '<div style="font-size:12px;color:#7f1d1d;margin-top:2px;word-break:keep-all">학년 종료 등으로 비활성화된 계정을 영구 파기할 수 있어요</div>' +
+        '</div>' +
+        '<button class="btn btn-danger" style="flex:0 0 auto;white-space:nowrap;padding:8px 12px" onclick="openPurgeModal()">정리하기</button>' +
+      '</div>' +
+    '</div>';
+}
+
+function _collectInactiveStudents() {
+  var out = [];
+  if (!_studentsByTeacher) return out;
+  Object.keys(_studentsByTeacher).forEach(function(tid) {
+    (_studentsByTeacher[tid] || []).forEach(function(s) {
+      if (s && s.active !== 'Y') out.push(s);
+    });
+  });
+  return out;
+}
+
+function openPurgeModal() {
+  _purgeSelected = {};
+  _purgeSetStep(1);
+  _purgeRenderList();
+  var m = document.getElementById('modal-purge');
+  if (m) m.classList.remove('hidden');
+}
+
+function _purgeSetStep(n) {
+  for (var i=1; i<=3; i++) {
+    var el = document.getElementById('purge-step-' + i);
+    if (el) el.style.display = (i === n) ? '' : 'none';
+  }
+  if (n === 3) {
+    var inp = document.getElementById('purgeConfirmInput');
+    if (inp) inp.value = '';
+    var btn = document.getElementById('purge-exec-btn');
+    if (btn) btn.disabled = true;
+  }
+}
+
+function _purgeRenderList() {
+  var el = document.getElementById('purgeList');
+  if (!el) return;
+  var inactives = _collectInactiveStudents();
+  if (!inactives.length) {
+    el.innerHTML = '<div style="color:var(--gray);text-align:center;padding:16px;font-size:13px">비활성 학생이 없어요</div>';
+    _purgeUpdateNextBtn();
+    return;
+  }
+  inactives.sort(function(a,b) {
+    var sc = (a.school_name||'').localeCompare(b.school_name||'', 'ko'); if (sc) return sc;
+    var gc = String(a.grade||'').localeCompare(String(b.grade||''), 'ko'); if (gc) return gc;
+    var cc = String(a['class']||'').localeCompare(String(b['class']||''), 'ko'); if (cc) return cc;
+    return (Number(a.num)||0) - (Number(b.num)||0);
+  });
+  var html = '';
+  var lastGroup = '';
+  var groupOpen = false;
+  inactives.forEach(function(s) {
+    var group = (s.school_name||'?') + ' ' + (s.grade||'?') + '-' + (s['class']||'?');
+    if (group !== lastGroup) {
+      if (groupOpen) html += '</div>';
+      html += '<div style="font-size:11px;color:var(--gray);margin:8px 0 4px 2px;font-weight:600">' + _escHtml(group) + '</div><div>';
+      lastGroup = group; groupOpen = true;
+    }
+    var checked = _purgeSelected[s.student_uid] ? 'checked' : '';
+    html += '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px dashed #eee;cursor:pointer">' +
+      '<input type="checkbox" ' + checked + ' onchange="_togglePurgeCheck(\'' + s.student_uid + '\')" style="width:16px;height:16px;flex-shrink:0">' +
+      '<span style="flex:1;font-size:13px;min-width:0">' + _escHtml(String(s.num||'?')) + '번 ' + _escHtml(s.name||'?') + '</span>' +
+      '<span style="font-size:11px;color:var(--gray);white-space:nowrap">' + _escHtml(String(s.student_id||'')) + '</span>' +
+    '</label>';
+  });
+  if (groupOpen) html += '</div>';
+  el.innerHTML = html;
+  _purgeUpdateNextBtn();
+}
+
+function _togglePurgeCheck(uid) {
+  if (_purgeSelected[uid]) {
+    delete _purgeSelected[uid];
+  } else {
+    var count = Object.keys(_purgeSelected).length;
+    if (count >= 10) {
+      toast('한 번에 최대 10명까지만 선택할 수 있어요');
+      _purgeRenderList(); // 체크 롤백
+      return;
+    }
+    _purgeSelected[uid] = true;
+  }
+  _purgeUpdateNextBtn();
+}
+
+function _purgeUpdateNextBtn() {
+  var btn = document.getElementById('purge-next-1');
+  if (!btn) return;
+  var n = Object.keys(_purgeSelected).length;
+  btn.disabled = (n === 0);
+  btn.textContent = '다음 (' + n + '명)';
+}
+
+function _purgeStepToWarn() {
+  var selected = Object.keys(_purgeSelected);
+  if (!selected.length) return;
+  var targets = _collectInactiveStudents().filter(function(s){ return _purgeSelected[s.student_uid]; });
+  var targetEl = document.getElementById('purgeTargets');
+  if (targetEl) {
+    targetEl.innerHTML = targets.map(function(s) {
+      return '<div style="padding:6px 8px;border-bottom:1px dashed #fecaca;color:#7f1d1d;word-break:keep-all">' +
+        '• <b>' + _escHtml(s.name||'?') + '</b> (' + _escHtml(s.school_name||'?') + ' ' +
+        _escHtml(String(s.grade||'?')) + '-' + _escHtml(String(s['class']||'?')) + ' ' +
+        _escHtml(String(s.num||'?')) + '번)' +
+      '</div>';
+    }).join('');
+  }
+  _purgeSetStep(2);
+}
+
+function _purgeStepToConfirm() {
+  _purgeSetStep(3);
+  setTimeout(function(){ var inp = document.getElementById('purgeConfirmInput'); if (inp) inp.focus(); }, 100);
+}
+
+function _purgeOnConfirmInput() {
+  var inp = document.getElementById('purgeConfirmInput');
+  var btn = document.getElementById('purge-exec-btn');
+  if (!inp || !btn) return;
+  btn.disabled = (inp.value.trim() !== '삭제');
+}
+
+async function submitPurge() {
+  var uids = Object.keys(_purgeSelected);
+  if (!uids.length) return;
+  var inp = document.getElementById('purgeConfirmInput');
+  if (!inp || inp.value.trim() !== '삭제') return;
+  var btn = document.getElementById('purge-exec-btn');
+  if (btn) btn.disabled = true;
+
+  showLoading('계정을 파기하는 중이에요… 🗑');
+  try {
+    var res = await api('purge_students', {
+      admin_uid:  STATE.user && STATE.user.admin_uid,
+      admin_name: (STATE.user && STATE.user.name) || '관리자',
+      student_uids: uids,
+      confirm_text: '삭제'
+    });
+    hideLoading();
+    if (res && res.status === 'ok') {
+      var n = (res.data && res.data.purged) || res.purged || 0;
+      toast('✅ ' + n + '명 파기 완료 · 증빙 메일 발송됐어요');
+      closeModal('modal-purge');
+      _purgeSelected = {};
+      // 프론트 캐시 강제 재로드 (파기된 UID 잔존 방지)
+      _teacherAll = []; _studentsByTeacher = {}; _studentsByTeacherLoaded = false;
+      renderAdminAccountMgmt();
+      if (typeof loadAdminDashboard === 'function') loadAdminDashboard();
+    } else {
+      toast((res && res.message) || '파기 실패');
+      if (btn) btn.disabled = false;
+    }
+  } catch(e) {
+    hideLoading();
+    console.error('[PURGE ERROR]', e && e.message ? e.message : e);
+    toast('파기 중 오류가 발생했어요');
+    if (btn) btn.disabled = false;
+  }
+}
+
 // 71차: 교사 본인 — 내 마음카드 등록/교체 진입점
 function triggerNfcFromSelf() {
   if (STATE.isPreview) { toast('미리보기 모드에서는 사용할 수 없어요'); return; }
@@ -5205,6 +5430,8 @@ async function renderAdminAccountMgmt() {
   _renderAdminTeacherList();
   // 71차: 신청 검토 카드도 같이 갱신 (병렬)
   renderSignupReviewCard();
+  // 75차: 비활성 학생 정리 카드도 같이 갱신
+  renderInactiveStudentsCard();
 }
 
 function _renderAdminTeacherList() {
@@ -6260,6 +6487,8 @@ function studentMgmtHTML() {
     return '<div id="adminAccountMgmt">' +
       // 71차: 가입 신청 검토 카드 (pending 있을 때만 표시 — renderSignupReviewCard가 채움)
       '<div id="signupReviewCard" style="margin-bottom:12px"></div>' +
+      // 75차: 비활성 학생 계정 정리 카드 (비활성 학생 있을 때만 표시 — renderInactiveStudentsCard가 채움)
+      '<div id="purgeInactiveCard" style="margin-bottom:12px"></div>' +
       // 상단 버튼 + 필터 행
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">' +
         '<button class="btn btn-primary" style="flex-shrink:0" onclick="openTeacherForm()">👩‍🏫 + 교사 계정 만들기</button>' +
