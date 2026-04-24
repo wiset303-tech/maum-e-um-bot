@@ -4165,13 +4165,24 @@ function _startPurgeProgress(estimateMs) {
   }, 250);
 }
 
-function _stopPurgeProgress(finalPct, finalText) {
+async function _stopPurgeProgress(finalPct, finalText) {
   if (_purgeProgressTimer) { clearInterval(_purgeProgressTimer); _purgeProgressTimer = null; }
   var bar = document.getElementById('purgeProgressBar');
   var txt = document.getElementById('purgeProgressText');
   var pct = document.getElementById('purgeProgressPct');
-  if (bar) bar.style.width = (finalPct||100) + '%';
-  if (pct) pct.textContent = (finalPct||100) + '%';
+  // 75차: 100% 완료 시 현재 % → 100까지 1%씩 부드럽게 차오름 (97→98→99→100 자연스럽게)
+  if (finalPct === 100 && bar && pct) {
+    var current = parseInt((bar.style.width || '0'), 10) || 0;
+    while (current < 100) {
+      current++;
+      bar.style.width = current + '%';
+      pct.textContent = current + '%';
+      await new Promise(function(r){ setTimeout(r, 70); });
+    }
+  } else {
+    if (bar) bar.style.width = (finalPct||0) + '%';
+    if (pct) pct.textContent = (finalPct||0) + '%';
+  }
   if (txt && finalText) txt.textContent = finalText;
 }
 
@@ -4206,7 +4217,7 @@ async function submitPurge() {
     });
     if (res && res.status === 'ok') {
       var n = (res.data && res.data.purged) || res.purged || 0;
-      _stopPurgeProgress(100, '✅ 파기 완료!');
+      await _stopPurgeProgress(100, '✅ 파기 완료!'); // 75차: 97→100 부드러운 차오름 대기
       setTimeout(function() {
         toast('✅ ' + n + '명 파기 완료 · 증빙 메일 발송됐어요');
         closeModal('modal-purge');
@@ -4217,7 +4228,7 @@ async function submitPurge() {
         renderAdminAccountMgmt();
         renderInactiveStudentsCard();
         if (typeof loadAdminDashboard === 'function') loadAdminDashboard();
-      }, 700); // 완료 메시지 잠깐 보여준 뒤 닫기
+      }, 500); // 완료 메시지 잠깐 보여준 뒤 닫기 (차오름 시간 분량 줄여 700→500)
     } else {
       _stopPurgeProgress(0, '⚠️ 파기 실패 — ' + ((res && res.message) || '오류'));
       setTimeout(function() {
