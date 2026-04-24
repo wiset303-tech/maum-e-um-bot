@@ -1819,6 +1819,10 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     </div>
     <textarea class="inp inp-tight" id="sr-reason" rows="4" placeholder="위 프리셋을 누르거나 직접 입력해 주세요"></textarea>
     <div class="modal-hint">신청자 이메일로 그대로 발송됩니다.</div>
+    <!-- 75차: 거절 후 자동 파기 안내 -->
+    <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;margin:8px 0 6px;font-size:11.5px;color:#854d0e;line-height:1.5;word-break:keep-all">
+      📌 거절된 신청은 <b>거절 후 90일</b>이 지나면 자동 파기돼요. 즉시 파기하려면 검토 카드의 <b>🗑 즉시 파기</b> 버튼을 눌러 주세요.
+    </div>
     <input type="hidden" id="sr-request-uid">
     <button class="btn btn-primary signup-submit-btn btn-danger" onclick="submitSignupReject()">🙅 거절 처리</button>
   </div>
@@ -3751,50 +3755,47 @@ async function renderSignupReviewCard() {
   try {
     var list = null;
     try {
-      // Supabase 직접 — pending만, 최신순
-      var rows = await _sbFetch('signup_requests', { status: 'eq.pending', order: 'timestamp.desc' });
-      if (rows && Array.isArray(rows)) {
-        // 컬럼명 매핑 (signup_requests 테이블의 request_uid·timestamp·email·google_email·school_name·grade·class·teacher_id·name·reason·school_type·region 그대로 사용)
-        list = rows;
-      }
+      // 75차: Supabase 직접 — pending + rejected 모두 (자동 파기 대기 카드 표시용)
+      var rowsSb = await _sbFetch('signup_requests', { status: 'in.(pending,rejected)', order: 'timestamp.desc' });
+      if (rowsSb && Array.isArray(rowsSb)) list = rowsSb;
     } catch(sbErr) {
       console.warn('[SIGNUP LIST SB]', sbErr && sbErr.message);
     }
     if (!list) {
-      var res = await api('list_signup_requests', { status_filter: 'pending' });
+      var res = await api('list_signup_requests', { status_filter: 'pending_and_rejected' });
       if (!res || res.status !== 'ok') { box.innerHTML = ''; return; }
       list = (res.data && res.data.requests) || [];
     }
     if (!list.length) { box.innerHTML = ''; return; }
 
-    var rows = list.map(function(r){
-      var reason = r.reason ? ('<div style="font-size:11.5px;color:var(--gray);margin-top:4px;white-space:pre-wrap">💬 ' + _escHtml(r.reason) + '</div>') : '';
-      // 71차: 연락·Google 이메일 구분 표시 (둘 다 없으면 "이메일 없음")
-      var mailBits = [];
-      if (r.email)        mailBits.push('📮 ' + _escHtml(r.email));
-      if (r.google_email) mailBits.push('🔐 ' + _escHtml(r.google_email));
-      var mailLine = mailBits.length ? mailBits.join(' · ') : '<span style="color:#bbb">이메일 없음</span>';
-      return '<div class="card signup-req-card" data-ruid="' + _escHtml(r.request_uid) + '" style="margin-bottom:8px;padding:12px 14px">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">' +
-          '<div style="flex:1;min-width:0">' +
-            '<div style="font-size:14px;font-weight:700;color:var(--navy)">👩‍🏫 ' + _escHtml(r.name) + ' 선생님</div>' +
-            '<div style="font-size:12px;color:var(--gray);margin-top:2px">' + _escHtml(r.school_name) + ' · ' + r.grade + '학년 ' + r.class + '반 · 아이디 <code>' + _escHtml(r.teacher_id) + '</code></div>' +
-            '<div style="font-size:11px;color:var(--gray);margin-top:2px">' + mailLine + ' · 🕑 ' + _timeAgo(r.timestamp) + '</div>' +
-            reason +
-          '</div>' +
-          '<div style="display:flex;gap:6px;flex-shrink:0">' +
-            '<button class="btn btn-sm btn-primary" style="font-size:11.5px;padding:7px 12px" onclick="_openSignupAcceptModal(\'' + _escHtml(r.request_uid) + '\')">✅ 수락</button>' +
-            '<button class="btn btn-sm btn-secondary" style="font-size:11.5px;padding:7px 12px;background:#fef2f2;border-color:#fecaca;color:#b91c1c" onclick="_openSignupRejectModal(\'' + _escHtml(r.request_uid) + '\')">🙅 거절</button>' +
-          '</div>' +
-        '</div>' +
-      '</div>';
-    }).join('');
+    // 75차: pending·rejected 분리
+    var pendings = [], rejects = [];
+    list.forEach(function(r) {
+      if (r.status === 'rejected') rejects.push(r);
+      else if (r.status === 'pending' || !r.status) pendings.push(r);
+    });
 
-    box.innerHTML =
-      '<div class="card card-lav" style="padding:12px 14px;margin-bottom:8px">' +
-        '<div class="card-label gaegu" style="margin-bottom:6px">📋 가입 신청 검토 <span style="color:#e05050;font-weight:700">(' + list.length + '건)</span></div>' +
+    var html = '';
+
+    // 그룹 1: 가입 신청 검토 (pending)
+    if (pendings.length) {
+      html += '<div class="card card-lav" style="padding:12px 14px;margin-bottom:8px">' +
+        '<div class="card-label gaegu" style="margin-bottom:6px">📋 가입 신청 검토 <span style="color:#e05050;font-weight:700">(' + pendings.length + '건)</span></div>' +
         '<div style="font-size:12px;color:var(--gray);line-height:1.5">관리자가 확인 후 수락하면 <b>기본 비밀번호 <code>maum1234</code></b>로 교사 계정이 자동 생성돼요. 거절 시 사유가 이메일로 발송돼요.</div>' +
-      '</div>' + rows;
+      '</div>';
+      html += pendings.map(function(r) { return _buildPendingSignupCard(r); }).join('');
+    }
+
+    // 그룹 2: 거절 처리 · 자동 파기 대기 (rejected)
+    if (rejects.length) {
+      html += '<div class="card" style="padding:12px 14px;margin:14px 0 8px;background:#fafafa;border:1px solid #e5e7eb">' +
+        '<div class="card-label gaegu" style="margin-bottom:6px;color:#6b7280">🗑 거절 처리 · 자동 파기 대기 <span style="color:#9ca3af;font-weight:700">(' + rejects.length + '건)</span></div>' +
+        '<div style="font-size:12px;color:var(--gray);line-height:1.5">거절된 신청은 <b>거절 후 90일</b>이 지나면 자동 파기돼요. 즉시 파기하려면 카드의 🗑 버튼을 눌러 주세요.</div>' +
+      '</div>';
+      html += rejects.map(function(r) { return _buildRejectedSignupCard(r); }).join('');
+    }
+
+    box.innerHTML = html;
 
     // 신청 데이터 캐시 (모달에서 사용)
     window._signupPending = {};
@@ -3802,6 +3803,99 @@ async function renderSignupReviewCard() {
   } catch(e) {
     console.error('[SIGNUP LIST]', e && e.message ? e.message : e);
     box.innerHTML = '';
+  }
+}
+
+// 75차: pending 신청 카드 (기존 구조 + 경과 일수 강조)
+function _buildPendingSignupCard(r) {
+  var reason = r.reason ? ('<div style="font-size:11.5px;color:var(--gray);margin-top:4px;white-space:pre-wrap">💬 ' + _escHtml(r.reason) + '</div>') : '';
+  var mailBits = [];
+  if (r.email)        mailBits.push('📮 ' + _escHtml(r.email));
+  if (r.google_email) mailBits.push('🔐 ' + _escHtml(r.google_email));
+  var mailLine = mailBits.length ? mailBits.join(' · ') : '<span style="color:#bbb">이메일 없음</span>';
+  // 75차: 신청 후 경과 일수 — 14일 이상 미처리 시 ⚠️ 강조
+  var daysAgo = _daysSince(r.timestamp);
+  var ageBadge = '';
+  if (daysAgo >= 14) {
+    ageBadge = ' <span style="background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px;font-size:10.5px;margin-left:4px;font-weight:700">⚠️ ' + daysAgo + '일 미처리</span>';
+  } else if (daysAgo >= 1) {
+    ageBadge = ' <span style="color:#9ca3af;font-size:10.5px;margin-left:4px">· ' + daysAgo + '일 전</span>';
+  }
+  return '<div class="card signup-req-card" data-ruid="' + _escHtml(r.request_uid) + '" style="margin-bottom:8px;padding:12px 14px">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:14px;font-weight:700;color:var(--navy)">👩‍🏫 ' + _escHtml(r.name) + ' 선생님' + ageBadge + '</div>' +
+        '<div style="font-size:12px;color:var(--gray);margin-top:2px">' + _escHtml(r.school_name) + ' · ' + r.grade + '학년 ' + r.class + '반 · 아이디 <code>' + _escHtml(r.teacher_id) + '</code></div>' +
+        '<div style="font-size:11px;color:var(--gray);margin-top:2px">' + mailLine + ' · 🕑 ' + _timeAgo(r.timestamp) + '</div>' +
+        reason +
+      '</div>' +
+      '<div style="display:flex;gap:6px;flex-shrink:0">' +
+        '<button class="btn btn-sm btn-primary" style="font-size:11.5px;padding:7px 12px" onclick="_openSignupAcceptModal(\'' + _escHtml(r.request_uid) + '\')">✅ 수락</button>' +
+        '<button class="btn btn-sm btn-secondary" style="font-size:11.5px;padding:7px 12px;background:#fef2f2;border-color:#fecaca;color:#b91c1c" onclick="_openSignupRejectModal(\'' + _escHtml(r.request_uid) + '\')">🙅 거절</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+// 75차: rejected 신청 카드 — 자동 파기 D-N + 즉시 파기 버튼
+function _buildRejectedSignupCard(r) {
+  // processed_at(거절일)로부터 90일 후 자동 파기. 남은 일수 = 90 - 경과
+  var rejectedDays = _daysSince(r.processed_at || r.timestamp);
+  var daysLeft = Math.max(0, 90 - rejectedDays);
+  var urgent = daysLeft <= 14;
+  var overdue = daysLeft === 0;
+  var dCol = overdue ? '#b91c1c' : (urgent ? '#dc2626' : '#6b7280');
+  var dBg  = overdue ? '#fef2f2' : (urgent ? '#fff7ed' : '#f3f4f6');
+  var dText = overdue ? '⏰ 오늘 자동 파기 예정' : ('🗑 자동 파기까지 D-' + daysLeft + '일');
+  var reasonLine = r.admin_note ? ('<div style="font-size:11.5px;color:#9ca3af;margin-top:4px;white-space:pre-wrap">사유: ' + _escHtml(r.admin_note) + '</div>') : '';
+  return '<div class="card signup-req-card" data-ruid="' + _escHtml(r.request_uid) + '" style="margin-bottom:8px;padding:12px 14px;background:#fafafa;opacity:.85">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:13.5px;font-weight:700;color:#6b7280">🚫 ' + _escHtml(r.name) + ' · <span style="color:#9ca3af;font-weight:500">' + _escHtml(r.school_name) + ' ' + r.grade + '-' + r.class + '</span></div>' +
+        '<div style="display:inline-block;font-size:11.5px;font-weight:700;color:' + dCol + ';background:' + dBg + ';border-radius:8px;padding:2px 8px;margin-top:4px">' + dText + '</div>' +
+        '<div style="font-size:11px;color:var(--gray);margin-top:3px">🚫 ' + rejectedDays + '일 전 거절 · 신청 ' + _timeAgo(r.timestamp) + '</div>' +
+        reasonLine +
+      '</div>' +
+      '<div style="display:flex;gap:6px;flex-shrink:0">' +
+        '<button class="btn btn-sm btn-secondary" style="font-size:11.5px;padding:7px 10px;background:#fef2f2;border-color:#fecaca;color:#b91c1c;font-weight:700" onclick="confirmPurgeSignup(\'' + _escHtml(r.request_uid) + '\',\'' + _escHtml(r.name) + '\')">🗑 즉시 파기</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+// 75차: 신청일 ~ 현재 사이 일수 (KST 기준)
+function _daysSince(ts) {
+  if (!ts) return 0;
+  try {
+    var d = (typeof ts === 'string') ? new Date(ts.replace(' ', 'T')) : new Date(ts);
+    if (!d || isNaN(d.getTime())) return 0;
+    var diffMs = Date.now() - d.getTime();
+    return Math.max(0, Math.floor(diffMs / (24*3600*1000)));
+  } catch(e) { return 0; }
+}
+
+// 75차: 거절된 신청 즉시 파기 — 확인 후 호출
+async function confirmPurgeSignup(ruid, name) {
+  var ok = await appConfirm({
+    title: '🗑 신청을 지금 파기할까요?',
+    body: '<b>' + (name || '신청') + '</b>의 거절된 신청 정보를 영구 삭제합니다.<br>이 작업은 <b style="color:#b91c1c">되돌릴 수 없어요</b>.',
+    okText: '🗑 파기',
+    cancelText: '취소',
+    danger: true
+  });
+  if (!ok) return;
+  try {
+    var res = await api('purge_signup_request', { request_uid: ruid });
+    if (res && res.status === 'ok') {
+      toast('✅ 신청을 파기했어요');
+      // Supabase·Sheets 정합 후 카드 재렌더
+      renderSignupReviewCard();
+    } else {
+      toast((res && res.message) || '파기 실패');
+    }
+  } catch(e) {
+    console.error('[PURGE SIGNUP]', e && e.message || e);
+    toast('파기 중 오류가 발생했어요');
   }
 }
 
