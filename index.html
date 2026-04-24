@@ -512,6 +512,24 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .btn-refresh:hover{background:var(--mint4)}
 .btn-refresh.spinning .refresh-icon{animation:spin .6s linear infinite}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+/* 74차: 아이콘 전용 새로고침 — 학생관리·앨범 탭 공용 (세련된 mint gradient 원형) */
+.btn-refresh-mini{
+  width:30px;height:30px;border-radius:50%;padding:0;
+  background:linear-gradient(135deg,var(--mint3),var(--mint4));
+  border:1.5px solid var(--mint2);color:var(--navy);
+  font-size:17px;font-weight:700;line-height:1;cursor:pointer;flex-shrink:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  transition:background .2s,color .2s,box-shadow .2s,transform .15s;
+  box-shadow:0 1px 3px rgba(0,0,0,.08);
+}
+.btn-refresh-mini:hover{
+  background:linear-gradient(135deg,var(--mint2),var(--mint));
+  color:#fff;box-shadow:0 2px 7px rgba(78,205,180,.35);
+}
+.btn-refresh-mini:active{transform:scale(.92)}
+.btn-refresh-mini:disabled{opacity:.55;cursor:not-allowed}
+.btn-refresh-mini .refresh-icon{display:inline-block;line-height:1}
+.btn-refresh-mini.spinning .refresh-icon{animation:spin .7s linear infinite}
 
 .attend-ripple{position:absolute;border-radius:50%;border:3.5px solid rgba(78,205,180,.75);opacity:0;animation:ripple 2.6s ease-out infinite;pointer-events:none}
 .attend-ripple:nth-child(1){width:90px;height:90px;animation-delay:0s}
@@ -5001,6 +5019,9 @@ async function loadSettings() {
   }
   updatePersonaModeStatus(s.persona_mode_enabled, s.persona_mode_until);
   renderTeacherInfo();
+  // 74차: loadSettings 응답 시점에 앨범 탭이 이미 열려 있으면 limit 토글 즉시 재paint
+  // (buildTeacherUI 직후 교사가 빠르게 앨범 탭 누르면 응답 전 기본 1장으로 paint되는 문제 해결)
+  try { _paintAlbumLimitToggle(); } catch(e) {}
 }
 
 async function saveSettingField(field, value) {
@@ -6248,7 +6269,7 @@ function studentMgmtHTML() {
     '<button class="btn btn-lav" style="width:auto;flex:1 1 0;min-width:0;font-size:11px;padding:6px 8px;white-space:nowrap" onclick="openTeacherGiftMulti()">👥 여러 명 선물</button>' +
   '</div>' +
   '<div style="display:flex;gap:5px;margin-bottom:12px;justify-content:flex-end;flex-wrap:nowrap">' +
-    '<button id="stu-refresh-btn" class="btn btn-sm btn-secondary" onclick="reloadStudentsTab()" title="학생 정보 새로고침" style="width:auto;flex:0 0 auto;font-size:11px;padding:5px 9px;white-space:nowrap">🔄</button>' +
+    '<button id="stu-refresh-btn" class="btn-refresh-mini" onclick="reloadStudentsTab()" title="학생 정보 새로고침"><span class="refresh-icon">⟳</span></button>' +
     '<button id="stu-sort-num"  class="btn btn-sm btn-secondary adm-sort-btn active-sort" onclick="stuSortBy(\'num\')" style="width:auto;flex:0 0 auto;font-size:11px;padding:5px 10px;white-space:nowrap">번호순</button>' +
     '<button id="stu-sort-name" class="btn btn-sm btn-secondary adm-sort-btn" onclick="stuSortBy(\'name\')" style="width:auto;flex:0 0 auto;font-size:11px;padding:5px 10px;white-space:nowrap">이름순</button>' +
   '</div>' +
@@ -8499,6 +8520,12 @@ function stopAlbumPoll() {
   stopAlbumRealtime();
 }
 function refreshAlbum() {
+  // 74차: 새로고침 버튼 spinning 피드백
+  var rb = document.getElementById('alb-refresh-btn');
+  if (rb) {
+    rb.classList.add('spinning');
+    setTimeout(function(){ rb.classList.remove('spinning'); }, 800);
+  }
   if (STATE.role === 'teacher') renderAlbumStudentPicker();
   else if (STATE.role === 'admin') renderAdminAlbum();
 }
@@ -8882,12 +8909,12 @@ async function loadStudents() {
 async function reloadStudentsTab() {
   if (STATE.isPreview) return;
   var btn = document.getElementById('stu-refresh-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  if (btn) { btn.disabled = true; btn.classList.add('spinning'); }
   try {
     await Promise.all([ loadStudents(), loadDashboard() ]);
   } catch(e) { console.error('[STU-REFRESH]', e); }
   finally {
-    if (btn) { btn.disabled = false; btn.textContent = '🔄'; }
+    if (btn) { btn.disabled = false; btn.classList.remove('spinning'); }
   }
 }
 
@@ -13800,7 +13827,7 @@ function albumTeacherHTML() {
     '<div id="albumLimitBar" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:nowrap">' +
       '<span style="font-size:12px;color:var(--navy);font-weight:700;white-space:nowrap">📸 마음앨범 일일 기록 개수</span>' +
       '<div id="albumLimitToggle" style="display:flex;gap:4px;flex:0 0 auto"></div>' +
-      '<button onclick="refreshAlbum()" style="margin-left:auto;width:auto;flex:0 0 auto;font-size:11px;padding:5px 9px;background:#fff;border:1.5px solid var(--lgray);border-radius:20px;color:var(--navy);font-weight:700;cursor:pointer;white-space:nowrap" title="새로고침">🔄</button>' +
+      '<button class="btn-refresh-mini" id="alb-refresh-btn" onclick="refreshAlbum()" style="margin-left:auto" title="새로고침"><span class="refresh-icon">⟳</span></button>' +
     '</div>' +
     '<div id="albumStudentPicker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>' +
     '<div id="albumTeacherGrid" class="album-grid"></div>' +
@@ -14129,10 +14156,9 @@ function renderAlbumStudentPicker() {
   var moreList = document.getElementById('albMoreList');
   if (moreList) { moreList.style.display = 'none'; moreList.innerHTML = allStudentBtns; }
 
-  // 74차: 학급 업로드 한도 토글 paint (STATE.settings가 있으면 즉시, 없으면 load 후 paint)
-  if (STATE.settings) _paintAlbumLimitToggle();
-  else if (!STATE.isPreview) loadSettings().then(_paintAlbumLimitToggle);
-  else _paintAlbumLimitToggle();
+  // 74차: 학급 업로드 한도 토글 paint
+  // STATE.settings 없으면 기본 1로 paint. loadSettings 응답 시 자동 재paint(위 38번 hook).
+  _paintAlbumLimitToggle();
 
   if (_teacherAlbumLoaded) { _renderTeacherAlbumGrid(); return; }
   _loadTeacherClassAlbum();
