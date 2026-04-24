@@ -13795,15 +13795,14 @@ function albumTeacherHTML() {
     '</div>';
   }
   // 교사: 우리 반 전체 앨범 (학생 필터 포함)
+  // 74차: limit bar 우측에 새로고침 고정 (공간 절약). picker는 다음 줄 전체 사용
   return '<div id="albumTeacherSection">' +
-    '<div id="albumLimitBar" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">' +
+    '<div id="albumLimitBar" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:nowrap">' +
       '<span style="font-size:12px;color:var(--navy);font-weight:700;white-space:nowrap">📸 마음앨범 일일 기록 개수</span>' +
-      '<div id="albumLimitToggle" style="display:flex;gap:4px"></div>' +
+      '<div id="albumLimitToggle" style="display:flex;gap:4px;flex:0 0 auto"></div>' +
+      '<button onclick="refreshAlbum()" style="margin-left:auto;width:auto;flex:0 0 auto;font-size:11px;padding:5px 9px;background:#fff;border:1.5px solid var(--lgray);border-radius:20px;color:var(--navy);font-weight:700;cursor:pointer;white-space:nowrap" title="새로고침">🔄</button>' +
     '</div>' +
-    '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px">' +
-      '<div id="albumStudentPicker" style="display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0"></div>' +
-      '<button onclick="refreshAlbum()" style="font-size:11px;padding:4px 10px;background:#fff;border:1.5px solid var(--lgray);border-radius:20px;color:var(--navy);font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0" title="새로고침">🔄 새로고침</button>' +
-    '</div>' +
+    '<div id="albumStudentPicker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>' +
     '<div id="albumTeacherGrid" class="album-grid"></div>' +
     '<div id="albumTeacherEmpty" class="album-empty" style="display:none">사진이 없어요 📷</div>' +
   '</div>';
