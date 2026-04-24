@@ -4387,9 +4387,12 @@ async function handleNfcUid(uid) {
       for (var i = 0; i < allTeachers.length; i++) {
         if (_normalizeNfc(allTeachers[i].nfc_uid) === normUid) {
           var r = allTeachers[i];
+          var _tAdl2 = parseInt(r.album_daily_limit, 10);
           data = { role:'teacher', teacher_uid:r.teacher_uid, name:r.name,
             school_name:r.school_name, school_type:r.school_type,
-            year:r.year, grade:r.grade, class:r.class, profile_image_url:r.profile_image_url||'' };
+            year:r.year, grade:r.grade, class:r.class, profile_image_url:r.profile_image_url||'',
+            // 74차 B: teachers.album_daily_limit 로그인 즉시 수령
+            album_daily_limit: (_tAdl2>=1 && _tAdl2<=3) ? _tAdl2 : 1 };
           break;
         }
       }
@@ -4476,10 +4479,13 @@ async function loginByPw() {
       if (tRows.length) {
         var r = tRows[0];
         if (r.active === 'Y') {
+          var _tAdl = parseInt(r.album_daily_limit, 10);
           data = { role:'teacher', teacher_uid:r.teacher_uid, name:r.name,
             school_name:r.school_name, school_type:r.school_type,
             year:r.year, grade:r.grade, class:r.class, profile_image_url:r.profile_image_url||'',
-            email: r.email || '', google_email: r.google_email || '' };
+            email: r.email || '', google_email: r.google_email || '',
+            // 74차 B: teachers.album_daily_limit을 로그인 응답에 즉시 얹기 (loadSettings 불필요)
+            album_daily_limit: (_tAdl>=1 && _tAdl<=3) ? _tAdl : 1 };
         } else {
           inactiveFound = true;
         }
@@ -4568,6 +4574,12 @@ async function onLoginSuccess(data) {
     var _dAdl = parseInt(data.album_daily_limit, 10);
     STATE.albumDailyLimit = (_dAdl >= 1 && _dAdl <= 3) ? _dAdl : null;
   }
+  // 74차 B: 교사 로그인 즉시 STATE.settings seed (teachers.album_daily_limit) — loadSettings 응답 기다리지 않고 앨범 탭 첫 진입 시 정확
+  if (data.role === 'teacher') {
+    var _tAdlS = parseInt(data.album_daily_limit, 10);
+    STATE.settings = STATE.settings || {};
+    STATE.settings.album_daily_limit = (_tAdlS >= 1 && _tAdlS <= 3) ? _tAdlS : 1;
+  }
 
   // 68차 C: 관리자/부모 BGM 서버 저장값 반영 (기기 간 동기화)
   //   · Supabase admins/parents.bgm 컬럼 값 우선
@@ -4649,8 +4661,9 @@ async function onLoginSuccess(data) {
             _teacherAlbumAll = filtered; _teacherAlbumLoaded = true;
           })
           .catch(function(){}), // 57차: 조용히 실패 — 탭 진입 시 GAS fallback
-        // 74차: loadSettings도 스피너 대기 목록에 포함 → 앨범 탭 첫 진입 시 album_daily_limit 즉시 반영
-        loadSettings().catch(function(){}),
+        // 74차 B: loadSettings는 스피너 대기 목록에서 제외 (teachers.album_daily_limit은 이미 로그인 응답에 포함됨)
+        //   그 외 persona·alarm 설정은 fire-and-forget — 완료 시 관련 paint 훅이 STATE 반영
+        (function(){ loadSettings().catch(function(){}); return Promise.resolve(); })(),
       ]);
       renderEmotionBarcode();
     }
