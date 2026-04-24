@@ -1842,7 +1842,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <div><div class="settings-label">🔒 개인정보처리방침</div></div>
       <span style="color:var(--gray);font-size:16px">›</span>
     </div>
-    <!-- 73차: 관리자 전용 — 전체 새로고침 안내 -->
+    <!-- 73차: 관리자 전용 — 전체 새로고침 안내 + 관리자 탭 진입 -->
     <div id="set-admin-broadcast-wrap" style="display:none;margin-top:14px;padding-top:14px;border-top:1px dashed var(--lgray)">
       <div style="font-size:11.5px;color:var(--gray);font-weight:700;margin-bottom:8px;letter-spacing:0.3px">🛠 관리자 도구</div>
       <button id="set-broadcast-btn" class="btn btn-lav" style="width:100%;padding:12px;font-size:13.5px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px"
@@ -1853,18 +1853,23 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
         교사·학생·학부모 모두에게 새 버전 안내 알림이 갑니다.<br>
         <span style="color:#b07d1a">⏰ 5분에 1번만 보낼 수 있어요</span>
       </div>
+      <button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:12.5px;padding:10px;display:flex;align-items:center;justify-content:center;gap:6px"
+              onclick="_gotoAdminToolsTab()">
+        <span>🛠</span><span>이메일·미리보기·마음토큰 초기화 →</span>
+      </button>
     </div>
   </div>
 </div>
 
-<!-- ══ 73차: 사용자용 — 새로고침 안내 모달 (취소·X·외부클릭 불가, 새로고침 버튼만) ══ -->
+<!-- ══ 73차: 사용자용 — 새로고침 안내 모달 (외부클릭 차단, X로 잠시 닫기 가능) ══ -->
 <div id="modal-app-refresh" class="modal-overlay hidden" style="z-index:3600">
   <div class="modal-box" style="position:relative;max-width:340px;text-align:center;padding:26px 22px 22px">
+    <button class="modal-close" onclick="closeModal('modal-app-refresh')" title="잠시 닫기">✕</button>
     <div style="font-size:54px;line-height:1;margin-bottom:10px;animation:_giftBoxWiggle 0.7s ease-in-out 1">🔄</div>
     <div style="font-size:17px;font-weight:800;color:var(--navy);margin-bottom:8px;word-break:keep-all">새 버전이 준비됐어요</div>
     <div style="font-size:13px;color:var(--gray);line-height:1.6;margin-bottom:16px;word-break:keep-all">
       지금 새로고침해 주세요.<br>
-      <span style="font-size:11.5px;color:#b07d1a">쓰던 글이 있다면 잠시 멈추고 저장해 주세요</span>
+      <span style="font-size:11.5px;color:#b07d1a">쓰던 글이 있다면 ✕로 잠시 닫고<br>저장한 뒤 알림함에서 다시 열어주세요 🔔</span>
     </div>
     <button class="btn btn-primary" style="width:100%;padding:13px;font-size:14px;font-weight:700" onclick="performAppRefresh()">🔄 새로고침</button>
   </div>
@@ -3994,7 +3999,7 @@ function openSettings() {
   if (STATE.role === 'admin') _refreshBroadcastCooldownUI();
 }
 
-// 73차: 관리자 — 전체 새로고침 안내 보내기 확인
+// 73차: 관리자 — 전체 새로고침 안내 보내기 (낙관적 UI: 즉시 토스트 + 쿨다운, GAS는 백그라운드)
 async function confirmBroadcastAppRefresh() {
   if (STATE.role !== 'admin') return;
   var ok = await appConfirm(
@@ -4006,25 +4011,24 @@ async function confirmBroadcastAppRefresh() {
   );
   if (!ok) return;
 
-  var btn = document.getElementById('set-broadcast-btn');
-  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
-  showLoading('전체 알림 보내는 중이에요 📨');
-  try {
-    var res = await api('broadcast_app_refresh', { admin_uid: STATE.user && STATE.user.admin_uid });
-    hideLoading();
-    if (res.status === 'ok') {
-      toast('✅ ' + res.data.count + '명에게 안내를 보냈어요');
-      _refreshBroadcastCooldownUI(); // 5분 카운트다운 시작
-    } else {
-      toast(res.message || '발송 실패');
-      if (btn) { btn.disabled = false; btn.style.opacity = ''; }
-    }
-  } catch(e) {
-    hideLoading();
-    console.error('[BROADCAST]', e && e.message ? e.message : e);
-    toast('발송 중 오류가 발생했어요');
-    if (btn) { btn.disabled = false; btn.style.opacity = ''; }
-  }
+  // 낙관적: 즉시 토스트 + 5분 쿨다운 시작 (관리자는 GAS 응답 안 기다림)
+  toast('📨 알림 보내는 중이에요 — 잠시 후 학생·교사·학부모 화면에 도착해요');
+  _tickBroadcastCooldown(300); // 모달과 탭 양쪽 버튼 즉시 5분 카운트다운
+
+  // 백그라운드 발송 (fire-and-forget) — 결과는 콘솔/토스트로만
+  api('broadcast_app_refresh', { admin_uid: STATE.user && STATE.user.admin_uid })
+    .then(function(res){
+      if (res && res.status === 'ok') {
+        toast('✅ ' + res.data.count + '명에게 안내를 보냈어요');
+      } else {
+        toast('⚠️ ' + ((res && res.message) || '발송 실패 — 5분 후 다시 시도해 주세요'));
+        // 실패 시 쿨다운은 그대로 둠 (서버 측 실제 상태는 모르므로 안전 우선)
+      }
+    })
+    .catch(function(e){
+      console.error('[BROADCAST]', e && e.message ? e.message : e);
+      toast('⚠️ 네트워크 오류 — 도착 여부는 알림 수신자에게 확인해 주세요');
+    });
 }
 
 // 73차: 쿨다운 잔여 시간 표시 + 1초마다 갱신, 0이 되면 버튼 활성화
@@ -4040,25 +4044,43 @@ async function _refreshBroadcastCooldownUI() {
 }
 
 function _tickBroadcastCooldown(initialSec) {
-  var btn = document.getElementById('set-broadcast-btn');
-  var label = document.getElementById('set-broadcast-label');
-  if (!btn || !label) return;
+  // 73차: 모달 버튼(set-*)과 관리자 탭 버튼(adm-*) 둘 다 함께 갱신
+  function _bcastBtns() {
+    return [
+      { btn: document.getElementById('set-broadcast-btn'), label: document.getElementById('set-broadcast-label') },
+      { btn: document.getElementById('adm-broadcast-btn'), label: document.getElementById('adm-broadcast-label') }
+    ].filter(function(p){ return p.btn && p.label; });
+  }
   var remain = initialSec;
   function paint() {
+    var pairs = _bcastBtns();
     if (remain <= 0) {
-      btn.disabled = false; btn.style.opacity = '';
-      label.textContent = '전체 새로고침 안내 보내기';
+      pairs.forEach(function(p){
+        p.btn.disabled = false; p.btn.style.opacity = '';
+        p.label.textContent = '전체 새로고침 안내 보내기';
+      });
       if (_broadcastCooldownTimer) { clearInterval(_broadcastCooldownTimer); _broadcastCooldownTimer = null; }
       return;
     }
-    btn.disabled = true; btn.style.opacity = '0.55';
     var mm = Math.floor(remain / 60);
     var ss = remain % 60;
-    label.textContent = '⏰ 다음 발송까지 ' + (mm > 0 ? mm + '분 ' : '') + ss + '초';
+    var text = '⏰ 다음 발송까지 ' + (mm > 0 ? mm + '분 ' : '') + ss + '초';
+    pairs.forEach(function(p){
+      p.btn.disabled = true; p.btn.style.opacity = '0.55';
+      p.label.textContent = text;
+    });
     remain--;
   }
   paint();
   _broadcastCooldownTimer = setInterval(paint, 1000);
+}
+
+// 73차: 모달 → 관리자 탭 빠른 이동 (이메일/미리보기/토큰초기화 + 새로고침안내 모두 거기에 있음)
+function _gotoAdminToolsTab() {
+  closeModal('modal-settings');
+  switchTab(4); // 관리자 탭
+  // 탭 진입 후 쿨다운 갱신 — 모달 카운트다운이 동작 중이면 이미 _broadcastCooldownTimer가 양쪽 버튼 함께 갱신
+  setTimeout(function(){ _refreshBroadcastCooldownUI(); }, 200);
 }
 
 // 73차: 사용자 — 새로고침 안내 모달 열기 (X·취소·외부클릭 차단)
@@ -4895,9 +4917,10 @@ function switchTab(idx) {
     if (idx === 3 && STATE.role === 'admin') { renderAdminAlbum(); startAlbumPoll(); }             // 관리자 마음앨범
     if (idx === 3 && STATE.role === 'teacher') { loadAlbumIfNeeded(); startAlbumPoll(); }          // 교사 마음앨범
     if (idx === 1 && STATE.role === 'admin') renderAdminAccountMgmt();      // 관리자 계정관리
-    if (idx === 4 && STATE.role === 'admin') {                               // 관리자 탭: BGM 상태 동기화
+    if (idx === 4 && STATE.role === 'admin') {                               // 관리자 탭: BGM + 새로고침 안내 쿨다운 동기화
       var admBgm = document.getElementById('adm-set-bgm');
       if (admBgm) admBgm.checked = AUDIO.enabled.bgm;
+      _refreshBroadcastCooldownUI(); // 73차: 탭 진입 시 새로고침 버튼 쿨다운 갱신
     }
   }
   // 66차: 학부모 설정 탭 진입 시 BGM 토글 상태 동기화
@@ -5075,10 +5098,18 @@ function adminHTML() {
     '</div>' +
   '</div>' +
   // 66차 C: 관리자 전용 — 학급 마음토큰 초기화 (관리자 탭에 상주)
-  '<div class="card">' +
+  '<div class="card" style="margin-bottom:10px">' +
     '<div class="card-label gaegu">🌡️ 학급 마음토큰 초기화</div>' +
     '<div style="font-size:12px;color:var(--gray);margin-bottom:10px;line-height:1.5">선택한 학급 전체 학생의 누적 마음토큰을 0으로 리셋합니다. 선물·대화·앨범 등 <b>기록은 그대로 유지</b>되고, 토큰 잔액만 초기화돼요.</div>' +
     '<button class="btn" style="width:100%;background:#fff4f1;border:1.5px solid #e05050;color:#e05050;font-weight:700;padding:11px;border-radius:10px" onclick="openTokenResetModal()">🌡️ 마음토큰 초기화 하기</button>' +
+  '</div>' +
+  // 73차: 전체 새로고침 안내 (모달과 동일한 함수 호출 — 양쪽 버튼이 함께 쿨다운 갱신됨)
+  '<div class="card card-lav">' +
+    '<div class="card-label gaegu">📢 전체 새로고침 안내</div>' +
+    '<div style="font-size:12px;color:var(--gray);margin-bottom:10px;line-height:1.5">새 버전 배포 직후, 교사·학생·학부모 화면에 <b>"새 버전이 준비됐어요"</b> 알림을 보냅니다. <span style="color:#b07d1a">⏰ 5분에 1번만 보낼 수 있어요</span></div>' +
+    '<button id="adm-broadcast-btn" class="btn btn-lav" style="width:100%;padding:12px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px" onclick="confirmBroadcastAppRefresh()">' +
+      '<span>📢</span><span id="adm-broadcast-label">전체 새로고침 안내 보내기</span>' +
+    '</button>' +
   '</div>';
 }
 
