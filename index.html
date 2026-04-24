@@ -8463,6 +8463,11 @@ function _onNewNotification(row) {
   }
   updateNotifBadge();
   if (_notifOpen) { _notifPage = 0; renderNotifDropdown(); }  // 드롭다운 열려있으면 즉시 재렌더
+  // 74차: 학급 하루 업로드 한도 변경 알림 → 학생 STATE 갱신 + 카운터 재paint
+  if (n.type === 'album_limit' && STATE.role === 'student') {
+    STATE.albumDailyLimit = null;
+    _fetchStudentAlbumLimit();
+  }
   toast(n.title);  // 예: "🏫 등교 완료" — 알림 제목이 자체로 친근하게 구성돼 있음
 }
 
@@ -13915,7 +13920,12 @@ async function changeAlbumDailyLimit(n) {
   if (!STATE.settings) STATE.settings = {};
   var old = STATE.settings.album_daily_limit || 1;
   if (old === n) return;
-  // 낙관적 UI: 즉시 반영 + 토스트 + 백그라운드 저장
+  // 74차: 확인 모달 먼저 — 잘못 터치 방지
+  var okGo = await appConfirm('우리반 하루 업로드 변경',
+    '마음앨범 일일 기록 개수를 ' + n + '장으로 바꿀까요?\n(학생들에게 변경 안내 알림이 가요)',
+    { okLabel:'바꾸기' });
+  if (!okGo) return;
+  // 낙관적 UI: 확인 후 즉시 반영 + 토스트 + 백그라운드 저장
   STATE.settings.album_daily_limit = n;
   _paintAlbumLimitToggle();
   toast('우리반 하루 업로드를 ' + n + '장으로 바꿨어요 📸');
