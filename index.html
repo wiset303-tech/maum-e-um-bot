@@ -13260,7 +13260,8 @@ function openGiftReceivedModal(notif) {
 // ── 마음앨범 ──
 function albumHTML() {
   return '<div id="albumUploadSection" style="margin-bottom:14px">' +
-    '<button class="btn btn-primary" onclick="uploadAlbum()">📸 오늘 사진 올리기</button>' +
+    '<button class="btn btn-primary" id="albumUploadBtn" onclick="uploadAlbum()">📸 오늘 사진 올리기</button>' +
+    '<div id="albumDailyCounter" style="font-size:12px;color:var(--gray);margin-top:6px;text-align:center">&nbsp;</div>' +
   '</div>' +
   '<div id="albumGrid" class="album-grid"></div>' +
   '<div id="albumEmpty" class="album-empty" style="display:none">아직 사진이 없어요 📷</div>';
@@ -13779,6 +13780,10 @@ function albumTeacherHTML() {
   }
   // 교사: 우리 반 전체 앨범 (학생 필터 포함)
   return '<div id="albumTeacherSection">' +
+    '<div id="albumLimitBar" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">' +
+      '<span style="font-size:12px;color:var(--navy);font-weight:700;white-space:nowrap">📸 우리반 하루 업로드</span>' +
+      '<div id="albumLimitToggle" style="display:flex;gap:4px"></div>' +
+    '</div>' +
     '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px">' +
       '<div id="albumStudentPicker" style="display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0"></div>' +
       '<button onclick="refreshAlbum()" style="font-size:11px;padding:4px 10px;background:#fff;border:1.5px solid var(--lgray);border-radius:20px;color:var(--navy);font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0" title="새로고침">🔄 새로고침</button>' +
@@ -13840,6 +13845,91 @@ function compressImage(dataUrl, maxSide, quality, callback) {
 
 // 전역 업로드 임시 저장
 var _albumUploadData = { imageUrl: '', thumbUrl: '', isUpdate: false };
+
+// ────────────── 74차: 학급 하루 업로드 한도 ──────────────
+// STATE.albumDailyLimit (학생) / STATE.settings.album_daily_limit (교사)
+// SETTINGS 시트 col 11이 단일 SOT. 교사 변경 → 같은 반 학생 즉시 반영은 재로그인 or 탭 재진입 시.
+
+function _todayKstStr() {
+  return new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+}
+
+function _countStudentTodayAlbums() {
+  // _preloadedStudentAlbum 기준 (loadAlbum이 채움). _pending 낙관적 카드 포함.
+  var src = _preloadedStudentAlbum || [];
+  var today = _todayKstStr();
+  var n = 0;
+  for (var i=0; i<src.length; i++) {
+    var a = src[i];
+    if (a._pending) { n++; continue; }
+    var d = String(a.date || a.timestamp || '').slice(0,10);
+    if (d === today && !_isAlbumDeleted(a.is_deleted)) n++;
+  }
+  return n;
+}
+
+function _paintAlbumDailyCounter() {
+  var el  = document.getElementById('albumDailyCounter');
+  var btn = document.getElementById('albumUploadBtn');
+  if (!el || !btn) return;
+  var limit = STATE.albumDailyLimit || 1;
+  var cnt   = _countStudentTodayAlbums();
+  el.textContent = '오늘 ' + cnt + '/' + limit + '장';
+  var full = cnt >= limit;
+  btn.disabled      = full && limit !== 1; // 1장 모드는 교체 흐름 유지 위해 disable 안 함
+  btn.style.opacity = full ? '0.55' : '';
+  btn.style.filter  = full ? 'grayscale(0.4)' : '';
+}
+
+function _paintAlbumLimitToggle() {
+  var wrap = document.getElementById('albumLimitToggle');
+  if (!wrap) return;
+  var cur = (STATE.settings && STATE.settings.album_daily_limit) || 1;
+  wrap.innerHTML = [1,2,3].map(function(n) {
+    var on = n === cur;
+    return '<button onclick="changeAlbumDailyLimit(' + n + ')" ' +
+      'style="font-size:11px;padding:4px 12px;border-radius:20px;font-weight:700;cursor:pointer;border:1.5px solid ' +
+      (on ? 'var(--mint2)' : 'var(--lgray)') + ';background:' + (on ? 'var(--mint3)' : '#fff') +
+      ';color:' + (on ? 'var(--navy)' : 'var(--gray)') + '">' + n + '장</button>';
+  }).join('');
+}
+
+// 학생이 자기 반 album_daily_limit 조회 (세션당 1회, fire-and-forget)
+function _fetchStudentAlbumLimit() {
+  if (STATE.role !== 'student') return;
+  if (STATE.albumDailyLimit != null) return; // 이미 로드됨
+  if (!STATE.user || !STATE.user.teacher_uid) return;
+  if (STATE.isPreview) { STATE.albumDailyLimit = 1; _paintAlbumDailyCounter(); return; }
+  api('get_settings', { teacher_uid: STATE.user.teacher_uid }).then(function(res) {
+    if (res && res.status === 'ok' && res.data) {
+      var n = parseInt(res.data.album_daily_limit, 10);
+      STATE.albumDailyLimit = (n >= 1 && n <= 3) ? n : 1;
+      _paintAlbumDailyCounter();
+    }
+  }).catch(function(e) { console.error('[ALBUM LIMIT FETCH]', e); });
+}
+
+async function changeAlbumDailyLimit(n) {
+  if (STATE.isPreview) return;
+  if (n < 1 || n > 3) return;
+  if (!STATE.settings) STATE.settings = {};
+  var old = STATE.settings.album_daily_limit || 1;
+  if (old === n) return;
+  // 낙관적 UI: 즉시 반영 + 토스트 + 백그라운드 저장
+  STATE.settings.album_daily_limit = n;
+  _paintAlbumLimitToggle();
+  toast('우리반 하루 업로드를 ' + n + '장으로 바꿨어요 📸');
+  try {
+    var payload = Object.assign({ teacher_uid: STATE.user.teacher_uid }, STATE.settings);
+    var res = await api('save_settings', payload);
+    if (!res || res.status !== 'ok') throw new Error((res && res.message) || 'save_settings 실패');
+  } catch(e) {
+    STATE.settings.album_daily_limit = old;
+    _paintAlbumLimitToggle();
+    toast('저장에 실패했어요. 다시 시도해주세요');
+    console.error('[ALBUM LIMIT SAVE]', e);
+  }
+}
 
 // 캐시 있으면 스킵, 없으면 로드
 function loadAlbumIfNeeded() {
@@ -13909,10 +13999,14 @@ async function loadAlbum(loadAll) {
     grid.innerHTML = '';
     if (empty) empty.style.display = 'block';
     _albumLoaded = true; _albumAllLoaded = true;
+    _paintAlbumDailyCounter();
+    _fetchStudentAlbumLimit();
     return;
   }
 
   grid.innerHTML = items.map(function(a) { return albumItemHTML(a, true); }).join('');
+  _paintAlbumDailyCounter();
+  _fetchStudentAlbumLimit();
 
   // 더보기 버튼
   var moreBtn = document.getElementById('albumMoreBtn');
@@ -14000,6 +14094,11 @@ function renderAlbumStudentPicker() {
   // 더보기 목록 초기 숨김 + 내용 채우기
   var moreList = document.getElementById('albMoreList');
   if (moreList) { moreList.style.display = 'none'; moreList.innerHTML = allStudentBtns; }
+
+  // 74차: 학급 업로드 한도 토글 paint (STATE.settings가 있으면 즉시, 없으면 load 후 paint)
+  if (STATE.settings) _paintAlbumLimitToggle();
+  else if (!STATE.isPreview) loadSettings().then(_paintAlbumLimitToggle);
+  else _paintAlbumLimitToggle();
 
   if (_teacherAlbumLoaded) { _renderTeacherAlbumGrid(); return; }
   _loadTeacherClassAlbum();
@@ -14249,6 +14348,25 @@ async function deleteAlbumItem() {
 
 // 업로드: 파일 선택 → 압축 → 모달 표시
 async function uploadAlbum() {
+  // 74차: 학생 경로 사전 한도 체크 + 첫 업로드 안내
+  if (STATE.role === 'student') {
+    var limit = STATE.albumDailyLimit || 1;
+    var cnt   = _countStudentTodayAlbums();
+    if (cnt >= limit && limit !== 1) {
+      toast('오늘의 마음앨범 기록 횟수가 가득 찼어요.');
+      return;
+    }
+    // 오늘 첫 업로드 시도 시 1회 안내 (학생·오늘 기준)
+    if (cnt === 0) {
+      var fkey = 'album_first_' + (STATE.user && STATE.user.student_uid || '') + '_' + _todayKstStr();
+      try {
+        if (!localStorage.getItem(fkey)) {
+          localStorage.setItem(fkey, '1');
+          toast('오늘 사진 ' + limit + '장까지 올릴 수 있어요 📸');
+        }
+      } catch(e) {}
+    }
+  }
   var input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
@@ -14333,6 +14451,7 @@ async function submitAlbumUpload() {
     _pending    : true,
   };
   _prependOptimisticAlbumCard(tempRow);
+  _paintAlbumDailyCounter();
 
   var payload = {
     student_uid  : STATE.user.student_uid,
@@ -14359,6 +14478,10 @@ async function submitAlbumUpload() {
         select:'album_uid,timestamp,image_url,thumb_url,caption,hashtags,date,is_deleted,updated_at'
       });
       if (rows && rows.length && !_isAlbumDeleted(rows[0].is_deleted)) {
+        // 74차: 내 tempUid 생성 이후의 새 row인지 판단 (하루 여러 장 대비)
+        var rowMs = Date.parse(String(rows[0].timestamp||'').replace(' ', 'T')) || 0;
+        var tempMs = parseInt(String(tempUid).replace('tmp_',''), 10) || 0;
+        if (tempMs && rowMs && rowMs < tempMs - 2000) return; // 내 업로드 이전의 row는 패스
         // 이미 실 album_uid로 카드 렌더된 경우(다른 탭에서 생성 등) 중복 방지
         var dup = _albumCache.some(function(c){ return c.data.album_uid === rows[0].album_uid && !c.data._pending; });
         if (dup) return;
@@ -14371,6 +14494,7 @@ async function submitAlbumUpload() {
         });
         AUDIO.sfx('save');
         toast('마음앨범에 저장됐어요 🌸');
+        _paintAlbumDailyCounter();
       }
     } catch(e) {}
   }, 4000);
@@ -14380,6 +14504,7 @@ async function submitAlbumUpload() {
     clearInterval(pollHandle);
     if (document.querySelector('.album-item[data-album-uid="' + tempUid + '"]')) {
       _removeOptimisticAlbumCard(tempUid);
+      _paintAlbumDailyCounter();
       toast('업로드에 시간이 너무 걸려요. 다시 시도해주세요 📷');
     }
   }, 60000);
@@ -14398,8 +14523,9 @@ async function submitAlbumUpload() {
         timestamp : res.timestamp || nowKst,
       });
       toast('마음앨범에 저장됐어요 🌸');
+      _paintAlbumDailyCounter();
     } else if (res.message && res.message.includes('이미')) {
-      // 67차: 네이티브 confirm → 앱 톤앤매너 모달
+      // 67차: 네이티브 confirm → 앱 톤앤매너 모달 (1장 모드 교체 흐름)
       if (await appConfirm('사진 교체', '오늘 사진이 이미 있어요.\n새 사진으로 교체할까요?', { okLabel:'교체' })) {
         payload.is_update = true;
         var res2 = await api('save_album', payload);
@@ -14411,15 +14537,19 @@ async function submitAlbumUpload() {
             timestamp : res2.updated_at || nowKst,
           });
           toast('사진이 교체됐어요 📸');
+          _paintAlbumDailyCounter();
         } else {
           _removeOptimisticAlbumCard(tempUid);
+          _paintAlbumDailyCounter();
           toast(res2.message || '오류가 발생했어요');
         }
       } else {
         _removeOptimisticAlbumCard(tempUid);
+        _paintAlbumDailyCounter();
       }
     } else {
       _removeOptimisticAlbumCard(tempUid);
+      _paintAlbumDailyCounter();
       toast(res.message || '오류가 발생했어요');
     }
   } catch(e) {
@@ -14428,6 +14558,7 @@ async function submitAlbumUpload() {
     clearInterval(pollHandle);
     clearTimeout(pollTimeout);
     _removeOptimisticAlbumCard(tempUid);
+    _paintAlbumDailyCounter();
     console.error('[ALBUM UPLOAD] ', e);
     toast('업로드에 실패했어요. 다시 시도해주세요 📷');
   }
