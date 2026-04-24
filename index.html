@@ -4382,9 +4382,11 @@ async function handleNfcUid(uid) {
         for (var j = 0; j < allStudents.length; j++) {
           if (_normalizeNfc(allStudents[j].nfc_uid) === normUid) {
             var r = allStudents[j];
+            var _adl0 = parseInt(r.album_daily_limit, 10);
             data = { role:'student', student_uid:r.student_uid, student_id:r.student_id,
               name:r.name, teacher_uid:r.teacher_uid, school_name:r.school_name,
-              grade:r.grade, class:r.class, num:r.num, gender:r.gender||'', profile_image_url:r.profile_image_url||'' };
+              grade:r.grade, class:r.class, num:r.num, gender:r.gender||'', profile_image_url:r.profile_image_url||'',
+              album_daily_limit: (_adl0>=1 && _adl0<=3) ? _adl0 : 1 };
             // 토큰 지급 + 등교 알림 — 백그라운드 비동기
             // 67차: loadTokenBalance 낙관적 +1 트리거
             STATE._justLoggedIn = true;
@@ -4469,9 +4471,11 @@ async function loginByPw() {
         if (sRows.length) {
           var r = sRows[0];
           if (r.active === 'Y') {
+            var _adl1 = parseInt(r.album_daily_limit, 10);
             data = { role:'student', student_uid:r.student_uid, student_id:r.student_id,
               name:r.name, teacher_uid:r.teacher_uid, school_name:r.school_name,
-              grade:r.grade, class:r.class, num:r.num, gender:r.gender||'', profile_image_url:r.profile_image_url||'' };
+              grade:r.grade, class:r.class, num:r.num, gender:r.gender||'', profile_image_url:r.profile_image_url||'',
+              album_daily_limit: (_adl1>=1 && _adl1<=3) ? _adl1 : 1 };
             // 토큰 지급 + 등교 알림 — 백그라운드 비동기 (기다리지 않음)
             // 67차: loadTokenBalance 낙관적 +1 트리거
             STATE._justLoggedIn = true;
@@ -4540,6 +4544,12 @@ async function loginByPw() {
 async function onLoginSuccess(data) {
   STATE.role = data.role;
   STATE.user = data;
+
+  // 74차: 학생 로그인 즉시 마음앨범 일일 한도 STATE 세팅 (Supabase students.album_daily_limit)
+  if (data.role === 'student') {
+    var _dAdl = parseInt(data.album_daily_limit, 10);
+    STATE.albumDailyLimit = (_dAdl >= 1 && _dAdl <= 3) ? _dAdl : null;
+  }
 
   // 68차 C: 관리자/부모 BGM 서버 저장값 반영 (기기 간 동기화)
   //   · Supabase admins/parents.bgm 컬럼 값 우선
@@ -6231,15 +6241,16 @@ function studentMgmtHTML() {
       '<div id="adminTeacherList"><div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div></div>' +
     '</div>';
   }
-  return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">' +
-    '<button class="btn btn-primary" style="width:auto;flex-shrink:0;font-size:12px;padding:6px 14px;white-space:nowrap" onclick="openNfcRegister()">🪪 마음카드 등록</button>' +
-    '<button class="btn btn-lav" style="width:auto;flex-shrink:0;font-size:12px;padding:6px 14px;white-space:nowrap" onclick="openTeacherGiftAll()">🎁 학급 전체 선물</button>' +
-    '<button class="btn btn-lav" style="width:auto;flex-shrink:0;font-size:12px;padding:6px 14px;white-space:nowrap" onclick="openTeacherGiftMulti()">👥 여러 명 선물</button>' + // 73차
-    '<div style="display:flex;gap:5px;margin-left:auto">' +
-      '<button id="stu-refresh-btn" class="btn btn-sm btn-secondary" onclick="reloadStudentsTab()" title="학생 정보 새로고침" style="font-size:11px;padding:5px 9px;white-space:nowrap">🔄</button>' +
-      '<button id="stu-sort-num"  class="btn btn-sm btn-secondary adm-sort-btn active-sort" onclick="stuSortBy(\'num\')" style="font-size:11px;padding:5px 10px;white-space:nowrap">번호순</button>' +
-      '<button id="stu-sort-name" class="btn btn-sm btn-secondary adm-sort-btn" onclick="stuSortBy(\'name\')" style="font-size:11px;padding:5px 10px;white-space:nowrap">이름순</button>' +
-    '</div>' +
+  // 74차: 3개 버튼을 한 줄로 (모바일 수용), 필터는 아래 줄
+  return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:7px;flex-wrap:wrap">' +
+    '<button class="btn btn-primary" style="width:auto;flex:1 1 0;min-width:0;font-size:11px;padding:6px 8px;white-space:nowrap" onclick="openNfcRegister()">🪪 마음카드 등록</button>' +
+    '<button class="btn btn-lav" style="width:auto;flex:1 1 0;min-width:0;font-size:11px;padding:6px 8px;white-space:nowrap" onclick="openTeacherGiftAll()">🎁 학급 전체 선물</button>' +
+    '<button class="btn btn-lav" style="width:auto;flex:1 1 0;min-width:0;font-size:11px;padding:6px 8px;white-space:nowrap" onclick="openTeacherGiftMulti()">👥 여러 명 선물</button>' +
+  '</div>' +
+  '<div style="display:flex;gap:5px;margin-bottom:12px;justify-content:flex-end;flex-wrap:wrap">' +
+    '<button id="stu-refresh-btn" class="btn btn-sm btn-secondary" onclick="reloadStudentsTab()" title="학생 정보 새로고침" style="font-size:11px;padding:5px 9px;white-space:nowrap">🔄</button>' +
+    '<button id="stu-sort-num"  class="btn btn-sm btn-secondary adm-sort-btn active-sort" onclick="stuSortBy(\'num\')" style="font-size:11px;padding:5px 10px;white-space:nowrap">번호순</button>' +
+    '<button id="stu-sort-name" class="btn btn-sm btn-secondary adm-sort-btn" onclick="stuSortBy(\'name\')" style="font-size:11px;padding:5px 10px;white-space:nowrap">이름순</button>' +
   '</div>' +
   '<div id="studentList"></div>';
 }
@@ -13904,24 +13915,26 @@ function _paintAlbumLimitToggle() {
   }).join('');
 }
 
-// 74차 C: 학생이 자기 반 album_daily_limit 조회 — 앨범 탭 진입 시마다 fire-and-forget
-// 캐시값은 즉시 paint에 쓰고, fetch 성공 시 값이 바뀌었으면 재paint. 실패해도 기존 캐시 유지.
+// 74차 C: 학생 album_daily_limit 최신값 — Supabase students.album_daily_limit 직접 조회
+// 로그인 시 이미 STATE 세팅됨. 이건 탭 재진입·Realtime 알림 이후 최신값 동기화용 (fire-and-forget).
 function _fetchStudentAlbumLimit() {
   if (STATE.role !== 'student') return;
-  if (!STATE.user || !STATE.user.teacher_uid) return;
+  if (!STATE.user || !STATE.user.student_uid) return;
   if (STATE.isPreview) {
     if (STATE.albumDailyLimit == null) STATE.albumDailyLimit = 1;
     _paintAlbumDailyCounter();
     return;
   }
-  api('get_settings', { teacher_uid: STATE.user.teacher_uid }).then(function(res) {
-    if (res && res.status === 'ok' && res.data) {
-      var n = parseInt(res.data.album_daily_limit, 10);
-      var newVal = (n >= 1 && n <= 3) ? n : 1;
-      if (STATE.albumDailyLimit !== newVal) {
-        STATE.albumDailyLimit = newVal;
-        _paintAlbumDailyCounter();
-      }
+  _sbFetch('students', {
+    student_uid:'eq.'+STATE.user.student_uid,
+    select:'album_daily_limit', limit:1
+  }).then(function(rows) {
+    if (!rows || !rows.length) return;
+    var n = parseInt(rows[0].album_daily_limit, 10);
+    var newVal = (n >= 1 && n <= 3) ? n : 1;
+    if (STATE.albumDailyLimit !== newVal) {
+      STATE.albumDailyLimit = newVal;
+      _paintAlbumDailyCounter();
     }
   }).catch(function(e) { console.error('[ALBUM LIMIT FETCH]', e); });
 }
