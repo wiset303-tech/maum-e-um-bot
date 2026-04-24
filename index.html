@@ -512,12 +512,12 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .btn-refresh:hover{background:var(--mint4)}
 .btn-refresh.spinning .refresh-icon{animation:spin .6s linear infinite}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-/* 74차: 아이콘 전용 새로고침 — 학생관리·앨범 탭 공용 (세련된 mint gradient 원형) */
+/* 74차: 아이콘 전용 새로고침 — 학생관리·앨범 탭 공용 (세련된 mint gradient 원형, 3/4 사이즈) */
 .btn-refresh-mini{
-  width:30px;height:30px;border-radius:50%;padding:0;
+  width:23px;height:23px;border-radius:50%;padding:0;
   background:linear-gradient(135deg,var(--mint3),var(--mint4));
   border:1.5px solid var(--mint2);color:var(--navy);
-  font-size:17px;font-weight:700;line-height:1;cursor:pointer;flex-shrink:0;
+  font-size:13px;font-weight:700;line-height:1;cursor:pointer;flex-shrink:0;
   display:inline-flex;align-items:center;justify-content:center;
   transition:background .2s,color .2s,box-shadow .2s,transform .15s;
   box-shadow:0 1px 3px rgba(0,0,0,.08);
@@ -4649,6 +4649,8 @@ async function onLoginSuccess(data) {
             _teacherAlbumAll = filtered; _teacherAlbumLoaded = true;
           })
           .catch(function(){}), // 57차: 조용히 실패 — 탭 진입 시 GAS fallback
+        // 74차: loadSettings도 스피너 대기 목록에 포함 → 앨범 탭 첫 진입 시 album_daily_limit 즉시 반영
+        loadSettings().catch(function(){}),
       ]);
       renderEmotionBarcode();
     }
@@ -5105,10 +5107,8 @@ function buildTeacherUI() {
     var last = btns[btns.length - 1];
     if (last) last.style.color = 'var(--lav)';
     renderAdminAccountMgmt();  // 계정관리 탭 초기 로드
-  } else {
-    // 교사 설정 로드
-    loadSettings();
   }
+  // 74차: 교사 loadSettings는 onLoginSuccess Promise.all에서 대기 (중복 호출 제거)
 }
 
 function adminHTML() {
@@ -8144,10 +8144,20 @@ function renderWordCloud(words) {
   var empty  = document.getElementById('wordcloudEmpty');
   if (!wrap) return;
 
-  // 이전 CSS 단어 제거
-  wrap.querySelectorAll('.wc-word').forEach(function(el){ el.remove(); });
+  // 74차: in-place 갱신 — 같은 단어는 부드럽게 위치/크기/색만 바꾸고, 새 단어만 fade-in
+  var existingMap = {};
+  wrap.querySelectorAll('.wc-word').forEach(function(el) {
+    existingMap[el.dataset.word || el.textContent] = el;
+  });
 
   if (!words.length) {
+    // 모든 단어 fade-out 후 제거
+    Object.keys(existingMap).forEach(function(k) {
+      var el = existingMap[k];
+      el.style.transition = 'opacity .3s ease';
+      el.style.opacity = '0';
+      setTimeout(function(){ el.remove(); }, 320);
+    });
     if (svgEl)  svgEl.style.display  = 'none';
     if (empty) empty.style.display = 'flex';
     return;
@@ -8196,36 +8206,58 @@ function renderWordCloud(words) {
   var minFont = n >= 12 ? 11 : 12;
   // count → 폰트: 많이 나온 단어일수록 크게 → 시각적으로 명확한 차이
 
+  var usedKeys = {};
   sorted.forEach(function(word, i) {
     if (myGen !== _wcGen) return; // 구형 렌더 폐기
     var p   = POS[i] || [50, 50];
     var sz  = Math.round(minFont + (word.count / maxCount) * (maxFont - minFont));
     var pal = colorMap[word.type] || colorMap.neutral;
     var col = pal[i % pal.length];
+    usedKeys[word.word] = true;
 
+    // 74차: 기존 단어는 in-place — 위치/크기/색만 부드럽게 transition
+    var ex = existingMap[word.word];
+    if (ex) {
+      ex.style.transition =
+        'left .45s ease, top .45s ease, font-size .35s ease, color .35s ease, opacity .25s ease';
+      ex.style.left = p[0] + '%';
+      ex.style.top  = p[1] + '%';
+      ex.style.fontSize = sz + 'px';
+      ex.style.color = col;
+      ex.style.opacity = '1';
+      return;
+    }
+
+    // 새 단어만 fade-in (짧은 stagger)
     var el = document.createElement('span');
     el.className = 'wc-word';
+    el.dataset.word = word.word;
     el.textContent = word.word;
     el.style.cssText =
       'position:absolute;' +
       'left:' + p[0] + '%;top:' + p[1] + '%;' +
-      'transform:translate(-50%,-50%) translateY(6px);' +
+      'transform:translate(-50%,-50%);' +
       'font-size:' + sz + 'px;font-weight:700;' +
       'font-family:"Noto Sans KR",sans-serif;' +
       'color:' + col + ';white-space:nowrap;' +
       'opacity:0;pointer-events:none;' +
-      'transition:opacity .4s ease ' + (i*0.07) + 's,' +
-                 'transform .35s ease ' + (i*0.07) + 's;';
+      'transition:opacity .3s ease ' + (i*0.02) + 's;';
     wrap.appendChild(el);
-
-    // 부드럽게 떠오르며 등장
     requestAnimationFrame(function(){
       requestAnimationFrame(function(){
         if (myGen !== _wcGen) { el.remove(); return; }
         el.style.opacity = '1';
-        el.style.transform = 'translate(-50%,-50%)';
       });
     });
+  });
+
+  // 74차: 빠진 단어 fade-out + 제거
+  Object.keys(existingMap).forEach(function(k) {
+    if (usedKeys[k]) return;
+    var el = existingMap[k];
+    el.style.transition = 'opacity .3s ease';
+    el.style.opacity = '0';
+    setTimeout(function(){ el.remove(); }, 320);
   });
 
   // 67차: 렌더 후 충돌 감지·회피 (POS 고정 배치만으로 해결 안 되는 경계 케이스 방어)
@@ -8500,7 +8532,20 @@ function _onNewNotification(row) {
     STATE.albumDailyLimit = null;
     _fetchStudentAlbumLimit();
   }
+  // 74차: 훈훈습도계 꽉참 알림 → 학생·교사 실시간 파티클/배너 발동 (5초 쿨다운으로 중복 방어)
+  if (n.type === 'warmth_full') {
+    _triggerWarmthBonusOnce();
+  }
   toast(n.title);  // 예: "🏫 등교 완료" — 알림 제목이 자체로 친근하게 구성돼 있음
+}
+
+// 74차: 훈훈습도계 보너스 효과 중복 방어 — 프론트 직접 호출 + 알림 수신 2경로 동시에 오면 한 번만
+var _lastWarmthBonusAt = 0;
+function _triggerWarmthBonusOnce() {
+  var now = Date.now();
+  if (now - _lastWarmthBonusAt < 5000) return; // 5초 쿨다운
+  _lastWarmthBonusAt = now;
+  try { showWarmthBonus(); } catch(e) { console.error('[WARMTH BONUS]', e); }
 }
 
 // 마음앨범 폴링 (120초, 마음앨범 탭 활성 시만) + 70차: Supabase Realtime 즉시 반영
@@ -9791,49 +9836,54 @@ async function resetStudentPw(uid, name) {
 // ════════════════════════════════════════
 var _preloadedTodayRecords = null; // { date:'YYYY-MM-DD', emotions:[...] } 로그인 시 채움
 // ── 감정 색상 맵 (소감정 → 색, 하드코딩) ─────────────────────
+// 74차: 감정바코드 7역량 레인보우 (빨주노초파남보, 한국형 SEL 7역량 팔레트)
+//   R1 자기인식 #D9455F / R2 자기조절 #E67E22 / R3 관계인식 #C9A227 / R4 관계관리 #2E8B57
+//   R5 공동체 #1E6FB8 / R6 마음건강 #1A237E / R7 행동실천 #6A3DB5
+//   감정 강도·밸런스 기반 A안 매핑 — 강렬긍정→빨강, 따뜻긍정→주황, 편안긍정→노랑,
+//   평온중립→초록, 약한부정→파랑, 짙은부정→남색, 강렬격정(분노·공포)→보라
 var EMOTION_COLOR_MAP = {
-  // 긍정 ① 강렬 — 빨강·산호·핑크 (에너지, 열정, 흥분)
-  '기쁨'    :'#FF5C5C','설렘'    :'#FF4F72','사랑'    :'#E91E63',
-  '두근두근':'#FF4081','흥분'    :'#FF1744','열정'    :'#D50000',
-  '신남'    :'#F4511E','활기참'  :'#FF5722','신나는'  :'#F4511E',
-  '설레는'  :'#FF4F72',
-  // 긍정 ② 따뜻 — 주황·살구·산호 (따뜻함, 활력, 기대)
-  '행복'    :'#FF8C00','뿌듯함'  :'#FF7043','감사'    :'#FFA726',
-  '기대'    :'#FF6D00','즐거움'  :'#FF9800','자신감'  :'#FF6F61',
-  '재미있음':'#FF6E40','신기함'  :'#FF8C42','뿌듯한'  :'#FF7043',
-  '좋음'    :'#FFA040',
-  // 긍정 ③ 부드러움 — 노랑·황금·황색 (편안, 만족, 따뜻한 여유)
-  '편안함'  :'#FFD700','안도'    :'#FFCC02','만족'    :'#FFB703',
-  '평온'    :'#FFE066','따뜻한'  :'#FFC857','포근한'  :'#FFD166',
-  '행복한'  :'#FFE57F','여유로운':'#F9E04B','기분좋음':'#FFE082',
-  '상쾌한'  :'#FFF176','가벼운'  :'#FFEE58','평화로운':'#FFD54F',
-  // 중립 ① 회색 계열 (무감각, 멍함, 무표정)
-  '멍한'    :'#E0E0E0','심심한'  :'#F5F5F5','모르겠어':'#CFD8DC',
-  '보통'    :'#ECEFF1','별로'    :'#D7CCC8','무감각'  :'#DCEDC8',
-  '피곤한'  :'#B2EBF2','덤덤한'  :'#E1F5FE','그저그래':'#E3F2FD',
-  '평범한'  :'#F0F4F8',
-  // 중립 ② 민트 계열 (그냥, 차분, 쉬고싶은)
-  '그냥그래':'#80CBC4','그냥'    :'#80DEEA','지루한'  :'#E0F2F1',
-  '심심함'  :'#B2DFDB',
-  // 중립 ③ 초록 계열 (차분한 생기, 여유, 균형)
-  '차분한'  :'#81C784','생기있는':'#66BB6A','안정된'  :'#A5D6A7',
-  '담담한'  :'#C5E1A5','괜찮음'  :'#AED581','나쁘지않음':'#DCE775',
-  '편한'    :'#8BC34A','집중'    :'#7CB342','고요한'  :'#9CCC65',
-  // 중립 ④ 파랑 계열 (그리움·쓸쓸함·조용한 슬픔 — 부정과 중립 사이)
-  '쓸쓸한'  :'#42A5F5','그리운'  :'#64B5F6','서운한'  :'#90CAF9',
-  '아쉬운'  :'#80DEEA','허전한'  :'#B3E5FC','섭섭한'  :'#1E88E5',
-  // 부정 — 남색·무거운 무채색 계열 (기존 유지)
-  '슬픔'    :'#1A237E','외로움'  :'#283593','그리움'  :'#3949AB',
-  '억울함'  :'#37474F','화남'    :'#4E342E','짜증'    :'#546E7A',
-  '불안'    :'#4527A0','걱정'    :'#2E3A59','두려움'  :'#212121',
-  '부끄러움':'#4A148C','창피함'  :'#3E2723','실망'    :'#455A64',
-  '속상함'  :'#311B92','무서움'  :'#263238','힘든'    :'#37474F',
-  '우울'    :'#0D47A1','서운함'  :'#607D8B','미움'    :'#4E0D0D',
-  '질투'    :'#2D3561','부러움'  :'#33461A','슬픈'    :'#1A237E',
-  '외로운'  :'#283593','화난'    :'#4E342E','불안한'  :'#4527A0',
-  '걱정되는':'#2E3A59','억울한'  :'#37474F','부끄러운':'#4A148C',
+  // R1 빨강 — 강렬 긍정
+  '기쁨'    :'#D9455F','설렘'    :'#D9455F','사랑'    :'#D9455F',
+  '두근두근':'#D9455F','흥분'    :'#D9455F','열정'    :'#D9455F',
+  '신남'    :'#D9455F','활기참'  :'#D9455F','신나는'  :'#D9455F',
+  '설레는'  :'#D9455F',
+  // R2 주황 — 따뜻 긍정
+  '행복'    :'#E67E22','행복한'  :'#E67E22','뿌듯함'  :'#E67E22',
+  '뿌듯한'  :'#E67E22','감사'    :'#E67E22','기대'    :'#E67E22',
+  '자신감'  :'#E67E22','재미있음':'#E67E22','신기함'  :'#E67E22',
+  '좋음'    :'#E67E22','즐거움'  :'#E67E22',
+  // R3 노랑 — 편안 긍정
+  '편안함'  :'#C9A227','편한'    :'#C9A227','안도'    :'#C9A227',
+  '만족'    :'#C9A227','평온'    :'#C9A227','따뜻한'  :'#C9A227',
+  '포근한'  :'#C9A227','여유로운':'#C9A227','기분좋음':'#C9A227',
+  '상쾌한'  :'#C9A227','가벼운'  :'#C9A227','평화로운':'#C9A227',
+  // R4 초록 — 평온·중립
+  '차분한'  :'#2E8B57','생기있는':'#2E8B57','안정된'  :'#2E8B57',
+  '담담한'  :'#2E8B57','괜찮음'  :'#2E8B57','나쁘지않음':'#2E8B57',
+  '집중'    :'#2E8B57','고요한'  :'#2E8B57','그냥그래':'#2E8B57',
+  '그냥'    :'#2E8B57','심심함'  :'#2E8B57','덤덤한'  :'#2E8B57',
+  '평범한'  :'#2E8B57','보통'    :'#2E8B57','멍한'    :'#2E8B57',
+  '모르겠어':'#2E8B57','무감각'  :'#2E8B57','그저그래':'#2E8B57',
+  '지루한'  :'#2E8B57',
+  // R5 파랑 — 약한 부정 (아쉬움·걱정·쓸쓸함)
+  '걱정'    :'#1E6FB8','걱정되는':'#1E6FB8','불안'    :'#1E6FB8',
+  '불안한'  :'#1E6FB8','아쉬운'  :'#1E6FB8','섭섭한'  :'#1E6FB8',
+  '서운함'  :'#1E6FB8','서운한'  :'#1E6FB8','그리움'  :'#1E6FB8',
+  '그리운'  :'#1E6FB8','쓸쓸한'  :'#1E6FB8','허전한'  :'#1E6FB8',
+  '피곤한'  :'#1E6FB8','심심한'  :'#1E6FB8','별로'    :'#1E6FB8',
+  // R6 남색 — 짙은 부정 (슬픔·외로움·위축)
+  '슬픔'    :'#1A237E','슬픈'    :'#1A237E','외로움'  :'#1A237E',
+  '외로운'  :'#1A237E','속상함'  :'#1A237E','우울'    :'#1A237E',
+  '실망'    :'#1A237E','힘든'    :'#1A237E','부끄러움':'#1A237E',
+  '부끄러운':'#1A237E','창피함'  :'#1A237E','미움'    :'#1A237E',
+  '질투'    :'#1A237E','부러움'  :'#1A237E',
+  // R7 보라 — 강렬 격정 (분노·공포)
+  '화남'    :'#6A3DB5','화난'    :'#6A3DB5','짜증'    :'#6A3DB5',
+  '억울함'  :'#6A3DB5','억울한'  :'#6A3DB5','두려움'  :'#6A3DB5',
+  '무서움'  :'#6A3DB5',
 };
-var MACRO_COLOR_FB = { positive:'#FF7043', neutral:'#80CBC4', negative:'#37474F' };
+// 74차: macro fallback도 7역량 팔레트로 — positive→주황(R2), neutral→초록(R4), negative→남색(R6)
+var MACRO_COLOR_FB = { positive:'#E67E22', neutral:'#2E8B57', negative:'#1A237E' };
 function getEmotionColor(micro, macro) {
   if (micro) {
     if (EMOTION_COLOR_MAP[micro]) return EMOTION_COLOR_MAP[micro];
@@ -13029,7 +13079,7 @@ async function giftToken(friend, message) {
       api('sync_token_balance', { student_uid: friend.student_uid }); // 57차: 받는 사람 Sheets←Supabase 미러링
     }
       loadTokenLog();
-      if (rpcRes.class_bonus) { showWarmthBonus(); }
+      if (rpcRes.class_bonus) { _triggerWarmthBonusOnce(); }
       _showGiftAnim(friend.name, friend.gender || '');
     } else { toast(rpcRes.message); }
   } catch(e) {
@@ -13040,7 +13090,7 @@ async function giftToken(friend, message) {
     if (res.status==='ok') {
       await Promise.all([loadTokenBalance(),loadTokenLog()]);
       hideLoading();
-      if (res.data.class_bonus) { showWarmthBonus(); }
+      if (res.data.class_bonus) { _triggerWarmthBonusOnce(); }
       _showGiftAnim(friend.name, friend.gender || '');
     } else { hideLoading(); toast(res.message); }
   }
