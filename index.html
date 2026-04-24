@@ -1403,6 +1403,12 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   60%{box-shadow:0 0 0 12px rgba(78,205,180,0);background:#f3faf8}
   100%{box-shadow:0 0 0 0 rgba(78,205,180,0);background:#fff}
 }
+/* 75차: 파기 카드 펄스 (2월 마지막 주 학년 마무리 시점 안내) */
+.purge-card-pulse{animation:purgeCardPulse 2s ease-in-out infinite}
+@keyframes purgeCardPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,0)}
+  50%{box-shadow:0 0 0 8px rgba(220,38,38,.18)}
+}
 /* ───── 71차 톤앤매너 업그레이드 ───── */
 /* 한국어 어절 단위 줄바꿈 — 외톨이글자 방지 */
 .modal-kb, .modal-kb *{word-break:keep-all;overflow-wrap:break-word}
@@ -1856,6 +1862,17 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
         <button class="btn btn-secondary" onclick="_purgeSetStep(2)" style="flex:1">◀ 이전</button>
         <button class="btn btn-primary btn-danger" id="purge-exec-btn" onclick="submitPurge()" style="flex:1" disabled>🗑 파기 실행</button>
       </div>
+    </div>
+
+    <!-- Step 4: 진행 중 (75차 — 단계별 프로그레스) -->
+    <div id="purge-step-4" style="display:none">
+      <div class="modal-title">🗑 파기 진행 중이에요</div>
+      <div id="purgeProgressText" style="text-align:center;font-size:13.5px;margin-top:16px;color:#7f1d1d;word-break:keep-all;min-height:22px">준비하고 있어요…</div>
+      <div style="background:#fee2e2;border-radius:14px;height:20px;margin-top:14px;overflow:hidden;box-shadow:inset 0 1px 3px rgba(127,29,29,.1)">
+        <div id="purgeProgressBar" style="background:linear-gradient(90deg,#fb7185,#dc2626);height:100%;width:0%;transition:width 0.7s ease-out;border-radius:14px"></div>
+      </div>
+      <div id="purgeProgressPct" style="text-align:center;font-size:12px;color:#7f1d1d;margin-top:8px;font-weight:700">0%</div>
+      <div style="font-size:11.5px;color:var(--gray);text-align:center;margin-top:14px;line-height:1.55;word-break:keep-all">완료될 때까지 창을 닫지 말아 주세요</div>
     </div>
   </div>
 </div>
@@ -3902,22 +3919,60 @@ async function submitSignupReject() {
 // ═══════════════════════════════════════════════════════════════
 var _purgeSelected = {}; // { student_uid: true }
 
+// 75차: 관리자 탭 파기 카드의 상태 영역 갱신 (카운트·버튼 활성화)
+// adminHTML()이 정적 카드를 박고, 이 함수가 비활성 학생 수에 따라 동적 갱신
 async function renderInactiveStudentsCard() {
-  var box = document.getElementById('purgeInactiveCard');
-  if (!box) return;
+  var statusEl = document.getElementById('purgeInactiveStatus');
+  var btn = document.getElementById('purgeOpenBtn');
+  if (!statusEl || !btn) return;
+
+  // 캐시 없으면 한 번 로드 (관리자 탭 진입 시점에도 안전하게)
+  if (!_studentsByTeacherLoaded) {
+    try {
+      var all = await _sbFetch('students', {});
+      _studentsByTeacher = {};
+      (all || []).forEach(function(s) {
+        if (!s || !s.teacher_uid) return;
+        if (!_studentsByTeacher[s.teacher_uid]) _studentsByTeacher[s.teacher_uid] = [];
+        _studentsByTeacher[s.teacher_uid].push(s);
+      });
+      _studentsByTeacherLoaded = true;
+    } catch(e) {
+      statusEl.textContent = '비활성 학생 정보 불러오기 실패';
+      return;
+    }
+  }
   var inactives = _collectInactiveStudents();
-  if (inactives.length === 0) { box.innerHTML = ''; return; }
-  box.innerHTML =
-    '<div class="card" style="padding:12px;background:#fef2f2;border:1px solid #fecaca">' +
-      '<div style="display:flex;align-items:center;gap:10px">' +
-        '<span style="font-size:22px;flex:0 0 auto">🗑</span>' +
-        '<div style="flex:1;min-width:0">' +
-          '<div style="font-weight:700;color:#991b1b;word-break:keep-all">비활성 학생 계정 ' + inactives.length + '명</div>' +
-          '<div style="font-size:12px;color:#7f1d1d;margin-top:2px;word-break:keep-all">학년 종료 등으로 비활성화된 계정을 영구 파기할 수 있어요</div>' +
-        '</div>' +
-        '<button class="btn btn-danger" style="flex:0 0 auto;white-space:nowrap;padding:8px 12px" onclick="openPurgeModal()">정리하기</button>' +
-      '</div>' +
-    '</div>';
+  if (inactives.length === 0) {
+    statusEl.textContent = '✨ 비활성 학생이 없어요. 정리할 대상이 없습니다.';
+    statusEl.style.color = '#16a34a';
+    btn.disabled = true;
+    btn.style.opacity = 0.5;
+  } else {
+    statusEl.textContent = '현재 비활성 학생 ' + inactives.length + '명 — 파기 대상이 있어요';
+    statusEl.style.color = '#7f1d1d';
+    btn.disabled = false;
+    btn.style.opacity = 1;
+  }
+}
+
+// 75차: 2월 마지막 주간 판정 (월~일 기준) — 학년 마무리 힌트용
+// 2월 마지막 날(29·28)이 속한 주의 월요일부터 일요일까지
+function _isLastWeekOfFeb(date) {
+  var d = date || new Date();
+  // KST 변환 불필요 — 로컬 시간 기반 (교사·관리자 PC 기준 OK)
+  if (d.getMonth() !== 1 && d.getMonth() !== 2) return false; // 2월 또는 3월 초만 통과
+  var y = d.getFullYear();
+  // 2월 마지막 날 (month=2 = 3월, day=0 = 전달 마지막)
+  var lastFeb = new Date(y, 2, 0);
+  var dow = lastFeb.getDay(); // 0=일, 1=월, ... 6=토
+  // 월요일 기준 weekStart 계산 (일=0 → 이전 월=6일 전 / 월=1 → 0일 / 화=2 → 1일 ...)
+  var daysBack = (dow === 0) ? 6 : (dow - 1);
+  var weekStart = new Date(y, 1, lastFeb.getDate() - daysBack);
+  weekStart.setHours(0,0,0,0);
+  var weekEnd = new Date(lastFeb.getTime());
+  weekEnd.setHours(23,59,59,999);
+  return d.getTime() >= weekStart.getTime() && d.getTime() <= weekEnd.getTime();
 }
 
 function _collectInactiveStudents() {
@@ -4041,6 +4096,50 @@ function _purgeOnConfirmInput() {
   btn.disabled = (inp.value.trim() !== '삭제');
 }
 
+// 75차: 파기 단계별 프로그레스 (학생당 약 10초 예상 — 실제 서버 응답 오면 100%로 점프)
+var _purgePhases = [
+  { pct: 20, text: '🗃 학생 정보를 확인하고 있어요…' },
+  { pct: 50, text: '🗂 데이터를 지우고 있어요…' },
+  { pct: 78, text: '📄 기록을 정리하고 있어요…' },
+  { pct: 92, text: '📁 마음앨범 폴더를 정리하고 있어요…' },
+  { pct: 97, text: '📧 증빙 메일을 보내고 있어요…' }
+];
+var _purgeProgressTimer = null;
+
+function _startPurgeProgress(estimateMs) {
+  var bar = document.getElementById('purgeProgressBar');
+  var txt = document.getElementById('purgeProgressText');
+  var pct = document.getElementById('purgeProgressPct');
+  if (!bar || !txt || !pct) return;
+  var started = Date.now();
+  if (_purgeProgressTimer) clearInterval(_purgeProgressTimer);
+  _purgeProgressTimer = setInterval(function() {
+    var elapsed = Date.now() - started;
+    var ratio = Math.min(elapsed / estimateMs, 1);
+    // 97%까지만 자동 차오름 (100%는 서버 응답 후)
+    var pctVal = Math.min(Math.round(ratio * 97), 97);
+    bar.style.width = pctVal + '%';
+    pct.textContent = pctVal + '%';
+    // 현재 단계 텍스트
+    for (var i = _purgePhases.length - 1; i >= 0; i--) {
+      if (pctVal >= (i === 0 ? 0 : _purgePhases[i-1].pct)) {
+        txt.textContent = _purgePhases[i].text;
+        break;
+      }
+    }
+  }, 250);
+}
+
+function _stopPurgeProgress(finalPct, finalText) {
+  if (_purgeProgressTimer) { clearInterval(_purgeProgressTimer); _purgeProgressTimer = null; }
+  var bar = document.getElementById('purgeProgressBar');
+  var txt = document.getElementById('purgeProgressText');
+  var pct = document.getElementById('purgeProgressPct');
+  if (bar) bar.style.width = (finalPct||100) + '%';
+  if (pct) pct.textContent = (finalPct||100) + '%';
+  if (txt && finalText) txt.textContent = finalText;
+}
+
 async function submitPurge() {
   var uids = Object.keys(_purgeSelected);
   if (!uids.length) return;
@@ -4049,7 +4148,20 @@ async function submitPurge() {
   var btn = document.getElementById('purge-exec-btn');
   if (btn) btn.disabled = true;
 
-  showLoading('계정을 파기하는 중이에요… 🗑');
+  // 진행 단계 모달로 전환 (기존 showLoading 제거)
+  _purgeSetStep(4);
+  // 초기 상태 리셋
+  var bar = document.getElementById('purgeProgressBar');
+  if (bar) bar.style.width = '0%';
+  var pct = document.getElementById('purgeProgressPct');
+  if (pct) pct.textContent = '0%';
+  var txt = document.getElementById('purgeProgressText');
+  if (txt) txt.textContent = '준비하고 있어요…';
+
+  // 학생당 약 10초 예상 (Supabase 9회 + Sheets 8회 + Drive + 메일)
+  var estimateMs = Math.max(9000, uids.length * 10000);
+  _startPurgeProgress(estimateMs);
+
   try {
     var res = await api('purge_students', {
       admin_uid:  STATE.user && STATE.user.admin_uid,
@@ -4057,25 +4169,35 @@ async function submitPurge() {
       student_uids: uids,
       confirm_text: '삭제'
     });
-    hideLoading();
     if (res && res.status === 'ok') {
       var n = (res.data && res.data.purged) || res.purged || 0;
-      toast('✅ ' + n + '명 파기 완료 · 증빙 메일 발송됐어요');
-      closeModal('modal-purge');
-      _purgeSelected = {};
-      // 프론트 캐시 강제 재로드 (파기된 UID 잔존 방지)
-      _teacherAll = []; _studentsByTeacher = {}; _studentsByTeacherLoaded = false;
-      renderAdminAccountMgmt();
-      if (typeof loadAdminDashboard === 'function') loadAdminDashboard();
+      _stopPurgeProgress(100, '✅ 파기 완료!');
+      setTimeout(function() {
+        toast('✅ ' + n + '명 파기 완료 · 증빙 메일 발송됐어요');
+        closeModal('modal-purge');
+        _purgeSelected = {};
+        // 프론트 캐시 강제 재로드 (파기된 UID 잔존 방지)
+        _teacherAll = []; _studentsByTeacher = {}; _studentsByTeacherLoaded = false;
+        renderAdminAccountMgmt();
+        renderInactiveStudentsCard();
+        if (typeof loadAdminDashboard === 'function') loadAdminDashboard();
+      }, 700); // 완료 메시지 잠깐 보여준 뒤 닫기
     } else {
-      toast((res && res.message) || '파기 실패');
-      if (btn) btn.disabled = false;
+      _stopPurgeProgress(0, '⚠️ 파기 실패 — ' + ((res && res.message) || '오류'));
+      setTimeout(function() {
+        toast((res && res.message) || '파기 실패');
+        _purgeSetStep(3);
+        if (btn) btn.disabled = false;
+      }, 1200);
     }
   } catch(e) {
-    hideLoading();
     console.error('[PURGE ERROR]', e && e.message ? e.message : e);
-    toast('파기 중 오류가 발생했어요');
-    if (btn) btn.disabled = false;
+    _stopPurgeProgress(0, '⚠️ 오류가 발생했어요');
+    setTimeout(function() {
+      toast('파기 중 오류가 발생했어요');
+      _purgeSetStep(3);
+      if (btn) btn.disabled = false;
+    }, 1200);
   }
 }
 
@@ -5190,6 +5312,7 @@ function switchTab(idx) {
       var admBgm = document.getElementById('adm-set-bgm');
       if (admBgm) admBgm.checked = AUDIO.enabled.bgm;
       _refreshBroadcastCooldownUI(); // 73차: 탭 진입 시 새로고침 버튼 쿨다운 갱신
+      renderInactiveStudentsCard();  // 75차: 비활성 학생 카운트·버튼 상태 갱신
     }
   }
   // 66차: 학부모 설정 탭 진입 시 BGM 토글 상태 동기화
@@ -5350,7 +5473,24 @@ function buildTeacherUI() {
 }
 
 function adminHTML() {
-  return '<div class="card" style="margin-bottom:10px">' +
+  // 75차: 2월 마지막 주간 배너 (학년 마무리 시점 힌트)
+  var yearEndBanner = '';
+  if (_isLastWeekOfFeb()) {
+    yearEndBanner =
+      '<div id="yearEndBanner" class="card" style="margin-bottom:10px;background:linear-gradient(135deg,#fff7ed,#fef3c7);border:1.5px solid #fbbf24;padding:12px 14px">' +
+        '<div style="display:flex;align-items:center;gap:10px">' +
+          '<span style="font-size:22px;flex:0 0 auto">🗓</span>' +
+          '<div style="flex:1;min-width:0;word-break:keep-all">' +
+            '<div style="font-weight:700;color:#92400e;font-size:14px">학년 마무리 주간이에요</div>' +
+            '<div style="font-size:12px;color:#78350f;margin-top:3px;line-height:1.5">비활성 학생 정리·교사 학급 갱신 시점을 확인해 보세요</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+  var pulseClass = _isLastWeekOfFeb() ? ' purge-card-pulse' : '';
+
+  return yearEndBanner +
+  '<div class="card" style="margin-bottom:10px">' +
     '<div class="card-label gaegu">⚙️ 설정</div>' +
     '<div class="settings-item">' +
       '<div><div class="settings-label">🎵 배경음악</div></div>' +
@@ -5367,19 +5507,26 @@ function adminHTML() {
       '<button class="btn btn-lav" onclick="previewStudent()">👧 학생 화면</button>' +
     '</div>' +
   '</div>' +
-  // 66차 C: 관리자 전용 — 학급 마음토큰 초기화 (관리자 탭에 상주)
-  '<div class="card" style="margin-bottom:10px">' +
-    '<div class="card-label gaegu">🌡️ 학급 마음토큰 초기화</div>' +
-    '<div style="font-size:12px;color:var(--gray);margin-bottom:10px;line-height:1.5">선택한 학급 전체 학생의 누적 마음토큰을 0으로 리셋합니다. 선물·대화·앨범 등 <b>기록은 그대로 유지</b>되고, 토큰 잔액만 초기화돼요.</div>' +
-    '<button class="btn" style="width:100%;background:#fff4f1;border:1.5px solid #e05050;color:#e05050;font-weight:700;padding:11px;border-radius:10px" onclick="openTokenResetModal()">🌡️ 마음토큰 초기화 하기</button>' +
-  '</div>' +
-  // 73차: 전체 새로고침 안내 (모달과 동일한 함수 호출 — 양쪽 버튼이 함께 쿨다운 갱신됨)
-  '<div class="card card-lav">' +
+  // 73차: 전체 새로고침 안내 — 75차 재배치: 위험도 낮은 것부터
+  '<div class="card card-lav" style="margin-bottom:10px">' +
     '<div class="card-label gaegu">📢 전체 새로고침 안내</div>' +
     '<div style="font-size:12px;color:var(--gray);margin-bottom:10px;line-height:1.5">새 버전 배포 직후, 교사·학생·학부모 화면에 <b>"새 버전이 준비됐어요"</b> 알림을 보냅니다. <span style="color:#b07d1a">⏰ 5분에 1번만 보낼 수 있어요</span></div>' +
     '<button id="adm-broadcast-btn" class="btn btn-lav" style="width:100%;padding:12px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px" onclick="confirmBroadcastAppRefresh()">' +
       '<span>📢</span><span id="adm-broadcast-label">전체 새로고침 안내 보내기</span>' +
     '</button>' +
+  '</div>' +
+  // 66차 C: 학급 마음토큰 초기화 — 75차 재배치: 가운데 (중간 위험도)
+  '<div class="card" style="margin-bottom:10px">' +
+    '<div class="card-label gaegu">🌡️ 학급 마음토큰 초기화</div>' +
+    '<div style="font-size:12px;color:var(--gray);margin-bottom:10px;line-height:1.5">선택한 학급 전체 학생의 누적 마음토큰을 0으로 리셋합니다. 선물·대화·앨범 등 <b>기록은 그대로 유지</b>되고, 토큰 잔액만 초기화돼요.</div>' +
+    '<button class="btn" style="width:100%;background:#fff4f1;border:1.5px solid #e05050;color:#e05050;font-weight:700;padding:11px;border-radius:10px" onclick="openTokenResetModal()">🌡️ 마음토큰 초기화 하기</button>' +
+  '</div>' +
+  // 75차: 비활성 계정 정리 (파기) — 가장 위험한 작업이라 마지막 배치
+  '<div id="purgeCardWrap" class="card' + pulseClass + '" style="margin-bottom:10px;background:#fef2f2;border:1.5px solid #fecaca">' +
+    '<div class="card-label gaegu" style="color:#991b1b">🗑 비활성 계정 정리</div>' +
+    '<div style="font-size:12px;color:var(--gray);margin-bottom:10px;line-height:1.5">비활성화된 학생 계정을 <b>영구 파기</b>합니다. 감정·대화·앨범·토큰·학부모 계정까지 모두 지워져요. <span style="color:#b91c1c">복구할 수 없어요</span></div>' +
+    '<div id="purgeInactiveStatus" style="font-size:12px;color:#7f1d1d;margin-bottom:10px">비활성 학생 수 확인하는 중…</div>' +
+    '<button id="purgeOpenBtn" class="btn btn-danger" style="width:100%;padding:11px;font-weight:700" onclick="openPurgeModal()" disabled>🗑 정리하기</button>' +
   '</div>';
 }
 
@@ -5430,8 +5577,6 @@ async function renderAdminAccountMgmt() {
   _renderAdminTeacherList();
   // 71차: 신청 검토 카드도 같이 갱신 (병렬)
   renderSignupReviewCard();
-  // 75차: 비활성 학생 정리 카드도 같이 갱신
-  renderInactiveStudentsCard();
 }
 
 function _renderAdminTeacherList() {
@@ -6487,8 +6632,6 @@ function studentMgmtHTML() {
     return '<div id="adminAccountMgmt">' +
       // 71차: 가입 신청 검토 카드 (pending 있을 때만 표시 — renderSignupReviewCard가 채움)
       '<div id="signupReviewCard" style="margin-bottom:12px"></div>' +
-      // 75차: 비활성 학생 계정 정리 카드 (비활성 학생 있을 때만 표시 — renderInactiveStudentsCard가 채움)
-      '<div id="purgeInactiveCard" style="margin-bottom:12px"></div>' +
       // 상단 버튼 + 필터 행
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">' +
         '<button class="btn btn-primary" style="flex-shrink:0" onclick="openTeacherForm()">👩‍🏫 + 교사 계정 만들기</button>' +
