@@ -3991,16 +3991,37 @@ function _collectInactiveStudents() {
   return out;
 }
 
-function openPurgeModal() {
+async function openPurgeModal() {
   _purgeSelected = {};
   _purgeSetStep(1);
-  _purgeRenderList();
+  // 모달 즉시 노출 (사용자에게 즉시 반응) — 빈 창 버그 방지
   var m = document.getElementById('modal-purge');
   if (m) m.classList.remove('hidden');
+  // 75차 fix: 캐시 미로드 시 race 방지 — await로 보장
+  var listEl = document.getElementById('purgeList');
+  if (listEl) listEl.innerHTML = '<div style="color:var(--gray);text-align:center;padding:16px;font-size:13px">불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div>';
+  if (!_studentsByTeacherLoaded) {
+    try {
+      var all = await _sbFetch('students', {});
+      _studentsByTeacher = {};
+      (all || []).forEach(function(s) {
+        if (!s || !s.teacher_uid) return;
+        if (!_studentsByTeacher[s.teacher_uid]) _studentsByTeacher[s.teacher_uid] = [];
+        _studentsByTeacher[s.teacher_uid].push(s);
+      });
+      _studentsByTeacherLoaded = true;
+    } catch(e) {
+      console.error('[PURGE OPEN]', e && e.message || e);
+      if (listEl) listEl.innerHTML = '<div style="color:#7f1d1d;text-align:center;padding:16px;font-size:13px">학생 정보 불러오기 실패 — 모달을 닫고 다시 시도해 주세요</div>';
+      return;
+    }
+  }
+  _purgeRenderList();
 }
 
 function _purgeSetStep(n) {
-  for (var i=1; i<=3; i++) {
+  // 75차 fix: step 4까지 모두 처리 (이전엔 i<=3이라 step-4 잔존 → 두 번째 진입 시 빈 창 버그)
+  for (var i=1; i<=4; i++) {
     var el = document.getElementById('purge-step-' + i);
     if (el) el.style.display = (i === n) ? '' : 'none';
   }
@@ -4009,6 +4030,15 @@ function _purgeSetStep(n) {
     if (inp) inp.value = '';
     var btn = document.getElementById('purge-exec-btn');
     if (btn) btn.disabled = true;
+  }
+  if (n === 4) {
+    // 진행 영역 명시 초기화 (이전 파기 잔존 표시 방지)
+    var bar = document.getElementById('purgeProgressBar');
+    var pp = document.getElementById('purgeProgressPct');
+    var pt = document.getElementById('purgeProgressText');
+    if (bar) bar.style.width = '0%';
+    if (pp) pp.textContent = '0%';
+    if (pt) pt.textContent = '준비하고 있어요…';
   }
 }
 
@@ -4181,6 +4211,7 @@ async function submitPurge() {
         toast('✅ ' + n + '명 파기 완료 · 증빙 메일 발송됐어요');
         closeModal('modal-purge');
         _purgeSelected = {};
+        _purgeSetStep(1); // 75차 fix: 다음 진입 시 step-4 잔존 방지
         // 프론트 캐시 강제 재로드 (파기된 UID 잔존 방지)
         _teacherAll = []; _studentsByTeacher = {}; _studentsByTeacherLoaded = false;
         renderAdminAccountMgmt();
