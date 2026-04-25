@@ -1409,6 +1409,20 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,0)}
   50%{box-shadow:0 0 0 8px rgba(220,38,38,.18)}
 }
+/* 75차: 학급/학교 변경 신청 버튼 펄스 (2월 마지막 주간 학년 마무리 시점) */
+.scr-btn-pulse{animation:scrBtnPulse 2s ease-in-out infinite;background:linear-gradient(135deg,#fff7ed,#fef3c7) !important;border:1.5px solid #fbbf24 !important;color:#92400e !important;font-weight:700 !important}
+@keyframes scrBtnPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,0)}
+  50%{box-shadow:0 0 0 8px rgba(251,191,36,.25)}
+}
+/* 75차: 처리방침 변경 안내 카드 펄스 (미발송 버전 있을 때) */
+.priv-notice-pulse{animation:privNoticePulse 2s ease-in-out infinite;background:linear-gradient(135deg,#eef2ff,#fef3c7);border:1.5px solid #fbbf24}
+@keyframes privNoticePulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,0)}
+  50%{box-shadow:0 0 0 8px rgba(251,191,36,.25)}
+}
+.priv-notice-newdot{display:inline-block;width:7px;height:7px;background:#dc2626;border-radius:50%;margin-left:6px;vertical-align:middle;animation:privNotifDot 1.2s ease-in-out infinite}
+@keyframes privNotifDot{0%,100%{opacity:1}50%{opacity:.3}}
 /* ───── 71차 톤앤매너 업그레이드 ───── */
 /* 한국어 어절 단위 줄바꿈 — 외톨이글자 방지 */
 .modal-kb, .modal-kb *{word-break:keep-all;overflow-wrap:break-word}
@@ -1878,6 +1892,88 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <div id="purgeProgressPct" style="text-align:center;font-size:12px;color:#7f1d1d;margin-top:8px;font-weight:700">0%</div>
       <div style="font-size:11.5px;color:var(--gray);text-align:center;margin-top:14px;line-height:1.55;word-break:keep-all">완료될 때까지 창을 닫지 말아 주세요</div>
     </div>
+  </div>
+</div>
+
+<!-- ══ 모달: 학급/학교 정보 변경 신청 (75차 — 교사 셀프) ══ -->
+<div id="modal-school-change" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-school-change')">
+  <div class="modal-box modal-kb" style="position:relative;max-height:88vh;overflow-y:auto">
+    <div class="modal-title">📝 학급·학교 정보 변경 요청</div>
+    <button class="modal-close" onclick="closeModal('modal-school-change')">✕</button>
+    <div class="modal-hint" style="word-break:keep-all">관리자 승인 후 자동으로 정보가 갱신돼요. 어떤 변경을 원하시나요?</div>
+
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button type="button" id="scr-type-class" class="btn btn-secondary" style="flex:1;padding:10px;font-size:12.5px;font-weight:700;line-height:1.4;word-break:keep-all" onclick="_scrSelectType('class_change')">🔄 학급 교체<br><span style="font-size:11px;color:var(--gray);font-weight:400">새 학년·반</span></button>
+      <button type="button" id="scr-type-school" class="btn btn-secondary" style="flex:1;padding:10px;font-size:12.5px;font-weight:700;line-height:1.4;word-break:keep-all" onclick="_scrSelectType('school_info_change')">🏫 학교 정보 변경<br><span style="font-size:11px;color:var(--gray);font-weight:400">학교 이동·수정</span></button>
+    </div>
+
+    <div id="scrCurrentBox" style="margin-top:14px;padding:10px 12px;background:#f3f4f6;border-radius:10px;font-size:12.5px;color:#374151;display:none;line-height:1.6"></div>
+
+    <div id="scrFormClass" style="display:none;margin-top:12px">
+      <div class="inp-label">희망 학년 <span style="color:#e05050">*</span></div>
+      <input class="inp" id="scr-grade" type="number" min="1" placeholder="예: 5" style="margin-bottom:10px">
+      <div class="inp-label">희망 반 <span style="color:#e05050">*</span></div>
+      <input class="inp" id="scr-class" type="number" min="1" placeholder="예: 3" style="margin-bottom:10px">
+    </div>
+
+    <div id="scrFormSchool" style="display:none;margin-top:12px">
+      <div class="inp-label">희망 학교명 <span style="color:#e05050">*</span></div>
+      <input class="inp" id="scr-school" placeholder="예: 마음초등학교" style="margin-bottom:10px">
+      <div class="inp-label">학교 유형</div>
+      <select class="inp" id="scr-school-type" style="margin-bottom:10px">
+        <option value="e">초등학교</option>
+        <option value="m">중학교</option>
+        <option value="h">고등학교</option>
+      </select>
+      <div class="inp-label">지역(시/도)</div>
+      <select class="inp" id="scr-region" style="margin-bottom:10px">
+        <option value="">선택</option>
+        <option>서울</option><option>부산</option><option>대구</option><option>인천</option><option>광주</option><option>대전</option><option>울산</option><option>세종</option><option>경기</option><option>강원</option><option>충북</option><option>충남</option><option>전북</option><option>전남</option><option>경북</option><option>경남</option><option>제주</option>
+      </select>
+      <div class="inp-label">희망 학년 <span style="color:var(--gray);font-size:11px">(선택)</span></div>
+      <input class="inp" id="scr-grade-2" type="number" min="1" placeholder="(선택)" style="margin-bottom:10px">
+      <div class="inp-label">희망 반 <span style="color:var(--gray);font-size:11px">(선택)</span></div>
+      <input class="inp" id="scr-class-2" type="number" min="1" placeholder="(선택)" style="margin-bottom:10px">
+    </div>
+
+    <div id="scrReasonBox" style="display:none">
+      <div class="inp-label">변경 사유 <span style="color:var(--gray);font-size:11px">(선택)</span></div>
+      <textarea class="inp inp-tight" id="scr-reason" rows="3" placeholder="간단히 적어주세요" style="margin-bottom:10px"></textarea>
+    </div>
+
+    <div id="scrInfoBox" style="display:none;background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;margin:6px 0;font-size:11.5px;color:#854d0e;line-height:1.5;word-break:keep-all">
+      📌 신청은 관리자 승인 후 자동 적용돼요. 거절된 신청은 90일 후 자동 파기됩니다.
+    </div>
+
+    <button id="scrSubmitBtn" class="btn btn-primary" style="width:100%;display:none;margin-top:8px;padding:12px" onclick="submitSchoolChangeRequest()">📨 신청하기</button>
+  </div>
+</div>
+
+<!-- ══ 모달: 학급/학교 변경 신청 수락 (75차 — 관리자) ══ -->
+<div id="modal-scr-accept" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-scr-accept')">
+  <div class="modal-box modal-kb" style="position:relative">
+    <div class="modal-title">✅ 변경 신청 수락</div>
+    <button class="modal-close" onclick="closeModal('modal-scr-accept')">✕</button>
+    <div id="scra-summary" style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:13px;line-height:1.6;word-break:keep-all"></div>
+    <div class="modal-hint" style="word-break:keep-all">수락하면 교사 학급/학교 정보가 자동으로 갱신돼요. 교사는 다음 로그인부터 새 정보로 보여요.</div>
+    <input type="hidden" id="scra-request-uid">
+    <button class="btn btn-primary signup-submit-btn" onclick="submitSchoolChangeAccept()">✅ 수락하고 적용</button>
+  </div>
+</div>
+
+<!-- ══ 모달: 학급/학교 변경 신청 거절 (75차 — 관리자) ══ -->
+<div id="modal-scr-reject" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-scr-reject')">
+  <div class="modal-box modal-kb" style="position:relative">
+    <div class="modal-title">🙅 변경 신청 거절</div>
+    <button class="modal-close" onclick="closeModal('modal-scr-reject')">✕</button>
+    <div id="scrr-summary" style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:13px;line-height:1.6;word-break:keep-all"></div>
+    <div class="inp-label">거절 사유 <span style="color:#e05050">*</span></div>
+    <textarea class="inp inp-tight" id="scrr-reason" rows="4" placeholder="신청자에게 발송될 사유를 입력해 주세요"></textarea>
+    <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;margin:8px 0 6px;font-size:11.5px;color:#854d0e;line-height:1.5;word-break:keep-all">
+      📌 거절된 신청은 90일 후 자동 파기돼요.
+    </div>
+    <input type="hidden" id="scrr-request-uid">
+    <button class="btn btn-primary signup-submit-btn btn-danger" onclick="submitSchoolChangeReject()">🙅 거절 처리</button>
   </div>
 </div>
 
@@ -4055,6 +4151,360 @@ async function renderInactiveStudentsCard() {
   }
 }
 
+// 75차: 처리방침 변경 안내 카드 페인트 — 미발송 버전 있을 때 펄스 + 활성화
+function _paintPrivacyNoticeCard() {
+  var card = document.getElementById('privNoticeCard');
+  var statusEl = document.getElementById('privNoticeStatus');
+  var btn = document.getElementById('privNoticeBtn');
+  if (!card || !statusEl || !btn) return;
+  var pending = STATE._privacyPending === true;
+  var current = STATE._privacyVersion || '';
+  var lastNotified = STATE._privacyLastNotified || '';
+  if (pending) {
+    card.classList.add('priv-notice-pulse');
+    statusEl.innerHTML = '⚠️ 새 시행 버전 <b>' + _escHtml(current) + '</b> 미발송' +
+      (lastNotified ? ' <span style="color:var(--gray)">(마지막 발송: ' + _escHtml(lastNotified) + ')</span>' : ' <span style="color:var(--gray)">(첫 발송)</span>') +
+      '<span class="priv-notice-newdot"></span>';
+    statusEl.style.color = '#92400e';
+    btn.disabled = false;
+    btn.classList.remove('btn-secondary');
+    btn.classList.add('btn-primary');
+    btn.style.background = '';
+    btn.style.color = '';
+  } else {
+    card.classList.remove('priv-notice-pulse');
+    statusEl.innerHTML = '✅ 최신 버전 <b>' + _escHtml(current || '—') + '</b> 안내 완료';
+    statusEl.style.color = '#16a34a';
+    btn.disabled = true;
+    btn.classList.remove('btn-primary');
+    btn.classList.add('btn-secondary');
+    btn.style.opacity = 0.6;
+  }
+}
+
+// 75차: 처리방침 변경 안내 발송 — 확인 후 broadcastPrivacyNotice 호출
+async function confirmBroadcastPrivacyNotice() {
+  if (STATE.isPreview) { toast('미리보기 모드에서는 사용할 수 없어요'); return; }
+  if (!STATE._privacyPending) { toast('이미 최신 버전을 안내했어요'); return; }
+  var ver = STATE._privacyVersion || '';
+  var ok = await appConfirm({
+    title: '📜 처리방침 변경 안내를 보낼까요?',
+    body: '시행 버전 <b>' + _escHtml(ver) + '</b>을 활성 교사·학생·학부모 모두에게 알림으로 보냅니다.<br>알림을 누르면 처리방침 페이지(/privacy)가 열려요.',
+    okText: '📜 보내기',
+    cancelText: '취소'
+  });
+  if (!ok) return;
+  var btn = document.getElementById('privNoticeBtn');
+  if (btn) btn.disabled = true;
+  // 낙관적 UI: 발송 즉시 카드 상태 갱신 (실패 시 롤백)
+  toast('처리방침 변경 안내를 보내는 중이에요 📜');
+  try {
+    var res = await api('broadcast_privacy_notice', { admin_uid: (STATE.user && STATE.user.admin_uid) || '' });
+    if (res && res.status === 'ok') {
+      var d = res.data || res;
+      var n = d.count || 0;
+      toast('✅ ' + n + '명에게 안내를 보냈어요');
+      STATE._privacyPending = false;
+      STATE._privacyLastNotified = d.version || ver;
+      _paintPrivacyNoticeCard();
+    } else {
+      toast((res && res.message) || '발송 실패');
+      if (btn) btn.disabled = false;
+    }
+  } catch(e) {
+    console.error('[BC PRIVACY]', e && e.message || e);
+    toast('발송 중 오류가 발생했어요');
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 75차: 교사 셀프 — 학급/학교 정보 변경 신청
+// ═══════════════════════════════════════════════════════════════
+var _scrType = '';
+
+function openSchoolChangeRequest() {
+  if (STATE.isPreview) { toast('미리보기 모드에서는 사용할 수 없어요'); return; }
+  var u = STATE.user || {};
+  if (!u.teacher_uid) { toast('로그인 정보가 없어요'); return; }
+  _scrType = '';
+  // 폼 초기화
+  ['scr-grade','scr-class','scr-school','scr-grade-2','scr-class-2','scr-reason'].forEach(function(id){
+    var el = document.getElementById(id); if (el) el.value = '';
+  });
+  var stEl = document.getElementById('scr-school-type'); if (stEl) stEl.value = u.school_type || 'e';
+  var rgEl = document.getElementById('scr-region'); if (rgEl) rgEl.value = '';
+  // 폼·안내 모두 숨김
+  document.getElementById('scrFormClass').style.display = 'none';
+  document.getElementById('scrFormSchool').style.display = 'none';
+  document.getElementById('scrCurrentBox').style.display = 'none';
+  document.getElementById('scrReasonBox').style.display = 'none';
+  document.getElementById('scrInfoBox').style.display = 'none';
+  document.getElementById('scrSubmitBtn').style.display = 'none';
+  // 유형 버튼 active 초기화
+  ['scr-type-class','scr-type-school'].forEach(function(id){
+    var b = document.getElementById(id);
+    if (b) { b.classList.remove('btn-primary'); b.classList.add('btn-secondary'); }
+  });
+  openModal('modal-school-change');
+}
+
+function _scrSelectType(type) {
+  _scrType = type;
+  var u = STATE.user || {};
+  // 버튼 active 토글
+  var bC = document.getElementById('scr-type-class');
+  var bS = document.getElementById('scr-type-school');
+  [bC, bS].forEach(function(b){ if (b) { b.classList.remove('btn-primary'); b.classList.add('btn-secondary'); }});
+  if (type === 'class_change' && bC) { bC.classList.add('btn-primary'); bC.classList.remove('btn-secondary'); }
+  if (type === 'school_info_change' && bS) { bS.classList.add('btn-primary'); bS.classList.remove('btn-secondary'); }
+  // 현재 정보 표시
+  var curBox = document.getElementById('scrCurrentBox');
+  curBox.innerHTML = '<b>현재 정보</b><br>' + _escHtml(u.school_name || '?') +
+    ' · ' + _escHtml(String(u.grade || '?')) + '학년 ' + _escHtml(String(u.class || '?')) + '반';
+  curBox.style.display = '';
+  // 폼 분기
+  document.getElementById('scrFormClass').style.display = (type === 'class_change') ? '' : 'none';
+  document.getElementById('scrFormSchool').style.display = (type === 'school_info_change') ? '' : 'none';
+  // 사유·안내·제출
+  document.getElementById('scrReasonBox').style.display = '';
+  document.getElementById('scrInfoBox').style.display = '';
+  document.getElementById('scrSubmitBtn').style.display = '';
+  // 학교 정보 변경 시 현재 학교명 prefill
+  if (type === 'school_info_change') {
+    var sEl = document.getElementById('scr-school');
+    if (sEl && !sEl.value) sEl.value = u.school_name || '';
+  }
+}
+
+async function submitSchoolChangeRequest() {
+  if (STATE.isPreview) return;
+  var u = STATE.user || {};
+  if (!_scrType) { toast('변경 유형을 선택해 주세요'); return; }
+
+  var payload = {
+    teacher_uid: u.teacher_uid,
+    teacher_name: u.name || '',
+    request_type: _scrType,
+    current_school: u.school_name || '',
+    current_grade: String(u.grade || ''),
+    current_class: String(u.class || ''),
+    reason: (document.getElementById('scr-reason').value || '').trim()
+  };
+  if (_scrType === 'class_change') {
+    var g = (document.getElementById('scr-grade').value || '').trim();
+    var c = (document.getElementById('scr-class').value || '').trim();
+    if (!g || !c) { toast('희망 학년·반을 입력해 주세요'); return; }
+    payload.desired_grade = g; payload.desired_class = c;
+    payload.desired_school = u.school_name || '';
+  } else {
+    var ds = (document.getElementById('scr-school').value || '').trim();
+    if (!ds) { toast('희망 학교명을 입력해 주세요'); return; }
+    payload.desired_school = ds;
+    payload.desired_school_type = (document.getElementById('scr-school-type').value || '').trim();
+    payload.desired_region = (document.getElementById('scr-region').value || '').trim();
+    payload.desired_grade = (document.getElementById('scr-grade-2').value || '').trim();
+    payload.desired_class = (document.getElementById('scr-class-2').value || '').trim();
+  }
+
+  // 낙관적 UI: 즉시 모달 닫고 토스트
+  closeModal('modal-school-change');
+  toast('신청을 보내는 중이에요 📨');
+  try {
+    var res = await api('request_school_change', payload);
+    if (res && res.status === 'ok') {
+      toast('✅ 신청이 접수됐어요. 관리자 검토 후 알림으로 결과를 받아요');
+    } else {
+      toast((res && res.message) || '신청 실패');
+    }
+  } catch(e) {
+    console.error('[SCR REQUEST]', e && e.message || e);
+    toast('신청 중 오류가 발생했어요');
+  }
+}
+
+// 75차: 관리자 검토 카드 (계정관리 탭) — 71차 signupReviewCard 패턴
+async function renderSchoolChangeReviewCard() {
+  var box = document.getElementById('schoolChangeReviewCard');
+  if (!box) return;
+  if (STATE.role !== 'admin' || STATE.isPreview) { box.innerHTML = ''; return; }
+  try {
+    var list = null;
+    try {
+      var rows = await _sbFetch('school_change_requests', { status: 'in.(pending,rejected)', order: 'timestamp.desc' });
+      if (rows && Array.isArray(rows)) list = rows;
+    } catch(sbErr) { console.warn('[SCR LIST SB]', sbErr && sbErr.message); }
+    if (!list) {
+      var res = await api('list_school_change_requests', { status_filter: 'pending_and_rejected' });
+      if (!res || res.status !== 'ok') { box.innerHTML = ''; return; }
+      list = (res.data && res.data.requests) || [];
+    }
+    if (!list.length) { box.innerHTML = ''; return; }
+    var pendings = [], rejects = [];
+    list.forEach(function(r){
+      if (r.status === 'rejected') rejects.push(r);
+      else if (r.status === 'pending' || !r.status) pendings.push(r);
+    });
+    var html = '';
+    if (pendings.length) {
+      html += '<div class="card card-lav" style="padding:12px 14px;margin-bottom:8px">' +
+        '<div class="card-label gaegu" style="margin-bottom:6px">📋 학급/학교 변경 신청 검토 <span style="color:#e05050;font-weight:700">(' + pendings.length + '건)</span></div>' +
+        '<div style="font-size:12px;color:var(--gray);line-height:1.5">수락 시 교사의 학급·학교 정보가 자동으로 갱신돼요. 거절은 사유와 함께 안내가 발송됩니다.</div>' +
+      '</div>';
+      html += pendings.map(function(r){ return _buildScrPendingCard(r); }).join('');
+    }
+    if (rejects.length) {
+      html += '<div class="card" style="padding:12px 14px;margin:14px 0 8px;background:#fafafa;border:1px solid #e5e7eb">' +
+        '<div class="card-label gaegu" style="margin-bottom:6px;color:#6b7280">🗑 거절 처리 · 자동 파기 대기 <span style="color:#9ca3af;font-weight:700">(' + rejects.length + '건)</span></div>' +
+        '<div style="font-size:12px;color:var(--gray);line-height:1.5">거절된 신청은 <b>거절 후 90일</b>이 지나면 자동 파기돼요.</div>' +
+      '</div>';
+      html += rejects.map(function(r){ return _buildScrRejectedCard(r); }).join('');
+    }
+    box.innerHTML = html;
+    window._scrPending = {};
+    list.forEach(function(r){ window._scrPending[r.request_uid] = r; });
+  } catch(e) {
+    console.error('[SCR LIST]', e && e.message || e);
+    box.innerHTML = '';
+  }
+}
+
+function _scrTypeLabel(t) { return t === 'class_change' ? '🔄 학급 교체' : (t === 'school_info_change' ? '🏫 학교 정보 변경' : '변경'); }
+
+function _buildScrPendingCard(r) {
+  var typeLabel = _scrTypeLabel(r.request_type);
+  var diff = (r.request_type === 'class_change')
+    ? '<div style="font-size:11.5px;color:var(--gray);margin-top:4px"><b>현재</b> ' + _escHtml(r.current_school || '?') + ' ' + _escHtml(String(r.current_grade || '?')) + '-' + _escHtml(String(r.current_class || '?')) + ' → <b>희망</b> ' + _escHtml(String(r.desired_grade || '?')) + '학년 ' + _escHtml(String(r.desired_class || '?')) + '반</div>'
+    : '<div style="font-size:11.5px;color:var(--gray);margin-top:4px"><b>현재</b> ' + _escHtml(r.current_school || '?') + ' → <b>희망</b> ' + _escHtml(r.desired_school || '?') + (r.desired_region ? ' (' + _escHtml(r.desired_region) + ')' : '') + '</div>';
+  var reason = r.reason ? ('<div style="font-size:11.5px;color:var(--gray);margin-top:4px;white-space:pre-wrap">💬 ' + _escHtml(r.reason) + '</div>') : '';
+  var daysAgo = _daysSince(r.timestamp);
+  var ageBadge = (daysAgo >= 14) ? ' <span style="background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:1px 6px;font-size:10.5px;margin-left:4px;font-weight:700">⚠️ ' + daysAgo + '일 미처리</span>' : (daysAgo >= 1 ? ' <span style="color:#9ca3af;font-size:10.5px;margin-left:4px">· ' + daysAgo + '일 전</span>' : '');
+  return '<div class="card scr-req-card" data-ruid="' + _escHtml(r.request_uid) + '" style="margin-bottom:8px;padding:12px 14px">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:14px;font-weight:700;color:var(--navy)">' + typeLabel + ' · ' + _escHtml(r.teacher_name || '?') + ' 선생님' + ageBadge + '</div>' +
+        diff + reason +
+        '<div style="font-size:11px;color:var(--gray);margin-top:3px">🕑 ' + _timeAgo(r.timestamp) + '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;flex-shrink:0">' +
+        '<button class="btn btn-sm btn-primary" style="font-size:11.5px;padding:7px 12px" onclick="_openScrAcceptModal(\'' + _escHtml(r.request_uid) + '\')">✅ 수락</button>' +
+        '<button class="btn btn-sm btn-secondary" style="font-size:11.5px;padding:7px 12px;background:#fef2f2;border-color:#fecaca;color:#b91c1c" onclick="_openScrRejectModal(\'' + _escHtml(r.request_uid) + '\')">🙅 거절</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function _buildScrRejectedCard(r) {
+  var typeLabel = _scrTypeLabel(r.request_type);
+  var rejectedDays = _daysSince(r.processed_at || r.timestamp);
+  var daysLeft = Math.max(0, 90 - rejectedDays);
+  var urgent = daysLeft <= 14;
+  var overdue = daysLeft === 0;
+  var dCol = overdue ? '#b91c1c' : (urgent ? '#dc2626' : '#6b7280');
+  var dBg  = overdue ? '#fef2f2' : (urgent ? '#fff7ed' : '#f3f4f6');
+  var dText = overdue ? '⏰ 오늘 자동 파기 예정' : ('🗑 자동 파기까지 D-' + daysLeft + '일');
+  var reasonLine = r.admin_note ? ('<div style="font-size:11.5px;color:#9ca3af;margin-top:4px;white-space:pre-wrap">사유: ' + _escHtml(r.admin_note) + '</div>') : '';
+  return '<div class="card scr-req-card" data-ruid="' + _escHtml(r.request_uid) + '" style="margin-bottom:8px;padding:12px 14px;background:#fafafa;opacity:.85">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:13.5px;font-weight:700;color:#6b7280">🚫 ' + typeLabel + ' · ' + _escHtml(r.teacher_name || '?') + '</div>' +
+        '<div style="display:inline-block;font-size:11.5px;font-weight:700;color:' + dCol + ';background:' + dBg + ';border-radius:8px;padding:2px 8px;margin-top:4px">' + dText + '</div>' +
+        '<div style="font-size:11px;color:var(--gray);margin-top:3px">🚫 ' + rejectedDays + '일 전 거절</div>' +
+        reasonLine +
+      '</div>' +
+      '<div style="display:flex;gap:6px;flex-shrink:0">' +
+        '<button class="btn btn-sm btn-secondary" style="font-size:11.5px;padding:7px 10px;background:#fef2f2;border-color:#fecaca;color:#b91c1c;font-weight:700" onclick="confirmPurgeScr(\'' + _escHtml(r.request_uid) + '\',\'' + _escHtml(r.teacher_name || '신청') + '\')">🗑 즉시 파기</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function _openScrAcceptModal(ruid) {
+  var r = (window._scrPending || {})[ruid];
+  if (!r) { toast('신청 정보를 찾을 수 없어요'); return; }
+  document.getElementById('scra-request-uid').value = ruid;
+  var summary = (r.request_type === 'class_change')
+    ? '<b>' + _escHtml(r.teacher_name || '') + ' 선생님</b> · ' + _scrTypeLabel(r.request_type) + '<br>' +
+      _escHtml(r.current_school || '') + ' ' + _escHtml(String(r.current_grade || '')) + '-' + _escHtml(String(r.current_class || '')) + ' → ' +
+      '<b>' + _escHtml(String(r.desired_grade || '')) + '학년 ' + _escHtml(String(r.desired_class || '')) + '반</b>'
+    : '<b>' + _escHtml(r.teacher_name || '') + ' 선생님</b> · ' + _scrTypeLabel(r.request_type) + '<br>' +
+      _escHtml(r.current_school || '') + ' → <b>' + _escHtml(r.desired_school || '') + '</b>' + (r.desired_region ? ' (' + _escHtml(r.desired_region) + ')' : '');
+  document.getElementById('scra-summary').innerHTML = summary + (r.reason ? ('<div style="margin-top:6px;font-size:12px;color:#6b7280">💬 ' + _escHtml(r.reason) + '</div>') : '');
+  openModal('modal-scr-accept');
+}
+
+async function submitSchoolChangeAccept() {
+  var ruid = document.getElementById('scra-request-uid').value;
+  if (!ruid) return;
+  closeModal('modal-scr-accept');
+  toast('수락 처리 중이에요 ✅');
+  try {
+    var res = await api('accept_school_change', { request_uid: ruid });
+    if (res && res.status === 'ok') {
+      toast('✅ 수락 완료 · 교사 정보 자동 갱신');
+      _teacherAll = []; _studentsByTeacher = {}; _studentsByTeacherLoaded = false;
+      renderAdminAccountMgmt();
+      renderSchoolChangeReviewCard();
+    } else {
+      toast((res && res.message) || '수락 실패');
+    }
+  } catch(e) {
+    console.error('[SCR ACCEPT]', e && e.message || e);
+    toast('처리 중 오류가 발생했어요');
+  }
+}
+
+function _openScrRejectModal(ruid) {
+  var r = (window._scrPending || {})[ruid];
+  if (!r) { toast('신청 정보를 찾을 수 없어요'); return; }
+  document.getElementById('scrr-request-uid').value = ruid;
+  document.getElementById('scrr-reason').value = '';
+  document.getElementById('scrr-summary').innerHTML = '<b>' + _escHtml(r.teacher_name || '') + ' 선생님</b> · ' + _scrTypeLabel(r.request_type);
+  openModal('modal-scr-reject');
+}
+
+async function submitSchoolChangeReject() {
+  var ruid = document.getElementById('scrr-request-uid').value;
+  var reason = (document.getElementById('scrr-reason').value || '').trim();
+  if (!reason) { toast('거절 사유를 입력해주세요'); return; }
+  closeModal('modal-scr-reject');
+  toast('거절 처리 중이에요 ✉️');
+  try {
+    var res = await api('reject_school_change', { request_uid: ruid, reason: reason });
+    if (res && res.status === 'ok') {
+      var sent = res.data && res.data.applicant_email_sent;
+      toast(sent ? '거절 완료 · 신청자 메일 발송 📧' : '거절 완료 · 이메일 없어 구두 안내 필요 📣');
+      renderSchoolChangeReviewCard();
+    } else {
+      toast((res && res.message) || '거절 실패');
+    }
+  } catch(e) {
+    console.error('[SCR REJECT]', e && e.message || e);
+    toast('처리 중 오류가 발생했어요');
+  }
+}
+
+async function confirmPurgeScr(ruid, name) {
+  var ok = await appConfirm({
+    title: '🗑 신청을 지금 파기할까요?',
+    body: '<b>' + (name || '신청') + '</b>의 거절된 변경 신청을 영구 삭제합니다.<br>이 작업은 <b style="color:#b91c1c">되돌릴 수 없어요</b>.',
+    okText: '🗑 파기', cancelText: '취소', danger: true
+  });
+  if (!ok) return;
+  try {
+    var res = await api('purge_school_change_request', { request_uid: ruid });
+    if (res && res.status === 'ok') {
+      toast('✅ 신청을 파기했어요');
+      renderSchoolChangeReviewCard();
+    } else {
+      toast((res && res.message) || '파기 실패');
+    }
+  } catch(e) {
+    console.error('[SCR PURGE]', e && e.message || e);
+    toast('파기 중 오류가 발생했어요');
+  }
+}
+
 // 75차: 2월 마지막 주간 판정 (월~일 기준) — 학년 마무리 힌트용
 // 2월 마지막 날(29·28)이 속한 주의 월요일부터 일요일까지
 function _isLastWeekOfFeb(date) {
@@ -5110,6 +5560,15 @@ async function onLoginSuccess(data) {
         loadNotifications(),
         renderAdminAccountMgmt(),   // 내부에서 _sbGetTeachersAll + _sbFetch('students',{}) 병렬 + signup card
       ]);
+      // 75차: 처리방침 변경 안내 미발송 버전 1회 체크 (폴링 X)
+      api('check_privacy_pending', {}).then(function(res){
+        if (res && res.status === 'ok') {
+          var d = res.data || res;
+          STATE._privacyPending = !!d.pending;
+          STATE._privacyVersion = d.current_version || '';
+          STATE._privacyLastNotified = d.last_notified_version || '';
+        }
+      }).catch(function(e){ console.warn('[PRIVACY PENDING]', e && e.message || e); });
     } else {
       // 교사: 학급 대시보드 + 학생 목록 + 출석부 맵 + 알림 — 동시 로드
       var _bgToday = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
@@ -5454,6 +5913,7 @@ function switchTab(idx) {
       if (admBgm) admBgm.checked = AUDIO.enabled.bgm;
       _refreshBroadcastCooldownUI(); // 73차: 탭 진입 시 새로고침 버튼 쿨다운 갱신
       renderInactiveStudentsCard();  // 75차: 비활성 학생 카운트·버튼 상태 갱신
+      _paintPrivacyNoticeCard();     // 75차: 처리방침 변경 안내 카드 상태·하이라이트 갱신
     }
   }
   // 66차: 학부모 설정 탭 진입 시 BGM 토글 상태 동기화
@@ -5493,6 +5953,8 @@ function settingsHTML() {
       '<div class="card-label">계정 정보</div>' +
       '<div style="font-size:13px;color:var(--gray);line-height:1.8" id="teacherInfoBox"></div>' +
       '<div style="font-size:11px;color:var(--gray);margin-top:8px;padding:8px 10px;background:var(--lgray);border-radius:8px">🔒 학교·학년·반 정보는 관리자만 변경할 수 있어요</div>' +
+      // 75차: 학급/학교 정보 변경 셀프 신청 — 2월 마지막 주간 pulse 안내
+      '<button id="scrRequestBtn" class="btn btn-secondary' + (_isLastWeekOfFeb() ? ' scr-btn-pulse' : '') + '" style="margin-top:8px;width:100%;font-size:13px;padding:13px 18px" onclick="openSchoolChangeRequest()">📝 학급·학교 정보 변경 요청</button>' +
       '<button class="btn btn-secondary" style="margin-top:10px;width:100%;font-size:13px;padding:13px 18px" onclick="openChangeTeacherName()">✏️ 이름 변경</button>' +
       '<button class="btn btn-secondary" style="margin-top:8px;width:100%;font-size:13px;padding:13px 18px" onclick="openChangePwSelf()">🔑 비밀번호 변경</button>' +
       // 71차: 교사 본인 NFC 등록/교체 + 이메일 등록/변경 (Google 로그인 연동용)
@@ -5656,6 +6118,13 @@ function adminHTML() {
       '<span>📢</span><span id="adm-broadcast-label">전체 새로고침 안내 보내기</span>' +
     '</button>' +
   '</div>' +
+  // 75차: 처리방침 변경 안내 — 미발송 버전 있을 때만 펄스 하이라이트
+  '<div id="privNoticeCard" class="card" style="margin-bottom:10px">' +
+    '<div class="card-label gaegu">📜 처리방침 변경 안내</div>' +
+    '<div style="font-size:12px;color:var(--gray);margin-bottom:10px;line-height:1.5">처리방침이 갱신되면 교사·학생·학부모에게 변경 알림을 보냅니다. 알림 클릭 시 <b>처리방침 페이지(/privacy)</b>가 열려요.</div>' +
+    '<div id="privNoticeStatus" style="font-size:11.5px;color:var(--gray);margin-bottom:10px">상태 확인 중…</div>' +
+    '<button id="privNoticeBtn" class="btn btn-secondary" style="width:100%;padding:11px;font-weight:700" onclick="confirmBroadcastPrivacyNotice()" disabled>📜 처리방침 변경 안내 보내기</button>' +
+  '</div>' +
   // 66차 C: 학급 마음토큰 초기화 — 75차 재배치: 가운데 (중간 위험도)
   '<div class="card" style="margin-bottom:10px">' +
     '<div class="card-label gaegu">🌡️ 학급 마음토큰 초기화</div>' +
@@ -5718,6 +6187,8 @@ async function renderAdminAccountMgmt() {
   _renderAdminTeacherList();
   // 71차: 신청 검토 카드도 같이 갱신 (병렬)
   renderSignupReviewCard();
+  // 75차: 학급/학교 변경 신청 검토 카드도 같이 갱신
+  renderSchoolChangeReviewCard();
 }
 
 function _renderAdminTeacherList() {
@@ -6773,6 +7244,8 @@ function studentMgmtHTML() {
     return '<div id="adminAccountMgmt">' +
       // 71차: 가입 신청 검토 카드 (pending 있을 때만 표시 — renderSignupReviewCard가 채움)
       '<div id="signupReviewCard" style="margin-bottom:12px"></div>' +
+      // 75차: 학급/학교 변경 신청 검토 카드 (pending+rejected 있을 때만 표시 — renderSchoolChangeReviewCard가 채움)
+      '<div id="schoolChangeReviewCard" style="margin-bottom:12px"></div>' +
       // 상단 버튼 + 필터 행
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">' +
         '<button class="btn btn-primary" style="flex-shrink:0" onclick="openTeacherForm()">👩‍🏫 + 교사 계정 만들기</button>' +
@@ -8478,7 +8951,7 @@ function renderNotifDropdown(page) {
   if (!dd) return;
   if (page !== undefined) _notifPage = page;
 
-  var ICON = { token_gift:'💝', emotion_crisis:'⚡', attendance:'🏫', crisis_chat:'⚠️', signup_request:'📝', app_update:'🔄' }; // 71차: 교사 가입 신청 / 73차: 앱 새로고침 안내
+  var ICON = { token_gift:'💝', emotion_crisis:'⚡', attendance:'🏫', crisis_chat:'⚠️', signup_request:'📝', app_update:'🔄', privacy_notice:'📜', school_change_request:'📋', school_change_result:'🏫' }; // 71차: 교사 가입 신청 / 73차: 앱 새로고침 안내 / 75차: 처리방침 변경 안내·학급/학교 변경
   var total = _notifications.length;
   var totalPages = Math.max(1, Math.ceil(total / NOTIF_PER_PAGE));
   if (_notifPage >= totalPages) _notifPage = totalPages - 1;
@@ -8557,6 +9030,33 @@ async function markNotifRead(uid, el) {
   if (notif && notif.type === 'app_update') {
     try { document.getElementById('notifDropdown').style.display = 'none'; } catch(e) {}
     openAppRefreshModal();
+    return;
+  }
+  // 75차: 처리방침 변경 안내 알림 클릭 → /privacy 새 탭
+  if (notif && notif.type === 'privacy_notice') {
+    try { document.getElementById('notifDropdown').style.display = 'none'; } catch(e) {}
+    try { window.open('./privacy', '_blank', 'noopener'); } catch(e) {}
+    return;
+  }
+  // 75차: 학급/학교 변경 신청 알림 클릭 → 관리자 계정관리 탭 점프 + 카드 하이라이트
+  if (notif && notif.type === 'school_change_request' && STATE.role === 'admin') {
+    try { document.getElementById('notifDropdown').style.display = 'none'; } catch(e) {}
+    switchTab(1);
+    setTimeout(function() {
+      try {
+        var card = document.querySelector('.scr-req-card[data-ruid="' + notif.related_uid + '"]');
+        if (card) {
+          card.scrollIntoView({ behavior:'smooth', block:'center' });
+          card.classList.add('signup-req-flash');
+          setTimeout(function(){ card.classList.remove('signup-req-flash'); }, 1600);
+        }
+      } catch(e) {}
+    }, 350);
+    return;
+  }
+  // 75차: 학급/학교 변경 결과 알림(교사 본인) → 토스트만
+  if (notif && notif.type === 'school_change_result') {
+    try { document.getElementById('notifDropdown').style.display = 'none'; } catch(e) {}
     return;
   }
   // 71차: 가입 신청 알림 클릭 → 관리자 계정관리 탭으로 점프 + 신청 카드 하이라이트
