@@ -15649,15 +15649,29 @@ async function submitEmotionAlbum() {
       // 78차 fix: 교사 단말 즉시 새로고침 신호 (76차 attendance broadcast 패턴)
       _broadcastEmotionAlbumChange(STATE.user.teacher_uid, st.emotion_id);
     } else if (st.existing && caption !== (st.existing.caption || '')) {
-      // 메모만 수정 — Supabase 직접 PATCH (GAS 우회 — 더 빠름)
+      // 78차 fix: 메모만 수정도 GAS save_album 경로로 통일 (caption_only 플래그)
+      //   원인: 76차 RLS 강화 후 album anon UPDATE 차단 → _sbPatch fail-silent → Supabase 안 변경 → 교사 단말 못 받음
+      //   해결: GAS service_role로 UPDATE → emotion 패턴(60차) 그대로 답습 → publication broadcast 자동 + 안정성
+      // 낙관적 UI는 이미 적용 (캐시 _upsertEmotionAlbumCacheRow + 그리드 즉시 갱신)
+      st.existing.caption = caption;
+      _renderEmotionGrid();
       try {
-        await _sbPatch('album', 'album_uid=eq.'+st.existing.album_uid, { caption: caption, updated_at: new Date(Date.now()+9*3600000).toISOString().slice(0,19) });
-        st.existing.caption = caption;
-        _renderEmotionGrid();
-        // 78차 fix: 메모 수정도 broadcast — 다른 단말 즉시 반영 (이전 누락 원인)
-        _broadcastEmotionAlbumChange(STATE.user.teacher_uid, st.emotion_id);
+        var resCap = await api('save_album', {
+          album_type: 'emotion',
+          caption_only: true,
+          student_uid: STATE.user.student_uid,
+          teacher_uid: STATE.user.teacher_uid,
+          emotion_id : st.emotion_id,
+          caption    : caption
+        });
+        if (!resCap || resCap.status !== 'ok') {
+          toast(resCap && resCap.message ? resCap.message : '메모를 저장하지 못했어요');
+        } else {
+          // 78차 fix: 메모 수정도 broadcast — 다른 단말 즉시 반영 (publication broadcast와 이중 안전망)
+          _broadcastEmotionAlbumChange(STATE.user.teacher_uid, st.emotion_id);
+        }
       } catch(e) {
-        console.error('[EMO CAPTION PATCH]', e);
+        console.error('[EMO CAPTION GAS]', e);
         toast('메모를 저장하지 못했어요');
       }
     }
