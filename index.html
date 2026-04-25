@@ -3111,11 +3111,13 @@ async function _sbGetStudentChatHistory(student_uid) {
 async function _sbGetParentDashboard(student_uid) {
   var cutoff = new Date(Date.now() + 9*3600000 - 7*24*3600000).toISOString().slice(0,10);
   var results = await Promise.all([
-    _sbFetch('emotions', {
+    // 76차: _sbFetchEmotionsSince — 혼합 포맷 함정 회피. order desc는 클라이언트 _tsToMs 정렬
+    _sbFetchEmotionsSince(cutoff, {
       student_uid: 'eq.' + student_uid,
-      timestamp: 'gte.' + cutoff + 'T00:00:00',
-      order: 'timestamp.desc',
       select: 'timestamp,macro_emotion,micro_emotion,emotion_score'
+    }).then(function(rows){
+      rows.sort(function(a,b){ return _tsToMs(b.timestamp) - _tsToMs(a.timestamp); });
+      return rows;
     }),
     _sbFetch('token_balance', {
       student_uid: 'eq.' + student_uid,
@@ -7346,6 +7348,8 @@ function recordsHTML() {
           '<button class="btn-icon" style="font-size:14px;padding:2px 6px" onclick="attendMove(-1)">◀</button>' +
           '<span id="attendWeekLabel" style="font-size:11px;color:var(--gray);white-space:nowrap"></span>' +
           '<button class="btn-icon" style="font-size:14px;padding:2px 6px" onclick="attendMove(1)">▶</button>' +
+          // 76차: 출석부 새로고침 — 다른 탭(대시보드·학생관리·마음앨범)과 동일 패턴
+          '<button id="btnAttendRefresh" class="btn-refresh-mini" onclick="refreshAttendance()" title="새로고침"><span class="refresh-icon">⟳</span></button>' +
         '</div>' +
       '</div>' +
       '<div id="attendGridWrap"><div style="color:var(--gray);font-size:12px;text-align:center;padding:16px">데이터를 불러오는 중이에요...</div></div>' +
@@ -9076,12 +9080,23 @@ var _notifRendering = false; // innerHTML 교체 중 외부클릭 오인 방지
 // 76차 PII: notifications anon SELECT 환경에서 body+sender_name이 학생명 직접 포함하면 외부 스크랩 시 PII 노출.
 // 서버는 body·sender_name에 학생명 빼고 보내고, 클라이언트가 related_uid로 매핑해 prefix 표시.
 // type별 톤: 교사/학부모 격식("○○ 학생이"), 학생 친근체(_subjGa), 학부모 자녀명 STATE.user에서 매핑.
-// sender_name fallback은 회귀 방어용 (서버 미배포 시 옛날 알림 보호).
+// 76차 fix: 옛 알림 body는 이미 학생명 prefix 포함 — 새 body 패턴(시작이 신규 핵심 텍스트)일 때만 prefix 추가.
+//   판별: 새 body는 type별 정해진 prefix 텍스트로 시작 ("마음토큰을"/"등교했어요"/"학교에"/"연속"/"최근"/"오늘 마음봇")
 function _resolveNotifBody(n) {
   if (!n) return '';
   var body = n.body || '';
   var typesNeedPrefix = { attendance:1, emotion_crisis:1, crisis_chat:1, token_gift:1 };
   if (!typesNeedPrefix[n.type]) return body;
+  // 옛 body 회귀 방어 — body가 새 패턴 시작이 아니면 이미 학생명 prefix 들어있음 → 그대로
+  var newBodyPatterns = {
+    token_gift: ['마음토큰을 선물'],
+    attendance: ['등교했어요', '학교에 도착'],
+    emotion_crisis: ['연속 3회', '최근 연속'],
+    crisis_chat: ['오늘 마음봇']
+  };
+  var patterns = newBodyPatterns[n.type] || [];
+  var isNewBody = patterns.some(function(p){ return body.indexOf(p) === 0; });
+  if (!isNewBody) return body; // 옛 body — 학생명 이미 포함, 그대로 표시
   var rUid = n.related_uid || '';
   var stuName = '';
   // 1순위: STATE.students 매핑 (교사·학생·관리자가 가진 학급 명단)
@@ -9097,8 +9112,7 @@ function _resolveNotifBody(n) {
   if (!stuName && STATE.user && rUid && STATE.user.student_uid === rUid) {
     stuName = STATE.user.student_name || '';
   }
-  // 3순위 (회귀 방어): 옛날 알림은 sender_name에 학생명 들어있을 수 있음
-  if (!stuName) stuName = n.sender_name || '';
+  // sender_name fallback은 76차 sender_name PII 정리로 빈 값 — 새 알림은 매핑이 정답
   var role = STATE.role || (STATE.user && STATE.user.role);
   var prefix;
   if (n.type === 'token_gift') {
@@ -9594,11 +9608,11 @@ function startEmotionSignalPoll() {
   var today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
   _signalTimer = setInterval(async function() {
     try {
-      var rows = await _sbFetch('emotions', {
+      // 76차: _sbFetchEmotionsSince — 혼합 포맷 함정 회피
+      var rows = await _sbFetchEmotionsSince(today, {
         teacher_uid: 'eq.' + tUid,
-        timestamp: 'gte.' + today + 'T00:00:00',
         type: 'eq.checkin',
-        select: 'emotion_uid'
+        select: 'emotion_uid,timestamp'
       });
       var cnt = rows ? rows.length : 0;
       if (_emotionPollCount === -1) { _emotionPollCount = cnt; return; } // 첫 회 기준값만 저장
@@ -10158,6 +10172,20 @@ async function reloadStudentsTab() {
   try {
     await Promise.all([ loadStudents(), loadDashboard() ]);
   } catch(e) { console.error('[STU-REFRESH]', e); }
+  finally {
+    if (btn) { btn.disabled = false; btn.classList.remove('spinning'); }
+  }
+}
+
+// 76차: 출석부 탭 수동 새로고침 — 다른 탭(대시보드·학생관리·마음앨범)과 동일 패턴
+//   loadDashboard() 안에 _attendanceMap 갱신 + 출석부 활성 시 renderAttendanceGrid() 자동 호출 (line 7881~)
+async function refreshAttendance() {
+  if (STATE.isPreview) return;
+  var btn = document.getElementById('btnAttendRefresh');
+  if (btn) { btn.disabled = true; btn.classList.add('spinning'); }
+  try {
+    await loadDashboard();
+  } catch(e) { console.error('[ATTEND-REFRESH]', e); }
   finally {
     if (btn) { btn.disabled = false; btn.classList.remove('spinning'); }
   }
@@ -13224,8 +13252,10 @@ async function loadTokenLog() {
         'gift_save':'선물 1개 저축','gift_save_all':'선물 모두 저축','class_bonus':'학급 보너스',
         'game':'게임 보상','regular':'저축','gift_one':'선물 저축','gift_all':'선물 전체 저축',
         'all':'전체 저축','legacy':'저축',
+        // 76차: teacher_gift 매핑 — 영어 raw 노출 + 잘못된 -1 표시 fix
+        'teacher_gift':'선생님 선물',
         'admin_reset':'🌡️ 마음토큰 초기화'}; // 66차 C: 관리자 학급 일괄 초기화
-      var GAIN={daily:1,gift_received:1,gift_recv:1,class_bonus:1,game:1};
+      var GAIN={daily:1,gift_received:1,gift_recv:1,class_bonus:1,game:1,teacher_gift:1};
       _tokenLogs = rows.map(function(r) {
         var type=String(r.type||''), amount=Math.abs(Number(r.amount||0));
         var isGain=!!GAIN[type], isSave=!isGain&&type!=='gift_sent';
@@ -13264,9 +13294,11 @@ function renderTokenLogPage() {
   var rows = page.map(function(log) {
     var color = log.gain ? 'var(--mint2)' : '#ff8c42';
     // 47차 B: 선물 방향 시각화 — 받음 ⬅️ / 보냄 ➡️, 그 외는 기본 🪙
+    // 76차: 선생님 선물 — 🎁🪙 (2 이모지짜리, 친구 선물 ➡️🪙와 동일 디자인 패턴)
     var icon = '🪙';
     if (log.type === 'gift_received' || log.type === 'gift_recv') icon = '⬅️🪙';
     else if (log.type === 'gift_sent') icon = '➡️🪙';
+    else if (log.type === 'teacher_gift') icon = '🎁🪙';
     // 66차 C: 마음토큰 초기화는 한 줄 간략 표시 (amount·아이콘 영역 비움, 라벨에 🌡️ 이미 포함)
     if (log.type === 'admin_reset') {
       return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--lgray2);color:var(--gray)">' +
