@@ -2836,6 +2836,22 @@ async function _sbDelete(table, filters) {
     throw new Error('SB DELETE '+res.status+': '+txt.slice(0,300));
   }
 }
+// 76차: Supabase INSERT (anon) — broadcast 알림 클라이언트 직접 발송용 (등교·선물·위기 등)
+//   GAS 동기 직렬 처리 5~8초 → 클라이언트 직접 INSERT 1초 이내. notifications anon_insert 정책 활용.
+async function _sbInsert(table, body) {
+  var res = await fetch(SB_URL+'/rest/v1/'+table, {
+    method: 'POST',
+    headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer '+SB_KEY,
+               'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    var txt = '';
+    try { txt = await res.text(); } catch(e) {}
+    console.error('[SB INSERT ERROR]', table, res.status, txt.slice(0,500));
+    throw new Error('SB INSERT '+res.status+': '+txt.slice(0,300));
+  }
+}
 
 // 54차: 날씨 계산 (GAS calcWeather 이식)
 function _calcWeather(pos, neu, neg, total) {
@@ -5342,15 +5358,23 @@ async function handleNfcUid(uid) {
           if (_normalizeNfc(allStudents[j].nfc_uid) === normUid) {
             var r = allStudents[j];
             var _adl0 = parseInt(r.album_daily_limit, 10);
+            // 76차: 학부모 매핑 fetch — 응답 data에 parent_uids 포함해 onLoginSuccess가 알림 INSERT 처리
+            var _puids2 = [];
+            try {
+              var _pRows2 = await _sbFetch('parents', { student_uid:'eq.'+r.student_uid, active:'eq.Y' });
+              _puids2 = (_pRows2||[]).map(function(p){ return p.parent_uid; });
+            } catch(_pe2){ /* fetch 실패 시 _recordAttendanceClient 안에서 다시 fetch */ }
             data = { role:'student', student_uid:r.student_uid, student_id:r.student_id,
               name:r.name, teacher_uid:r.teacher_uid, school_name:r.school_name,
               grade:r.grade, class:r.class, num:r.num, gender:r.gender||'', profile_image_url:r.profile_image_url||'',
-              album_daily_limit: (_adl0>=1 && _adl0<=3) ? _adl0 : 1 };
-            // 토큰 지급 + 등교 알림 — 백그라운드 비동기
+              album_daily_limit: (_adl0>=1 && _adl0<=3) ? _adl0 : 1,
+              parent_uids: _puids2 };
+            // 토큰 지급 + Sheets 동기화는 GAS 백그라운드 (알림은 onLoginSuccess가 클라이언트 직접 INSERT)
             // 67차: loadTokenBalance 낙관적 +1 트리거
             STATE._justLoggedIn = true;
             api('post_login_student', { student_uid:r.student_uid, name:r.name,
-              teacher_uid:r.teacher_uid, school_name:r.school_name }).catch(function(){});
+              teacher_uid:r.teacher_uid, school_name:r.school_name,
+              attend_notif_done: true }).catch(function(){});
             break;
           }
         }
@@ -5434,15 +5458,24 @@ async function loginByPw() {
           var r = sRows[0];
           if (r.active === 'Y') {
             var _adl1 = parseInt(r.album_daily_limit, 10);
+            // 76차: 학부모 매핑 fetch — 응답에 parent_uids 포함해 STATE.user 캐시
+            var _puids1 = [];
+            try {
+              var _pRows1 = await _sbFetch('parents', { student_uid:'eq.'+r.student_uid, active:'eq.Y' });
+              _puids1 = (_pRows1||[]).map(function(p){ return p.parent_uid; });
+            } catch(_pe1){ /* fetch 실패 시 _recordAttendanceClient 안에서 다시 fetch */ }
             data = { role:'student', student_uid:r.student_uid, student_id:r.student_id,
               name:r.name, teacher_uid:r.teacher_uid, school_name:r.school_name,
               grade:r.grade, class:r.class, num:r.num, gender:r.gender||'', profile_image_url:r.profile_image_url||'',
-              album_daily_limit: (_adl1>=1 && _adl1<=3) ? _adl1 : 1 };
-            // 토큰 지급 + 등교 알림 — 백그라운드 비동기 (기다리지 않음)
+              album_daily_limit: (_adl1>=1 && _adl1<=3) ? _adl1 : 1,
+              parent_uids: _puids1 };
+            // 76차: 등교 알림은 onLoginSuccess 학생 분기에서 _recordAttendanceClient로 일괄 처리 (PW/NFC 양 경로 통합)
+            // 토큰 지급 + Sheets 동기화는 GAS 백그라운드 (알림은 클라이언트가 처리했으므로 attend_notif_done:true)
             // 67차: loadTokenBalance 낙관적 +1 트리거
             STATE._justLoggedIn = true;
             api('post_login_student', { student_uid:r.student_uid, name:r.name,
-              teacher_uid:r.teacher_uid, school_name:r.school_name }).catch(function(){});
+              teacher_uid:r.teacher_uid, school_name:r.school_name,
+              attend_notif_done: true }).catch(function(){});
           } else {
             inactiveFound = true;
           }
@@ -5511,6 +5544,10 @@ async function onLoginSuccess(data) {
   if (data.role === 'student') {
     var _dAdl = parseInt(data.album_daily_limit, 10);
     STATE.albumDailyLimit = (_dAdl >= 1 && _dAdl <= 3) ? _dAdl : null;
+    // 76차: 등교 알림 클라이언트 직접 INSERT — PW/NFC 로그인 양 경로 통합 (broadcast 즉시 1초 이내)
+    //   data.parent_uids는 Supabase 빠른 경로 _sbFetch('parents') 또는 GAS fallback 응답에서 옴
+    //   STATE._attendanceNotifiedToday 플래그로 같은 단말 세션 중복 방지
+    _recordAttendanceClient(data.student_uid, data.teacher_uid, data.parent_uids);
   }
   // 74차 B: 교사 로그인 즉시 STATE.settings seed (teachers.album_daily_limit) — loadSettings 응답 기다리지 않고 앨범 탭 첫 진입 시 정확
   if (data.role === 'teacher') {
@@ -7510,6 +7547,54 @@ function _attendShowConfirm(student) {
   document.getElementById('attend-confirm').style.display = 'block';
 }
 
+// 76차: 등교 알림 클라이언트 직접 INSERT (broadcast 즉시 도달)
+//   GAS _recordAttendance가 동기 직렬 처리(Sheets+Supabase INSERT × 2)로 5~8초 걸리던 걸 1초 이내로.
+//   호출자: handleAttendNfc(matched), 학생 PW/NFC 로그인 응답 후. GAS는 attend_notif_done:true로 알림 skip.
+//   parent_uids 안 받으면 _sbFetch('parents')로 매핑 (학생 PW/NFC 로그인은 응답에 포함, NFC 등교는 호출 시 fetch).
+//   교사 알림 즉시 + 학부모 알림 fetch 후. 같은 단말 세션 중복 방지 STATE._attendanceNotifiedToday 플래그.
+function _recordAttendanceClient(s_uid, t_uid, parent_uids_optional) {
+  if (!s_uid || !t_uid) return;
+  var today = new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+  STATE._attendanceNotifiedToday = STATE._attendanceNotifiedToday || {};
+  var key = s_uid + '_' + today;
+  if (STATE._attendanceNotifiedToday[key]) return;
+  STATE._attendanceNotifiedToday[key] = true;
+  function _newUuid(){
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c){
+      var r = Math.random()*16|0, v = c==='x'?r:(r&0x3|0x8); return v.toString(16);
+    });
+  }
+  function _newKstTs(){ return new Date(Date.now()+9*3600000).toISOString().slice(0,19); }
+  // 교사 알림 즉시 (parent fetch 안 기다림)
+  _sbInsert('notifications', {
+    notification_uid: _newUuid(), created_at: _newKstTs(),
+    recipient_uid: t_uid, type: 'attendance',
+    title: '🏫 등교 완료', body: '등교했어요',
+    sender_name: '', is_read: false, related_uid: s_uid
+  }).catch(function(e){ console.error('[ATTEND CLIENT TEACHER]', e && e.message); });
+  // 학부모 알림 — parent_uids 있으면 즉시, 없으면 fetch
+  function _insertParents(uids) {
+    (uids || []).forEach(function(puid){
+      _sbInsert('notifications', {
+        notification_uid: _newUuid(), created_at: _newKstTs(),
+        recipient_uid: puid, type: 'attendance',
+        title: '🏫 등교 완료', body: '학교에 도착했어요',
+        sender_name: '', is_read: false, related_uid: s_uid
+      }).catch(function(e){ console.error('[ATTEND CLIENT PARENT]', e && e.message); });
+    });
+  }
+  if (parent_uids_optional && parent_uids_optional.length) {
+    _insertParents(parent_uids_optional);
+  } else if (parent_uids_optional !== undefined && parent_uids_optional.length === 0) {
+    // 빈 배열이면 학부모 없음 — fetch skip
+  } else {
+    _sbFetch('parents', { student_uid:'eq.'+s_uid, active:'eq.Y' })
+      .then(function(rows){ _insertParents((rows||[]).map(function(p){ return p.parent_uid; })); })
+      .catch(function(e){ console.error('[ATTEND PARENT FETCH]', e && e.message); });
+  }
+}
+
 async function handleAttendNfc(uid) {
   if (!uid) return;
   var msg = document.getElementById('attendWaitMsg');
@@ -7559,9 +7644,13 @@ async function handleAttendNfc(uid) {
       updateNfcEnvUI(); focusNfcInput();
       return;
     }
-    // 첫 등교 → 토큰·알림 GAS 백그라운드
+    // 76차: 등교 알림 클라이언트 직접 INSERT — broadcast 즉시 (5~8초 → 1초 이내)
+    //   parent_uids 미리 안 받음 → 헬퍼 안에서 _sbFetch('parents') 매핑
+    _recordAttendanceClient(matched.student_uid, matched.teacher_uid);
+    // 첫 등교 → 토큰만 GAS 백그라운드 (알림은 클라이언트가 처리했으므로 attend_notif_done:true)
     api('post_login_student', { student_uid:matched.student_uid, name:matched.name,
-      teacher_uid:matched.teacher_uid, school_name:matched.school_name }).catch(function(){});
+      teacher_uid:matched.teacher_uid, school_name:matched.school_name,
+      attend_notif_done: true }).catch(function(){});
     AUDIO.sfx('nfc');
     _attendShowConfirm({ student_uid:matched.student_uid, student_name:matched.name,
       gender:matched.gender||'', teacher_uid:matched.teacher_uid, school_name:matched.school_name });
@@ -7575,6 +7664,9 @@ async function handleAttendNfc(uid) {
       if (msg) msg.textContent = '마음카드를 띠링-';
       updateNfcEnvUI(); focusNfcInput();
     } else if (res.status==='ok') {
+      // 76차: GAS fallback 응답에 parent_uids 포함 (lookupNfcStudent 76차 변경) → 클라이언트 INSERT
+      //   GAS는 _recordAttendance(skip_attend_notif:true)로 알림 안 보냄 → 클라이언트가 책임
+      _recordAttendanceClient(res.data.student_uid, res.data.teacher_uid, res.data.parent_uids || []);
       AUDIO.sfx('nfc'); _attendShowConfirm(res.data);
     } else {
       toast(res.message||'등록되지 않은 카드입니다');
