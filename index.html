@@ -336,8 +336,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 }
 .emo-bead.filled{
   box-shadow:var(--shadow), inset 0 -2px 6px rgba(0,0,0,.06);
+  /* 78차: 매칭 감정색 테두리 (74차 EMOTION_COLOR_MAP 무지개 7색) — JS에서 --emo-rainbow 인라인 설정 */
+  border:3px solid var(--emo-rainbow, transparent);
+  outline:1.5px solid rgba(255,255,255,.85);outline-offset:-5px;
 }
 .emo-bead.filled:hover{transform:translateY(-2px) scale(1.04)}
+.emo-bead.disabled{
+  opacity:.45;cursor:not-allowed;filter:grayscale(.4);
+}
+.emo-bead.disabled:active{transform:none}
 /* 카테고리별 파스텔 그라디언트 (긍정 peach·중립 lav·부정 sky/rose) */
 .emo-bead.filled.cat-positive{background:linear-gradient(145deg, var(--white), var(--peach2))}
 .emo-bead.filled.cat-neutral {background:linear-gradient(145deg, var(--white), var(--lav2))}
@@ -390,6 +397,95 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .emo-album-pager button:disabled{opacity:.35;cursor:not-allowed}
 .emo-album-pager .emo-album-pager-text{font-family:'Black Han Sans',sans-serif;font-size:14px;color:var(--navy);min-width:50px;text-align:center}
 
+/* 78차: 학생 감정 입력 모달 — 큰 원형 구슬 디자인 */
+.emo-input-close{
+  position:absolute;top:12px;right:14px;z-index:10;
+  width:32px;height:32px;border-radius:50%;border:none;
+  background:rgba(255,255,255,.85);color:var(--navy);
+  font-size:18px;font-weight:700;cursor:pointer;
+  box-shadow:0 2px 6px rgba(0,0,0,.12);
+  display:flex;align-items:center;justify-content:center;line-height:1;
+  transition:transform .15s, background .2s;
+}
+.emo-input-close:hover{background:#fff;transform:rotate(90deg) scale(1.05)}
+.emo-input-arrows{
+  display:flex;align-items:center;justify-content:space-between;
+  margin:6px 0 4px;
+}
+.emo-input-arrow{
+  width:34px;height:34px;border-radius:50%;
+  background:var(--white);border:1.5px solid var(--lgray);
+  font-size:14px;color:var(--navy);font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;
+}
+.emo-input-arrow:hover:not(:disabled){background:var(--mint4);border-color:var(--mint);color:var(--mint2);transform:translateY(-1px)}
+.emo-input-arrow:disabled{opacity:.35;cursor:not-allowed}
+.emo-input-marble-wrap{
+  position:relative;flex:1;display:flex;align-items:center;justify-content:center;
+  margin:0 8px;
+}
+/* 큰 원형 감정 구슬 — 사진 또는 빈 회색 */
+.emo-input-marble{
+  position:relative;width:230px;height:230px;border-radius:50%;
+  background:linear-gradient(145deg, var(--white), var(--lgray));
+  box-shadow:0 8px 22px rgba(44,74,90,.18), inset 0 -3px 8px rgba(0,0,0,.06);
+  border:3px solid var(--emo-rainbow, transparent);
+  outline:1.5px solid rgba(255,255,255,.85);outline-offset:-5px;
+  overflow:hidden;cursor:pointer;
+  transition:transform .35s cubic-bezier(.34,1.56,.64,1), box-shadow .25s, opacity .35s;
+}
+.emo-input-marble::after{
+  content:'';position:absolute;top:12%;left:14%;width:30%;height:30%;
+  background:radial-gradient(circle, rgba(255,255,255,.85) 0%, rgba(255,255,255,0) 70%);
+  border-radius:50%;pointer-events:none;z-index:3;
+}
+.emo-input-marble:hover{transform:translateY(-2px) scale(1.03)}
+.emo-input-marble.empty{
+  background:linear-gradient(145deg, #f7f8fa, #e8edf2);
+  border-color:transparent;
+}
+.emo-input-marble .emo-input-photo{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;
+}
+.emo-input-marble .emo-input-overlay{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:6px;z-index:2;
+  font-family:'Noto Sans KR',sans-serif;color:var(--navy);
+  text-shadow:0 0 6px rgba(255,255,255,.95);
+  pointer-events:none;text-align:center;padding:0 18px;
+}
+.emo-input-marble.empty .emo-input-overlay{color:var(--gray)}
+.emo-input-marble .emo-input-overlay-icon{font-size:36px;opacity:.55}
+.emo-input-marble .emo-input-overlay-text{font-size:13px;font-weight:700;line-height:1.4;word-break:keep-all}
+.emo-input-marble.filled .emo-input-overlay{
+  background:linear-gradient(to top, rgba(0,0,0,.45) 0%, rgba(0,0,0,0) 40%);
+  align-items:flex-end;padding-bottom:18px;
+  text-shadow:0 1px 3px rgba(0,0,0,.55);color:#fff;
+}
+.emo-input-marble.filled .emo-input-overlay-icon{display:none}
+.emo-input-marble.filled .emo-input-overlay-text{font-size:11px;opacity:.95}
+/* 모달 슬라이드 애니메이션 (좌우 화살표 클릭 시) */
+.emo-input-marble.slide-out-left  {animation:emoSlideOutLeft  .28s cubic-bezier(.4,0,.6,1) forwards}
+.emo-input-marble.slide-out-right {animation:emoSlideOutRight .28s cubic-bezier(.4,0,.6,1) forwards}
+.emo-input-marble.slide-in-left   {animation:emoSlideInLeft   .35s cubic-bezier(.34,1.56,.64,1) forwards}
+.emo-input-marble.slide-in-right  {animation:emoSlideInRight  .35s cubic-bezier(.34,1.56,.64,1) forwards}
+@keyframes emoSlideOutLeft  { to {transform:translateX(-220px) scale(.65); opacity:0} }
+@keyframes emoSlideOutRight { to {transform:translateX( 220px) scale(.65); opacity:0} }
+@keyframes emoSlideInLeft   { from {transform:translateX(-220px) scale(.65); opacity:0} to {transform:none;opacity:1} }
+@keyframes emoSlideInRight  { from {transform:translateX( 220px) scale(.65); opacity:0} to {transform:none;opacity:1} }
+.emo-input-title-row{
+  text-align:center;margin:6px 0 10px;
+}
+.emo-input-title-row .emo-word{
+  font-family:'Black Han Sans',sans-serif;font-size:22px;color:var(--navy);
+  letter-spacing:-0.5px;
+}
+.emo-input-title-row .emo-cat{
+  display:inline-block;margin-left:6px;font-size:11px;color:var(--gray);
+  vertical-align:middle;
+}
+
 /* 78차: 교사 곡선 carousel (시안 v3 풀 방식 + 원형 구슬 디자인) */
 .cf-modal-body{padding:0 4px}
 .cf-header{
@@ -400,10 +496,11 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   display:block;font-family:'Black Han Sans',sans-serif;font-size:22px;color:var(--mint2);
   margin-bottom:2px;letter-spacing:-0.4px;
 }
+/* 78차 디자인: 룰렛 — 카드들이 큰 원의 호를 따라 배치 (가운데 정점, 좌우 아래로 처짐) */
 .cf-stage{
-  position:relative;height:340px;perspective:1100px;
-  display:flex;align-items:center;justify-content:center;
-  overflow:hidden;margin-bottom:6px;
+  position:relative;height:380px;perspective:1200px;
+  display:flex;align-items:flex-start;justify-content:center;
+  overflow:hidden;margin-bottom:6px;padding-top:14px;
 }
 /* 78차 디자인: 카드 = 위 원형 구슬 + 아래 텍스트 라벨 */
 .cf-card{
@@ -453,13 +550,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   word-break:keep-all;padding:0 12px;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
 }
-.cf-card.pos-0       {transform:translateX(0)      rotateY(0deg)   scale(1);   opacity:1;   filter:blur(0)}
-.cf-card.pos-1       {transform:translateX(160px)  rotateY(-26deg) scale(.78); opacity:.55; filter:blur(1.2px)}
-.cf-card.pos-n1      {transform:translateX(-160px) rotateY(26deg)  scale(.78); opacity:.55; filter:blur(1.2px)}
-.cf-card.pos-2       {transform:translateX(250px)  rotateY(-38deg) scale(.6);  opacity:.22; filter:blur(2.4px)}
-.cf-card.pos-n2      {transform:translateX(-250px) rotateY(38deg)  scale(.6);  opacity:.22; filter:blur(2.4px)}
-.cf-card.pos-far-right{transform:translateX(320px) rotateY(-48deg) scale(.5);  opacity:0;   filter:blur(3px)}
-.cf-card.pos-far-left {transform:translateX(-320px) rotateY(48deg) scale(.5);  opacity:0;   filter:blur(3px)}
+/* 78차 디자인 — 룰렛 호: 좌우로 갈수록 아래로 처지고(translateY+), 기울어지고, 작아지고 흐려진다.
+   사용자는 가운데(pos-0) 정점 카드 하나를 편안히 본다. */
+.cf-card.pos-0       {transform:translate(0,        0)      rotateY(0deg)   scale(1);   opacity:1;   filter:blur(0)}
+.cf-card.pos-1       {transform:translate(140px,   30px)    rotateY(-26deg) scale(.8);  opacity:.6;  filter:blur(1px)}
+.cf-card.pos-n1      {transform:translate(-140px,  30px)    rotateY(26deg)  scale(.8);  opacity:.6;  filter:blur(1px)}
+.cf-card.pos-2       {transform:translate(245px,  105px)    rotateY(-38deg) scale(.6);  opacity:.25; filter:blur(2.2px)}
+.cf-card.pos-n2      {transform:translate(-245px, 105px)    rotateY(38deg)  scale(.6);  opacity:.25; filter:blur(2.2px)}
+.cf-card.pos-far-right{transform:translate(330px, 220px)    rotateY(-48deg) scale(.45); opacity:0;   filter:blur(3px)}
+.cf-card.pos-far-left {transform:translate(-330px, 220px)   rotateY(48deg)  scale(.45); opacity:0;   filter:blur(3px)}
 .cf-arrow{
   background:var(--cream);border:1.5px solid var(--lgray);
   width:36px;height:36px;border-radius:50%;font-size:16px;
@@ -15130,12 +15229,12 @@ function _emotionFilterBtnHTML(key, label) {
 
 // 78차 디자인: 감정 구슬 1개 — 원형 + 입체 광택 + 카테고리 파스텔 그라디언트
 //   비어있음: 회색 그라디언트 구슬 + 흐릿한 이름
-//   채워짐  : 카테고리 파스텔 + 사진(opacity .42 배경) + 진한 이름(흰색 광택 그림자)
+//   채워짐  : 카테고리 파스텔 + 사진(opacity .42 배경) + 매칭 감정색 테두리(74차 EMOTION_COLOR_MAP 무지개 7색)
+//   학생 정책 (변쌤 명시): 오늘 이미 다른 감정에 사진을 담았으면 빈 구슬은 비활성 (이미 채운 구슬은 수정 무제한)
 function _emotionBeadHTML(em, rows, role) {
   var hasPhoto = false, thumb = '', count = 0, hasCover = false;
   if (rows && rows.length) {
     count = rows.length;
-    // 교사: cover 우선, 없으면 첫 카드. 학생: 본인 1장.
     var pick = rows[0];
     if (role === 'teacher') {
       for (var k=0; k<rows.length; k++) {
@@ -15147,21 +15246,46 @@ function _emotionBeadHTML(em, rows, role) {
   }
   var name = _escHtml ? _escHtml(em.word) : String(em.word);
   var catCls = ' cat-' + (em.category || 'neutral');
-  var cls   = hasPhoto ? ('emo-bead filled' + catCls) : 'emo-bead empty';
+  // 학생 정책 — 오늘 이미 다른 감정에 담았고 이 구슬은 빈 경우 disabled (시각 표시)
+  var disabledForStudent = (role === 'student' && !hasPhoto && _studentLockedToday());
+  var cls = hasPhoto ? ('emo-bead filled' + catCls) : ('emo-bead empty' + (disabledForStudent ? ' disabled' : ''));
+
+  // 감정 매칭 색 (테두리·이름 색 — 레인보우 7색)
+  var rainbow = (typeof getEmotionColor === 'function') ? getEmotionColor(em.word, em.category) : '#bbb';
+  var inlineStyle = hasPhoto ? ('--emo-rainbow:'+rainbow) : '';
 
   var inner = '';
   if (hasPhoto && thumb) inner += '<img class="emo-bead-img" src="'+thumb+'" alt="'+name+'" loading="lazy">';
-  // 교사 전용 — N장 뱃지 + 대표 표시 마크
   if (role === 'teacher' && count > 0) {
     inner += '<div class="emo-bead-count">'+count+'</div>';
     if (hasCover) inner += '<div class="emo-bead-cover-mark">⭐</div>';
   }
   inner += '<div class="emo-bead-name">'+name+'</div>';
 
-  return '<div class="'+cls+'" '+
+  return '<div class="'+cls+'" style="'+inlineStyle+'" '+
          'onclick="onEmotionBeadClick(\''+em.emotion_id+'\')" data-emotion-id="'+em.emotion_id+'">'+
          inner +
          '</div>';
+}
+
+// 78차 정책: 학생이 오늘 이미 어떤 감정에 사진을 담았는지 (캐시 기반)
+//   - true면 다른 빈 구슬은 비활성 + 토스트로 안내
+//   - 이미 채운 구슬은 수정 무제한 (정책 무관)
+function _studentLockedToday() {
+  if (STATE.role !== 'student') return false;
+  if (!_emotionAlbumCache || !_emotionAlbumCache.length) return false;
+  var sUid = STATE.user && STATE.user.student_uid;
+  if (!sUid) return false;
+  var today = _todayKstStr();
+  for (var i=0; i<_emotionAlbumCache.length; i++) {
+    var r = _emotionAlbumCache[i];
+    if (r.is_deleted) continue;
+    if (r.student_uid !== sUid) continue;
+    if (r.is_teacher_upload) continue;
+    var d = String(r.date || '').slice(0,10);
+    if (d === today) return true;
+  }
+  return false;
 }
 
 // 78차: 필터 버튼 클릭 — 페이지 0으로
@@ -15186,20 +15310,30 @@ async function refreshEmotionAlbum() {
 }
 
 // 78차: 구슬 클릭 — 학생/교사 분기
-//   학생: openEmotionInputModal (본인 입력 모달)
-//   교사: openClassEmotionCarousel (P3 — carousel 모달)
+//   학생 정책 (변쌤 명시):
+//     - 이미 채운 감정 구슬 클릭 → 수정 모달 (제한 없음)
+//     - 빈 구슬 클릭 + 오늘 이미 다른 감정에 담음 → 토스트 안내 (모달 X)
+//     - 빈 구슬 클릭 + 오늘 아무것도 안 담음 → 입력 모달
+//   교사: openClassEmotionCarousel
 function onEmotionBeadClick(emotion_id) {
   if (STATE.isPreview) return;
   var em = (_emotionsMaster || []).find(function(e){ return e.emotion_id === emotion_id; });
   if (!em) return;
   var role = STATE.role;
   if (role === 'student') {
+    var sUid = STATE.user && STATE.user.student_uid;
+    var existing = (_emotionAlbumCache || []).find(function(r){
+      return !r.is_deleted && !r.is_teacher_upload && r.emotion_id === emotion_id && r.student_uid === sUid;
+    });
+    if (!existing && _studentLockedToday()) {
+      toast('오늘은 이미 한 가지 감정에 사진을 담았어요 💗 내일 또 담아볼까요?');
+      return;
+    }
     openEmotionInputModal(emotion_id, em.word, em.category);
   } else if (role === 'teacher') {
     if (typeof openClassEmotionCarousel === 'function') {
       openClassEmotionCarousel(emotion_id, em.word);
     } else {
-      // P3 미구현 시점 임시 안내 (다음 세션에 구현)
       toast('교사 carousel은 다음 단계에 열려요');
     }
   }
@@ -15229,24 +15363,33 @@ function openEmotionInputModal(emotion_id, word, category) {
   modal.classList.remove('hidden');
 }
 
-// 78차: 모달 DOM 동적 생성 (한 번만)
+// 78차 디자인: 학생 감정 입력 모달 — 큰 원형 구슬 + X 버튼 + 좌우 화살표(다른 감정 이동) + 메모 + 담기
 function _ensureEmotionInputModal() {
   if (document.getElementById('modal-emotion-input')) return;
   var html =
     '<div class="modal-overlay hidden" id="modal-emotion-input" style="z-index:3000">' +
-      '<div class="modal-box" style="max-width:380px">' +
-        '<div class="modal-title" id="emoInputTitle">💗 감정 사진</div>' +
-        '<div id="emoInputIntro" style="font-size:13px;color:var(--gray);margin-bottom:10px;text-align:center;line-height:1.5;word-break:keep-all"></div>' +
-        '<div id="emoInputPreviewWrap" style="margin-bottom:12px;text-align:center;display:none">' +
-          '<img id="emoInputPreviewImg" alt="미리보기" style="max-width:100%;max-height:250px;border-radius:14px;box-shadow:0 2px 8px var(--shadow)">' +
+      '<div class="modal-box" style="max-width:380px;position:relative">' +
+        '<button class="emo-input-close" onclick="closeEmotionInputModal()" aria-label="닫기">×</button>' +
+        '<div class="emo-input-title-row">' +
+          '<span class="emo-word" id="emoInputWord"></span>' +
+          '<span class="emo-cat" id="emoInputCat"></span>' +
+        '</div>' +
+        '<div class="emo-input-arrows">' +
+          '<button class="emo-input-arrow" id="emoInputPrev" onclick="emoInputNav(-1)" aria-label="이전 감정">‹</button>' +
+          '<div class="emo-input-marble-wrap">' +
+            '<div class="emo-input-marble empty" id="emoInputMarble" onclick="document.getElementById(\'emoInputFile\').click()">' +
+              '<img class="emo-input-photo" id="emoInputPhoto" alt="" style="display:none">' +
+              '<div class="emo-input-overlay">' +
+                '<div class="emo-input-overlay-icon">📷</div>' +
+                '<div class="emo-input-overlay-text" id="emoInputOverlay">사진을 골라볼까요?</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<button class="emo-input-arrow" id="emoInputNext" onclick="emoInputNav(1)" aria-label="다음 감정">›</button>' +
         '</div>' +
         '<input type="file" id="emoInputFile" accept="image/*" style="display:none" onchange="_onEmotionInputFileChange(event)">' +
-        '<button class="btn btn-secondary" onclick="document.getElementById(\'emoInputFile\').click()" id="emoInputPickBtn" style="width:100%;margin-bottom:10px">📷 사진 선택</button>' +
-        '<input class="inp" id="emoInputCaption" type="text" placeholder="이 감정에 대한 한 줄 메모 (선택)" maxlength="60" style="margin-bottom:14px">' +
-        '<div style="display:flex;gap:8px">' +
-          '<button class="btn btn-secondary" onclick="closeEmotionInputModal()" style="flex:1">취소</button>' +
-          '<button class="btn btn-primary"   onclick="submitEmotionAlbum()" id="emoInputSubmitBtn" style="flex:2">담기</button>' +
-        '</div>' +
+        '<input class="inp" id="emoInputCaption" type="text" placeholder="이 감정에 대한 한 줄 메모 (선택)" maxlength="60" style="margin:16px 0 12px">' +
+        '<button class="btn btn-primary" id="emoInputSubmitBtn" onclick="submitEmotionAlbum()" style="width:100%">담기</button>' +
       '</div>' +
     '</div>';
   document.body.insertAdjacentHTML('beforeend', html);
@@ -15254,26 +15397,80 @@ function _ensureEmotionInputModal() {
 
 function _populateEmotionInputModal() {
   var st = STATE._emotionInput; if (!st) return;
+  document.getElementById('emoInputWord').textContent = '💗 ' + st.word;
+  var catKo = { positive:'긍정', neutral:'중립', negative:'부정' }[st.category] || '';
+  document.getElementById('emoInputCat').textContent = catKo;
+  // 매칭 색 — CSS 변수로 테두리 (74차 EMOTION_COLOR_MAP 무지개)
+  var marble = document.getElementById('emoInputMarble');
+  var color = (typeof getEmotionColor === 'function') ? getEmotionColor(st.word, st.category) : 'transparent';
+  marble.style.setProperty('--emo-rainbow', color);
+  var photo       = document.getElementById('emoInputPhoto');
+  var overlayText = document.getElementById('emoInputOverlay');
+  var captionInp  = document.getElementById('emoInputCaption');
   var hasExisting = !!st.existing;
-  document.getElementById('emoInputTitle').textContent = '💗 ' + st.word + ' 감정 사진';
-  var intro = document.getElementById('emoInputIntro');
-  if (hasExisting) {
-    intro.innerHTML = '이미 올린 사진이 있어요.<br>새로 올리면 기존 사진은 바뀌어요.';
-  } else {
-    intro.innerHTML = '아직 사진이 없어요.<br>'+st.word+' 감정에 맞는 사진을<br>기록해 볼까요?';
-  }
-  var prevWrap = document.getElementById('emoInputPreviewWrap');
-  var prevImg  = document.getElementById('emoInputPreviewImg');
+  var hasNewImage = !!st.image_b64;
   if (hasExisting && (st.existing.thumb_url || st.existing.image_url)) {
-    prevImg.src = st.existing.thumb_url || '';
-    prevWrap.style.display = '';
-    document.getElementById('emoInputPickBtn').textContent = '📷 사진 바꾸기';
+    photo.src = st.existing.thumb_url || '';
+    photo.style.display = '';
+    marble.classList.remove('empty'); marble.classList.add('filled');
+    overlayText.textContent = '사진을 바꾸려면 눌러주세요';
+  } else if (hasNewImage) {
+    photo.src = st.thumb_b64 || st.image_b64;
+    photo.style.display = '';
+    marble.classList.remove('empty'); marble.classList.add('filled');
+    overlayText.textContent = '사진을 바꾸려면 눌러주세요';
   } else {
-    prevWrap.style.display = 'none';
-    prevImg.src = '';
-    document.getElementById('emoInputPickBtn').textContent = '📷 사진 선택';
+    photo.removeAttribute('src');
+    photo.style.display = 'none';
+    marble.classList.remove('filled'); marble.classList.add('empty');
+    overlayText.textContent = st.word + ' 감정에 어울리는 사진을 골라볼까요?';
   }
-  document.getElementById('emoInputCaption').value = (hasExisting && st.existing.caption) ? st.existing.caption : '';
+  captionInp.value = (hasExisting && st.existing.caption) ? st.existing.caption : '';
+  _emoInputUpdateNav();
+}
+
+// 78차: 좌우 화살표 — 학생이 이미 채운 감정들 사이 이동 (가나다순). 빈 감정으론 안 감.
+function _emoInputUpdateNav() {
+  var st = STATE._emotionInput; if (!st) return;
+  var prevBtn = document.getElementById('emoInputPrev');
+  var nextBtn = document.getElementById('emoInputNext');
+  if (!prevBtn || !nextBtn) return;
+  var sUid = STATE.user && STATE.user.student_uid;
+  var filled = (_emotionAlbumCache || []).filter(function(r){
+    return !r.is_deleted && !r.is_teacher_upload && r.student_uid === sUid;
+  });
+  var emoIdToWord = {};
+  (_emotionsMaster || []).forEach(function(e){ emoIdToWord[e.emotion_id] = e.word; });
+  filled.sort(function(a,b){ return String(emoIdToWord[a.emotion_id]||'').localeCompare(String(emoIdToWord[b.emotion_id]||''), 'ko'); });
+  var curIdx = -1;
+  for (var i=0; i<filled.length; i++) { if (filled[i].emotion_id === st.emotion_id) { curIdx = i; break; } }
+  st._navList = filled;
+  st._navIdx  = curIdx;
+  prevBtn.disabled = (curIdx <= 0);
+  nextBtn.disabled = (curIdx === -1 || curIdx >= filled.length - 1);
+}
+
+function emoInputNav(delta) {
+  var st = STATE._emotionInput; if (!st || !st._navList) return;
+  var newIdx = (st._navIdx == null ? -1 : st._navIdx) + delta;
+  if (newIdx < 0 || newIdx >= st._navList.length) return;
+  var target = st._navList[newIdx];
+  var em = (_emotionsMaster || []).find(function(e){ return e.emotion_id === target.emotion_id; });
+  if (!em) return;
+  var marble = document.getElementById('emoInputMarble');
+  var outCls = delta > 0 ? 'slide-out-left'  : 'slide-out-right';
+  var inCls  = delta > 0 ? 'slide-in-right'  : 'slide-in-left';
+  marble.classList.add(outCls);
+  setTimeout(function(){
+    marble.classList.remove(outCls);
+    STATE._emotionInput = {
+      emotion_id: em.emotion_id, word: em.word, category: em.category,
+      existing: target, image_b64: '', thumb_b64: ''
+    };
+    _populateEmotionInputModal();
+    marble.classList.add(inCls);
+    setTimeout(function(){ marble.classList.remove(inCls); }, 380);
+  }, 280);
 }
 
 function closeEmotionInputModal() {
@@ -15306,11 +15503,15 @@ function _onEmotionInputFileChange(ev) {
         if (!thumbRes) { toast('썸네일 만들기 실패'); return; }
         STATE._emotionInput.image_b64 = imageRes;
         STATE._emotionInput.thumb_b64 = thumbRes;
-        var prevWrap = document.getElementById('emoInputPreviewWrap');
-        var prevImg  = document.getElementById('emoInputPreviewImg');
-        if (prevImg && prevWrap) {
-          prevImg.src = thumbRes;
-          prevWrap.style.display = '';
+        // 78차 디자인: 큰 원형 구슬 안에 사진 미리보기 (filled 상태)
+        var marble = document.getElementById('emoInputMarble');
+        var photo  = document.getElementById('emoInputPhoto');
+        var ovText = document.getElementById('emoInputOverlay');
+        if (marble && photo) {
+          photo.src = thumbRes;
+          photo.style.display = '';
+          marble.classList.remove('empty'); marble.classList.add('filled');
+          if (ovText) ovText.textContent = '사진을 바꾸려면 눌러주세요';
         }
       });
     });
