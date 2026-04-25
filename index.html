@@ -449,12 +449,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;
 }
 .emo-input-marble .emo-input-overlay{
-  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  position:absolute;left:0;right:0;top:0;bottom:0;
+  display:flex;align-items:center;justify-content:center;
   flex-direction:column;gap:6px;z-index:2;
   font-family:'Noto Sans KR',sans-serif;color:var(--navy);
   text-shadow:0 0 6px rgba(255,255,255,.95);
   pointer-events:none;text-align:center;padding:0 18px;
+  box-sizing:border-box;
 }
+.emo-input-marble .emo-input-overlay-text{width:100%;text-align:center}
 .emo-input-marble.empty .emo-input-overlay{color:var(--gray)}
 .emo-input-marble .emo-input-overlay-icon{font-size:36px;opacity:.55}
 .emo-input-marble .emo-input-overlay-text{font-size:13px;font-weight:700;line-height:1.4;word-break:keep-all}
@@ -475,15 +478,17 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 @keyframes emoSlideInLeft   { from {transform:translateX(-220px) scale(.65); opacity:0} to {transform:none;opacity:1} }
 @keyframes emoSlideInRight  { from {transform:translateX( 220px) scale(.65); opacity:0} to {transform:none;opacity:1} }
 .emo-input-title-row{
-  text-align:center;margin:6px 0 10px;
+  /* 78차 fix: X 버튼(우측 absolute, 약 46px 점유)만큼 양쪽 padding 균등 → 시각적 가운데 정렬 */
+  text-align:center;margin:6px 0 10px;padding:0 50px;
+  display:flex;align-items:baseline;justify-content:center;gap:6px;
+  box-sizing:border-box;width:100%;
 }
 .emo-input-title-row .emo-word{
   font-family:'Black Han Sans',sans-serif;font-size:22px;color:var(--navy);
   letter-spacing:-0.5px;
 }
 .emo-input-title-row .emo-cat{
-  display:inline-block;margin-left:6px;font-size:11px;color:var(--gray);
-  vertical-align:middle;
+  font-size:11px;color:var(--gray);
 }
 
 /* 78차: 교사 곡선 carousel (시안 v3 풀 방식 + 원형 구슬 디자인) */
