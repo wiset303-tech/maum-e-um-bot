@@ -15591,6 +15591,27 @@ async function submitEmotionAlbum() {
   // 낙관적 UI — 모달 닫고 그리드 즉시 갱신
   var optimisticThumb = st.thumb_b64 || (st.existing && st.existing.thumb_url) || '';
   if (optimisticThumb) _applyEmotionBeadOptimistic(st.emotion_id, optimisticThumb, caption);
+  // 78차 fix: 낙관적 캐시 row push — GAS 응답 전(Drive 업로드 중) 학생이 다시 클릭해도 빈 입력 모달 X
+  //   _upsertEmotionAlbumCacheRow는 (student_uid + emotion_id + is_teacher_upload) 매칭 UPSERT.
+  //   GAS 응답 후 진짜 album_uid·image_url로 같은 row 교체.
+  if (hasNewImage) {
+    _upsertEmotionAlbumCacheRow({
+      album_uid: (st.existing && st.existing.album_uid) || ('tmp-' + Date.now()),
+      emotion_id: st.emotion_id,
+      student_uid: STATE.user.student_uid,
+      student_name: STATE.user.student_name,
+      teacher_uid: STATE.user.teacher_uid,
+      thumb_url: st.thumb_b64,
+      image_url: (st.existing && st.existing.image_url) || '',
+      caption: caption,
+      date: _todayKstStr(),
+      is_deleted: false,
+      is_class_cover: (st.existing ? !!st.existing.is_class_cover : false),
+      is_teacher_upload: false,
+      timestamp: '',
+      _pending: true
+    });
+  }
   closeEmotionInputModal();
   toast('사진을 담는 중이에요 💗');
 
