@@ -7552,12 +7552,25 @@ function _attendShowConfirm(student) {
 //   호출자: handleAttendNfc(matched), 학생 PW/NFC 로그인 응답 후. GAS는 attend_notif_done:true로 알림 skip.
 //   parent_uids 안 받으면 _sbFetch('parents')로 매핑 (학생 PW/NFC 로그인은 응답에 포함, NFC 등교는 호출 시 fetch).
 //   교사 알림 즉시 + 학부모 알림 fetch 후. 같은 단말 세션 중복 방지 STATE._attendanceNotifiedToday 플래그.
-function _recordAttendanceClient(s_uid, t_uid, parent_uids_optional) {
+async function _recordAttendanceClient(s_uid, t_uid, parent_uids_optional) {
   if (!s_uid || !t_uid) return;
   var today = new Date(Date.now()+9*3600000).toISOString().slice(0,10);
   STATE._attendanceNotifiedToday = STATE._attendanceNotifiedToday || {};
   var key = s_uid + '_' + today;
   if (STATE._attendanceNotifiedToday[key]) return;
+  // 76차 fix: Supabase 권위적 가드 — 새로고침/다른 단말로 STATE 플래그 리셋된 경우 중복 INSERT 방어
+  //   한 번 fetch로 교사·학부모 알림 모두 체크 (related_uid=학생, type=attendance, 오늘 이후)
+  //   fetch 실패 시 낙관적으로 INSERT 진행 (가드 없이 — 첫 INSERT 우선)
+  var todayStart = today + 'T00:00:00';
+  var existRecipients = {};
+  try {
+    var existRows = await _sbFetch('notifications', {
+      type: 'eq.attendance',
+      related_uid: 'eq.' + s_uid,
+      created_at: 'gte.' + todayStart
+    });
+    (existRows || []).forEach(function(r){ existRecipients[r.recipient_uid] = true; });
+  } catch(e) { console.error('[ATTEND GUARD FETCH]', e && e.message); }
   STATE._attendanceNotifiedToday[key] = true;
   function _newUuid(){
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -7566,16 +7579,19 @@ function _recordAttendanceClient(s_uid, t_uid, parent_uids_optional) {
     });
   }
   function _newKstTs(){ return new Date(Date.now()+9*3600000).toISOString().slice(0,19); }
-  // 교사 알림 즉시 (parent fetch 안 기다림)
-  _sbInsert('notifications', {
-    notification_uid: _newUuid(), created_at: _newKstTs(),
-    recipient_uid: t_uid, type: 'attendance',
-    title: '🏫 등교 완료', body: '등교했어요',
-    sender_name: '', is_read: false, related_uid: s_uid
-  }).catch(function(e){ console.error('[ATTEND CLIENT TEACHER]', e && e.message); });
-  // 학부모 알림 — parent_uids 있으면 즉시, 없으면 fetch
+  // 교사 알림 (Supabase에 이미 있으면 skip)
+  if (!existRecipients[t_uid]) {
+    _sbInsert('notifications', {
+      notification_uid: _newUuid(), created_at: _newKstTs(),
+      recipient_uid: t_uid, type: 'attendance',
+      title: '🏫 등교 완료', body: '등교했어요',
+      sender_name: '', is_read: false, related_uid: s_uid
+    }).catch(function(e){ console.error('[ATTEND CLIENT TEACHER]', e && e.message); });
+  }
+  // 학부모 알림 — parent_uids 있으면 즉시, 없으면 fetch. 각 학부모별 가드 적용
   function _insertParents(uids) {
     (uids || []).forEach(function(puid){
+      if (existRecipients[puid]) return; // 이미 있으면 skip
       _sbInsert('notifications', {
         notification_uid: _newUuid(), created_at: _newKstTs(),
         recipient_uid: puid, type: 'attendance',
