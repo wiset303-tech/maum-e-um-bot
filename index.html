@@ -51,8 +51,11 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 #toast{
   position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(80px);
   background:var(--navy);color:#fff;
-  font-size:13px;padding:10px 20px;border-radius:30px;
-  transition:transform .3s,opacity .3s;opacity:0;z-index:9999;white-space:nowrap;
+  font-size:13px;padding:10px 20px;border-radius:18px;
+  transition:transform .3s,opacity .3s;opacity:0;z-index:9999;
+  text-align:center;line-height:1.5;
+  /* 78차 fix: 긴 메시지(\n 포함)는 두 줄로, 짧은 메시지는 한 줄로 — max-width로 화면 밖 잘림 방지 */
+  max-width:calc(100% - 40px);word-break:keep-all;
 }
 #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
@@ -5889,6 +5892,9 @@ async function onLoginSuccess(data) {
   if (data.role === 'student') {
     var _dAdl = parseInt(data.album_daily_limit, 10);
     STATE.albumDailyLimit = (_dAdl >= 1 && _dAdl <= 3) ? _dAdl : null;
+    // 78차 fix: students 미러는 잘못된 값일 수 있음 → teachers SOT 직접 조회로 즉시 덮어쓰기 (fire-and-forget)
+    //   변쌤 보고: 교사 2개 / 학생 1개 불일치 영구 fix. 알림 도착 전에도 학생 STATE 정확.
+    setTimeout(function(){ try { _fetchStudentAlbumLimit(); } catch(e) {} }, 0);
     // 76차: 등교 알림 클라이언트 직접 INSERT — PW/NFC 로그인 양 경로 통합 (broadcast 즉시 1초 이내)
     //   data.parent_uids는 Supabase 빠른 경로 _sbFetch('parents') 또는 GAS fallback 응답에서 옴
     //   STATE._attendanceNotifiedToday 플래그로 같은 단말 세션 중복 방지
@@ -6171,6 +6177,7 @@ function logout() {
   stopNotificationRealtime();  // 65차 E: 알림 Realtime 해제
   stopTokenRealtime();         // 70차: 토큰 Realtime 해제
   try { stopAlbumRealtime(); } catch(e) {}  // 78차: 학생도 album RT 구독하니 명시적 해제
+  try { _stopEmotionAlbumPoll(); } catch(e) {}  // 78차: 감정앨범 폴링 fallback 정리
   _lastSubmitCount  = -1;
   _lastEmotionSignal = '';
   _clearSessionCaches();       // 66차 D: 앨범·계정관리·출석·알림 일괄 리셋
@@ -6278,6 +6285,8 @@ function switchTab(idx) {
     if (idx === 1) checkPersonaModeForStudent();          // 마음봇
     if (idx === 3) {                                      // 마음앨범
       loadAlbumIfNeeded();                                // 일상 — 캐시 미리 로드
+      // 78차 fix: 마음앨범 탭 진입 시마다 일일 한도 SOT 강제 동기화 (교사 변경 즉시 반영)
+      try { _fetchStudentAlbumLimit(); } catch(e) { console.error('[STU LIMIT REFRESH tab]', e); }
       // 78차: 학생도 album realtime 구독 — 교사 아동보호 삭제·교사 cover 변경 시 학생 단말 즉시 반영
       try { startAlbumRealtime(); } catch(e) { console.error('[ALBUM RT student]', e); }
       // 78차 정책: 교육 목적 — 진입 시 감정앨범 default 즉시 표시
@@ -10138,6 +10147,8 @@ function startAlbumPoll() {
 function stopAlbumPoll() {
   if (_albumPollTimer) { clearInterval(_albumPollTimer); _albumPollTimer = null; }
   stopAlbumRealtime();
+  // 78차: 감정앨범 폴링 fallback도 함께 정리
+  try { _stopEmotionAlbumPoll(); } catch(e) {}
 }
 function refreshAlbum() {
   // 74차: 새로고침 버튼 spinning 피드백
@@ -10204,7 +10215,10 @@ function startAlbumRealtime() {
       .channel(channelName)
       .on('postgres_changes', insertCfg, onChange)
       .on('postgres_changes', updateCfg, onChange)
-      .subscribe();
+      .subscribe(function(status){
+        // 78차 진단: 변쌤 콘솔에서 'SUBSCRIBED' 확인 가능 — CHANNEL_ERROR/TIMED_OUT면 폴링이 fallback
+        try { console.log('[ALBUM RT subscribe]', channelName, status); } catch(e) {}
+      });
   } catch(e) { console.error('[ALBUM RT]', e && e.message ? e.message : e); }
 }
 function stopAlbumRealtime() {
@@ -15045,10 +15059,12 @@ function switchAlbumSubTab(sub) {
   if (sub === 'emotion') {
     dailySec.style.display   = 'none';
     emotionSec.style.display = '';
-    renderEmotionAlbum();  // 진입 시 매번 호출 — 내부에서 캐시 활용
+    renderEmotionAlbum();  // 진입 시 매번 호출 — 내부에서 강제 fresh fetch + 폴링 시작
   } else {
     emotionSec.style.display = 'none';
     dailySec.style.display   = '';
+    // 일상 탭으로 전환 시 감정 폴링 정지 (자원 절약)
+    try { _stopEmotionAlbumPoll(); } catch(e) {}
     // 78차 fix: 일상 탭 클릭 시 학생 한도 SOT 재조회 (교사 변경 즉시 반영)
     if (STATE.role === 'student' && typeof _fetchStudentAlbumLimit === 'function') {
       try { _fetchStudentAlbumLimit(); } catch(e) { console.error('[STU LIMIT REFRESH]', e); }
@@ -15160,6 +15176,7 @@ async function _loadEmotionAlbumCache() {
 }
 
 // 78차: 감정앨범 진입점 (switchAlbumSubTab('emotion')에서 호출)
+//   78차 fix: 매 진입 시 캐시 무효화 (realtime 누락 안전망 — 학생 INSERT 즉시 반영, 변쌤 명시 늘 핵심)
 async function renderEmotionAlbum() {
   var sec = document.getElementById('albumEmotionSection');
   if (!sec) return;
@@ -15167,8 +15184,46 @@ async function renderEmotionAlbum() {
   if (!_emotionsMaster || !_emotionAlbumLoaded) {
     sec.innerHTML = '<div style="text-align:center;padding:30px;color:var(--gray);font-size:13px">감정앨범 불러오는 중…</div>';
   }
+  // 78차 fix: 캐시 무효화 — 진입 시 항상 최신 데이터
+  _emotionAlbumLoaded = false;
   await Promise.all([_loadEmotionsMaster(), _loadEmotionAlbumCache()]);
   _renderEmotionGrid();
+  // 78차 fix: 교사 감정앨범 활성 시 폴링 fallback 시작 (realtime 누락 안전망)
+  if (STATE.role === 'teacher' && STATE._albumSubTab === 'emotion') {
+    _startEmotionAlbumPoll();
+  }
+}
+
+// 78차: 감정앨범 폴링 fallback — 8초마다 캐시 무효화 + 재 fetch (감정 모드 + 마음앨범 탭 활성 시만)
+//   변쌤 보고 "학생 INSERT 후 교사 새로고침 눌러야 반영" → realtime이 누락되어도 8초 안에 자동 갱신
+var _emotionAlbumPollTimer = null;
+function _startEmotionAlbumPoll() {
+  _stopEmotionAlbumPoll();
+  _emotionAlbumPollTimer = setInterval(async function(){
+    var panel0 = document.getElementById('panel-3');
+    if (!panel0 || !panel0.classList.contains('active')) return;
+    if (STATE._albumSubTab !== 'emotion') return;
+    if (STATE.role !== 'teacher' && STATE.role !== 'admin') return;
+    _emotionAlbumLoaded = false;
+    try { await _loadEmotionAlbumCache(); } catch(e) { return; }
+    _renderEmotionGrid();
+    // carousel 열려있으면 풀도 재구성
+    if (typeof _cfState === 'object' && _cfState.open) {
+      _cfState.cards = (_emotionAlbumCache || []).filter(function(r){
+        return r.emotion_id === _cfState.emotion_id && !r.is_deleted;
+      });
+      _cfState.cards.sort(function(a,b){
+        if (!!a.is_class_cover !== !!b.is_class_cover) return a.is_class_cover ? -1 : 1;
+        if (!!a.is_teacher_upload !== !!b.is_teacher_upload) return a.is_teacher_upload ? 1 : -1;
+        return String(a.student_name||'').localeCompare(String(b.student_name||''), 'ko');
+      });
+      if (_cfState.idx >= _cfState.cards.length) _cfState.idx = Math.max(0, _cfState.cards.length-1);
+      _renderCfCarousel(true);
+    }
+  }, 8000);
+}
+function _stopEmotionAlbumPoll() {
+  if (_emotionAlbumPollTimer) { clearInterval(_emotionAlbumPollTimer); _emotionAlbumPollTimer = null; }
 }
 
 // 78차: 감정 그리드 렌더 — 4x5 + 가나다순 + 페이지네이션 + 강도 필터
@@ -15331,7 +15386,8 @@ function onEmotionBeadClick(emotion_id) {
       return !r.is_deleted && !r.is_teacher_upload && r.emotion_id === emotion_id && r.student_uid === sUid;
     });
     if (!existing && _studentLockedToday()) {
-      toast('오늘은 이미 한 가지 감정에 사진을 담았어요 💗 내일 또 담아볼까요?');
+      // 78차: 두 줄 토스트 (한 줄로 길어서 양옆 잘림 방지)
+      toast('오늘은 이미 한 가지 감정에 사진을 담았어요 💗\n내일 또 담아볼까요?');
       return;
     }
     openEmotionInputModal(emotion_id, em.word, em.category);
@@ -15598,11 +15654,16 @@ var _cfState = {
 };
 
 // 78차: 교사 carousel 진입점 — onEmotionBeadClick에서 호출
-function openClassEmotionCarousel(emotion_id, word) {
+async function openClassEmotionCarousel(emotion_id, word) {
   if (STATE.isPreview) return;
   if (STATE.role !== 'teacher') return;
   _cfState.emotion_id = emotion_id;
   _cfState.word       = word;
+  _cfState._retried   = false;  // 빈 carousel 자동 재시도 1회 플래그 리셋
+
+  // 78차 fix: 진입 시 항상 캐시 무효화 + 신선한 fetch (학생 새 INSERT 즉시 반영, realtime 누락 안전망)
+  _emotionAlbumLoaded = false;
+  try { await _loadEmotionAlbumCache(); } catch(e) { console.error('[CF FRESH FETCH]', e); }
 
   // 현재 감정의 행만 추리기 (학생 + 교사 직접 업로드 모두 같은 풀)
   var rows = (_emotionAlbumCache || []).filter(function(r){
@@ -15696,6 +15757,31 @@ function _renderCfCarousel(forceRebuild) {
     if (prevBtnEmpty) prevBtnEmpty.disabled = true;
     if (nextBtnEmpty) nextBtnEmpty.disabled = true;
     stage.dataset.builtFor = '';
+    // 78차 fix: 학생이 방금 채웠을 가능성 — 토스트 + 1.5초 후 자동 재시도(한 번만, realtime 지연 안전망)
+    if (!_cfState._retried) {
+      _cfState._retried = true;
+      toast('마음을 채우는 중이에요 💗\n잠시만 기다려 주세요');
+      setTimeout(async function(){
+        if (!_cfState.open) return;
+        _emotionAlbumLoaded = false;
+        try { await _loadEmotionAlbumCache(); } catch(e) {}
+        _cfState.cards = (_emotionAlbumCache || []).filter(function(r){
+          return r.emotion_id === _cfState.emotion_id && !r.is_deleted;
+        });
+        _cfState.cards.sort(function(a,b){
+          if (!!a.is_class_cover !== !!b.is_class_cover) return a.is_class_cover ? -1 : 1;
+          if (!!a.is_teacher_upload !== !!b.is_teacher_upload) return a.is_teacher_upload ? 1 : -1;
+          return String(a.student_name||'').localeCompare(String(b.student_name||''), 'ko');
+        });
+        if (_cfState.cards.length) {
+          _cfState.idx = 0;
+          for (var i=0; i<_cfState.cards.length; i++) {
+            if (_cfState.cards[i].is_class_cover) { _cfState.idx = i; break; }
+          }
+        }
+        _renderCfCarousel(true);
+      }, 1500);
+    }
     return;
   }
 
