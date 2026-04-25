@@ -2836,6 +2836,19 @@ async function _sbDelete(table, filters) {
     throw new Error('SB DELETE '+res.status+': '+txt.slice(0,300));
   }
 }
+// 76차: emotions 시간 비교 함정 회피 헬퍼 — 60차 Δ⁴ 잔존 이슈
+//   emotions.timestamp는 text 컬럼이고 KST 문자열·UTC `+00` 형식 혼재 (RPC NOW() vs GAS now()).
+//   서버 `timestamp gte` 문자열 비교에서 UTC 형식 행 누락 (space < T → 부정확).
+//   해결: 서버 필터 안전 마진(since-1일 자정부터) + 클라이언트 _tsToMs 정확 since 필터.
+//   ⚠️ order/limit는 호출자가 클라이언트에서 _tsToMs 기반으로 처리 (서버 정렬도 같은 함정).
+async function _sbFetchEmotionsSince(sinceKstDateStr, extraFilters) {
+  var sinceMs = new Date(sinceKstDateStr + 'T00:00:00+09:00').getTime();
+  var fetchSinceStr = new Date(sinceMs - 86400000).toISOString().slice(0,10) + 'T00:00:00';
+  var f = Object.assign({ timestamp:'gte.'+fetchSinceStr }, extraFilters || {});
+  var rows = await _sbFetch('emotions', f);
+  return (rows||[]).filter(function(e){ return _tsToMs(e.timestamp) >= sinceMs; });
+}
+
 // 76차: Supabase INSERT (anon) — broadcast 알림 클라이언트 직접 발송용 (등교·선물·위기 등)
 //   GAS 동기 직렬 처리 5~8초 → 클라이언트 직접 INSERT 1초 이내. notifications anon_insert 정책 활용.
 async function _sbInsert(table, body) {
@@ -2870,7 +2883,7 @@ async function _sbGetDashboard(teacher_uid) {
   var todayStart = today + 'T00:00:00';
   var results = await Promise.all([
     _sbFetch('students',      { teacher_uid:'eq.'+teacher_uid, active:'eq.Y' }),
-    _sbFetch('emotions',      { teacher_uid:'eq.'+teacher_uid, timestamp:'gte.'+todayStart, type:'eq.checkin' }),
+    _sbFetchEmotionsSince(today, { teacher_uid:'eq.'+teacher_uid, type:'eq.checkin' }),
     _sbFetch('token_balance', { teacher_uid:'eq.'+teacher_uid }),
     _sbFetch('warmth',        { teacher_uid:'eq.'+teacher_uid }),
     _sbFetch('tokens',        { teacher_uid:'eq.'+teacher_uid, type:'eq.gift_sent', order:'timestamp.desc', limit:'3' }),
@@ -2937,7 +2950,7 @@ async function _sbGetAdminDashboard() {
     _sbFetch('schools',       { active:'eq.Y' }),
     _sbFetch('teachers',      { active:'eq.Y' }),
     _sbFetch('students',      { active:'eq.Y' }),
-    _sbFetch('emotions',      { timestamp:'gte.'+todayStart, type:'eq.checkin' }),
+    _sbFetchEmotionsSince(today, { type:'eq.checkin' }),
     _sbFetch('token_balance', {}),
     // 68차 B: Supabase RPC로 "연속 3회 negative 학생 ∪ 오늘 crisis_flag=Y" unique 수 집계
     //        RPC 실패 시 GAS get_today_crisis_count로 fallback
@@ -5702,9 +5715,11 @@ async function onLoginSuccess(data) {
       loadNotifications(),
       // 55차: 오늘 감정 → Supabase 직접 (GAS fallback)
       // 72차: order/limit 추가 — 다중 행(중복 데이터) 상황에서도 최신 행 1개만 잡음
-      _sbFetch('emotions', { student_uid:'eq.'+data.student_uid, timestamp:'gte.'+today+'T00:00:00', type:'eq.checkin', order:'timestamp.desc', limit:'1' })
+      // 76차: _sbFetchEmotionsSince 헬퍼 — emotions.timestamp 혼합 포맷 함정 회피. 클라이언트에서 _tsToMs 정렬 + slice(0,1)
+      _sbFetchEmotionsSince(today, { student_uid:'eq.'+data.student_uid, type:'eq.checkin' })
         .then(function(rows){
           if (rows && rows.length) {
+            rows.sort(function(a,b){ return _tsToMs(b.timestamp) - _tsToMs(a.timestamp); });
             var e=rows[0];
             STATE.todayEmotionSubmitted=true;
             STATE.todayEmotionModified=!!(e.is_modified===true||e.is_modified==='TRUE');
@@ -7653,9 +7668,9 @@ async function handleAttendNfc(uid) {
       return;
     }
     // Supabase로 오늘 감정 제출 여부 확인
-    var emoRows = await _sbFetch('emotions', {
+    // 76차: _sbFetchEmotionsSince — 혼합 포맷 함정 회피
+    var emoRows = await _sbFetchEmotionsSince(today, {
       student_uid:'eq.'+matched.student_uid,
-      timestamp:'gte.'+todayStart,
       type:'eq.checkin'
     });
     hideLoading();  // 47차 D: API 응답 후 즉시 스피너 닫기
@@ -11849,11 +11864,11 @@ async function _loadStuAttMap(year, month) {
   _stuAtt.map = {};
   try {
     // JS 객체라 동일 키 lte는 직접 못 실음 — gte만 서버 필터로 쓰고 lte는 클라이언트에서 필터
-    // limit 500이면 하루 1~2행 × 250~500일 커버 — 과거 몇 개월 조회에도 여유
-    var rows = await _sbFetch('emotions', {
+    // 76차: _sbFetchEmotionsSince — 혼합 포맷 함정 회피. lastDateStr 클라이언트 필터는 기존 유지.
+    //   (limit 500은 헬퍼 안 통하지만 한 학생 한 달 분량이라 영향 없음 — 헬퍼는 select 등 extraFilters로 전달)
+    var rows = await _sbFetchEmotionsSince(firstDateStr, {
       student_uid:'eq.'+uid, type:'eq.checkin',
-      timestamp:'gte.'+firstTs,
-      order:'timestamp.asc', limit:'500',
+      limit:'500',
       select:'timestamp,macro_emotion,micro_emotion,is_custom,custom_text,is_modified,modified_at'
     });
     (rows||[]).forEach(function(e){
@@ -12172,13 +12187,16 @@ async function submitEmotion() {
   // 70차: 제출 직전 Supabase 실시간 재확인 — 프론트 STATE 플래그가 stale일 수 있음
   // (로그인 프리로드가 엉뚱한 row를 "오늘"로 잡거나 자정 경계 직후 잔상 방어)
   try {
-    var verifyRows = await _sbFetch('emotions', {
+    // 76차: _sbFetchEmotionsSince — 혼합 포맷 함정 회피. 클라이언트 _tsToMs 정렬 + slice(0,1)
+    var verifyRows = await _sbFetchEmotionsSince(todayKstStr, {
       student_uid:'eq.'+STATE.user.student_uid,
       type:'eq.checkin',
-      timestamp:'gte.'+todayKstStr+'T00:00:00',
-      order:'timestamp.desc', limit:'1',
       select:'emotion_uid,timestamp,is_modified'
     });
+    if (verifyRows && verifyRows.length > 1) {
+      verifyRows.sort(function(a,b){ return _tsToMs(b.timestamp) - _tsToMs(a.timestamp); });
+      verifyRows = verifyRows.slice(0, 1);
+    }
     var hasTodayRow = false;
     if (verifyRows && verifyRows.length) {
       var vd = String(verifyRows[0].timestamp || '').slice(0,10);
@@ -12453,13 +12471,16 @@ async function _verifyBannerStateAgainstDb() {
   _lastBannerVerifyAt = nowMs;
   try {
     var today = new Date(Date.now()+9*3600000).toISOString().slice(0,10);
-    var rows = await _sbFetch('emotions', {
+    // 76차: _sbFetchEmotionsSince — 혼합 포맷 함정 회피. 클라이언트 _tsToMs 정렬 + slice(0,1)
+    var rows = await _sbFetchEmotionsSince(today, {
       student_uid:'eq.'+STATE.user.student_uid,
       type:'eq.checkin',
-      timestamp:'gte.'+today+'T00:00:00',
-      order:'timestamp.desc', limit:'1',
-      select:'emotion_uid,is_modified'
+      select:'emotion_uid,is_modified,timestamp'
     });
+    if (rows && rows.length > 1) {
+      rows.sort(function(a,b){ return _tsToMs(b.timestamp) - _tsToMs(a.timestamp); });
+      rows = rows.slice(0, 1);
+    }
     var hasRow = rows && rows.length > 0;
     // STATE와 실측 불일치 → STATE 교정 후 배너 재렌더
     if (STATE.todayEmotionSubmitted && !hasRow) {
