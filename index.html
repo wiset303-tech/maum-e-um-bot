@@ -15363,7 +15363,8 @@ function openEmotionInputModal(emotion_id, word, category) {
   modal.classList.remove('hidden');
 }
 
-// 78차 디자인: 학생 감정 입력 모달 — 큰 원형 구슬 + X 버튼 + 좌우 화살표(다른 감정 이동) + 메모 + 담기
+// 78차 디자인: 학생 감정 입력 모달 — 큰 원형 구슬 + X 버튼 + 메모 + 담기
+//   변쌤 명시: 학생은 한 감정 1장이라 좌우 화살표는 의미 없고 헷갈림 → 제거. 교사 carousel만 좌우 이동.
 function _ensureEmotionInputModal() {
   if (document.getElementById('modal-emotion-input')) return;
   var html =
@@ -15374,18 +15375,14 @@ function _ensureEmotionInputModal() {
           '<span class="emo-word" id="emoInputWord"></span>' +
           '<span class="emo-cat" id="emoInputCat"></span>' +
         '</div>' +
-        '<div class="emo-input-arrows">' +
-          '<button class="emo-input-arrow" id="emoInputPrev" onclick="emoInputNav(-1)" aria-label="이전 감정">‹</button>' +
-          '<div class="emo-input-marble-wrap">' +
-            '<div class="emo-input-marble empty" id="emoInputMarble" onclick="document.getElementById(\'emoInputFile\').click()">' +
-              '<img class="emo-input-photo" id="emoInputPhoto" alt="" style="display:none">' +
-              '<div class="emo-input-overlay">' +
-                '<div class="emo-input-overlay-icon">📷</div>' +
-                '<div class="emo-input-overlay-text" id="emoInputOverlay">사진을 골라볼까요?</div>' +
-              '</div>' +
+        '<div class="emo-input-marble-wrap" style="display:flex;justify-content:center;margin:6px 0 4px">' +
+          '<div class="emo-input-marble empty" id="emoInputMarble" onclick="document.getElementById(\'emoInputFile\').click()">' +
+            '<img class="emo-input-photo" id="emoInputPhoto" alt="" style="display:none">' +
+            '<div class="emo-input-overlay">' +
+              '<div class="emo-input-overlay-icon">📷</div>' +
+              '<div class="emo-input-overlay-text" id="emoInputOverlay">사진을 골라볼까요?</div>' +
             '</div>' +
           '</div>' +
-          '<button class="emo-input-arrow" id="emoInputNext" onclick="emoInputNav(1)" aria-label="다음 감정">›</button>' +
         '</div>' +
         '<input type="file" id="emoInputFile" accept="image/*" style="display:none" onchange="_onEmotionInputFileChange(event)">' +
         '<input class="inp" id="emoInputCaption" type="text" placeholder="이 감정에 대한 한 줄 메모 (선택)" maxlength="60" style="margin:16px 0 12px">' +
@@ -15426,51 +15423,7 @@ function _populateEmotionInputModal() {
     overlayText.textContent = st.word + ' 감정에 어울리는 사진을 골라볼까요?';
   }
   captionInp.value = (hasExisting && st.existing.caption) ? st.existing.caption : '';
-  _emoInputUpdateNav();
-}
-
-// 78차: 좌우 화살표 — 학생이 이미 채운 감정들 사이 이동 (가나다순). 빈 감정으론 안 감.
-function _emoInputUpdateNav() {
-  var st = STATE._emotionInput; if (!st) return;
-  var prevBtn = document.getElementById('emoInputPrev');
-  var nextBtn = document.getElementById('emoInputNext');
-  if (!prevBtn || !nextBtn) return;
-  var sUid = STATE.user && STATE.user.student_uid;
-  var filled = (_emotionAlbumCache || []).filter(function(r){
-    return !r.is_deleted && !r.is_teacher_upload && r.student_uid === sUid;
-  });
-  var emoIdToWord = {};
-  (_emotionsMaster || []).forEach(function(e){ emoIdToWord[e.emotion_id] = e.word; });
-  filled.sort(function(a,b){ return String(emoIdToWord[a.emotion_id]||'').localeCompare(String(emoIdToWord[b.emotion_id]||''), 'ko'); });
-  var curIdx = -1;
-  for (var i=0; i<filled.length; i++) { if (filled[i].emotion_id === st.emotion_id) { curIdx = i; break; } }
-  st._navList = filled;
-  st._navIdx  = curIdx;
-  prevBtn.disabled = (curIdx <= 0);
-  nextBtn.disabled = (curIdx === -1 || curIdx >= filled.length - 1);
-}
-
-function emoInputNav(delta) {
-  var st = STATE._emotionInput; if (!st || !st._navList) return;
-  var newIdx = (st._navIdx == null ? -1 : st._navIdx) + delta;
-  if (newIdx < 0 || newIdx >= st._navList.length) return;
-  var target = st._navList[newIdx];
-  var em = (_emotionsMaster || []).find(function(e){ return e.emotion_id === target.emotion_id; });
-  if (!em) return;
-  var marble = document.getElementById('emoInputMarble');
-  var outCls = delta > 0 ? 'slide-out-left'  : 'slide-out-right';
-  var inCls  = delta > 0 ? 'slide-in-right'  : 'slide-in-left';
-  marble.classList.add(outCls);
-  setTimeout(function(){
-    marble.classList.remove(outCls);
-    STATE._emotionInput = {
-      emotion_id: em.emotion_id, word: em.word, category: em.category,
-      existing: target, image_b64: '', thumb_b64: ''
-    };
-    _populateEmotionInputModal();
-    marble.classList.add(inCls);
-    setTimeout(function(){ marble.classList.remove(inCls); }, 380);
-  }, 280);
+  // 78차 정정: 학생 모달 좌우 화살표 제거 (한 감정 1장이라 의미 없음)
 }
 
 function closeEmotionInputModal() {
