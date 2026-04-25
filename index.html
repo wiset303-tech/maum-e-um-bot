@@ -15633,6 +15633,8 @@ async function submitEmotionAlbum() {
         await _sbPatch('album', 'album_uid=eq.'+st.existing.album_uid, { caption: caption, updated_at: new Date(Date.now()+9*3600000).toISOString().slice(0,19) });
         st.existing.caption = caption;
         _renderEmotionGrid();
+        // 78차 fix: 메모 수정도 broadcast — 다른 단말 즉시 반영 (이전 누락 원인)
+        _broadcastEmotionAlbumChange(STATE.user.teacher_uid, st.emotion_id);
       } catch(e) {
         console.error('[EMO CAPTION PATCH]', e);
         toast('메모를 저장하지 못했어요');
