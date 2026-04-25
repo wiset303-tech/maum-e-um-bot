@@ -7559,17 +7559,23 @@ async function _recordAttendanceClient(s_uid, t_uid, parent_uids_optional) {
   var key = s_uid + '_' + today;
   if (STATE._attendanceNotifiedToday[key]) return;
   // 76차 fix: Supabase 권위적 가드 — 새로고침/다른 단말로 STATE 플래그 리셋된 경우 중복 INSERT 방어
-  //   한 번 fetch로 교사·학부모 알림 모두 체크 (related_uid=학생, type=attendance, 오늘 이후)
-  //   fetch 실패 시 낙관적으로 INSERT 진행 (가드 없이 — 첫 INSERT 우선)
-  var todayStart = today + 'T00:00:00';
+  //   ⚠️ 60차 Δ⁴ 교훈: notifications.created_at은 text 컬럼이고 KST 문자열·UTC `+00` 문자열 혼재.
+  //      서버 `created_at gte` 필터(문자열 비교)도 함정, `String(x).slice(0,10)` 비교도 함정 (UTC 형식·Date 셀).
+  //      안전 헬퍼 `_tsToMs(x)` (line 9287)로 ms 정규화 후 KST 자정 ms 비교가 정답.
+  //   학생당 누적 알림 양 작음 (한 학기 100~200개). fetch 실패 시 낙관적 INSERT.
+  var todayStartMs = new Date(today + 'T00:00:00+09:00').getTime();
   var existRecipients = {};
   try {
     var existRows = await _sbFetch('notifications', {
       type: 'eq.attendance',
-      related_uid: 'eq.' + s_uid,
-      created_at: 'gte.' + todayStart
+      related_uid: 'eq.' + s_uid
     });
-    (existRows || []).forEach(function(r){ existRecipients[r.recipient_uid] = true; });
+    (existRows || []).forEach(function(r){
+      var rMs = _tsToMs(r.created_at);
+      if (rMs && rMs >= todayStartMs) {
+        existRecipients[r.recipient_uid] = true;
+      }
+    });
   } catch(e) { console.error('[ATTEND GUARD FETCH]', e && e.message); }
   STATE._attendanceNotifiedToday[key] = true;
   function _newUuid(){
