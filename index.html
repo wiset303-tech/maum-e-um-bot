@@ -9727,6 +9727,15 @@ function _onNewNotification(row) {
   if (n.type === 'warmth_full') {
     _triggerWarmthBonusOnce();
   }
+  // 76차: 교사가 감정 수정 허용 → 학생 STATE 리셋 + 배너 재렌더 (재로그인 강요 X)
+  //   feedback_notif_ui_sync.md 매트릭스 — broadcast 알림 도착 시 받는 단말 UI 자동 갱신 원칙
+  if (n.type === 'emotion_unlock' && STATE.role === 'student') {
+    STATE.todayEmotionSubmitted = false;
+    STATE.todayEmotionModified = false;
+    STATE.selectedMacro = null;
+    STATE.selectedMicro = null;
+    if (typeof updateEmotionSubmittedBanner === 'function') updateEmotionSubmittedBanner();
+  }
   toast(n.title);  // 예: "🏫 등교 완료" — 알림 제목이 자체로 친근하게 구성돼 있음
 }
 
