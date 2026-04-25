@@ -10215,6 +10215,25 @@ function startAlbumRealtime() {
       .channel(channelName)
       .on('postgres_changes', insertCfg, onChange)
       .on('postgres_changes', updateCfg, onChange)
+      // 78차 fix: 76차 attendance broadcast 패턴 답습 — 학생/교사 단말이 송신한 broadcast 신호를 받아 즉시 갱신
+      //   postgres_changes realtime이 publication 누락/지연될 때도 broadcast는 별도 메커니즘이라 안전
+      .on('broadcast', { event: 'emo-album-changed' }, function(msg){
+        try { console.log('[ALBUM BCAST recv]', msg && msg.payload); } catch(e) {}
+        // 즉시 캐시 무효화 + 재 fetch + 그리드/carousel 재렌더
+        _emotionAlbumLoaded = false;
+        _teacherAlbumLoaded = false;
+        if (STATE.role === 'admin') { try { _adminAlbumCache = {}; } catch(e) {} }
+        var panel0 = document.getElementById('panel-3');
+        var panelActive = panel0 && panel0.classList.contains('active');
+        if (panelActive) {
+          if (STATE._albumSubTab === 'emotion') renderEmotionAlbum();
+          else                                  refreshAlbum();
+          if (STATE.role === 'admin')           renderAdminAlbum();
+        }
+        if (typeof onEmotionAlbumRealtime === 'function' && typeof _cfState === 'object' && _cfState.open) {
+          try { onEmotionAlbumRealtime({ new: (msg && msg.payload) || {} }); } catch(e) {}
+        }
+      })
       .subscribe(function(status){
         // 78차 진단: 변쌤 콘솔에서 'SUBSCRIBED' 확인 가능 — CHANNEL_ERROR/TIMED_OUT면 폴링이 fallback
         try { console.log('[ALBUM RT subscribe]', channelName, status); } catch(e) {}
@@ -10226,6 +10245,33 @@ function stopAlbumRealtime() {
     try { _sbClient.removeChannel(_sbAlbumChannel); } catch(e) {}
     _sbAlbumChannel = null;
   }
+}
+
+// 78차 fix: 감정앨범 변경 broadcast 송신 — 같은 채널('album-' + teacher_uid)에 신호
+//   76차 attendance broadcast 패턴 답습 — postgres_changes publication 누락 시에도 안전
+//   학생/교사 본인이 INSERT/UPDATE/DELETE 직후 호출 → 교사·관리자 단말 즉시 갱신 (워드클라우드/알림 패턴)
+function _broadcastEmotionAlbumChange(teacher_uid, emotion_id) {
+  if (!teacher_uid) return;
+  try {
+    if (!_sbClient && typeof supabase !== 'undefined') {
+      _sbClient = supabase.createClient(SB_URL, SB_KEY);
+    }
+    if (!_sbClient) return;
+    var ch = _sbClient.channel('album-' + teacher_uid);
+    ch.subscribe(function(status){
+      if (status === 'SUBSCRIBED') {
+        try {
+          ch.send({
+            type: 'broadcast',
+            event: 'emo-album-changed',
+            payload: { teacher_uid: teacher_uid, emotion_id: emotion_id || '', t: Date.now() }
+          });
+        } catch(e) { console.error('[ALB BCAST send err]', e); }
+        // 송신 후 채널 정리 (메모리 누수 방지)
+        setTimeout(function(){ try { _sbClient.removeChannel(ch); } catch(e){} }, 1000);
+      }
+    });
+  } catch(e) { console.error('[ALB BCAST setup]', e); }
 }
 
 // 70차: 토큰 Supabase Realtime
@@ -15579,6 +15625,8 @@ async function submitEmotionAlbum() {
         is_teacher_upload: false, timestamp: resData.timestamp || ''
       });
       _renderEmotionGrid();
+      // 78차 fix: 교사 단말 즉시 새로고침 신호 (76차 attendance broadcast 패턴)
+      _broadcastEmotionAlbumChange(STATE.user.teacher_uid, st.emotion_id);
     } else if (st.existing && caption !== (st.existing.caption || '')) {
       // 메모만 수정 — Supabase 직접 PATCH (GAS 우회 — 더 빠름)
       try {
@@ -15969,6 +16017,8 @@ async function _cfToggleCover() {
     api('set_class_emotion_cover', { teacher_uid: teacher_uid, emotion_id: emotion_id, album_uid: cur.album_uid })
       .catch(function(e){ console.error('[CF COVER SYNC]', e); });
   }
+  // 78차 fix: 다른 단말 즉시 갱신 신호 (관리자 화면도 포함)
+  _broadcastEmotionAlbumChange(teacher_uid, emotion_id);
 }
 
 // 78차: 📤 교사 직접 업로드 — 파일 선택 → 압축 → saveAlbum (album_type=emotion, is_teacher_upload=true)
@@ -16038,6 +16088,8 @@ async function _cfSubmitTeacherUpload(image_b64, thumb_b64) {
       if (_cfState.cards[i].album_uid === res.data.album_uid) { _cfState.idx = i; break; }
     }
     _renderCfCarousel(true);
+    // 78차 fix: 다른 단말 즉시 갱신 신호
+    _broadcastEmotionAlbumChange(STATE.user.teacher_uid, _cfState.emotion_id);
   } catch(e) { console.error('[CF TCH UPLOAD]', e); toast('저장 중 오류가 났어요'); }
 }
 
@@ -16073,6 +16125,8 @@ async function _cfDeleteCurrent() {
   // 백그라운드 GAS — Drive trash + Sheets sync
   api('delete_album_by_teacher', { teacher_uid: STATE.user.teacher_uid, album_uid: album_uid })
     .catch(function(e){ console.error('[CF DELETE GAS]', e); });
+  // 78차 fix: 다른 단말 즉시 갱신 신호
+  _broadcastEmotionAlbumChange(STATE.user.teacher_uid, _cfState.emotion_id);
 
   toast('사진을 삭제했어요');
 }
