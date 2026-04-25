@@ -9884,38 +9884,16 @@ function stopTokenRealtime() {
 }
 
 
-// 새 감정 제출 감지 시 날씨 아이콘 반짝임
-// 76차 fix: 옛 selector(weather-icon·dashSubmitted·class-weather-icon·weatherIcon*) 4개 모두 stale
-//   현재 ID(statSubmit·weatherBox·classTempValue·nationalTempValue)로 갱신.
-//   fallback은 dashboard-header 마지막 자식에 추가 → 새로고침 버튼 옆 ping 깜빡 부작용 발생 (변쌤 76차 지적).
-//   selector 갱신으로 fallback 자체가 안 발동하면 부작용 사라짐. 안전 차원 fallback 자체는 유지.
+// 새 감정 제출 감지 시 새로고침 아이콘 회전
+// 76차 fix v2 (변쌤 명시): 워드클라우드·대시보드 element(weatherBox·classTempValue·statSubmit 등) 절대 건드리지 X.
+//   기존 새로고침 버튼의 ⟳ 회전 애니메이션만 발동 (.btn-refresh-mini.spinning CSS 활용).
+//   옛 sparkle/ping 동그라미·dashboard-header 자식 추가는 모두 제거 — 워드클라우드 침범 + 새로고침 옆 깜빡 부작용 원인.
 function sparkleWeatherIcon() {
-  var targets = [
-    document.getElementById('statSubmit'),
-    document.getElementById('weatherBox'),
-    document.getElementById('classTempValue'),
-    document.getElementById('nationalTempValue'),
-  ].filter(Boolean);
-
-  // 없으면 대시보드 헤더 영역에 핑 뱃지 생성 (관리자 미리보기 등 정말 element 없는 케이스만)
-  if (!targets.length) {
-    var ref = document.querySelector('.dashboard-header') ||
-              document.querySelector('.class-temp-title');
-    if (ref) {
-      var ping = document.createElement('span');
-      ping.style.cssText = 'display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--mint2);margin-left:6px;animation:ping 1s ease-out 3;vertical-align:middle';
-      ref.appendChild(ping);
-      setTimeout(function(){ ping.remove(); }, 3200);
-    }
-    return;
+  var btn = document.getElementById('btnRefresh');
+  if (btn) {
+    btn.classList.add('spinning');
+    setTimeout(function(){ btn.classList.remove('spinning'); }, 1500);
   }
-
-  targets.forEach(function(el) {
-    el.style.animation = 'none';
-    el.offsetHeight; // reflow
-    el.style.animation = 'sparkle 0.6s ease-in-out 3';
-    setTimeout(function(){ el.style.animation = ''; }, 2000);
-  });
 }
 
 // ════════════════════════════════════════
