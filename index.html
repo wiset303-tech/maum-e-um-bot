@@ -8944,6 +8944,46 @@ var _notifPage = 0; // 현재 알림 페이지 (0-indexed)
 var NOTIF_PER_PAGE = 3;
 var _notifRendering = false; // innerHTML 교체 중 외부클릭 오인 방지
 
+// 76차 PII: notifications anon SELECT 환경에서 body+sender_name이 학생명 직접 포함하면 외부 스크랩 시 PII 노출.
+// 서버는 body·sender_name에 학생명 빼고 보내고, 클라이언트가 related_uid로 매핑해 prefix 표시.
+// type별 톤: 교사/학부모 격식("○○ 학생이"), 학생 친근체(_subjGa), 학부모 자녀명 STATE.user에서 매핑.
+// sender_name fallback은 회귀 방어용 (서버 미배포 시 옛날 알림 보호).
+function _resolveNotifBody(n) {
+  if (!n) return '';
+  var body = n.body || '';
+  var typesNeedPrefix = { attendance:1, emotion_crisis:1, crisis_chat:1, token_gift:1 };
+  if (!typesNeedPrefix[n.type]) return body;
+  var rUid = n.related_uid || '';
+  var stuName = '';
+  // 1순위: STATE.students 매핑 (교사·학생·관리자가 가진 학급 명단)
+  if (STATE.students && STATE.students.length && rUid) {
+    for (var i = 0; i < STATE.students.length; i++) {
+      if (STATE.students[i].student_uid === rUid) {
+        stuName = STATE.students[i].name || '';
+        break;
+      }
+    }
+  }
+  // 2순위 (학부모): STATE.user.student_uid/student_name 매핑 (loginByPw 응답에 자녀명)
+  if (!stuName && STATE.user && rUid && STATE.user.student_uid === rUid) {
+    stuName = STATE.user.student_name || '';
+  }
+  // 3순위 (회귀 방어): 옛날 알림은 sender_name에 학생명 들어있을 수 있음
+  if (!stuName) stuName = n.sender_name || '';
+  var role = STATE.role || (STATE.user && STATE.user.role);
+  var prefix;
+  if (n.type === 'token_gift') {
+    prefix = stuName ? (_subjGa(stuName) + ' ') : '친구가 ';
+  } else if (n.type === 'crisis_chat') {
+    prefix = stuName ? (stuName + ' 학생의 ') : '한 학생의 ';
+  } else if (role === 'parent') {
+    prefix = stuName ? (stuName + ' 학생이 ') : '자녀가 ';
+  } else {
+    prefix = stuName ? (stuName + ' 학생이 ') : '한 학생이 ';
+  }
+  return prefix + body;
+}
+
 function renderNotifDropdown(page) {
   _notifRendering = true;
   setTimeout(function(){ _notifRendering = false; }, 50); // 이벤트 버블 완료 후 해제
@@ -8987,7 +9027,7 @@ function renderNotifDropdown(page) {
         '<span style="font-size:18px;flex-shrink:0">' + icon + '</span>' +
         '<div style="flex:1;min-width:0">' +
           '<div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:2px">' + n.title + '</div>' +
-          '<div style="font-size:11px;color:var(--gray);line-height:1.4">' + n.body + '</div>' +
+          '<div style="font-size:11px;color:var(--gray);line-height:1.4">' + _resolveNotifBody(n) + '</div>' +
           '<div style="font-size:10px;color:#bbb;margin-top:3px">' + time + '</div>' +
         '</div>' +
       '</div>' +
@@ -14409,10 +14449,23 @@ async function _sendTeacherGift() {
 }
 
 // 68차: 선물받은 팝업 — token_gift 알림 클릭 시 호출
-// notification.body = "○○가 마음토큰을 선물했어요 💝[\n💌 메시지]" 포맷 가정
+// 76차 PII: notif.body = "마음토큰을 선물했어요[\n💌 메시지]" (학생명 빠짐)
+//   sender_name도 빈 값 → related_uid(from_uid)로 STATE.students 매핑해 친구명 표시.
+//   같은 반 학생만 token_gift 가능 (선물 모달 STATE.students.filter)이라 매핑 100% 작동.
 function openGiftReceivedModal(notif) {
   if (!notif) return;
-  var sender = notif.sender_name || '친구';
+  var sender = '친구';
+  var fromUid = notif.related_uid || '';
+  if (STATE.students && STATE.students.length && fromUid) {
+    for (var _gi = 0; _gi < STATE.students.length; _gi++) {
+      if (STATE.students[_gi].student_uid === fromUid) {
+        sender = STATE.students[_gi].name || '친구';
+        break;
+      }
+    }
+  }
+  // 회귀 방어: 옛날 알림은 sender_name에 친구명 있음
+  if (sender === '친구' && notif.sender_name) sender = notif.sender_name;
   var body = String(notif.body || '');
   var msg = '';
   var mIdx = body.indexOf('\n💌 ');
