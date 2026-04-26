@@ -1341,6 +1341,217 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   flex:1; border-radius:2px; opacity:.6;
 }
 
+/* 80차: 마음동화 모달 — 책이 펼쳐지는 효과 */
+#modal-heart-tale-page{ perspective:1500px; }
+.heart-tale-modal-box{
+  position:relative;
+  width:min(94vw, 540px);
+  max-height:90vh;
+  margin:auto;
+  display:flex; flex-direction:column;
+  animation:heartTaleOpen .55s cubic-bezier(.2,.7,.2,1) forwards;
+  transform-style:preserve-3d;
+}
+@keyframes heartTaleOpen{
+  0%   { opacity:0; transform:scale(.7) rotateY(-30deg) translateY(20px); filter:blur(8px); }
+  60%  { opacity:1; transform:scale(1.03) rotateY(4deg) translateY(0);    filter:blur(0); }
+  100% { transform:scale(1) rotateY(0); }
+}
+.heart-tale-close{
+  position:absolute; top:-44px; right:0;
+  width:36px; height:36px;
+  background:rgba(255,255,255,0.95); border:none; border-radius:50%;
+  font-size:18px; color:#5b3a1f; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 4px 10px rgba(0,0,0,0.15);
+  z-index:2;
+  transition:transform .2s, background .2s;
+}
+.heart-tale-close:hover{ background:#fff; transform:scale(1.08); }
+.heart-tale-book{
+  position:relative;
+  display:flex;
+  background:linear-gradient(135deg, #faf6ed 0%, #f3e8d0 100%);
+  border-radius:6px 14px 14px 6px;
+  box-shadow:
+    0 4px 8px rgba(60,40,20,0.12),
+    0 16px 36px rgba(60,40,20,0.18),
+    inset 8px 0 16px rgba(120,80,40,0.10);
+  min-height:60vh;
+  overflow:hidden;
+}
+.heart-tale-book::before{
+  content:''; position:absolute; top:0; bottom:0; left:0;
+  width:14px;
+  background:linear-gradient(90deg, rgba(90,60,30,0.30) 0%, rgba(90,60,30,0.10) 70%, transparent 100%);
+  border-radius:6px 0 0 6px;
+  pointer-events:none; z-index:1;
+}
+.heart-tale-card{
+  flex:1;
+  padding:28px 22px 24px 32px;
+  position:relative;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.heart-tale-page-inner{
+  animation:pageFlipIn .45s cubic-bezier(.3,.7,.3,1);
+}
+.heart-tale-page-inner.flipping-next{ animation:pageFlipOutNext .35s cubic-bezier(.5,0,.7,1) forwards; }
+.heart-tale-page-inner.flipping-prev{ animation:pageFlipOutPrev .35s cubic-bezier(.5,0,.7,1) forwards; }
+@keyframes pageFlipIn{
+  0%   { opacity:0; transform:translateX(20px) rotateY(15deg); }
+  100% { opacity:1; transform:translateX(0)    rotateY(0); }
+}
+@keyframes pageFlipOutNext{
+  0%   { opacity:1; transform:translateX(0)     rotateY(0); }
+  100% { opacity:0; transform:translateX(-20px) rotateY(-25deg); }
+}
+@keyframes pageFlipOutPrev{
+  0%   { opacity:1; transform:translateX(0)    rotateY(0); }
+  100% { opacity:0; transform:translateX(20px) rotateY(25deg); }
+}
+.heart-tale-meta{
+  font-family:'Noto Sans KR', sans-serif;
+  font-size:11.5px; color:#8a6a48; letter-spacing:.5px;
+  text-align:center; margin-bottom:0;
+}
+.heart-tale-meta-divider{
+  width:40px; height:1px;
+  background:rgba(120,80,40,0.3);
+  margin:8px auto 16px;
+}
+.heart-tale-week-word{
+  font-family:'Gamja Flower', cursive, sans-serif;
+  font-size:38px; color:#5b3a1f;
+  text-align:center; margin:0 0 18px 0;
+  letter-spacing:-1px; line-height:1.1;
+  font-weight:normal;
+}
+.heart-tale-photo-wrap{
+  width:100%;
+  margin:0 auto 18px;
+  background:rgba(255,255,255,0.5);
+  border-radius:6px;
+  box-shadow:0 1px 2px rgba(60,40,20,0.08), 0 4px 10px rgba(60,40,20,0.06);
+  overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+  min-height:180px;
+}
+.heart-tale-photo{
+  width:100%; height:auto; display:block;
+  max-height:55vh; object-fit:contain;
+}
+.heart-tale-photo-placeholder{
+  width:100%; min-height:240px;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:10px;
+  font-size:72px; opacity:.55;
+  font-family:'Gamja Flower', cursive, sans-serif;
+}
+.heart-tale-photo-placeholder .htp-ph-label{
+  font-size:13px; color:#8a6a48; letter-spacing:-0.2px;
+}
+.heart-tale-handwritten{
+  font-family:'Gamja Flower', cursive, sans-serif;
+  font-size:18px; color:#3a2818;
+  line-height:1.7; letter-spacing:-0.3px;
+  padding:8px 4px; margin-bottom:14px;
+  word-break:keep-all;
+  border-bottom:1px solid rgba(120,80,40,0.15);
+}
+.heart-tale-bot-line{
+  font-family:'Noto Sans KR', sans-serif;
+  font-size:13px; color:#5b3a1f;
+  line-height:1.6; letter-spacing:-0.2px;
+  background:rgba(255,255,255,0.55);
+  border-left:3px solid #C9A227;
+  padding:10px 12px;
+  border-radius:0 8px 8px 0;
+  margin-bottom:18px;
+  word-break:keep-all;
+  font-style:italic;
+}
+.heart-tale-rainbow-label{
+  font-family:'Noto Sans KR', sans-serif;
+  font-size:10.5px; color:#8a6a48;
+  letter-spacing:.3px;
+  text-align:center; margin-bottom:6px;
+  display:flex; align-items:center; justify-content:center; gap:8px;
+}
+.heart-tale-rainbow-label::before,
+.heart-tale-rainbow-label::after{
+  content:''; flex:0 0 30px; height:1px;
+  background:rgba(120,80,40,0.25);
+}
+.heart-tale-rainbow-bar{
+  display:flex; height:14px; gap:2px;
+  border-radius:7px; overflow:hidden;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,0.1);
+}
+.heart-tale-rainbow-bar span{
+  height:100%; min-width:4px;
+  transition:flex .3s ease;
+}
+.heart-tale-rainbow-bar span.placeholder{ opacity:.18; }
+.heart-tale-spine{
+  flex:0 0 28px;
+  background:linear-gradient(90deg, rgba(120,80,40,0.05), rgba(120,80,40,0.02));
+  border-left:1px solid rgba(120,80,40,0.12);
+  display:flex; flex-direction:column;
+  padding:6px 4px; gap:1px;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.heart-tale-spine-row{
+  flex:1; min-height:7px;
+  display:flex; gap:1px;
+  cursor:pointer;
+  border-radius:1.5px;
+  opacity:.85;
+  transition:opacity .2s, transform .2s, box-shadow .2s;
+  position:relative;
+}
+.heart-tale-spine-row:hover{
+  opacity:1;
+  transform:scale(1.15);
+  box-shadow:0 0 0 1.5px rgba(91,58,31,0.5);
+  z-index:2;
+}
+.heart-tale-spine-row.placeholder{ opacity:.20; }
+.heart-tale-spine-row.placeholder:hover{ opacity:.35; }
+.heart-tale-spine-row.current{
+  opacity:1;
+  box-shadow:0 0 0 2px #5b3a1f;
+  z-index:1;
+  transform:scale(1.18);
+}
+.heart-tale-spine-row span{ flex:1; height:100%; border-radius:1px; }
+.heart-tale-nav{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 4px 0;
+  font-family:'Noto Sans KR', sans-serif;
+}
+.heart-tale-nav button{
+  background:rgba(255,255,255,0.95); border:none; border-radius:50%;
+  width:36px; height:36px;
+  font-size:14px; color:#5b3a1f; cursor:pointer;
+  box-shadow:0 2px 6px rgba(60,40,20,0.18);
+  transition:transform .2s, background .2s;
+}
+.heart-tale-nav button:hover:not(:disabled){ background:#fff; transform:scale(1.1); }
+.heart-tale-nav button:disabled{ opacity:.3; cursor:default; }
+.heart-tale-week-indicator{
+  font-size:12.5px; color:#5b3a1f;
+  letter-spacing:.3px; font-weight:600;
+}
+@media (max-width:480px){
+  .heart-tale-card{ padding:24px 18px 20px 26px; }
+  .heart-tale-week-word{ font-size:34px; }
+  .heart-tale-spine{ flex-basis:22px; }
+}
+
 .macro-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px}
 .macro-btn{
   border:3px solid transparent;border-radius:var(--r2);padding:16px 8px;
@@ -3045,6 +3256,22 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 </div>
 
 <!-- ══ 모달: 공통 확인 (66차: 브라우저 confirm() 대체 · _uiConfirm 헬퍼 전용) ══ -->
+<!-- 80차: 마음동화 펼치기 모달 (z-index:3200) -->
+<div id="modal-heart-tale-page" class="modal-overlay hidden" style="z-index:3200" onclick="closeModalOutside(event,'modal-heart-tale-page')">
+  <div class="heart-tale-modal-box" onclick="event.stopPropagation()">
+    <button class="heart-tale-close" onclick="closeHeartTalePage()" aria-label="닫기">✕</button>
+    <div class="heart-tale-book">
+      <div class="heart-tale-card" id="htp-card-wrap"></div>
+      <div class="heart-tale-spine" id="htp-spine"></div>
+    </div>
+    <div class="heart-tale-nav">
+      <button id="htp-prev-btn" onclick="_navHeartTalePage(-1)" aria-label="이전">◀</button>
+      <span class="heart-tale-week-indicator" id="htp-week-indicator">— / 36주차</span>
+      <button id="htp-next-btn" onclick="_navHeartTalePage(1)" aria-label="다음">▶</button>
+    </div>
+  </div>
+</div>
+
 <div id="modal-confirm" class="modal-overlay hidden" style="z-index:3400" onclick="closeModalOutside(event,'modal-confirm')">
   <div class="modal-box" style="position:relative;max-width:340px">
     <div id="confirmTitle" class="modal-title" style="text-align:center;margin-bottom:10px">확인</div>
@@ -14453,9 +14680,246 @@ function calcBannerMessage(tokenData) {
   if (el) el.textContent = chosen;
 }
 
-// 80차: 마음동화 펼치기 진입점 (모달 본 구현은 다음 chunk)
+// ════════════════════════════════════════
+// 80차: 마음동화 펼치기 — 핵심 자산 + 9개 함수
+// ════════════════════════════════════════
+var HEART_TALE_TOTAL_WEEKS = 36;
+var HEART_TALE_YEAR_START = '2026-03-02';  // 새 학년 시작 (월요일)
+var _HEART_RAINBOW_HEX = ['#D9455F','#E67E22','#C9A227','#2E8B57','#1E6FB8','#1A237E','#6A3DB5'];
+
+// 36주 단어 풀 — 4학기 9주씩 (감정 인식 / 표현 / 관계 / 회복)
+var _PV_HEART_TALE_WORDS = [
+  '기쁨','슬픔','화남','두려움','놀람','부끄러움','답답함','평온함','외로움',
+  '뿌듯함','미안함','고마움','말로 표현','몸으로 표현','글로 표현','그림으로 표현','색깔로 표현','음악으로 표현',
+  '친구의 마음','가족의 마음','선생님 마음','갈등','화해','용서','감사','배려','존중',
+  '회복','용기','희망','꿈','도전','성장','내년의 나','감사 인사','마음 안녕'
+];
+
+// placeholder 그림 풀 — 비율 다양 (정사각·세로·가로 섞기)
+var _PV_HEART_TALE_DRAWINGS = [
+  { ratio:'1/1', bg:'#fff5f5', emoji:'🌱', label:'새싹' },
+  { ratio:'3/4', bg:'#fff8e6', emoji:'🌳', label:'나무' },
+  { ratio:'4/3', bg:'#f0f9ff', emoji:'🌈', label:'무지개' },
+  { ratio:'1/1', bg:'#fef5e7', emoji:'☀️', label:'햇살' },
+  { ratio:'3/4', bg:'#fdf4ff', emoji:'⭐', label:'별' },
+  { ratio:'4/3', bg:'#f0fdf4', emoji:'🌸', label:'꽃' },
+  { ratio:'1/1', bg:'#fff7ed', emoji:'☁️', label:'구름' },
+  { ratio:'3/4', bg:'#f3f4f6', emoji:'🐱', label:'고양이' }
+];
+
+// 학생 한 줄 글 풀
+var _PV_HEART_TALE_TEXTS = [
+  '오늘은 내가 심은 작은 새싹에 물을 주었다. 기분이 뿌듯했다.',
+  '친구가 같이 놀자고 해줘서 너무 기뻤다.',
+  '시험을 못 봐서 속상했지만 다시 해보기로 했다.',
+  '동생이랑 싸워서 미안한 마음이 들었다.',
+  '엄마가 안아줘서 마음이 따뜻해졌다.',
+  '선생님께서 칭찬해주셔서 자신감이 생겼다.',
+  '비 오는 날 창밖을 보니 마음이 잔잔해졌다.',
+  '친구한테 화가 났지만 참고 말로 표현했다.',
+  '도서관에서 좋아하는 책을 발견했다.',
+  '운동장에서 뛰고 나니 마음이 가벼워졌다.'
+];
+
+// 마음봇 한 줄 풀 — 3 카테고리 혼합 (공감·기억·조절)
+var _PV_HEART_TALE_BOT_LINES = [
+  '뿌듯함은 네가 너 자신을 본 순간이야.',
+  '이 그림은 내년 봄에도 너에게 이 날을 데려다줄 거야.',
+  '외로움도 네 마음이 살아있다는 신호야.',
+  '화날 땐 숨을 4초 들이마시고 8초 내쉬어 봐.',
+  '오늘 적은 한 줄을 1년 후에 다시 읽어볼 약속해.',
+  '답답할 땐 따뜻한 물 한 잔 천천히 마셔봐.',
+  '슬플 땐 그 마음 옆에 가만히 있어줘 봐.',
+  '네가 그린 그림이 너에게 보내는 편지가 될 거야.',
+  '부끄러움은 네가 더 멋진 사람이 되고 싶다는 신호야.',
+  '두려움 앞에선 한 발만 더, 그게 용기야.',
+  '고마운 마음은 다시 말해도 닳지 않아.',
+  '용서는 너 자신에게 주는 선물이야.'
+];
+
+// 학생별 결정적 더미 — 1~7주차 봉인됨, 8~36주차 placeholder
+function _pickPreviewHeartTale(student_uid, student_name, week_no) {
+  var seed = _previewSeed(student_uid || 'preview', student_name || '학생');
+  var k1 = (seed + week_no * 7)  % _PV_HEART_TALE_DRAWINGS.length;
+  var k2 = (seed + week_no * 11) % _PV_HEART_TALE_TEXTS.length;
+  var k3 = (seed + week_no * 13) % _PV_HEART_TALE_BOT_LINES.length;
+  var rainbow = [];
+  for (var i = 0; i < 7; i++) {
+    rainbow.push(((seed * 3 + week_no * 5 + i * 17) % 7) + 1);
+  }
+  return {
+    week: week_no,
+    word: _PV_HEART_TALE_WORDS[(week_no - 1) % _PV_HEART_TALE_WORDS.length],
+    drawing: _PV_HEART_TALE_DRAWINGS[k1],
+    text: _PV_HEART_TALE_TEXTS[k2],
+    bot_line: _PV_HEART_TALE_BOT_LINES[k3],
+    rainbow: rainbow,
+    sealed: week_no <= 7
+  };
+}
+
+// 36주 lazy 캐시
+function _ensurePreviewHeartTale(student_uid, student_name) {
+  if (!STATE._previewHeartTale) STATE._previewHeartTale = {};
+  var key = student_uid || 'me';
+  if (STATE._previewHeartTale[key]) return STATE._previewHeartTale[key];
+  var pages = [];
+  for (var w = 1; w <= HEART_TALE_TOTAL_WEEKS; w++) {
+    pages.push(_pickPreviewHeartTale(student_uid, student_name, w));
+  }
+  STATE._previewHeartTale[key] = pages;
+  return pages;
+}
+
+// 주차 → 메타 ("11월 둘째 주" 같은 한국어 표시)
+function _heartTaleWeekMeta(week_no) {
+  var start = new Date(HEART_TALE_YEAR_START + 'T00:00:00');
+  start.setDate(start.getDate() + (week_no - 1) * 7);
+  var month = start.getMonth() + 1;
+  var dayOfMonth = start.getDate();
+  var weekOfMonth = Math.ceil(dayOfMonth / 7);
+  var weekNames = ['첫째','둘째','셋째','넷째','다섯째'];
+  return month + '월 ' + (weekNames[weekOfMonth - 1] || '') + ' 주';
+}
+
+// 7색 무지개바 빌더 — full(본 페이지) / mini(spine) 공통
+function _buildWeekRainbow(rainbow, sealed, mode) {
+  var html = '';
+  for (var i = 0; i < 7; i++) {
+    var flex = sealed ? rainbow[i] : 1;
+    var cls  = (mode === 'full' && !sealed) ? ' class="placeholder"' : '';
+    html += '<span' + cls + ' style="background:' + _HEART_RAINBOW_HEX[i] + ';flex:' + flex + '"></span>';
+  }
+  return html;
+}
+
+// 본 페이지 렌더
+function _renderHeartTalePage(week_no) {
+  var key = STATE._htpStudentUid || 'me';
+  var pages = STATE._previewHeartTale && STATE._previewHeartTale[key];
+  if (!pages) return;
+  var p = pages[week_no - 1];
+  if (!p) return;
+  var card = document.getElementById('htp-card-wrap');
+  if (!card) return;
+
+  var html = '<div class="heart-tale-page-inner" data-week="' + week_no + '">';
+  html += '<div class="heart-tale-meta">' + week_no + '주차 · ' + _heartTaleWeekMeta(week_no) + '</div>';
+  html += '<div class="heart-tale-meta-divider"></div>';
+  html += '<h2 class="heart-tale-week-word">' + _escHtml(p.word) + '</h2>';
+
+  if (p.sealed) {
+    var d = p.drawing;
+    html += '<div class="heart-tale-photo-wrap" style="aspect-ratio:' + d.ratio + ';background:' + d.bg + '">';
+    html += '<div class="heart-tale-photo-placeholder">';
+    html += '<span>' + d.emoji + '</span>';
+    html += '<span class="htp-ph-label">' + _escHtml(d.label) + ' 그림 자리</span>';
+    html += '</div></div>';
+    html += '<div class="heart-tale-handwritten">' + _escHtml(p.text) + '</div>';
+    html += '<div class="heart-tale-bot-line">💬 ' + _escHtml(p.bot_line) + '</div>';
+  } else {
+    html += '<div class="heart-tale-photo-wrap" style="aspect-ratio:1/1;background:rgba(255,255,255,0.4);min-height:200px">';
+    html += '<div class="heart-tale-photo-placeholder">';
+    html += '<span style="font-size:48px;opacity:.4">📖</span>';
+    html += '<span class="htp-ph-label">아직 채우지 않은 페이지예요</span>';
+    html += '</div></div>';
+    html += '<div style="text-align:center;color:#8a6a48;font-size:13px;line-height:1.7;padding:20px 0;word-break:keep-all">이 주의 마음 페이지는 아직 비어 있어요.<br>공책에 그림을 그리고 마음을 담아주세요.</div>';
+  }
+
+  html += '<div class="heart-tale-rainbow-label">한 주의 마음 무지개</div>';
+  html += '<div class="heart-tale-rainbow-bar">' + _buildWeekRainbow(p.rainbow, p.sealed, 'full') + '</div>';
+  html += '</div>';
+  card.innerHTML = html;
+
+  var ind = document.getElementById('htp-week-indicator');
+  if (ind) ind.textContent = week_no + ' / ' + HEART_TALE_TOTAL_WEEKS + '주차';
+  var prev = document.getElementById('htp-prev-btn');
+  var next = document.getElementById('htp-next-btn');
+  if (prev) prev.disabled = (week_no <= 1);
+  if (next) next.disabled = (week_no >= HEART_TALE_TOTAL_WEEKS);
+  STATE._htpCurrentWeek = week_no;
+  _renderHeartTaleSpine();
+}
+
+// 우측 누적 컬럼 (책 옆면)
+function _renderHeartTaleSpine() {
+  var key = STATE._htpStudentUid || 'me';
+  var pages = STATE._previewHeartTale && STATE._previewHeartTale[key];
+  if (!pages) return;
+  var spine = document.getElementById('htp-spine');
+  if (!spine) return;
+  var current = STATE._htpCurrentWeek || 1;
+  var html = '';
+  for (var w = 1; w <= HEART_TALE_TOTAL_WEEKS; w++) {
+    var p = pages[w - 1];
+    var cls = 'heart-tale-spine-row';
+    if (!p.sealed) cls += ' placeholder';
+    if (w === current) cls += ' current';
+    html += '<div class="' + cls + '" data-week="' + w + '" onclick="_navHeartTalePage(0,' + w + ')" title="' + w + '주차">';
+    html += _buildWeekRainbow(p.rainbow, p.sealed, 'mini');
+    html += '</div>';
+  }
+  spine.innerHTML = html;
+}
+
+// 페이지 넘김 — dir: -1/+1, 또는 dir=0 + jumpTo로 직접 이동
+function _navHeartTalePage(dir, jumpTo) {
+  var card = document.getElementById('htp-card-wrap');
+  if (!card) return;
+  var inner = card.querySelector('.heart-tale-page-inner');
+  var current = STATE._htpCurrentWeek || 1;
+  var target = (dir === 0 && jumpTo) ? jumpTo : current + dir;
+  if (target < 1 || target > HEART_TALE_TOTAL_WEEKS) return;
+  if (target === current) return;
+  var nextDir = (target > current) ? 'flipping-next' : 'flipping-prev';
+  if (inner) {
+    inner.classList.add(nextDir);
+    setTimeout(function(){ _renderHeartTalePage(target); }, 220);
+  } else {
+    _renderHeartTalePage(target);
+  }
+}
+
+// 진입점 — 학생/교사 미리보기 공통
 function openHeartTalePage(student_uid, week_no) {
-  toast('📖 마음동화 모달 준비 중...');
+  if (STATE.isPreview || !STATE.user) {
+    var name = '나';
+    if (student_uid && STATE._previewStudents) {
+      for (var i = 0; i < STATE._previewStudents.length; i++) {
+        if (STATE._previewStudents[i].student_uid === student_uid) {
+          name = STATE._previewStudents[i].name; break;
+        }
+      }
+    } else if (STATE.user) {
+      name = STATE.user.name || '나';
+    }
+    STATE._htpStudentUid = student_uid || 'me';
+    _ensurePreviewHeartTale(student_uid || 'me', name);
+  } else {
+    toast('📖 마음동화는 미리보기 모드에서 시연 가능해요');
+    return;
+  }
+  var pages = STATE._previewHeartTale[STATE._htpStudentUid];
+  var startWeek = 1;
+  for (var k = pages.length - 1; k >= 0; k--) {
+    if (pages[k].sealed) { startWeek = pages[k].week; break; }
+  }
+  _renderHeartTalePage(week_no || startWeek);
+  document.getElementById('modal-heart-tale-page').classList.remove('hidden');
+}
+
+// 모달 닫기
+function closeHeartTalePage() {
+  var el = document.getElementById('modal-heart-tale-page');
+  if (el) el.classList.add('hidden');
+}
+
+// 관리자 미리보기 — 「공책 태그 시뮬레이션」 진입점 (D 진입 자리는 다음 chunk)
+function simulateBookTag() {
+  if (!STATE.isPreview) {
+    toast('미리보기 모드에서 시연하는 기능이에요'); return;
+  }
+  openHeartTalePage();
 }
 
 // ─────────────────────────────────────────
