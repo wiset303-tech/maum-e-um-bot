@@ -15232,7 +15232,15 @@ async function renderEmotionAlbum() {
   }
   // 78차 fix: 캐시 무효화 — 진입 시 항상 최신 데이터
   _emotionAlbumLoaded = false;
+  // 78차 진단 로그: fetch 전후 cache size + 첫 thumb 일부 (변쌤 콘솔 확인용 — 옛 값/새 값 구분)
+  try { console.log('[EMO ALBUM] fetch start, current cache size:', (_emotionAlbumCache || []).length); } catch(e) {}
   await Promise.all([_loadEmotionsMaster(), _loadEmotionAlbumCache()]);
+  try {
+    var c = _emotionAlbumCache || [];
+    console.log('[EMO ALBUM] fetch done, new cache size:', c.length,
+      'first updated_at:', (c[0] && c[0].updated_at || '').toString().slice(0,19),
+      'first thumb head:', (c[0] && c[0].thumb_url || '').slice(0,30));
+  } catch(e) {}
   _renderEmotionGrid();
   // 78차 fix: 교사 감정앨범 활성 시 폴링 fallback 시작 (realtime 누락 안전망)
   if (STATE.role === 'teacher' && STATE._albumSubTab === 'emotion') {
