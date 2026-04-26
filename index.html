@@ -15448,6 +15448,8 @@ function _patchEmotionBeadInPlace(beadEl, em, rows, role) {
 //   증상: 78차 sec.innerHTML 통째 교체 → 변쌤 보고 "계속 업어졌다 반영"
 //   참고: index.html:9720 renderWordCloud 패턴
 var _emoGridGen = 0;
+var _emoGridLastPage = -1;
+var _emoGridLastFilter = '';
 function _renderEmotionGrid() {
   var sec = document.getElementById('albumEmotionSection');
   if (!sec) return;
@@ -15496,48 +15498,65 @@ function _renderEmotionGrid() {
     fbs.forEach(function(b, i){ b.classList.toggle('active', keys[i] === _emotionAlbumFilter); });
   }
 
-  // 그리드: existingMap 으로 in-place
+  // 그리드 영역
   var gridEl = document.getElementById('emoAlbumGrid');
-  var existingMap = {};
-  Array.prototype.forEach.call(gridEl.querySelectorAll('.emo-bead'), function(el){
-    existingMap[el.dataset.emotionId] = el;
-  });
-  var usedKeys = {};
 
-  pageEmos.forEach(function(em, i) {
-    if (myGen !== _emoGridGen) return;
-    var rows = byEmotion[em.emotion_id] || [];
-    usedKeys[em.emotion_id] = true;
-    var ex = existingMap[em.emotion_id];
-    if (ex) {
-      // 79차 fix v2: 진짜 in-place — 기존 element 그대로 두고 자식만 부분 갱신 (변쌤 명시 "위치는 고정 그 부분만")
-      _patchEmotionBeadInPlace(ex, em, rows, role);
-    } else {
-      // 새 구슬: fade-in (짧은 stagger)
-      var html = _emotionBeadHTML(em, rows, role);
-      var tmp = document.createElement('div');
-      tmp.innerHTML = html;
-      var beadEl = tmp.firstChild;
-      beadEl.style.opacity = '0';
-      beadEl.style.transition = 'opacity .3s ease ' + (i*0.02) + 's';
-      gridEl.appendChild(beadEl);
-      requestAnimationFrame(function(){
+  // 79차 fix v3: 페이지/필터 변경 감지 — 모든 구슬이 다른 emotion_id라 in-place 무의미
+  //   증상: 페이지네이션 클릭 시 fade-out(320ms) 동안 그리드 짧아짐 → 스크롤 점프
+  //   해결: 페이지/필터 변경 시 통째 즉시 교체 (fade 없이) + min-height 잠시 고정
+  var pageChanged = (_emoGridLastPage !== _emotionAlbumPage) || (_emoGridLastFilter !== _emotionAlbumFilter);
+  _emoGridLastPage = _emotionAlbumPage;
+  _emoGridLastFilter = _emotionAlbumFilter;
+
+  if (pageChanged) {
+    // 그리드 높이 잠시 고정으로 스크롤 점프 차단 (페이지마다 구슬 수 달라도 영역 안정)
+    var prevH = gridEl.offsetHeight;
+    if (prevH) gridEl.style.minHeight = prevH + 'px';
+    var html = pageEmos.map(function(em){
+      var rows = byEmotion[em.emotion_id] || [];
+      return _emotionBeadHTML(em, rows, role);
+    }).join('');
+    gridEl.innerHTML = html;
+    setTimeout(function(){ if (gridEl) gridEl.style.minHeight = ''; }, 50);
+    // 페이지네이션 본체로 진행 (아래 pager 갱신)
+  } else {
+    // 같은 페이지 내 데이터만 변경 — in-place 갱신
+    var existingMap = {};
+    Array.prototype.forEach.call(gridEl.querySelectorAll('.emo-bead'), function(el){
+      existingMap[el.dataset.emotionId] = el;
+    });
+    var usedKeys = {};
+    pageEmos.forEach(function(em, i) {
+      if (myGen !== _emoGridGen) return;
+      var rows = byEmotion[em.emotion_id] || [];
+      usedKeys[em.emotion_id] = true;
+      var ex = existingMap[em.emotion_id];
+      if (ex) {
+        _patchEmotionBeadInPlace(ex, em, rows, role);
+      } else {
+        var html2 = _emotionBeadHTML(em, rows, role);
+        var tmp = document.createElement('div');
+        tmp.innerHTML = html2;
+        var beadEl = tmp.firstChild;
+        beadEl.style.opacity = '0';
+        beadEl.style.transition = 'opacity .3s ease ' + (i*0.02) + 's';
+        gridEl.appendChild(beadEl);
         requestAnimationFrame(function(){
-          if (myGen !== _emoGridGen) { try { beadEl.remove(); } catch(e){} return; }
-          beadEl.style.opacity = '1';
+          requestAnimationFrame(function(){
+            if (myGen !== _emoGridGen) { try { beadEl.remove(); } catch(e){} return; }
+            beadEl.style.opacity = '1';
+          });
         });
-      });
-    }
-  });
-
-  // 사라진 구슬: fade-out 후 remove
-  Object.keys(existingMap).forEach(function(k){
-    if (usedKeys[k]) return;
-    var el = existingMap[k];
-    el.style.transition = 'opacity .3s ease';
-    el.style.opacity = '0';
-    setTimeout(function(){ try { el.remove(); } catch(e){} }, 320);
-  });
+      }
+    });
+    Object.keys(existingMap).forEach(function(k){
+      if (usedKeys[k]) return;
+      var el = existingMap[k];
+      el.style.transition = 'opacity .3s ease';
+      el.style.opacity = '0';
+      setTimeout(function(){ try { el.remove(); } catch(e){} }, 320);
+    });
+  }
 
   // 페이지네이션 — in-place
   var pagerEl = document.getElementById('emoAlbumPager');
