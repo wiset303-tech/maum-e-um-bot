@@ -1341,16 +1341,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   flex:1; border-radius:2px; opacity:.6;
 }
 
-/* 80차: 마음동화 모달 — 책이 펼쳐지는 효과 */
+/* 80차: 마음동화 모달 — 한눈에 보이는 고정 레이아웃 + 진짜 책 넘김 */
 #modal-heart-tale-page{ perspective:1500px; }
 .heart-tale-modal-box{
   position:relative;
-  width:min(94vw, 540px);
-  max-height:90vh;
+  width:min(94vw, 520px);
   margin:auto;
   display:flex; flex-direction:column;
+  font-family:'Noto Sans KR', -apple-system, sans-serif;
   animation:heartTaleOpen .55s cubic-bezier(.2,.7,.2,1) forwards;
-  transform-style:preserve-3d;
 }
 @keyframes heartTaleOpen{
   0%   { opacity:0; transform:scale(.7) rotateY(-30deg) translateY(20px); filter:blur(8px); }
@@ -1377,7 +1376,6 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     0 4px 8px rgba(60,40,20,0.12),
     0 16px 36px rgba(60,40,20,0.18),
     inset 8px 0 16px rgba(120,80,40,0.10);
-  min-height:60vh;
   overflow:hidden;
 }
 .heart-tale-book::before{
@@ -1389,123 +1387,186 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 }
 .heart-tale-card{
   flex:1;
-  padding:28px 22px 24px 32px;
+  padding:18px 16px 16px 26px;
   position:relative;
-  overflow-y:auto;
-  -webkit-overflow-scrolling:touch;
+  overflow:hidden;
+  perspective:1500px;
 }
 .heart-tale-page-inner{
-  animation:pageFlipIn .45s cubic-bezier(.3,.7,.3,1);
+  animation:pageFlipIn .35s cubic-bezier(.3,.7,.3,1);
+  backface-visibility:hidden;
 }
-.heart-tale-page-inner.flipping-next{ animation:pageFlipOutNext .35s cubic-bezier(.5,0,.7,1) forwards; }
-.heart-tale-page-inner.flipping-prev{ animation:pageFlipOutPrev .35s cubic-bezier(.5,0,.7,1) forwards; }
+.heart-tale-page-inner.flipping-next{
+  transform-origin:left center;
+  animation:bookFlipNext .55s cubic-bezier(.4,0,.6,1) forwards;
+}
+.heart-tale-page-inner.flipping-prev{
+  transform-origin:right center;
+  animation:bookFlipPrev .55s cubic-bezier(.4,0,.6,1) forwards;
+}
 @keyframes pageFlipIn{
-  0%   { opacity:0; transform:translateX(20px) rotateY(15deg); }
-  100% { opacity:1; transform:translateX(0)    rotateY(0); }
+  0%   { opacity:0; transform:translateY(6px); }
+  100% { opacity:1; transform:translateY(0); }
 }
-@keyframes pageFlipOutNext{
-  0%   { opacity:1; transform:translateX(0)     rotateY(0); }
-  100% { opacity:0; transform:translateX(-20px) rotateY(-25deg); }
+/* 진짜 책 넘김 — rotateY 0 → -95 (왼쪽으로 접힘) → +95 (반대편 등장) → 0 */
+@keyframes bookFlipNext{
+  0%   { transform:rotateY(0deg);   box-shadow:0 0 0 rgba(0,0,0,0); }
+  45%  { transform:rotateY(-95deg); box-shadow:-15px 0 25px rgba(0,0,0,0.20); }
+  46%  { transform:rotateY(95deg);  box-shadow:15px 0 25px rgba(0,0,0,0.20); }
+  100% { transform:rotateY(0deg);   box-shadow:0 0 0 rgba(0,0,0,0); }
 }
-@keyframes pageFlipOutPrev{
-  0%   { opacity:1; transform:translateX(0)    rotateY(0); }
-  100% { opacity:0; transform:translateX(20px) rotateY(25deg); }
+@keyframes bookFlipPrev{
+  0%   { transform:rotateY(0deg);   box-shadow:0 0 0 rgba(0,0,0,0); }
+  45%  { transform:rotateY(95deg);  box-shadow:15px 0 25px rgba(0,0,0,0.20); }
+  46%  { transform:rotateY(-95deg); box-shadow:-15px 0 25px rgba(0,0,0,0.20); }
+  100% { transform:rotateY(0deg);   box-shadow:0 0 0 rgba(0,0,0,0); }
 }
 .heart-tale-meta{
-  font-family:'Noto Sans KR', sans-serif;
-  font-size:11.5px; color:#8a6a48; letter-spacing:.5px;
+  font-size:10.5px; color:#8a6a48; letter-spacing:.5px;
   text-align:center; margin-bottom:0;
+  font-weight:500;
 }
 .heart-tale-meta-divider{
-  width:40px; height:1px;
+  width:32px; height:1px;
   background:rgba(120,80,40,0.3);
-  margin:8px auto 16px;
+  margin:5px auto 8px;
 }
 .heart-tale-week-word{
-  font-family:'Gamja Flower', cursive, sans-serif;
-  font-size:38px; color:#5b3a1f;
-  text-align:center; margin:0 0 18px 0;
-  letter-spacing:-1px; line-height:1.1;
-  font-weight:normal;
+  font-size:26px; color:#3a2818;
+  text-align:center; margin:0 0 10px 0;
+  letter-spacing:-1.5px; line-height:1.1;
+  font-weight:800;
 }
 .heart-tale-photo-wrap{
   width:100%;
-  margin:0 auto 18px;
+  max-width:280px;
+  margin:0 auto 10px;
   background:rgba(255,255,255,0.5);
   border-radius:6px;
   box-shadow:0 1px 2px rgba(60,40,20,0.08), 0 4px 10px rgba(60,40,20,0.06);
   overflow:hidden;
   display:flex; align-items:center; justify-content:center;
-  min-height:180px;
+  flex-shrink:0;
 }
 .heart-tale-photo{
   width:100%; height:auto; display:block;
-  max-height:55vh; object-fit:contain;
+  max-height:24vh; object-fit:contain;
 }
 .heart-tale-photo-placeholder{
-  width:100%; min-height:240px;
+  width:100%;
   display:flex; flex-direction:column;
   align-items:center; justify-content:center;
-  gap:10px;
-  font-size:72px; opacity:.55;
-  font-family:'Gamja Flower', cursive, sans-serif;
+  gap:4px;
+  padding:14px 8px;
+  font-size:42px; opacity:.55;
 }
 .heart-tale-photo-placeholder .htp-ph-label{
-  font-size:13px; color:#8a6a48; letter-spacing:-0.2px;
+  font-size:11px; color:#8a6a48; letter-spacing:-0.2px;
+  font-weight:500; opacity:.9;
 }
 .heart-tale-handwritten{
-  font-family:'Gamja Flower', cursive, sans-serif;
-  font-size:18px; color:#3a2818;
-  line-height:1.7; letter-spacing:-0.3px;
-  padding:8px 4px; margin-bottom:14px;
+  font-size:12.5px; color:#3a2818;
+  line-height:1.5; letter-spacing:-0.3px;
+  padding:5px 4px; margin-bottom:8px;
   word-break:keep-all;
   border-bottom:1px solid rgba(120,80,40,0.15);
+  font-weight:400;
+  text-align:center;
 }
-.heart-tale-bot-line{
-  font-family:'Noto Sans KR', sans-serif;
-  font-size:13px; color:#5b3a1f;
-  line-height:1.6; letter-spacing:-0.2px;
-  background:rgba(255,255,255,0.55);
-  border-left:3px solid #C9A227;
-  padding:10px 12px;
-  border-radius:0 8px 8px 0;
-  margin-bottom:18px;
+
+/* 80차: 마음봇 말풍선 — 캐릭터 아바타 + bubble + 꼬리 */
+.heart-tale-bot-row{
+  display:flex; align-items:flex-start; gap:7px;
+  margin-bottom:10px;
+}
+.heart-tale-bot-avatar{
+  flex-shrink:0;
+  width:32px; height:32px;
+  border-radius:50%;
+  background:linear-gradient(135deg, #7ed6c0 0%, #5cc4ad 100%);
+  position:relative;
+  box-shadow:0 2px 4px rgba(60,140,120,0.3), inset 0 -2px 4px rgba(0,0,0,0.08), inset 0 2px 4px rgba(255,255,255,0.4);
+}
+.heart-tale-bot-avatar::before{
+  /* 봇 안테나 (상단 작은 노란 점) */
+  content:''; position:absolute;
+  top:-3px; left:50%; transform:translateX(-50%);
+  width:5px; height:5px; border-radius:50%;
+  background:#FFD93D;
+  box-shadow:0 0 4px rgba(255,217,61,0.6);
+}
+.heart-tale-bot-avatar::after{
+  /* 봇 눈 두 개 */
+  content:''; position:absolute; inset:0;
+  background:
+    radial-gradient(circle at 35% 44%, #2a4a3c 0 1.8px, transparent 2.2px),
+    radial-gradient(circle at 65% 44%, #2a4a3c 0 1.8px, transparent 2.2px);
+}
+.heart-tale-bot-bubble{
+  position:relative;
+  flex:1;
+  background:#ffffff;
+  padding:8px 11px;
+  border-radius:13px;
+  font-size:12px; color:#3a2818;
+  line-height:1.5; letter-spacing:-0.2px;
+  box-shadow:0 2px 6px rgba(60,40,20,0.10);
   word-break:keep-all;
-  font-style:italic;
 }
+.heart-tale-bot-bubble::before{
+  /* 말풍선 꼬리 (왼쪽) */
+  content:''; position:absolute;
+  top:9px; left:-7px;
+  width:0; height:0;
+  border-top:6px solid transparent;
+  border-bottom:6px solid transparent;
+  border-right:8px solid #ffffff;
+  filter:drop-shadow(-1px 1px 1px rgba(60,40,20,0.06));
+}
+
+/* 한 주의 마음 무지개 — 가로로 길고 납작하게 */
 .heart-tale-rainbow-label{
-  font-family:'Noto Sans KR', sans-serif;
-  font-size:10.5px; color:#8a6a48;
+  font-size:10px; color:#8a6a48;
   letter-spacing:.3px;
-  text-align:center; margin-bottom:6px;
+  text-align:center; margin-bottom:4px;
   display:flex; align-items:center; justify-content:center; gap:8px;
+  font-weight:500;
 }
 .heart-tale-rainbow-label::before,
 .heart-tale-rainbow-label::after{
-  content:''; flex:0 0 30px; height:1px;
+  content:''; flex:0 0 26px; height:1px;
   background:rgba(120,80,40,0.25);
 }
 .heart-tale-rainbow-bar{
-  display:flex; height:14px; gap:2px;
-  border-radius:7px; overflow:hidden;
+  display:flex; height:8px; gap:1px;
+  border-radius:4px; overflow:hidden;
   box-shadow:inset 0 1px 2px rgba(0,0,0,0.1);
 }
 .heart-tale-rainbow-bar span{
-  height:100%; min-width:4px;
+  height:100%; min-width:3px;
   transition:flex .3s ease;
 }
 .heart-tale-rainbow-bar span.placeholder{ opacity:.18; }
+
+/* 주차 날짜 부제 */
+.heart-tale-week-range{
+  font-size:10px; color:#8a6a48;
+  text-align:center; margin-top:6px;
+  letter-spacing:.2px;
+  font-weight:400;
+}
+
 .heart-tale-spine{
-  flex:0 0 28px;
+  flex:0 0 22px;
   background:linear-gradient(90deg, rgba(120,80,40,0.05), rgba(120,80,40,0.02));
   border-left:1px solid rgba(120,80,40,0.12);
   display:flex; flex-direction:column;
-  padding:6px 4px; gap:1px;
+  padding:6px 3px; gap:1px;
   overflow-y:auto;
   -webkit-overflow-scrolling:touch;
 }
 .heart-tale-spine-row{
-  flex:1; min-height:7px;
+  flex:1; min-height:6px;
   display:flex; gap:1px;
   cursor:pointer;
   border-radius:1.5px;
@@ -1530,26 +1591,26 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .heart-tale-spine-row span{ flex:1; height:100%; border-radius:1px; }
 .heart-tale-nav{
   display:flex; align-items:center; justify-content:space-between;
-  padding:10px 4px 0;
-  font-family:'Noto Sans KR', sans-serif;
+  padding:8px 4px 0;
 }
 .heart-tale-nav button{
   background:rgba(255,255,255,0.95); border:none; border-radius:50%;
-  width:36px; height:36px;
-  font-size:14px; color:#5b3a1f; cursor:pointer;
+  width:32px; height:32px;
+  font-size:13px; color:#5b3a1f; cursor:pointer;
   box-shadow:0 2px 6px rgba(60,40,20,0.18);
   transition:transform .2s, background .2s;
 }
 .heart-tale-nav button:hover:not(:disabled){ background:#fff; transform:scale(1.1); }
 .heart-tale-nav button:disabled{ opacity:.3; cursor:default; }
 .heart-tale-week-indicator{
-  font-size:12.5px; color:#5b3a1f;
+  font-size:12px; color:#5b3a1f;
   letter-spacing:.3px; font-weight:600;
 }
 @media (max-width:480px){
-  .heart-tale-card{ padding:24px 18px 20px 26px; }
-  .heart-tale-week-word{ font-size:34px; }
-  .heart-tale-spine{ flex-basis:22px; }
+  .heart-tale-card{ padding:16px 12px 14px 22px; }
+  .heart-tale-week-word{ font-size:23px; }
+  .heart-tale-photo{ max-height:21vh; }
+  .heart-tale-spine{ flex-basis:18px; }
 }
 
 .macro-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px}
@@ -14771,15 +14832,21 @@ function _ensurePreviewHeartTale(student_uid, student_name) {
   return pages;
 }
 
-// 주차 → 메타 ("11월 둘째 주" 같은 한국어 표시)
-function _heartTaleWeekMeta(week_no) {
+// 주차 → 날짜 범위 ("2026.3.2.(월) ~ 3.8.(일)" 형태)
+function _heartTaleWeekRange(week_no) {
+  var dows = ['일','월','화','수','목','금','토'];
   var start = new Date(HEART_TALE_YEAR_START + 'T00:00:00');
   start.setDate(start.getDate() + (week_no - 1) * 7);
-  var month = start.getMonth() + 1;
-  var dayOfMonth = start.getDate();
-  var weekOfMonth = Math.ceil(dayOfMonth / 7);
-  var weekNames = ['첫째','둘째','셋째','넷째','다섯째'];
-  return month + '월 ' + (weekNames[weekOfMonth - 1] || '') + ' 주';
+  var end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  var sy = start.getFullYear();
+  var sm = start.getMonth() + 1, sd = start.getDate(), sw = dows[start.getDay()];
+  var em = end.getMonth()   + 1, ed = end.getDate(),   ew = dows[end.getDay()];
+  var sameMonth = (start.getMonth() === end.getMonth());
+  var sLabel = sy + '.' + sm + '.' + sd + '.(' + sw + ')';
+  var eLabel = sameMonth ? (em + '.' + ed + '.(' + ew + ')')
+                         : (end.getFullYear() + '.' + em + '.' + ed + '.(' + ew + ')');
+  return sLabel + ' ~ ' + eLabel;
 }
 
 // 7색 무지개바 빌더 — full(본 페이지) / mini(spine) 공통
@@ -14793,7 +14860,7 @@ function _buildWeekRainbow(rainbow, sealed, mode) {
   return html;
 }
 
-// 본 페이지 렌더
+// 본 페이지 렌더 — 한눈에 보이는 고정 레이아웃 (스크롤 X)
 function _renderHeartTalePage(week_no) {
   var key = STATE._htpStudentUid || 'me';
   var pages = STATE._previewHeartTale && STATE._previewHeartTale[key];
@@ -14804,7 +14871,7 @@ function _renderHeartTalePage(week_no) {
   if (!card) return;
 
   var html = '<div class="heart-tale-page-inner" data-week="' + week_no + '">';
-  html += '<div class="heart-tale-meta">' + week_no + '주차 · ' + _heartTaleWeekMeta(week_no) + '</div>';
+  html += '<div class="heart-tale-meta">' + week_no + '주차</div>';
   html += '<div class="heart-tale-meta-divider"></div>';
   html += '<h2 class="heart-tale-week-word">' + _escHtml(p.word) + '</h2>';
 
@@ -14816,18 +14883,24 @@ function _renderHeartTalePage(week_no) {
     html += '<span class="htp-ph-label">' + _escHtml(d.label) + ' 그림 자리</span>';
     html += '</div></div>';
     html += '<div class="heart-tale-handwritten">' + _escHtml(p.text) + '</div>';
-    html += '<div class="heart-tale-bot-line">💬 ' + _escHtml(p.bot_line) + '</div>';
+    // 마음봇 말풍선 — 캐릭터 아바타 + 꼬리 달린 bubble
+    html += '<div class="heart-tale-bot-row">';
+    html += '<div class="heart-tale-bot-avatar" aria-hidden="true"></div>';
+    html += '<div class="heart-tale-bot-bubble">' + _escHtml(p.bot_line) + '</div>';
+    html += '</div>';
   } else {
-    html += '<div class="heart-tale-photo-wrap" style="aspect-ratio:1/1;background:rgba(255,255,255,0.4);min-height:200px">';
+    html += '<div class="heart-tale-photo-wrap" style="aspect-ratio:1/1;background:rgba(255,255,255,0.4)">';
     html += '<div class="heart-tale-photo-placeholder">';
-    html += '<span style="font-size:48px;opacity:.4">📖</span>';
+    html += '<span style="font-size:36px;opacity:.4">📖</span>';
     html += '<span class="htp-ph-label">아직 채우지 않은 페이지예요</span>';
     html += '</div></div>';
-    html += '<div style="text-align:center;color:#8a6a48;font-size:13px;line-height:1.7;padding:20px 0;word-break:keep-all">이 주의 마음 페이지는 아직 비어 있어요.<br>공책에 그림을 그리고 마음을 담아주세요.</div>';
+    html += '<div style="text-align:center;color:#8a6a48;font-size:11.5px;line-height:1.5;padding:8px 0;word-break:keep-all">이 주의 마음 페이지는 아직 비어 있어요</div>';
   }
 
+  // 한 주의 마음 무지개 + 날짜 부제
   html += '<div class="heart-tale-rainbow-label">한 주의 마음 무지개</div>';
   html += '<div class="heart-tale-rainbow-bar">' + _buildWeekRainbow(p.rainbow, p.sealed, 'full') + '</div>';
+  html += '<div class="heart-tale-week-range">' + week_no + '주차: ' + _heartTaleWeekRange(week_no) + '</div>';
   html += '</div>';
   card.innerHTML = html;
 
@@ -14874,7 +14947,8 @@ function _navHeartTalePage(dir, jumpTo) {
   var nextDir = (target > current) ? 'flipping-next' : 'flipping-prev';
   if (inner) {
     inner.classList.add(nextDir);
-    setTimeout(function(){ _renderHeartTalePage(target); }, 220);
+    // 책 넘김 0.55s 중 45% 시점(약 250ms)에 페이지 옆으로 완전히 접힘 → 그 순간 콘텐츠 교체
+    setTimeout(function(){ _renderHeartTalePage(target); }, 250);
   } else {
     _renderHeartTalePage(target);
   }
