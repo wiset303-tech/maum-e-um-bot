@@ -10201,7 +10201,9 @@ function startAlbumRealtime() {
       if (STATE.role === 'admin') { try { _adminAlbumCache = {}; } catch(e) {} }
 
       if (panelActive) {
-        if (STATE._albumSubTab === 'emotion')           renderEmotionAlbum();
+        // 78차 fix: STATE._albumSubTab이 undefined인 케이스(=감정앨범 default 그대로) 포함시키려 !== 'daily'로 변경
+        //   원인: 변쌤이 일상↔감정 토글을 한 번도 안 클릭하면 STATE._albumSubTab이 undefined → 'emotion' === 비교 시 false
+        if (STATE._albumSubTab !== 'daily')             renderEmotionAlbum();
         else                                             refreshAlbum();
         if (STATE.role === 'admin')                      renderAdminAlbum();
       }
@@ -10226,9 +10228,10 @@ function startAlbumRealtime() {
         var panel0 = document.getElementById('panel-3');
         var panelActive = panel0 && panel0.classList.contains('active');
         if (panelActive) {
-          if (STATE._albumSubTab === 'emotion') renderEmotionAlbum();
-          else                                  refreshAlbum();
-          if (STATE.role === 'admin')           renderAdminAlbum();
+          // 78차 fix: STATE._albumSubTab이 undefined인 default 케이스 포함 (감정앨범이 default)
+          if (STATE._albumSubTab !== 'daily') renderEmotionAlbum();
+          else                                refreshAlbum();
+          if (STATE.role === 'admin')         renderAdminAlbum();
         }
         if (typeof onEmotionAlbumRealtime === 'function' && typeof _cfState === 'object' && _cfState.open) {
           try { onEmotionAlbumRealtime({ new: (msg && msg.payload) || {} }); } catch(e) {}
@@ -15243,7 +15246,8 @@ async function renderEmotionAlbum() {
   } catch(e) {}
   _renderEmotionGrid();
   // 78차 fix: 교사 감정앨범 활성 시 폴링 fallback 시작 (realtime 누락 안전망)
-  if (STATE.role === 'teacher' && STATE._albumSubTab === 'emotion') {
+  //   STATE._albumSubTab 'undefined'(default 감정앨범) 케이스 포함 — !== 'daily' 패턴
+  if (STATE.role === 'teacher' && STATE._albumSubTab !== 'daily') {
     _startEmotionAlbumPoll();
   }
 }
@@ -15256,7 +15260,7 @@ function _startEmotionAlbumPoll() {
   _emotionAlbumPollTimer = setInterval(async function(){
     var panel0 = document.getElementById('panel-3');
     if (!panel0 || !panel0.classList.contains('active')) return;
-    if (STATE._albumSubTab !== 'emotion') return;
+    if (STATE._albumSubTab === 'daily') return;  // 78차 fix: undefined·emotion 둘 다 통과
     if (STATE.role !== 'teacher' && STATE.role !== 'admin') return;
     _emotionAlbumLoaded = false;
     try { await _loadEmotionAlbumCache(); } catch(e) { return; }
@@ -16040,7 +16044,7 @@ async function _cfToggleCover() {
   _renderCfHeaderActions();
   // 그리드 구슬 대표 썸네일도 즉시 동기 (캐시 동기화)
   _upsertEmotionAlbumCacheRow(cur);
-  if (STATE._albumSubTab === 'emotion') _renderEmotionGrid();
+  if (STATE._albumSubTab !== 'daily') _renderEmotionGrid();
 
   // Supabase RPC 직접 호출 — atomic 처리 (becoming=false면 빈 album_uid로 모두 해제)
   try {
@@ -16118,7 +16122,7 @@ async function _cfSubmitTeacherUpload(image_b64, thumb_b64) {
       date: _todayKstStr(), is_deleted: false, is_class_cover: false,
       is_teacher_upload: true, timestamp: resData2.timestamp || ''
     });
-    if (STATE._albumSubTab === 'emotion') _renderEmotionGrid();
+    if (STATE._albumSubTab !== 'daily') _renderEmotionGrid();
     // carousel 즉시 재빌드 (풀 변경)
     _cfState.cards = (_emotionAlbumCache || []).filter(function(r){
       return r.emotion_id === _cfState.emotion_id && !r.is_deleted;
@@ -16154,7 +16158,7 @@ async function _cfDeleteCurrent() {
   if (_emotionAlbumCache) {
     _emotionAlbumCache = _emotionAlbumCache.filter(function(r){ return r.album_uid !== album_uid; });
   }
-  if (STATE._albumSubTab === 'emotion') _renderEmotionGrid();
+  if (STATE._albumSubTab !== 'daily') _renderEmotionGrid();
   _renderCfCarousel(true);
 
   // Supabase RPC 직접 호출 (권한 검증 + soft delete + cover 자동 false)
