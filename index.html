@@ -3115,8 +3115,11 @@ async function _sbFetch(table, filters) {
   var qs = Object.keys(filters).map(function(k){ return k+'='+filters[k]; }).join('&');
   // 57차: filters에 select 키가 있으면 &select=* 생략 (image_url 등 대용량 컬럼 제외용)
   var selQs = filters.select ? '' : '&select=*';
+  // 78차 fix: cache:'no-store' + Cache-Control:no-cache — realtime 직후 fetch가 브라우저 캐시 hit으로 옛 값 받는 함정 차단
+  //   증상: postgres_changes 이벤트 도착 직후 fetch가 변경 전 row 반환 → 사용자는 "갱신 안 됨" 인식
   var res = await fetch(SB_URL+'/rest/v1/'+table+'?'+qs+selQs, {
-    headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer '+SB_KEY }
+    cache: 'no-store',
+    headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer '+SB_KEY, 'Cache-Control': 'no-cache' }
   });
   if (!res.ok) throw new Error('SB '+res.status);
   return res.json();
@@ -10222,9 +10225,10 @@ function stopAlbumRealtime() {
   }
 }
 
-// 78차 fix: realtime + broadcast 둘 다 도착 시 같은 시점 호출 합치기 (debounce 250ms)
+// 78차 fix: realtime + broadcast 둘 다 도착 시 같은 시점 호출 합치기 (debounce)
 //   원인: postgres_changes UPDATE + 클라이언트 broadcast 둘 다 → 새로고침 2회
-//   동시다발 학생 N명 사진 올릴 때도 같은 250ms 안 합쳐서 1회로 (fetch race 방지)
+//   변쌤 콘솔 로그 분석: RT와 BCAST 사이 시간차가 250ms 넘김 → 500ms로 확장 (RT/BCAST 모두 흡수)
+//   동시다발 학생 N명 사진 올릴 때도 같은 시간창 안 합쳐서 1회로 (fetch race 방지)
 var _albumRefreshDebounceTimer = null;
 var _cfRefreshDebounceTimer = null;
 function _scheduleAlbumGridRefresh() {
@@ -10241,7 +10245,7 @@ function _scheduleAlbumGridRefresh() {
       else                                refreshAlbum();
       if (STATE.role === 'admin')         renderAdminAlbum();
     }
-  }, 250);
+  }, 500);
 }
 function _scheduleCfRefresh(payload) {
   if (_cfRefreshDebounceTimer) return;
@@ -10250,7 +10254,7 @@ function _scheduleCfRefresh(payload) {
     if (typeof _cfState === 'object' && _cfState.open && typeof onEmotionAlbumRealtime === 'function') {
       try { onEmotionAlbumRealtime({ new: (payload && payload.new) || (payload && payload.payload) || {} }); } catch(e) { console.error('[CF RT]', e); }
     }
-  }, 300);
+  }, 600);
 }
 
 // 78차 fix: 감정앨범 변경 broadcast 송신 — 같은 채널('album-' + teacher_uid)에 신호
