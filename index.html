@@ -1653,9 +1653,9 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 }
 .heart-tale-photo-wrap{
   width:100%;
-  max-width:280px;
-  height:200px;            /* 80차: 비율 다양해도 모달 흔들림 0 — 영역 고정 */
-  margin:0 auto 10px;
+  max-width:380px;
+  height:248px;            /* 80차: 사진 영역 확대 — 비율 다양해도 모달 흔들림 0 */
+  margin:0 auto 12px;
   background:rgba(255,255,255,0.5);
   border-radius:6px;
   box-shadow:0 1px 2px rgba(60,40,20,0.08), 0 4px 10px rgba(60,40,20,0.06);
@@ -1769,6 +1769,23 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   transition:flex .3s ease;
 }
 .heart-tale-rainbow-bar span.placeholder{ opacity:.18; }
+/* 80차: 7색 무지개 아래 영역별 라벨 (연한 글씨로) */
+.heart-tale-rainbow-domains{
+  display:flex;
+  margin-top:4px;
+  gap:1px;
+  padding:0 1px;
+}
+.heart-tale-rainbow-domains span{
+  flex:1;
+  text-align:center;
+  font-size:9px;
+  color:#a08868;
+  letter-spacing:-0.3px;
+  font-weight:400;
+  opacity:.72;
+  white-space:nowrap;
+}
 
 /* 주차 날짜 부제 */
 .heart-tale-week-range{
@@ -1833,7 +1850,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 @media (max-width:480px){
   .heart-tale-page-inner{ padding:16px 14px 12px 22px; }
   .heart-tale-week-word{ font-size:23px; }
-  .heart-tale-photo-wrap{ height:170px; }
+  .heart-tale-photo-wrap{ height:208px; max-width:320px; }
   .heart-tale-spine{ flex-basis:48px; padding:6px 4px; }
   .heart-tale-cover-title{ font-size:21px; }
   .heart-tale-cover-avatar{ width:76px; height:76px; font-size:42px; }
@@ -14975,6 +14992,8 @@ function calcBannerMessage(tokenData) {
 var HEART_TALE_TOTAL_WEEKS = 36;
 var HEART_TALE_YEAR_START = '2026-03-02';  // 새 학년 시작 (월요일)
 var _HEART_RAINBOW_HEX = ['#D9455F','#E67E22','#C9A227','#2E8B57','#1E6FB8','#1A237E','#6A3DB5'];
+// 80차: 7역량 영역 학생 친화 라벨 (무지개바 아래 표시 — 어떤 색이 어떤 감정인지)
+var _HEART_DOMAIN_LABELS = ['기쁨','따뜻','편안','차분','걱정','슬픔','화남'];
 
 // 36주 단어 풀 — 4학기 9주씩 (감정 인식 / 표현 / 관계 / 회복)
 var _PV_HEART_TALE_WORDS = [
@@ -15122,6 +15141,11 @@ function _buildHeartTalePageHTML(week_no) {
   }
   html += '<div class="heart-tale-rainbow-label">한 주의 마음 무지개</div>';
   html += '<div class="heart-tale-rainbow-bar">' + _buildWeekRainbow(p.rainbow, p.sealed, 'full') + '</div>';
+  html += '<div class="heart-tale-rainbow-domains">';
+  for (var di = 0; di < 7; di++) {
+    html += '<span>' + _HEART_DOMAIN_LABELS[di] + '</span>';
+  }
+  html += '</div>';
   html += '<div class="heart-tale-week-range">' + week_no + '주차: ' + _heartTaleWeekRange(week_no) + '</div>';
   return html;
 }
