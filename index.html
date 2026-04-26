@@ -1404,6 +1404,143 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   white-space:nowrap;
 }
 
+/* 80차: 자물쇠 잠금해제 페이지 (NFC 인증 게이트) */
+.heart-tale-lock-gate{
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  flex:1;
+  text-align:center;
+  padding:30px 16px;
+  word-break:keep-all;
+}
+.heart-tale-lock-wrap{
+  position:relative;
+  width:140px; height:140px;
+  display:flex; align-items:center; justify-content:center;
+  margin-bottom:22px;
+}
+.heart-tale-lock-pulse{
+  position:absolute;
+  top:50%; left:50%;
+  width:90px; height:90px;
+  border:2px solid #7ed6c0;
+  border-radius:50%;
+  transform:translate(-50%,-50%);
+  animation:lockPulse 1.8s ease-out infinite;
+  pointer-events:none;
+}
+@keyframes lockPulse{
+  0%   { opacity:.55; transform:translate(-50%,-50%) scale(.55); }
+  100% { opacity:0;   transform:translate(-50%,-50%) scale(2.0); }
+}
+.heart-tale-lock{
+  position:relative;
+  width:80px; height:90px;
+  animation:lockShake 2.4s ease-in-out infinite;
+}
+@keyframes lockShake{
+  0%, 100%   { transform:translateY(0)    rotate(0deg); }
+  25%        { transform:translateY(-2px) rotate(-1.5deg); }
+  50%        { transform:translateY(0)    rotate(0deg); }
+  75%        { transform:translateY(-1px) rotate(1.5deg); }
+}
+.heart-tale-lock-shackle{
+  position:absolute;
+  top:0; left:50%;
+  transform:translateX(-50%);
+  width:48px; height:42px;
+  border:7px solid #c9a227;
+  border-bottom:none;
+  border-radius:24px 24px 0 0;
+  background:transparent;
+  box-shadow:0 1px 0 rgba(255,255,255,0.3) inset;
+  transition:transform .7s cubic-bezier(.5,0,.3,1);
+  z-index:1;
+}
+.heart-tale-lock-body{
+  position:absolute;
+  bottom:0; left:50%;
+  transform:translateX(-50%);
+  width:68px; height:54px;
+  background:linear-gradient(135deg, #f0c14b 0%, #c9a227 100%);
+  border-radius:8px;
+  box-shadow:0 4px 10px rgba(60,40,20,0.25), inset 0 -2px 4px rgba(0,0,0,0.18), inset 0 2px 4px rgba(255,255,255,0.4);
+  z-index:2;
+  transition:box-shadow .5s, opacity .5s, transform .5s;
+}
+.heart-tale-lock-keyhole{
+  position:absolute;
+  bottom:18px; left:50%;
+  transform:translateX(-50%);
+  width:14px; height:18px;
+  background:#3a2818;
+  border-radius:7px 7px 0 0;
+}
+.heart-tale-lock-keyhole::after{
+  content:''; position:absolute;
+  top:8px; left:50%; transform:translateX(-50%);
+  width:4px; height:8px;
+  background:#3a2818;
+}
+
+/* 인증 성공 시 잠금해제 애니메이션 */
+.heart-tale-lock.unlocking{ animation:none; }
+.heart-tale-lock.unlocking .heart-tale-lock-shackle{
+  transform:translateX(-50%) translateY(-14px) rotate(-32deg);
+}
+.heart-tale-lock.unlocking .heart-tale-lock-body{
+  box-shadow:0 0 36px rgba(126,214,192,0.85), 0 4px 10px rgba(60,40,20,0.25), inset 0 0 16px rgba(255,255,255,0.6);
+}
+.heart-tale-lock.unlocked{ animation:lockFadeOut .55s .55s forwards; }
+@keyframes lockFadeOut{
+  to { opacity:0; transform:scale(.85); }
+}
+.heart-tale-lock-gate.unlocking .heart-tale-lock-pulse{ animation:none; opacity:0; transition:opacity .3s; }
+
+/* 인증 실패 시 흔들림 */
+.heart-tale-lock.error{ animation:lockError .4s ease-in-out; }
+@keyframes lockError{
+  0%, 100% { transform:translateX(0); }
+  20%      { transform:translateX(-6px); }
+  40%      { transform:translateX(6px); }
+  60%      { transform:translateX(-4px); }
+  80%      { transform:translateX(4px); }
+}
+.heart-tale-lock.error .heart-tale-lock-body{
+  box-shadow:0 0 20px rgba(217,69,95,0.6), 0 4px 10px rgba(60,40,20,0.25);
+}
+
+.heart-tale-lock-msg{
+  font-size:15px; color:#3a2818;
+  font-weight:700; letter-spacing:-0.3px;
+  margin-bottom:5px;
+}
+.heart-tale-lock-sub{
+  font-size:11.5px; color:#8a6a48;
+  letter-spacing:-0.2px;
+  font-weight:500;
+  margin-bottom:18px;
+}
+.heart-tale-lock-error-msg{
+  font-size:11.5px; color:#D9455F;
+  letter-spacing:-0.2px;
+  font-weight:600;
+  margin-bottom:14px;
+  min-height:14px;
+}
+.heart-tale-lock-sim{
+  background:linear-gradient(135deg, #7ed6c0 0%, #5cc4ad 100%);
+  color:#fff; border:none;
+  font-size:12px; font-weight:600;
+  padding:9px 16px; border-radius:18px;
+  cursor:pointer;
+  letter-spacing:-0.2px;
+  box-shadow:0 2px 6px rgba(60,140,120,0.3);
+  transition:transform .2s, box-shadow .2s;
+}
+.heart-tale-lock-sim:hover{ transform:translateY(-1px); box-shadow:0 4px 10px rgba(60,140,120,0.4); }
+.heart-tale-lock-sim:active{ transform:translateY(0) scale(.98); }
+
 /* 페이지 카드 (왼쪽) — padding 0 (inner에 padding) */
 .heart-tale-card{
   flex:1; min-width:0;
@@ -15028,6 +15165,65 @@ function _renderHeartTalePage(week_no) {
   _renderHeartTaleSpine();
 }
 
+// ───── 자물쇠 잠금해제 게이트 (NFC 인증 페이지) ─────
+function _buildHeartTaleLockGateHTML() {
+  var html = '<div class="heart-tale-lock-gate">';
+  html += '<div class="heart-tale-lock-wrap">';
+  html += '<div class="heart-tale-lock-pulse"></div>';
+  html += '<div class="heart-tale-lock-pulse" style="animation-delay:.6s"></div>';
+  html += '<div class="heart-tale-lock-pulse" style="animation-delay:1.2s"></div>';
+  html += '<div class="heart-tale-lock" id="htpLock">';
+  html += '<div class="heart-tale-lock-shackle"></div>';
+  html += '<div class="heart-tale-lock-body">';
+  html += '<div class="heart-tale-lock-keyhole"></div>';
+  html += '</div></div></div>';
+  html += '<div class="heart-tale-lock-msg">마음동화 스티커를 인식합니다</div>';
+  html += '<div class="heart-tale-lock-sub">내 마음동화는 나만 펼쳐요</div>';
+  html += '<div class="heart-tale-lock-error-msg" id="htpLockErrorMsg"></div>';
+  html += '<button class="heart-tale-lock-sim" onclick="_htpSimulateUnlock()">🌈 (미리보기) 카드 인식 시뮬</button>';
+  html += '</div>';
+  return html;
+}
+
+// 자물쇠 게이트 렌더 — 화살표·spine 비활성화
+function _renderHeartTaleLockGate() {
+  var card = document.getElementById('htp-card-wrap');
+  if (!card) return;
+  card.innerHTML = '<div class="heart-tale-page-inner">' + _buildHeartTaleLockGateHTML() + '</div>';
+  STATE._htpLocked = true;
+  STATE._htpCurrentWeek = undefined;
+  // 인디케이터·화살표 disabled
+  var ind = document.getElementById('htp-week-indicator');
+  if (ind) ind.textContent = '🔒 잠금 / ' + HEART_TALE_TOTAL_WEEKS + '주차';
+  var prev = document.getElementById('htp-prev-btn');
+  var next = document.getElementById('htp-next-btn');
+  if (prev) prev.disabled = true;
+  if (next) next.disabled = true;
+  // spine 비우기 (잠금 중엔 진행도 미리 안 보임)
+  var spine = document.getElementById('htp-spine');
+  if (spine) spine.innerHTML = '';
+}
+
+// 미리보기 시뮬 — 사용자 클릭 트리거 (실 사용 시 NFC 카드 태깅이 _unlockHeartTale 호출)
+function _htpSimulateUnlock() {
+  if (!STATE._htpLocked) return;
+  _unlockHeartTale();
+}
+
+// 자물쇠 풀림 → 표지 진입
+function _unlockHeartTale() {
+  var lockGate = document.querySelector('.heart-tale-lock-gate');
+  var lock = document.getElementById('htpLock');
+  if (!lockGate || !lock) { STATE._htpLocked = false; _renderHeartTalePage(0); return; }
+  lockGate.classList.add('unlocking');
+  lock.classList.add('unlocking');
+  setTimeout(function(){ lock.classList.add('unlocked'); }, 650);
+  setTimeout(function(){
+    STATE._htpLocked = false;
+    _renderHeartTalePage(0);
+  }, 1100);
+}
+
 // 우측 누적 컬럼 (책 옆면)
 function _renderHeartTaleSpine() {
   var key = STATE._htpStudentUid || 'me';
@@ -15053,6 +15249,7 @@ function _renderHeartTaleSpine() {
 var _htpAnimating = false;
 function _navHeartTalePage(dir, jumpTo) {
   if (_htpAnimating) return;
+  if (STATE._htpLocked) return;  // 잠금 중엔 페이지 넘김 차단 (NFC 인증 후에만 가능)
   var card = document.getElementById('htp-card-wrap');
   if (!card) return;
   var current = STATE._htpCurrentWeek;
@@ -15087,7 +15284,7 @@ function _navHeartTalePage(dir, jumpTo) {
   }, 1000);
 }
 
-// 진입점 — 학생/교사 미리보기 공통. 첫 진입은 표지(0)부터, 키보드+스와이프 bind
+// 진입점 — 자물쇠 게이트(NFC 인증)부터 시작. 키보드+스와이프 bind
 function openHeartTalePage(student_uid, week_no) {
   if (STATE.isPreview || !STATE.user) {
     var name = '나';
@@ -15107,18 +15304,21 @@ function openHeartTalePage(student_uid, week_no) {
     toast('📖 마음동화는 미리보기 모드에서 시연 가능해요');
     return;
   }
-  _renderHeartTalePage(week_no !== undefined ? week_no : 0);
+  // 자물쇠 게이트부터 시작 — 인증 통과 후 표지(0) 자동 진입
+  _renderHeartTaleLockGate();
   document.getElementById('modal-heart-tale-page').classList.remove('hidden');
   _bindHeartTaleKeyHandlers();
   _bindHeartTaleSwipeHandlers();
 }
 
-// 모달 닫기 — 키보드+스와이프 unbind
+// 모달 닫기 — 키보드+스와이프 unbind, 다음 진입 시 자물쇠부터 다시
 function closeHeartTalePage() {
   var el = document.getElementById('modal-heart-tale-page');
   if (el) el.classList.add('hidden');
   _unbindHeartTaleKeyHandlers();
   _unbindHeartTaleSwipeHandlers();
+  STATE._htpLocked = false;
+  STATE._htpCurrentWeek = undefined;
 }
 
 // 키보드 ◀▶ + ESC
@@ -15126,9 +15326,10 @@ var _htpKeyHandler = null;
 function _bindHeartTaleKeyHandlers() {
   _unbindHeartTaleKeyHandlers();
   _htpKeyHandler = function(e) {
+    if (e.key === 'Escape')          { closeHeartTalePage();  e.preventDefault(); return; }
+    if (STATE._htpLocked) return;    // 잠금 중엔 ◀▶ 차단
     if (e.key === 'ArrowLeft')       { _navHeartTalePage(-1); e.preventDefault(); }
     else if (e.key === 'ArrowRight') { _navHeartTalePage(1);  e.preventDefault(); }
-    else if (e.key === 'Escape')     { closeHeartTalePage();  e.preventDefault(); }
   };
   document.addEventListener('keydown', _htpKeyHandler);
 }
@@ -15171,6 +15372,7 @@ function _htpOnTouchEnd(e) {
   var dy = t.clientY - _htpTouchStart.y;
   var dt = Date.now() - _htpTouchStart.time;
   _htpTouchStart = null;
+  if (STATE._htpLocked) return;                  // 잠금 중엔 스와이프 차단
   if (dt > 700) return;                          // 너무 느린 스와이프 무시
   if (Math.abs(dx) < 40) return;                 // 짧은 스와이프 무시
   if (Math.abs(dy) > Math.abs(dx)) return;       // 세로 우세 무시
