@@ -505,14 +505,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   margin-bottom:2px;letter-spacing:-0.4px;
 }
 /* 78차 디자인: 룰렛 — 카드들이 큰 원의 호를 따라 배치 (가운데 정점, 좌우 아래로 처짐) */
+/* 78차 fix: 변쌤 명시 — 모달 여백 줄이기. stage 높이 축소 + 카드 크기 작게 → 사진 아래 바로 컨트롤 */
 .cf-stage{
-  position:relative;height:380px;perspective:1200px;
+  position:relative;height:280px;perspective:1100px;
   display:flex;align-items:flex-start;justify-content:center;
-  overflow:hidden;margin-bottom:6px;padding-top:14px;
+  overflow:hidden;margin-bottom:4px;padding-top:8px;
 }
 /* 78차 디자인: 카드 = 위 원형 구슬 + 아래 텍스트 라벨 */
 .cf-card{
-  position:absolute;width:240px;height:300px;
+  position:absolute;width:200px;height:250px;
   background:transparent;
   display:flex;flex-direction:column;align-items:center;
   transform-style:preserve-3d;
@@ -524,7 +525,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 }
 /* 원형 구슬 — 입체 + 좌상단 광택 (감정앨범 .emo-bead와 톤 일치) */
 .cf-card-marble{
-  position:relative;width:240px;height:240px;border-radius:50%;
+  position:relative;width:200px;height:200px;border-radius:50%;
   background:linear-gradient(145deg, var(--white), var(--lgray));
   box-shadow:0 8px 22px rgba(44,74,90,.18), inset 0 -3px 8px rgba(0,0,0,.06);
   overflow:hidden;
@@ -549,7 +550,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   box-shadow:0 2px 5px rgba(0,0,0,.18);letter-spacing:-0.3px;
 }
 .cf-card-label{
-  width:100%;margin-top:12px;text-align:center;
+  width:100%;margin-top:8px;text-align:center;
   font-family:'Noto Sans KR',sans-serif;color:var(--navy);
 }
 .cf-card-label .cf-who{font-size:14px;font-weight:800;line-height:1.2;letter-spacing:-0.3px}
@@ -576,7 +577,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .cf-arrow:disabled{opacity:.4;cursor:not-allowed}
 .cf-controls{
   display:flex;align-items:center;justify-content:space-between;gap:8px;
-  margin:6px 0 12px;
+  margin:2px 0 8px;
 }
 .cf-indicator{display:flex;gap:5px;justify-content:center;flex:1;flex-wrap:wrap}
 .cf-dot{width:7px;height:7px;border-radius:50%;background:var(--lgray)}
@@ -10206,12 +10207,9 @@ function startAlbumRealtime() {
       .on('postgres_changes', updateCfg, onChange)
       // 78차 fix: 76차 attendance broadcast 패턴 답습 — 학생/교사 단말이 송신한 broadcast 신호를 받아 즉시 갱신
       //   postgres_changes realtime이 publication 누락/지연될 때도 broadcast는 별도 메커니즘이라 안전
-      .on('broadcast', { event: 'emo-album-changed' }, function(msg){
-        try { console.log('[ALBUM BCAST recv]', msg && msg.payload); } catch(e) {}
-        // 78차 fix: postgres_changes와 합쳐 debounce 1회만 (새로고침 두 번 방지 + 동시다발 race 방지)
-        _scheduleAlbumGridRefresh();
-        _scheduleCfRefresh({ new: (msg && msg.payload) || {} });
-      })
+      // 78차 fix: broadcast 리스너 제거 — publication ADD 후 postgres_changes가 정상 동작하니 broadcast는 잉여
+      //   원인: RT-BCAST 시간차가 debounce(500ms) 초과 → 두 번 깜빡임. publication 누락 fallback이었던 broadcast 제거
+      //   (publication 다시 누락되는 회귀에 대비해 송신 헬퍼 _broadcastEmotionAlbumChange는 유지하되 수신은 안 함)
       .subscribe(function(status){
         // 78차 진단: 변쌤 콘솔에서 'SUBSCRIBED' 확인 가능 — CHANNEL_ERROR/TIMED_OUT면 폴링이 fallback
         try { console.log('[ALBUM RT subscribe]', channelName, status); } catch(e) {}
@@ -15219,6 +15217,9 @@ async function _loadEmotionAlbumCache() {
   } else {
     _emotionAlbumCache = []; _emotionAlbumLoaded = true; return [];
   }
+  // 78차 fix: 정렬 명시 + URL cache-busting (브라우저 fetch 캐시 hit으로 옛 row 받는 함정 100% 우회)
+  filters['order'] = 'updated_at.desc';  // 변경된 row가 무조건 첫 번째 → first updated_at으로 변화 즉시 인지
+  filters['_t']    = Date.now();          // PostgREST 무시 파라미터, URL 매번 다름 → 캐시 hit 불가능
   try {
     var rows = await _sbFetch('album', filters);
     _emotionAlbumCache  = rows || [];
@@ -15823,7 +15824,7 @@ function _ensureClassEmotionCarouselModal() {
           '<div class="cf-actions" id="cfActions"></div>' +
         '</div>' +
         '<input type="file" id="cfTeacherFile" accept="image/*" style="display:none" onchange="_cfOnTeacherFile(event)">' +
-        '<div style="margin-top:14px;text-align:center">' +
+        '<div style="margin-top:8px;text-align:center">' +
           '<button class="btn btn-secondary" onclick="closeClassEmotionCarousel()" style="min-width:120px">닫기</button>' +
         '</div>' +
       '</div>' +
