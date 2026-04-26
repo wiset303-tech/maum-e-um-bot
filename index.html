@@ -1425,14 +1425,18 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   0%   { opacity:0; transform:translateY(6px); }
   100% { opacity:1; transform:translateY(0); }
 }
-/* Two-element book flip — outgoing이 0→-180° 회전하며 사라짐, 그 뒤 incoming 자연스럽게 보임 */
+/* Two-element book flip — outgoing이 회전+페이드 동시 진행, incoming 점차 드러남 (양방향) */
 @keyframes flipOutNext{
-  0%   { transform:rotateY(0deg);    box-shadow:0 0 0 rgba(0,0,0,0); }
-  100% { transform:rotateY(-180deg); box-shadow:-30px 8px 50px rgba(60,40,20,0.32); }
+  0%   { transform:rotateY(0deg);    opacity:1;   box-shadow:0 0 0 rgba(0,0,0,0); }
+  10%  { opacity:.55; }
+  90%  { opacity:.20; }
+  100% { transform:rotateY(-180deg); opacity:0;   box-shadow:-30px 8px 50px rgba(60,40,20,0.32); }
 }
 @keyframes flipOutPrev{
-  0%   { transform:rotateY(0deg);    box-shadow:0 0 0 rgba(0,0,0,0); }
-  100% { transform:rotateY(180deg);  box-shadow:30px 8px 50px rgba(60,40,20,0.32); }
+  0%   { transform:rotateY(0deg);    opacity:1;   box-shadow:0 0 0 rgba(0,0,0,0); }
+  10%  { opacity:.55; }
+  90%  { opacity:.20; }
+  100% { transform:rotateY(180deg);  opacity:0;   box-shadow:30px 8px 50px rgba(60,40,20,0.32); }
 }
 
 /* 표지 페이지 — 위아래 가운데 정렬 */
