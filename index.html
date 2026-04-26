@@ -10192,26 +10192,10 @@ function startAlbumRealtime() {
       updateCfg.filter = 'teacher_uid=eq.' + tUid;
     }
     var onChange = function(payload) {
-      // 78차 (개선): payload.new에 album_type이 누락될 가능성 + 안전성 1순위 — 두 캐시 모두 무효화 후 현재 활성 탭 기준 즉시 재렌더
-      // (학생 INSERT 시 교사·관리자 단말이 즉시 보이지 않던 이슈 fix)
-      var panel0 = document.getElementById('panel-3');
-      var panelActive = panel0 && panel0.classList.contains('active');
-      _emotionAlbumLoaded = false;
-      _teacherAlbumLoaded = false;
-      if (STATE.role === 'admin') { try { _adminAlbumCache = {}; } catch(e) {} }
-
-      if (panelActive) {
-        // 78차 fix: STATE._albumSubTab이 undefined인 케이스(=감정앨범 default 그대로) 포함시키려 !== 'daily'로 변경
-        //   원인: 변쌤이 일상↔감정 토글을 한 번도 안 클릭하면 STATE._albumSubTab이 undefined → 'emotion' === 비교 시 false
-        if (STATE._albumSubTab !== 'daily')             renderEmotionAlbum();
-        else                                             refreshAlbum();
-        if (STATE.role === 'admin')                      renderAdminAlbum();
-      }
-      // 교사 carousel이 열려 있으면 풀 재구성
-      if (typeof onEmotionAlbumRealtime === 'function' && typeof _cfState === 'object' && _cfState.open) {
-        try { onEmotionAlbumRealtime(payload); } catch(e) { console.error('[EMO RT]', e); }
-      }
       try { console.log('[ALBUM RT]', (payload && payload.eventType) || '?', (payload && payload.new && payload.new.album_type) || '?'); } catch(e) {}
+      // 78차 fix: postgres_changes + broadcast 둘 다 도착 → debounce 250ms로 합쳐 새로고침 1회만
+      _scheduleAlbumGridRefresh();
+      _scheduleCfRefresh(payload);
     };
     _sbAlbumChannel = _sbClient
       .channel(channelName)
@@ -10221,21 +10205,9 @@ function startAlbumRealtime() {
       //   postgres_changes realtime이 publication 누락/지연될 때도 broadcast는 별도 메커니즘이라 안전
       .on('broadcast', { event: 'emo-album-changed' }, function(msg){
         try { console.log('[ALBUM BCAST recv]', msg && msg.payload); } catch(e) {}
-        // 즉시 캐시 무효화 + 재 fetch + 그리드/carousel 재렌더
-        _emotionAlbumLoaded = false;
-        _teacherAlbumLoaded = false;
-        if (STATE.role === 'admin') { try { _adminAlbumCache = {}; } catch(e) {} }
-        var panel0 = document.getElementById('panel-3');
-        var panelActive = panel0 && panel0.classList.contains('active');
-        if (panelActive) {
-          // 78차 fix: STATE._albumSubTab이 undefined인 default 케이스 포함 (감정앨범이 default)
-          if (STATE._albumSubTab !== 'daily') renderEmotionAlbum();
-          else                                refreshAlbum();
-          if (STATE.role === 'admin')         renderAdminAlbum();
-        }
-        if (typeof onEmotionAlbumRealtime === 'function' && typeof _cfState === 'object' && _cfState.open) {
-          try { onEmotionAlbumRealtime({ new: (msg && msg.payload) || {} }); } catch(e) {}
-        }
+        // 78차 fix: postgres_changes와 합쳐 debounce 1회만 (새로고침 두 번 방지 + 동시다발 race 방지)
+        _scheduleAlbumGridRefresh();
+        _scheduleCfRefresh({ new: (msg && msg.payload) || {} });
       })
       .subscribe(function(status){
         // 78차 진단: 변쌤 콘솔에서 'SUBSCRIBED' 확인 가능 — CHANNEL_ERROR/TIMED_OUT면 폴링이 fallback
@@ -10248,6 +10220,37 @@ function stopAlbumRealtime() {
     try { _sbClient.removeChannel(_sbAlbumChannel); } catch(e) {}
     _sbAlbumChannel = null;
   }
+}
+
+// 78차 fix: realtime + broadcast 둘 다 도착 시 같은 시점 호출 합치기 (debounce 250ms)
+//   원인: postgres_changes UPDATE + 클라이언트 broadcast 둘 다 → 새로고침 2회
+//   동시다발 학생 N명 사진 올릴 때도 같은 250ms 안 합쳐서 1회로 (fetch race 방지)
+var _albumRefreshDebounceTimer = null;
+var _cfRefreshDebounceTimer = null;
+function _scheduleAlbumGridRefresh() {
+  if (_albumRefreshDebounceTimer) return;
+  _albumRefreshDebounceTimer = setTimeout(function(){
+    _albumRefreshDebounceTimer = null;
+    var panel0 = document.getElementById('panel-3');
+    var panelActive = panel0 && panel0.classList.contains('active');
+    _emotionAlbumLoaded = false;
+    _teacherAlbumLoaded = false;
+    if (STATE.role === 'admin') { try { _adminAlbumCache = {}; } catch(e) {} }
+    if (panelActive) {
+      if (STATE._albumSubTab !== 'daily') renderEmotionAlbum();
+      else                                refreshAlbum();
+      if (STATE.role === 'admin')         renderAdminAlbum();
+    }
+  }, 250);
+}
+function _scheduleCfRefresh(payload) {
+  if (_cfRefreshDebounceTimer) return;
+  _cfRefreshDebounceTimer = setTimeout(function(){
+    _cfRefreshDebounceTimer = null;
+    if (typeof _cfState === 'object' && _cfState.open && typeof onEmotionAlbumRealtime === 'function') {
+      try { onEmotionAlbumRealtime({ new: (payload && payload.new) || (payload && payload.payload) || {} }); } catch(e) { console.error('[CF RT]', e); }
+    }
+  }, 300);
 }
 
 // 78차 fix: 감정앨범 변경 broadcast 송신 — 같은 채널('album-' + teacher_uid)에 신호
@@ -15252,20 +15255,27 @@ async function renderEmotionAlbum() {
   }
 }
 
-// 78차: 감정앨범 폴링 fallback — 8초마다 캐시 무효화 + 재 fetch (감정 모드 + 마음앨범 탭 활성 시만)
-//   변쌤 보고 "학생 INSERT 후 교사 새로고침 눌러야 반영" → realtime이 누락되어도 8초 안에 자동 갱신
+// 78차: 감정앨범 폴링 fallback — realtime 누락 안전망 (publication 정상이면 잉여 — 변화 없으면 갱신 X)
+//   78차 fix: 변경 감지 signature 비교 → 변화 없으면 그리드·carousel 재빌드 X
+//             (이전 매 8초마다 _renderCfCarousel(true) 강제 호출 → carousel 우측 하단 자동 애니메이션 반복 부작용)
 var _emotionAlbumPollTimer = null;
+var _emotionAlbumPollSig = '';
 function _startEmotionAlbumPoll() {
   _stopEmotionAlbumPoll();
+  _emotionAlbumPollSig = (_emotionAlbumCache || []).map(function(r){ return r.album_uid + ':' + (r.updated_at||''); }).join('|');
   _emotionAlbumPollTimer = setInterval(async function(){
     var panel0 = document.getElementById('panel-3');
     if (!panel0 || !panel0.classList.contains('active')) return;
-    if (STATE._albumSubTab === 'daily') return;  // 78차 fix: undefined·emotion 둘 다 통과
+    if (STATE._albumSubTab === 'daily') return;
     if (STATE.role !== 'teacher' && STATE.role !== 'admin') return;
     _emotionAlbumLoaded = false;
     try { await _loadEmotionAlbumCache(); } catch(e) { return; }
+    // 78차 fix: signature 비교 — 변화 없으면 갱신 X (carousel 자동 재빌드 애니메이션 반복 방지)
+    var sig = (_emotionAlbumCache || []).map(function(r){ return r.album_uid + ':' + (r.updated_at||''); }).join('|');
+    if (sig === _emotionAlbumPollSig) return;
+    _emotionAlbumPollSig = sig;
     _renderEmotionGrid();
-    // carousel 열려있으면 풀도 재구성
+    // carousel 열려있고 변화 있는 감정이면 풀 재구성
     if (typeof _cfState === 'object' && _cfState.open) {
       _cfState.cards = (_emotionAlbumCache || []).filter(function(r){
         return r.emotion_id === _cfState.emotion_id && !r.is_deleted;
