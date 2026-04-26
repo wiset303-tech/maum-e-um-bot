@@ -10297,10 +10297,7 @@ function _scheduleAlbumGridRefresh() {
       else if (role === 'teacher' && STATE.user && STATE.user.teacher_uid) f['teacher_uid'] = 'eq.' + STATE.user.teacher_uid;
       var rows = await _sbFetch('album', f);
       var sig = (rows||[]).map(function(r){ return r.album_uid + ':' + (r.updated_at||''); }).sort().join('|');
-      if (sig === _albumLastSig) {
-        try { console.log('[ALBUM SCHEDULE] sig unchanged, skip render'); } catch(e) {}
-        return;
-      }
+      if (sig === _albumLastSig) return;
       _albumLastSig = sig;
     } catch(e) { /* sig fetch 실패 시 그냥 진행 */ }
     _emotionAlbumLoaded = false;
@@ -17160,7 +17157,6 @@ async function loadAlbum(loadAll) {
   if (!grid) return;
 
   var myGen = ++_loadAlbumGen;
-  try { console.log('[DAILY ALBUM] fetch start, loadAll:', !!loadAll, 'cached:', (_albumCache||[]).length); } catch(e) {}
   _albumCache = [];
   _albumAllLoaded = false;
 
@@ -17219,7 +17215,6 @@ async function loadAlbum(loadAll) {
     _albumLoaded = true; _albumAllLoaded = true;
     _paintAlbumDailyCounter();
     _fetchStudentAlbumLimit();
-    try { console.log('[DAILY ALBUM] fetch done, total: 0'); } catch(e) {}
     return;
   }
 
@@ -17233,7 +17228,6 @@ async function loadAlbum(loadAll) {
   grid.replaceChildren(frag);
   _paintAlbumDailyCounter();
   _fetchStudentAlbumLimit();
-  try { console.log('[DAILY ALBUM] fetch done, total:', total, 'rendered:', items.length); } catch(e) {}
 
   // 더보기 버튼
   var moreBtn = document.getElementById('albumMoreBtn');
