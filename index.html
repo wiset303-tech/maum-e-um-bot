@@ -1267,29 +1267,79 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   display:flex;align-items:center;gap:4px;
 }
 
-/* ── 마음채움 ── */
-.mindgame-section{
-  background:#fff;border-radius:var(--r);padding:14px 16px;
-  margin-bottom:14px;box-shadow:var(--shadow2);
+/* ── 80차: 마음동화 펼치기 카드 (책이 펼쳐지는 느낌) ── */
+.heart-tale-entry{
+  position:relative;
+  margin-bottom:14px;
+  background:linear-gradient(135deg, #faf6ed 0%, #f3e8d0 100%);
+  border-radius:6px 18px 18px 6px;
+  padding:18px 20px 18px 26px;
+  box-shadow:
+    0 2px 4px rgba(60,40,20,0.08),
+    0 8px 18px rgba(60,40,20,0.07);
+  cursor:pointer;
+  overflow:hidden;
+  transition:transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .35s;
 }
-.mindgame-title{
-  font-family:'Noto Sans KR',sans-serif;font-weight:700;
-  font-size:13px;color:var(--navy);margin-bottom:10px;letter-spacing:-0.3px;
+.heart-tale-entry::before{
+  /* 왼쪽 책등 음영 */
+  content:'';
+  position:absolute;
+  top:0; bottom:0; left:0;
+  width:10px;
+  background:linear-gradient(90deg, rgba(90,60,30,0.22) 0%, rgba(90,60,30,0.08) 60%, transparent 100%);
+  border-radius:6px 0 0 6px;
+  pointer-events:none;
 }
-.mindgame-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.mindgame-btn{
-  border:none;border-radius:var(--r2);padding:16px 10px;
-  text-align:center;cursor:pointer;
-  display:flex;flex-direction:column;align-items:center;gap:5px;
-  transition:transform .15s,box-shadow .15s;
+.heart-tale-entry::after{
+  /* 우측 상단 페이지 모서리 (살짝 들린 느낌) */
+  content:'';
+  position:absolute;
+  top:0; right:0;
+  width:34px; height:34px;
+  background:linear-gradient(225deg, transparent 48%, rgba(0,0,0,0.06) 50%, rgba(255,255,255,0.85) 52%, #faf6ed 100%);
+  border-radius:0 6px 0 0;
+  filter:drop-shadow(-2px 2px 3px rgba(60,40,20,0.12));
+  transition:transform .35s cubic-bezier(.2,.8,.2,1), filter .35s;
+  pointer-events:none;
 }
-.mindgame-btn:active{transform:scale(.96)}
-.mindgame-btn .mg-emoji{font-size:30px;line-height:1}
-.mindgame-btn .mg-name{font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:13px;letter-spacing:-0.3px}
-.mindgame-btn .mg-desc{font-size:11px;opacity:.7;line-height:1.3}
-.mindgame-rainbow{background:linear-gradient(135deg,var(--lav2),#e8e0ff);color:#6a4fc4}
-.mindgame-detective{background:linear-gradient(135deg,var(--lemon2),#fff8d0);color:#7a6200}
-.mindgame-btn.done{opacity:.45;cursor:default;pointer-events:none}
+.heart-tale-entry:hover{
+  transform:translateY(-2px);
+  box-shadow:
+    0 4px 8px rgba(60,40,20,0.10),
+    0 14px 28px rgba(60,40,20,0.10);
+}
+.heart-tale-entry:hover::after{
+  transform:scale(1.20) translate(3px,-3px);
+  filter:drop-shadow(-3px 3px 5px rgba(60,40,20,0.18));
+}
+.heart-tale-entry:active{ transform:translateY(0) scale(.98); }
+.heart-tale-entry-row{ display:flex; align-items:center; gap:14px; }
+.heart-tale-entry-emoji{
+  font-size:34px; line-height:1;
+  filter:drop-shadow(0 1px 2px rgba(60,40,20,0.18));
+  flex-shrink:0;
+}
+.heart-tale-entry-text{ flex:1; min-width:0 }
+.heart-tale-entry-title{
+  font-family:'Gamja Flower', cursive, sans-serif;
+  font-size:26px; color:#5b3a1f;
+  line-height:1.05; letter-spacing:-0.5px;
+  margin-bottom:2px;
+}
+.heart-tale-entry-sub{
+  font-family:'Noto Sans KR', sans-serif;
+  font-size:11.5px; color:#8a6a48; opacity:.9;
+  letter-spacing:-0.2px; line-height:1.5;
+  word-break:keep-all;
+}
+.heart-tale-entry-rainbow{
+  display:flex; gap:3px; margin-top:14px;
+  height:4px; padding-left:2px;
+}
+.heart-tale-entry-rainbow span{
+  flex:1; border-radius:2px; opacity:.6;
+}
 
 .macro-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px}
 .macro-btn{
@@ -12573,19 +12623,22 @@ function emotionInputHTML() {
       '</div>' +
     '</div>' +
   '</div>' +
-  '<div class="mindgame-section">' +
-    '<div class="mindgame-title">🎮 오늘의 마음채움</div>' +
-    '<div class="mindgame-grid">' +
-      '<button id="gameBtn-rainbow" class="mindgame-btn mindgame-rainbow" onclick="openGame(\'rainbow\')">' +
-        '<span class="mg-emoji">🌈</span>' +
-        '<span class="mg-name">감정 무지개</span>' +
-        '<span class="mg-desc">내 감정을 색깔로 표현해봐</span>' +
-      '</button>' +
-      '<button id="gameBtn-detective" class="mindgame-btn mindgame-detective" onclick="openGame(\'detective\')">' +
-        '<span class="mg-emoji">🔍</span>' +
-        '<span class="mg-name">감정 탐정</span>' +
-        '<span class="mg-desc">이야기 속 마음을 맞춰봐</span>' +
-      '</button>' +
+  '<div class="heart-tale-entry" onclick="openHeartTalePage()">' +
+    '<div class="heart-tale-entry-row">' +
+      '<div class="heart-tale-entry-emoji">📖</div>' +
+      '<div class="heart-tale-entry-text">' +
+        '<div class="heart-tale-entry-title">마음동화 펼치기</div>' +
+        '<div class="heart-tale-entry-sub">한 주에 한 페이지, 1년의 마음 이야기</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="heart-tale-entry-rainbow">' +
+      '<span style="background:#D9455F"></span>' +
+      '<span style="background:#E67E22"></span>' +
+      '<span style="background:#C9A227"></span>' +
+      '<span style="background:#2E8B57"></span>' +
+      '<span style="background:#1E6FB8"></span>' +
+      '<span style="background:#1A237E"></span>' +
+      '<span style="background:#6A3DB5"></span>' +
     '</div>' +
   '</div>' +
   '<div id="emotionSubmittedBanner"></div>' +
@@ -14400,9 +14453,9 @@ function calcBannerMessage(tokenData) {
   if (el) el.textContent = chosen;
 }
 
-// 마음채움 게임 진입 (Phase 4 — 모달 구현 전 stub)
-function openGame(type) {
-  toast('✨ 곧 오픈해요! 기대해줘 😊');
+// 80차: 마음동화 펼치기 진입점 (모달 본 구현은 다음 chunk)
+function openHeartTalePage(student_uid, week_no) {
+  toast('📖 마음동화 모달 준비 중...');
 }
 
 // ─────────────────────────────────────────
