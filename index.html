@@ -15217,9 +15217,9 @@ async function _loadEmotionAlbumCache() {
   } else {
     _emotionAlbumCache = []; _emotionAlbumLoaded = true; return [];
   }
-  // 78차 fix: 정렬 명시 + URL cache-busting (브라우저 fetch 캐시 hit으로 옛 row 받는 함정 100% 우회)
-  filters['order'] = 'updated_at.desc';  // 변경된 row가 무조건 첫 번째 → first updated_at으로 변화 즉시 인지
-  filters['_t']    = Date.now();          // PostgREST 무시 파라미터, URL 매번 다름 → 캐시 hit 불가능
+  // 78차 fix: 정렬 명시 — 변경된 row가 무조건 첫 번째 → first updated_at으로 변화 즉시 인지
+  //   (이전 _t=Date.now() cache-busting 파라미터는 PostgREST가 컬럼명으로 해석 → 400 에러. 제거. cache는 _sbFetch의 cache:'no-store'+헤더로 충분)
+  filters['order'] = 'updated_at.desc';
   try {
     var rows = await _sbFetch('album', filters);
     _emotionAlbumCache  = rows || [];
@@ -15253,11 +15253,8 @@ async function renderEmotionAlbum() {
       'first thumb head:', (c[0] && c[0].thumb_url || '').slice(0,30));
   } catch(e) {}
   _renderEmotionGrid();
-  // 78차 fix: 교사 감정앨범 활성 시 폴링 fallback 시작 (realtime 누락 안전망)
-  //   STATE._albumSubTab 'undefined'(default 감정앨범) 케이스 포함 — !== 'daily' 패턴
-  if (STATE.role === 'teacher' && STATE._albumSubTab !== 'daily') {
-    _startEmotionAlbumPoll();
-  }
+  // 78차 fix: 폴링 제거 — 변쌤 명시 "신호 받았을 때만 새로고침". publication 정상이라 postgres_changes로 충분.
+  //   기존 8초 폴링이 콘솔 폭주·자동 carousel 재빌드 부작용 유발 → realtime 신호만 의존
 }
 
 // 78차: 감정앨범 폴링 fallback — realtime 누락 안전망 (publication 정상이면 잉여 — 변화 없으면 갱신 X)
