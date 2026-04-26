@@ -10160,12 +10160,8 @@ function stopAlbumPoll() {
 var _albumRefreshThrottle = 0;
 function refreshAlbum() {
   var now = Date.now();
-  if (now - _albumRefreshThrottle < 1000) {
-    try { console.log('[DAILY ALBUM] refresh throttled'); } catch(e) {}
-    return;
-  }
+  if (now - _albumRefreshThrottle < 1000) return;
   _albumRefreshThrottle = now;
-  try { console.log('[DAILY ALBUM] refresh trigger, role:', STATE.role); } catch(e) {}
   // 74차: 새로고침 버튼 spinning 피드백
   var rb = document.getElementById('alb-refresh-btn');
   if (rb) {
@@ -10269,7 +10265,6 @@ function _startAlbumWatch() {
       var cnt = rows ? rows.length : 0;
       if (_albumWatchCount === -1) { _albumWatchCount = cnt; return; }
       if (cnt !== _albumWatchCount) {
-        try { console.log('[ALBUM WATCH]', _albumWatchCount, '→', cnt); } catch(e) {}
         _albumWatchCount = cnt;
         _scheduleAlbumGridRefresh();
       }
@@ -15308,21 +15303,15 @@ async function _loadEmotionAlbumCache() {
 async function renderEmotionAlbum() {
   var sec = document.getElementById('albumEmotionSection');
   if (!sec) return;
-  // 첫 진입 — 스켈레톤 짧게
-  if (!_emotionsMaster || !_emotionAlbumLoaded) {
+  // 79차 fix v3: 골격(.emo-album-shell) 있으면 스켈레톤 표시 X (in-place 유지)
+  //   증상: 새로고침 시 sec.innerHTML 통째 교체 → 골격 사라짐 → _renderEmotionGrid가 모든 구슬 새로 생성
+  //   해결: 골격 있을 땐 그대로 두고 fetch 후 _renderEmotionGrid가 in-place로만 갱신
+  var hasShell = !!sec.querySelector('.emo-album-shell');
+  if (!hasShell && (!_emotionsMaster || !_emotionAlbumLoaded)) {
     sec.innerHTML = '<div style="text-align:center;padding:30px;color:var(--gray);font-size:13px">감정앨범 불러오는 중…</div>';
   }
-  // 78차 fix: 캐시 무효화 — 진입 시 항상 최신 데이터
   _emotionAlbumLoaded = false;
-  // 78차 진단 로그: fetch 전후 cache size + 첫 thumb 일부 (변쌤 콘솔 확인용 — 옛 값/새 값 구분)
-  try { console.log('[EMO ALBUM] fetch start, current cache size:', (_emotionAlbumCache || []).length); } catch(e) {}
   await Promise.all([_loadEmotionsMaster(), _loadEmotionAlbumCache()]);
-  try {
-    var c = _emotionAlbumCache || [];
-    console.log('[EMO ALBUM] fetch done, new cache size:', c.length,
-      'first updated_at:', (c[0] && c[0].updated_at || '').toString().slice(0,19),
-      'first thumb head:', (c[0] && c[0].thumb_url || '').slice(0,30));
-  } catch(e) {}
   _renderEmotionGrid();
   // 78차 fix: 폴링 제거 — 변쌤 명시 "신호 받았을 때만 새로고침". publication 정상이라 postgres_changes로 충분.
   //   기존 8초 폴링이 콘솔 폭주·자동 carousel 재빌드 부작용 유발 → realtime 신호만 의존
@@ -15651,10 +15640,7 @@ function changeEmotionAlbumPage(delta) {
 var _emoRefreshThrottle = 0;
 async function refreshEmotionAlbum() {
   var now = Date.now();
-  if (now - _emoRefreshThrottle < 1000) {
-    try { console.log('[EMO ALBUM] refresh throttled'); } catch(e) {}
-    return;
-  }
+  if (now - _emoRefreshThrottle < 1000) return;
   _emoRefreshThrottle = now;
   _emotionAlbumLoaded = false;
   _emotionAlbumCache  = null;
