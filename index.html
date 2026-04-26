@@ -15368,6 +15368,91 @@ function _stopEmotionAlbumPoll() {
 }
 
 // 78차: 감정 그리드 렌더 — 4x5 + 가나다순 + 페이지네이션 + 강도 필터
+// 79차 fix v2: 진짜 in-place — 기존 .emo-bead element 그대로 두고 자식만 부분 갱신
+//   변쌤 명시: "감정앨범은 위치가 고정이니까 그 부분만 바꿔달라"
+//   이전 v1: replaceChild로 element 통째 교체 → 사용자 시야엔 새로 등장으로 보임
+//   v2: 기존 노드 유지, img/count/cover/className만 diff 후 갱신 → 진짜 in-place
+function _patchEmotionBeadInPlace(beadEl, em, rows, role) {
+  // 새 상태 계산 — _emotionBeadHTML 동일 로직
+  var hasPhoto = false, thumb = '', count = 0, hasCover = false;
+  if (rows && rows.length) {
+    count = rows.length;
+    var pick = rows[0];
+    if (role === 'teacher') {
+      for (var k=0; k<rows.length; k++) {
+        if (rows[k].is_class_cover === true) { pick = rows[k]; hasCover = true; break; }
+      }
+    }
+    thumb = pick.thumb_url || '';
+    if (thumb || pick.image_url) hasPhoto = true;
+  }
+  var disabledForStudent = (role === 'student' && !hasPhoto && _studentLockedToday());
+  var catCls = 'cat-' + (em.category || 'neutral');
+  var rainbow = (typeof getEmotionColor === 'function') ? getEmotionColor(em.word, em.category) : '#bbb';
+
+  // ① className diff — empty/filled, cat-*, disabled
+  beadEl.classList.toggle('filled', hasPhoto);
+  beadEl.classList.toggle('empty', !hasPhoto);
+  ['cat-positive','cat-neutral','cat-negative'].forEach(function(c){ beadEl.classList.toggle(c, c === catCls && hasPhoto); });
+  beadEl.classList.toggle('disabled', !!disabledForStudent);
+  // ② --emo-rainbow 변수 (사진 있을 때만)
+  if (hasPhoto) beadEl.style.setProperty('--emo-rainbow', rainbow);
+  else beadEl.style.removeProperty('--emo-rainbow');
+
+  // ③ img — 사진 자체가 바뀌면 src만 교체. transition CSS는 .emo-bead-img에 정의돼 있어야 부드러움
+  var img = beadEl.querySelector('.emo-bead-img');
+  if (hasPhoto && thumb) {
+    if (!img) {
+      // 새 사진 — fade-in 위해 opacity 0으로 삽입 후 RAF로 1
+      img = document.createElement('img');
+      img.className = 'emo-bead-img';
+      img.alt = em.word;
+      img.loading = 'lazy';
+      img.style.opacity = '0';
+      img.style.transition = 'opacity .3s ease';
+      img.src = thumb;
+      beadEl.insertBefore(img, beadEl.firstChild);
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ img.style.opacity = '1'; }); });
+    } else if (img.getAttribute('src') !== thumb) {
+      // 사진 교체 — 기존 노드 유지, src만 변경 (브라우저가 자연 fade)
+      img.src = thumb;
+    }
+  } else if (img) {
+    // 사진 사라짐 — fade-out 후 remove
+    img.style.transition = 'opacity .25s ease';
+    img.style.opacity = '0';
+    setTimeout(function(){ try { img.remove(); } catch(e){} }, 260);
+  }
+
+  // ④ count (교사만)
+  var countEl = beadEl.querySelector('.emo-bead-count');
+  if (role === 'teacher' && count > 0) {
+    if (!countEl) {
+      countEl = document.createElement('div');
+      countEl.className = 'emo-bead-count';
+      countEl.textContent = count;
+      beadEl.appendChild(countEl);
+    } else if (countEl.textContent !== String(count)) {
+      countEl.textContent = count;
+    }
+  } else if (countEl) {
+    countEl.remove();
+  }
+
+  // ⑤ cover mark (교사만)
+  var coverEl = beadEl.querySelector('.emo-bead-cover-mark');
+  if (role === 'teacher' && hasCover) {
+    if (!coverEl) {
+      coverEl = document.createElement('div');
+      coverEl.className = 'emo-bead-cover-mark';
+      coverEl.textContent = '⭐';
+      beadEl.appendChild(coverEl);
+    }
+  } else if (coverEl) {
+    coverEl.remove();
+  }
+}
+
 // 79차 fix: 워드클라우드 in-place 패턴 답습 (renderWordCloud 5요소)
 //   ① 세대 카운터 _emoGridGen — 구식 비동기 콜백 차단
 //   ② existingMap — emotion_id → 기존 .emo-bead element 인덱싱
@@ -15439,14 +15524,8 @@ function _renderEmotionGrid() {
     usedKeys[em.emotion_id] = true;
     var ex = existingMap[em.emotion_id];
     if (ex) {
-      // 같은 구슬: 새 HTML로 outerHTML 교체 (감정바코드/cover/카운트가 다양해 부분 갱신 복잡)
-      // 워드클라우드는 단어 1개=1 element라 style만 바꾸지만, 구슬은 자식(이미지·이름·카운트)이 복잡 → outerHTML 후 transition 효과
-      var newHtml = _emotionBeadHTML(em, rows, role);
-      var temp = document.createElement('div');
-      temp.innerHTML = newHtml;
-      var newEl = temp.firstChild;
-      newEl.style.transition = 'opacity .25s ease';
-      ex.parentNode.replaceChild(newEl, ex);
+      // 79차 fix v2: 진짜 in-place — 기존 element 그대로 두고 자식만 부분 갱신 (변쌤 명시 "위치는 고정 그 부분만")
+      _patchEmotionBeadInPlace(ex, em, rows, role);
     } else {
       // 새 구슬: fade-in (짧은 stagger)
       var html = _emotionBeadHTML(em, rows, role);
