@@ -1370,6 +1370,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .heart-tale-book{
   position:relative;
   display:flex;
+  flex-direction:column;
+  min-height:540px;
   background:linear-gradient(135deg, #faf6ed 0%, #f3e8d0 100%);
   border-radius:6px 14px 14px 6px;
   box-shadow:
@@ -1387,7 +1389,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 }
 .heart-tale-card{
   flex:1;
-  padding:18px 16px 16px 26px;
+  padding:18px 18px 14px 28px;
   position:relative;
   overflow:hidden;
   perspective:1500px;
@@ -1398,28 +1400,28 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 }
 .heart-tale-page-inner.flipping-next{
   transform-origin:left center;
-  animation:bookFlipNext .55s cubic-bezier(.4,0,.6,1) forwards;
+  animation:bookFlipNext .9s cubic-bezier(.65,.05,.35,.95) forwards;
 }
 .heart-tale-page-inner.flipping-prev{
   transform-origin:right center;
-  animation:bookFlipPrev .55s cubic-bezier(.4,0,.6,1) forwards;
+  animation:bookFlipPrev .9s cubic-bezier(.65,.05,.35,.95) forwards;
 }
 @keyframes pageFlipIn{
   0%   { opacity:0; transform:translateY(6px); }
   100% { opacity:1; transform:translateY(0); }
 }
-/* 진짜 책 넘김 — rotateY 0 → -95 (왼쪽으로 접힘) → +95 (반대편 등장) → 0 */
+/* 진짜 책 넘김 — 부드러운 곡선 + 거의 완전히 넘어갔다 돌아옴 (160deg) + 그림자 강화 */
 @keyframes bookFlipNext{
-  0%   { transform:rotateY(0deg);   box-shadow:0 0 0 rgba(0,0,0,0); }
-  45%  { transform:rotateY(-95deg); box-shadow:-15px 0 25px rgba(0,0,0,0.20); }
-  46%  { transform:rotateY(95deg);  box-shadow:15px 0 25px rgba(0,0,0,0.20); }
-  100% { transform:rotateY(0deg);   box-shadow:0 0 0 rgba(0,0,0,0); }
+  0%   { transform:rotateY(0deg);    box-shadow:0 0 0 rgba(0,0,0,0); }
+  47%  { transform:rotateY(-160deg); box-shadow:-30px 8px 40px rgba(60,40,20,0.30); }
+  48%  { transform:rotateY(160deg);  box-shadow:30px 8px 40px rgba(60,40,20,0.30); }
+  100% { transform:rotateY(0deg);    box-shadow:0 0 0 rgba(0,0,0,0); }
 }
 @keyframes bookFlipPrev{
-  0%   { transform:rotateY(0deg);   box-shadow:0 0 0 rgba(0,0,0,0); }
-  45%  { transform:rotateY(95deg);  box-shadow:15px 0 25px rgba(0,0,0,0.20); }
-  46%  { transform:rotateY(-95deg); box-shadow:-15px 0 25px rgba(0,0,0,0.20); }
-  100% { transform:rotateY(0deg);   box-shadow:0 0 0 rgba(0,0,0,0); }
+  0%   { transform:rotateY(0deg);    box-shadow:0 0 0 rgba(0,0,0,0); }
+  47%  { transform:rotateY(160deg);  box-shadow:30px 8px 40px rgba(60,40,20,0.30); }
+  48%  { transform:rotateY(-160deg); box-shadow:-30px 8px 40px rgba(60,40,20,0.30); }
+  100% { transform:rotateY(0deg);    box-shadow:0 0 0 rgba(0,0,0,0); }
 }
 .heart-tale-meta{
   font-size:10.5px; color:#8a6a48; letter-spacing:.5px;
@@ -1440,6 +1442,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .heart-tale-photo-wrap{
   width:100%;
   max-width:280px;
+  height:200px;            /* 80차: 비율 다양해도 모달 흔들림 0 — 영역 고정 */
   margin:0 auto 10px;
   background:rgba(255,255,255,0.5);
   border-radius:6px;
@@ -1449,8 +1452,9 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   flex-shrink:0;
 }
 .heart-tale-photo{
-  width:100%; height:auto; display:block;
-  max-height:24vh; object-fit:contain;
+  max-width:100%; max-height:100%; display:block;
+  width:auto; height:auto;
+  object-fit:contain;        /* 자연 비율 보존 — 사진은 영역 안에 fit */
 }
 .heart-tale-photo-placeholder{
   width:100%;
@@ -1486,6 +1490,12 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   background:linear-gradient(135deg, #7ed6c0 0%, #5cc4ad 100%);
   position:relative;
   box-shadow:0 2px 4px rgba(60,140,120,0.3), inset 0 -2px 4px rgba(0,0,0,0.08), inset 0 2px 4px rgba(255,255,255,0.4);
+  animation:botFloat 2.6s ease-in-out infinite;
+}
+@keyframes botFloat{
+  0%, 100% { transform:translateY(0)     rotate(0deg);  }
+  33%      { transform:translateY(-2.5px) rotate(2deg);  }
+  66%      { transform:translateY(-1px)   rotate(-2deg); }
 }
 .heart-tale-bot-avatar::before{
   /* 봇 안테나 (상단 작은 노란 점) */
@@ -1556,18 +1566,19 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   font-weight:400;
 }
 
+/* 80차: spine = 하단 가로 라인 (36칸이 옆으로 누적, 한 칸 안에 7색 세로 누적) */
 .heart-tale-spine{
   flex:0 0 22px;
-  background:linear-gradient(90deg, rgba(120,80,40,0.05), rgba(120,80,40,0.02));
-  border-left:1px solid rgba(120,80,40,0.12);
-  display:flex; flex-direction:column;
-  padding:6px 3px; gap:1px;
-  overflow-y:auto;
+  background:linear-gradient(180deg, rgba(120,80,40,0.05), rgba(120,80,40,0.02));
+  border-top:1px solid rgba(120,80,40,0.12);
+  display:flex; flex-direction:row;
+  padding:3px 14px 4px 28px; gap:1px;
+  overflow-x:auto;
   -webkit-overflow-scrolling:touch;
 }
 .heart-tale-spine-row{
-  flex:1; min-height:6px;
-  display:flex; gap:1px;
+  flex:1; min-width:6px;
+  display:flex; flex-direction:column; gap:0;
   cursor:pointer;
   border-radius:1.5px;
   opacity:.85;
@@ -1576,7 +1587,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 }
 .heart-tale-spine-row:hover{
   opacity:1;
-  transform:scale(1.15);
+  transform:scaleY(1.4) scaleX(1.15);
   box-shadow:0 0 0 1.5px rgba(91,58,31,0.5);
   z-index:2;
 }
@@ -1586,9 +1597,9 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   opacity:1;
   box-shadow:0 0 0 2px #5b3a1f;
   z-index:1;
-  transform:scale(1.18);
+  transform:scaleY(1.4) scaleX(1.2);
 }
-.heart-tale-spine-row span{ flex:1; height:100%; border-radius:1px; }
+.heart-tale-spine-row span{ width:100%; flex:1; border-radius:1px; }
 .heart-tale-nav{
   display:flex; align-items:center; justify-content:space-between;
   padding:8px 4px 0;
@@ -1607,10 +1618,10 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   letter-spacing:.3px; font-weight:600;
 }
 @media (max-width:480px){
-  .heart-tale-card{ padding:16px 12px 14px 22px; }
+  .heart-tale-card{ padding:16px 14px 12px 22px; }
   .heart-tale-week-word{ font-size:23px; }
-  .heart-tale-photo{ max-height:21vh; }
-  .heart-tale-spine{ flex-basis:18px; }
+  .heart-tale-photo-wrap{ height:170px; }
+  .heart-tale-spine{ flex-basis:18px; padding:3px 10px 3px 22px; }
 }
 
 .macro-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px}
@@ -14877,7 +14888,7 @@ function _renderHeartTalePage(week_no) {
 
   if (p.sealed) {
     var d = p.drawing;
-    html += '<div class="heart-tale-photo-wrap" style="aspect-ratio:' + d.ratio + ';background:' + d.bg + '">';
+    html += '<div class="heart-tale-photo-wrap" style="background:' + d.bg + '">';
     html += '<div class="heart-tale-photo-placeholder">';
     html += '<span>' + d.emoji + '</span>';
     html += '<span class="htp-ph-label">' + _escHtml(d.label) + ' 그림 자리</span>';
@@ -14889,7 +14900,7 @@ function _renderHeartTalePage(week_no) {
     html += '<div class="heart-tale-bot-bubble">' + _escHtml(p.bot_line) + '</div>';
     html += '</div>';
   } else {
-    html += '<div class="heart-tale-photo-wrap" style="aspect-ratio:1/1;background:rgba(255,255,255,0.4)">';
+    html += '<div class="heart-tale-photo-wrap" style="background:rgba(255,255,255,0.4)">';
     html += '<div class="heart-tale-photo-placeholder">';
     html += '<span style="font-size:36px;opacity:.4">📖</span>';
     html += '<span class="htp-ph-label">아직 채우지 않은 페이지예요</span>';
@@ -14947,8 +14958,8 @@ function _navHeartTalePage(dir, jumpTo) {
   var nextDir = (target > current) ? 'flipping-next' : 'flipping-prev';
   if (inner) {
     inner.classList.add(nextDir);
-    // 책 넘김 0.55s 중 45% 시점(약 250ms)에 페이지 옆으로 완전히 접힘 → 그 순간 콘텐츠 교체
-    setTimeout(function(){ _renderHeartTalePage(target); }, 250);
+    // 책 넘김 0.9s 중 47% 시점(약 420ms)에 페이지 거의 완전히 넘어감 → 그 순간 콘텐츠 교체
+    setTimeout(function(){ _renderHeartTalePage(target); }, 420);
   } else {
     _renderHeartTalePage(target);
   }
