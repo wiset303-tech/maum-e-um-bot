@@ -1368,12 +1368,12 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 }
 .heart-tale-close:hover{ background:#fff; transform:scale(1.08); }
 
-/* 책 본체 — 가로 row (왼쪽 카드 + 오른쪽 spine) */
+/* 책 본체 — 가로 row (왼쪽 카드 + 오른쪽 spine). 페이지 배경은 밝은 아이보리. 테두리·책등 그림자는 갈색 톤 유지 */
 .heart-tale-book{
   position:relative;
   display:flex; flex-direction:row;
   min-height:540px;
-  background:linear-gradient(135deg, #faf6ed 0%, #f3e8d0 100%);
+  background:linear-gradient(135deg, #fefcf5 0%, #faf3e0 100%);
   border-radius:6px 14px 14px 6px;
   box-shadow:
     0 4px 8px rgba(60,40,20,0.12),
@@ -1387,6 +1387,21 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   background:linear-gradient(90deg, rgba(90,60,30,0.30) 0%, rgba(90,60,30,0.10) 70%, transparent 100%);
   border-radius:6px 0 0 6px;
   pointer-events:none; z-index:1;
+}
+/* 책 표지 좌측 상단 음각 워터마크 (mix-blend-mode multiply로 종이에 박힌 인장 느낌) */
+.heart-tale-watermark{
+  position:absolute;
+  top:14px; left:30px;
+  font-family:'Gamja Flower', cursive, sans-serif;
+  font-size:17px; font-weight:normal;
+  letter-spacing:-0.3px;
+  color:var(--mint2);
+  opacity:.32;
+  mix-blend-mode:multiply;
+  pointer-events:none;
+  z-index:5;
+  user-select:none;
+  white-space:nowrap;
 }
 
 /* 페이지 카드 (왼쪽) — padding 0 (inner에 padding) */
@@ -1685,6 +1700,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   .heart-tale-spine{ flex-basis:48px; padding:6px 4px; }
   .heart-tale-cover-title{ font-size:21px; }
   .heart-tale-cover-avatar{ width:76px; height:76px; font-size:42px; }
+  .heart-tale-watermark{ top:11px; left:24px; font-size:15px; }
 }
 
 .macro-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px}
@@ -3396,6 +3412,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   <div class="heart-tale-modal-box" onclick="event.stopPropagation()">
     <button class="heart-tale-close" onclick="closeHeartTalePage()" aria-label="닫기">✕</button>
     <div class="heart-tale-book">
+      <div class="heart-tale-watermark" aria-hidden="true">마음이음🌈</div>
       <div class="heart-tale-card" id="htp-card-wrap"></div>
       <div class="heart-tale-spine" id="htp-spine"></div>
     </div>
