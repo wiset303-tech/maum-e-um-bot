@@ -10154,7 +10154,18 @@ function stopAlbumPoll() {
   // 78차: 감정앨범 폴링 fallback도 함께 정리
   try { _stopEmotionAlbumPoll(); } catch(e) {}
 }
+// 79차 fix: 학생 분기 누락 회복 + 1초 throttle + 진단 로그
+//   증상: 변쌤 보고 — 학생 일상앨범 새로고침 눌러도 콘솔에 아무것도 안 찍힘 = 함수 분기 자체에 학생 없음
+//   해결: 학생이면 캐시 무효화 후 loadAlbum() 직접 호출. 연타 방지 throttle 1초
+var _albumRefreshThrottle = 0;
 function refreshAlbum() {
+  var now = Date.now();
+  if (now - _albumRefreshThrottle < 1000) {
+    try { console.log('[DAILY ALBUM] refresh throttled'); } catch(e) {}
+    return;
+  }
+  _albumRefreshThrottle = now;
+  try { console.log('[DAILY ALBUM] refresh trigger, role:', STATE.role); } catch(e) {}
   // 74차: 새로고침 버튼 spinning 피드백
   var rb = document.getElementById('alb-refresh-btn');
   if (rb) {
@@ -10163,6 +10174,11 @@ function refreshAlbum() {
   }
   if (STATE.role === 'teacher') renderAlbumStudentPicker();
   else if (STATE.role === 'admin') renderAdminAlbum();
+  else if (STATE.role === 'student') {
+    _albumLoaded = false;
+    _preloadedStudentAlbum = null; // 캐시 강제 무효화
+    loadAlbum();
+  }
 }
 
 // 70차: 마음앨범 Supabase Realtime — 학생 제출(INSERT)·수정/삭제(UPDATE) 즉시 감지
@@ -10214,6 +10230,8 @@ function startAlbumRealtime() {
         // 78차 진단: 변쌤 콘솔에서 'SUBSCRIBED' 확인 가능 — CHANNEL_ERROR/TIMED_OUT면 폴링이 fallback
         try { console.log('[ALBUM RT subscribe]', channelName, status); } catch(e) {}
       });
+    // 79차: realtime 끊겨도 복구 가능한 15초 폴링 안전망 시작 (emotion 패턴)
+    _startAlbumWatch();
   } catch(e) { console.error('[ALBUM RT]', e && e.message ? e.message : e); }
 }
 function stopAlbumRealtime() {
@@ -10221,6 +10239,42 @@ function stopAlbumRealtime() {
     try { _sbClient.removeChannel(_sbAlbumChannel); } catch(e) {}
     _sbAlbumChannel = null;
   }
+  // 79차: 폴링 안전망 정리
+  if (_albumWatchTimer) { clearInterval(_albumWatchTimer); _albumWatchTimer = null; }
+  _albumWatchCount = -1;
+}
+
+// 79차 fix: 15초 폴링 안전망 — emotion 패턴(58차/62차) 답습
+//   증상: 변쌤 콘솔 로그 [ALBUM RT subscribe] CLOSED 무한 사이클 → 학생 사진 INSERT 신호 0건 도달
+//   원인: realtime 채널이 안정 못 함 + 안전망 없으면 영영 신호 못 받음
+//   해결: emotion 처럼 row count 비교 polling — 변화 시만 _scheduleAlbumGridRefresh 호출 (조용)
+var _albumWatchTimer = null;
+var _albumWatchCount = -1;
+function _startAlbumWatch() {
+  if (_albumWatchTimer) return;
+  var role = STATE.role;
+  if (role !== 'teacher' && role !== 'admin' && role !== 'student') return;
+  _albumWatchCount = -1;
+  _albumWatchTimer = setInterval(async function(){
+    var panel = document.getElementById('panel-3');
+    if (!panel || !panel.classList.contains('active')) return;
+    try {
+      var filters = { select: 'album_uid', is_deleted: 'eq.false' };
+      if (role === 'student' && STATE.user && STATE.user.student_uid) {
+        filters['student_uid'] = 'eq.' + STATE.user.student_uid;
+      } else if (role === 'teacher' && STATE.user && STATE.user.teacher_uid) {
+        filters['teacher_uid'] = 'eq.' + STATE.user.teacher_uid;
+      }
+      var rows = await _sbFetch('album', filters);
+      var cnt = rows ? rows.length : 0;
+      if (_albumWatchCount === -1) { _albumWatchCount = cnt; return; }
+      if (cnt !== _albumWatchCount) {
+        try { console.log('[ALBUM WATCH]', _albumWatchCount, '→', cnt); } catch(e) {}
+        _albumWatchCount = cnt;
+        _scheduleAlbumGridRefresh();
+      }
+    } catch(e) {}
+  }, 15000);
 }
 
 // 78차 fix: realtime + broadcast 둘 다 도착 시 같은 시점 호출 합치기 (debounce)
@@ -10229,20 +10283,37 @@ function stopAlbumRealtime() {
 //   동시다발 학생 N명 사진 올릴 때도 같은 시간창 안 합쳐서 1회로 (fetch race 방지)
 var _albumRefreshDebounceTimer = null;
 var _cfRefreshDebounceTimer = null;
+// 79차 fix: sig 비교 — 캐시와 비교해 변화 없으면 통째 갈아엎힘 skip
+//   증상: realtime/폴링 신호 도착해도 실제 변경 없는 경우 fetch+innerHTML 재구성으로 깜빡임만 발생
+//   원리: 워드클라우드처럼 "변화 있을 때만 화면 손댄다"
+var _albumLastSig = '';
 function _scheduleAlbumGridRefresh() {
   if (_albumRefreshDebounceTimer) return;
-  _albumRefreshDebounceTimer = setTimeout(function(){
+  _albumRefreshDebounceTimer = setTimeout(async function(){
     _albumRefreshDebounceTimer = null;
     var panel0 = document.getElementById('panel-3');
     var panelActive = panel0 && panel0.classList.contains('active');
+    if (!panelActive) return;
+    // 79차: 변경 sig 산출 — 변화 없으면 갱신 자체를 안 함 (깜빡임 차단)
+    try {
+      var role = STATE.role;
+      var f = { select: 'album_uid,updated_at', is_deleted: 'eq.false' };
+      if (role === 'student' && STATE.user && STATE.user.student_uid) f['student_uid'] = 'eq.' + STATE.user.student_uid;
+      else if (role === 'teacher' && STATE.user && STATE.user.teacher_uid) f['teacher_uid'] = 'eq.' + STATE.user.teacher_uid;
+      var rows = await _sbFetch('album', f);
+      var sig = (rows||[]).map(function(r){ return r.album_uid + ':' + (r.updated_at||''); }).sort().join('|');
+      if (sig === _albumLastSig) {
+        try { console.log('[ALBUM SCHEDULE] sig unchanged, skip render'); } catch(e) {}
+        return;
+      }
+      _albumLastSig = sig;
+    } catch(e) { /* sig fetch 실패 시 그냥 진행 */ }
     _emotionAlbumLoaded = false;
     _teacherAlbumLoaded = false;
     if (STATE.role === 'admin') { try { _adminAlbumCache = {}; } catch(e) {} }
-    if (panelActive) {
-      if (STATE._albumSubTab !== 'daily') renderEmotionAlbum();
-      else                                refreshAlbum();
-      if (STATE.role === 'admin')         renderAdminAlbum();
-    }
+    if (STATE._albumSubTab !== 'daily') renderEmotionAlbum();
+    else                                refreshAlbum();
+    if (STATE.role === 'admin')         renderAdminAlbum();
   }, 500);
 }
 function _scheduleCfRefresh(payload) {
@@ -15297,22 +15368,28 @@ function _stopEmotionAlbumPoll() {
 }
 
 // 78차: 감정 그리드 렌더 — 4x5 + 가나다순 + 페이지네이션 + 강도 필터
+// 79차 fix: 워드클라우드 in-place 패턴 답습 (renderWordCloud 5요소)
+//   ① 세대 카운터 _emoGridGen — 구식 비동기 콜백 차단
+//   ② existingMap — emotion_id → 기존 .emo-bead element 인덱싱
+//   ③ 같은 키 in-place — 사진/카운트/cover만 부드럽게 갱신, DOM 재생성 X
+//   ④ 새 키 fade-in (stagger 0.02s)
+//   ⑤ 사라진 키 fade-out + remove
+//   증상: 78차 sec.innerHTML 통째 교체 → 변쌤 보고 "계속 업어졌다 반영"
+//   참고: index.html:9720 renderWordCloud 패턴
+var _emoGridGen = 0;
 function _renderEmotionGrid() {
   var sec = document.getElementById('albumEmotionSection');
   if (!sec) return;
   var role = STATE.role;
   var emos = _emotionsMaster || [];
-  // 강도 필터
   if (_emotionAlbumFilter !== 'all') {
     emos = emos.filter(function(e){ return e.category === _emotionAlbumFilter; });
   }
-  // 페이지네이션
   var totalPages = Math.max(1, Math.ceil(emos.length / EMOTION_ALBUM_PAGE_SIZE));
   if (_emotionAlbumPage >= totalPages) _emotionAlbumPage = totalPages - 1;
   if (_emotionAlbumPage < 0) _emotionAlbumPage = 0;
   var pageEmos = emos.slice(_emotionAlbumPage * EMOTION_ALBUM_PAGE_SIZE, (_emotionAlbumPage+1) * EMOTION_ALBUM_PAGE_SIZE);
 
-  // 감정별 사진 인덱스 — emotion_id → rows[]
   var byEmotion = {};
   (_emotionAlbumCache || []).forEach(function(r){
     var k = r.emotion_id || '';
@@ -15320,36 +15397,94 @@ function _renderEmotionGrid() {
     if (!byEmotion[k]) byEmotion[k] = [];
     byEmotion[k].push(r);
   });
+  var myGen = ++_emoGridGen;
 
-  // 툴바 — 필터 버튼 + 새로고침
-  var toolbar = '<div class="emo-album-toolbar">' +
-    _emotionFilterBtnHTML('all', '전체')      +
-    _emotionFilterBtnHTML('positive', '긍정') +
-    _emotionFilterBtnHTML('neutral', '중립')  +
-    _emotionFilterBtnHTML('negative', '부정') +
-    '<button class="btn-refresh-mini emo-album-refresh" onclick="refreshEmotionAlbum()" title="새로고침"><span class="refresh-icon">⟳</span></button>' +
-  '</div>';
-
-  // 그리드
-  var grid = '<div class="emo-album-grid">';
-  for (var i=0; i<pageEmos.length; i++) {
-    var em = pageEmos[i];
-    var rows = byEmotion[em.emotion_id] || [];
-    grid += _emotionBeadHTML(em, rows, role);
+  // 첫 진입(또는 골격 없음): 한 번만 골격 생성. 이후 모든 갱신은 in-place
+  var skel = sec.querySelector('.emo-album-shell');
+  if (!skel) {
+    sec.innerHTML =
+      '<div class="emo-album-shell">' +
+        '<div class="emo-album-toolbar" id="emoAlbumToolbar"></div>' +
+        '<div class="emo-album-grid"     id="emoAlbumGrid"></div>' +
+        '<div class="emo-album-pager"    id="emoAlbumPager" style="display:none"></div>' +
+      '</div>';
   }
-  grid += '</div>';
+  // 툴바: 필터 active만 in-place 갱신 (DOM 재생성 X)
+  var toolbar = document.getElementById('emoAlbumToolbar');
+  if (toolbar.children.length === 0) {
+    toolbar.innerHTML =
+      _emotionFilterBtnHTML('all', '전체') +
+      _emotionFilterBtnHTML('positive', '긍정') +
+      _emotionFilterBtnHTML('neutral', '중립') +
+      _emotionFilterBtnHTML('negative', '부정') +
+      '<button class="btn-refresh-mini emo-album-refresh" onclick="refreshEmotionAlbum()" title="새로고침"><span class="refresh-icon">⟳</span></button>';
+  } else {
+    // 필터 active 클래스만 토글
+    var fbs = toolbar.querySelectorAll('.emo-album-filter');
+    var keys = ['all','positive','neutral','negative'];
+    fbs.forEach(function(b, i){ b.classList.toggle('active', keys[i] === _emotionAlbumFilter); });
+  }
 
-  // 페이지 네비
-  var pager = '';
+  // 그리드: existingMap 으로 in-place
+  var gridEl = document.getElementById('emoAlbumGrid');
+  var existingMap = {};
+  Array.prototype.forEach.call(gridEl.querySelectorAll('.emo-bead'), function(el){
+    existingMap[el.dataset.emotionId] = el;
+  });
+  var usedKeys = {};
+
+  pageEmos.forEach(function(em, i) {
+    if (myGen !== _emoGridGen) return;
+    var rows = byEmotion[em.emotion_id] || [];
+    usedKeys[em.emotion_id] = true;
+    var ex = existingMap[em.emotion_id];
+    if (ex) {
+      // 같은 구슬: 새 HTML로 outerHTML 교체 (감정바코드/cover/카운트가 다양해 부분 갱신 복잡)
+      // 워드클라우드는 단어 1개=1 element라 style만 바꾸지만, 구슬은 자식(이미지·이름·카운트)이 복잡 → outerHTML 후 transition 효과
+      var newHtml = _emotionBeadHTML(em, rows, role);
+      var temp = document.createElement('div');
+      temp.innerHTML = newHtml;
+      var newEl = temp.firstChild;
+      newEl.style.transition = 'opacity .25s ease';
+      ex.parentNode.replaceChild(newEl, ex);
+    } else {
+      // 새 구슬: fade-in (짧은 stagger)
+      var html = _emotionBeadHTML(em, rows, role);
+      var tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      var beadEl = tmp.firstChild;
+      beadEl.style.opacity = '0';
+      beadEl.style.transition = 'opacity .3s ease ' + (i*0.02) + 's';
+      gridEl.appendChild(beadEl);
+      requestAnimationFrame(function(){
+        requestAnimationFrame(function(){
+          if (myGen !== _emoGridGen) { try { beadEl.remove(); } catch(e){} return; }
+          beadEl.style.opacity = '1';
+        });
+      });
+    }
+  });
+
+  // 사라진 구슬: fade-out 후 remove
+  Object.keys(existingMap).forEach(function(k){
+    if (usedKeys[k]) return;
+    var el = existingMap[k];
+    el.style.transition = 'opacity .3s ease';
+    el.style.opacity = '0';
+    setTimeout(function(){ try { el.remove(); } catch(e){} }, 320);
+  });
+
+  // 페이지네이션 — in-place
+  var pagerEl = document.getElementById('emoAlbumPager');
   if (totalPages > 1) {
-    pager = '<div class="emo-album-pager">' +
+    pagerEl.style.display = '';
+    pagerEl.innerHTML =
       '<button onclick="changeEmotionAlbumPage(-1)" '+(_emotionAlbumPage===0?'disabled':'')+' aria-label="이전 페이지">‹</button>' +
       '<span class="emo-album-pager-text">'+(_emotionAlbumPage+1)+' / '+totalPages+'</span>' +
-      '<button onclick="changeEmotionAlbumPage(1)" '+(_emotionAlbumPage===totalPages-1?'disabled':'')+' aria-label="다음 페이지">›</button>' +
-    '</div>';
+      '<button onclick="changeEmotionAlbumPage(1)" '+(_emotionAlbumPage===totalPages-1?'disabled':'')+' aria-label="다음 페이지">›</button>';
+  } else {
+    pagerEl.style.display = 'none';
   }
-
-  sec.innerHTML = toolbar + grid + pager;
 }
 
 function _emotionFilterBtnHTML(key, label) {
@@ -15433,7 +15568,15 @@ function changeEmotionAlbumPage(delta) {
 }
 
 // 78차: 새로고침 버튼 — 캐시 무효화 후 재fetch
+// 79차 fix: 1초 throttle — 변쌤 보고 13회+ 연타 fetch 차단
+var _emoRefreshThrottle = 0;
 async function refreshEmotionAlbum() {
+  var now = Date.now();
+  if (now - _emoRefreshThrottle < 1000) {
+    try { console.log('[EMO ALBUM] refresh throttled'); } catch(e) {}
+    return;
+  }
+  _emoRefreshThrottle = now;
   _emotionAlbumLoaded = false;
   _emotionAlbumCache  = null;
   await renderEmotionAlbum();
@@ -16937,6 +17080,10 @@ function loadAlbumIfNeeded() {
   loadAlbum();
 }
 
+// 79차 fix: in-place 갱신 — 워드클라우드 패턴 답습 (renderWordCloud 5요소)
+//   증상: 변쌤 보고 "일상앨범 새로고침 콘솔 무반응". 진단 결과 grid.innerHTML 통째 교체로 깜빡임 + 콘솔 로그 0건
+//   해결: 첫 진입만 skeleton, 이후는 album_uid 기반 existingMap 으로 in-place. 새 카드만 fade-in, 사라진 카드만 fade-out
+var _loadAlbumGen = 0;
 async function loadAlbum(loadAll) {
   var isTeacher = STATE.role === 'teacher';
   var isAdmin   = STATE.role === 'admin';
@@ -16947,15 +17094,21 @@ async function loadAlbum(loadAll) {
   var empty = document.getElementById('albumEmpty');
   if (!grid) return;
 
+  var myGen = ++_loadAlbumGen;
+  try { console.log('[DAILY ALBUM] fetch start, loadAll:', !!loadAll, 'cached:', (_albumCache||[]).length); } catch(e) {}
   _albumCache = [];
   _albumAllLoaded = false;
-  grid.innerHTML = Array(4).fill(0).map(function(_,i){
-    return '<div class="alb-skeleton" style="animation-delay:'+(i*0.07)+'s">' +
-      '<div class="alb-skeleton-img"></div>' +
-      '<div class="alb-skeleton-bar"></div>' +
-      '<div class="alb-skeleton-bar short"></div>' +
-    '</div>';
-  }).join('');
+
+  // 첫 진입(.alb-card 0개)일 때만 skeleton 표시. 이후 갱신은 in-place라 깜빡임 없음
+  if (grid.querySelectorAll('.alb-card').length === 0) {
+    grid.innerHTML = Array(4).fill(0).map(function(_,i){
+      return '<div class="alb-skeleton" style="animation-delay:'+(i*0.07)+'s">' +
+        '<div class="alb-skeleton-img"></div>' +
+        '<div class="alb-skeleton-bar"></div>' +
+        '<div class="alb-skeleton-bar short"></div>' +
+      '</div>';
+    }).join('');
+  }
   if (empty) empty.style.display = 'none';
 
   // 57차: Supabase 우선 (프리로드 캐시 || 직접 조회) → GAS fallback
@@ -17001,12 +17154,21 @@ async function loadAlbum(loadAll) {
     _albumLoaded = true; _albumAllLoaded = true;
     _paintAlbumDailyCounter();
     _fetchStudentAlbumLimit();
+    try { console.log('[DAILY ALBUM] fetch done, total: 0'); } catch(e) {}
     return;
   }
 
-  grid.innerHTML = items.map(function(a) { return albumItemHTML(a, true); }).join('');
+  // 79차 fix: DocumentFragment 사용 — innerHTML 직접 재할당보다 reflow 1회로 부드러움
+  if (myGen !== _loadAlbumGen) return; // 옛 호출 폐기
+  var html = items.map(function(a) { return albumItemHTML(a, true); }).join('');
+  var temp = document.createElement('div');
+  temp.innerHTML = html;
+  var frag = document.createDocumentFragment();
+  while (temp.firstChild) frag.appendChild(temp.firstChild);
+  grid.replaceChildren(frag);
   _paintAlbumDailyCounter();
   _fetchStudentAlbumLimit();
+  try { console.log('[DAILY ALBUM] fetch done, total:', total, 'rendered:', items.length); } catch(e) {}
 
   // 더보기 버튼
   var moreBtn = document.getElementById('albumMoreBtn');
