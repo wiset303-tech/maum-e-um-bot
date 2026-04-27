@@ -16233,8 +16233,8 @@ function _buildHeartTaleLockGateHTML() {
   html += '<div class="heart-tale-lock-body">';
   html += '<div class="heart-tale-lock-keyhole"></div>';
   html += '</div></div></div>';
-  html += '<div class="heart-tale-lock-msg">마음동화 카드를 갖다 대 주세요</div>';
-  html += '<div class="heart-tale-lock-sub">기록하려면 내 마음동화 카드가 필요해요</div>';
+  html += '<div class="heart-tale-lock-msg">🌈 마음동화 스티커를 태그해 주세요</div>';
+  html += '<div class="heart-tale-lock-sub">기록하려면 내 🌈 마음동화 스티커가 필요해요</div>';
   html += '<div class="heart-tale-lock-error-msg" id="htpLockErrorMsg"></div>';
   // 미리보기 모드에서만 NFC 인식 시뮬 버튼 노출 (실 사용은 카드 태깅 대기)
   if (STATE.isPreview || !STATE.user) {
@@ -16324,7 +16324,7 @@ async function _handleHeartTaleNfc(uid) {
       } else {
         var w = STATE._htpCurrentWeek;
         if (w !== undefined && w !== null) _renderHeartTalePage(w);
-        toast('마음동화 카드 인식 — 이제 수정할 수 있어요');
+        toast('🌈 마음동화 스티커 인식 — 이제 수정할 수 있어요');
       }
       return;
     }
@@ -16332,12 +16332,12 @@ async function _handleHeartTaleNfc(uid) {
     // ❌ 본인 등교 카드인지 판별
     var myAttendUid = STATE.user.nfc_uid ? _normalizeNfc(STATE.user.nfc_uid) : '';
     if (myAttendUid && myAttendUid === normUid) {
-      if (errEl) errEl.textContent = '이건 등교 카드예요 (마음동화 카드가 따로 있어요)';
+      if (errEl) errEl.textContent = '이건 등교 카드예요 (🌈 마음동화 스티커가 따로 있어요)';
       return;
     }
 
     // ❌ 그 외
-    if (errEl) errEl.textContent = '내 마음동화 카드가 아니에요';
+    if (errEl) errEl.textContent = '내 🌈 마음동화 스티커가 아니에요';
   } catch(e) {
     console.error('[HT NFC]', e && e.message ? e.message : e);
     if (errEl) errEl.textContent = '카드 확인이 잘 안돼요. 다시 시도해 주세요';
@@ -16537,13 +16537,13 @@ function _renderTaleAlbumHeader() {
   if (active) {
     var sn = active.session_no;
     html += '<button class="ht-class-btn ht-class-end" onclick="_endHeartTaleClass()">⏹ ' + sn + '차시 마음동화 수업 종료</button>';
-    html += '<div class="ht-class-info">' + sn + '차시 진행 중 — 학생들이 카드 없이 책을 채울 수 있어요</div>';
+    html += '<div class="ht-class-info">' + sn + '차시 진행 중 — 학생들이 🌈 스티커 없이 책을 채울 수 있어요</div>';
   } else {
     html += '<div class="ht-class-row">';
     html += '<button class="ht-class-btn ht-class-start" onclick="_startHeartTaleClass(1)">📣 1차시 시작</button>';
     html += '<button class="ht-class-btn ht-class-start" onclick="_startHeartTaleClass(2)">📣 2차시 시작</button>';
     html += '</div>';
-    html += '<div class="ht-class-sub">수업이 시작되면 학생들에게 알림이 가요.<br>그동안은 카드 없이도 자유롭게 채울 수 있어요.</div>';
+    html += '<div class="ht-class-sub">수업이 시작되면 학생들에게 알림이 가요.<br>그동안은 🌈 스티커 없이도 자유롭게 채울 수 있어요.</div>';
   }
   html += '</div>';
   return html;
@@ -16590,7 +16590,7 @@ async function _onHeartTaleClassEndReceived(session_no) {
   if (modal && !modal.classList.contains('hidden')) {
     var w = STATE._htpCurrentWeek;
     if (w !== undefined && w !== null) _renderHeartTalePage(w);
-    toast('⏹ 마음동화 수업이 끝났어요. 더 수정하려면 마음동화 카드를 갖다 대 주세요');
+    toast('⏹ 마음동화 수업이 끝났어요. 더 수정하려면 🌈 마음동화 스티커를 태그해 주세요');
   } else {
     toast('⏹ ' + session_no + '차시 마음동화 수업이 끝났어요');
   }
@@ -16697,7 +16697,11 @@ function _htpResizeImage(file, maxW, quality, cb) {
   reader.readAsDataURL(file);
 }
 
-// 저장 — GAS save_book_page (Drive 업로드 + weekly_book INSERT/UPDATE + Sheets 미러)
+// 저장 — 낙관적 UI (CLAUDE.md 5-1 답습)
+//   ① 모달 즉시 닫기 + 캐시 즉시 갱신(임시 photo_url=base64) + 페이지 재렌더 + 토스트 "저장 중"
+//   ② 백그라운드 GAS save_book_page (Drive 업로드 + weekly_book INSERT/UPDATE)
+//   ③ 성공: 응답 photo_url(Drive file_id)로 캐시 swap + 페이지 silent 재렌더
+//   ④ 실패: 이전 캐시로 롤백 + 페이지 재렌더 + 토스트 "다시 시도"
 async function _htpSaveRecord() {
   var week_no = STATE._htpRecordingWeek;
   if (!week_no) return;
@@ -16706,75 +16710,90 @@ async function _htpSaveRecord() {
   var newPhotoB64 = STATE._htpRecordingPhotoB64 || '';
   var keepExisting = !newPhotoB64 && !!STATE._htpRecordingExistingPhotoUrl;
 
-  // 사진·글 둘 다 비어 있으면 막기
   if (!newPhotoB64 && !keepExisting && !text) {
     toast('사진이나 한 줄 글 중 하나는 채워주세요');
     return;
   }
 
-  var saveBtn = document.getElementById('htRecSaveBtn');
-  if (saveBtn) saveBtn.disabled = true;
-  showLoading('마음 페이지 저장 중이에요 📖');
+  var word = _PV_HEART_TALE_WORDS[(week_no - 1) % _PV_HEART_TALE_WORDS.length];
+  var bot_line = _PV_HEART_TALE_BOT_LINES[Math.floor(Math.random() * _PV_HEART_TALE_BOT_LINES.length)];
 
+  // 캐시 이전 상태 스냅샷 (실패 시 롤백용)
+  if (!STATE._htpPages) STATE._htpPages = {};
+  var prevSnapshot = STATE._htpPages[week_no] ? JSON.parse(JSON.stringify(STATE._htpPages[week_no])) : null;
+  var prevPageUid = (prevSnapshot && prevSnapshot.page_uid) || '';
+
+  // ① 낙관적 캐시 갱신 — 임시 photo_url = base64 (또는 기존 유지) / recorded_at = 즉시
+  var optimisticPhotoUrl = newPhotoB64 || (keepExisting ? STATE._htpRecordingExistingPhotoUrl : '');
+  STATE._htpPages[week_no] = {
+    page_uid: prevPageUid,
+    week_no: week_no,
+    word: word,
+    photo_url: optimisticPhotoUrl,
+    thumb_url: '',
+    student_text: text,
+    bot_line: bot_line,
+    recorded_at: (new Date()).toISOString(),
+    recorded_by_nfc_uid: (prevSnapshot && prevSnapshot.recorded_by_nfc_uid) || ''
+  };
+
+  closeModal('modal-heart-tale-record');
+  _renderHeartTalePage(week_no);
+  toast('마음 페이지 저장 중이에요 📖');
+
+  // 현재 verify된 카드 nfc_uid 조회 (record 모드만 — class·view 모드는 빈 값)
+  var recordedByNfcUid = '';
   try {
-    var word = _PV_HEART_TALE_WORDS[(week_no - 1) % _PV_HEART_TALE_WORDS.length];
-    var bot_line = _PV_HEART_TALE_BOT_LINES[Math.floor(Math.random() * _PV_HEART_TALE_BOT_LINES.length)];
-
-    var payload = {
-      student_uid: STATE.user.student_uid,
-      week_no: week_no,
-      word: word,
-      student_text: text,
-      bot_line: bot_line,
-      recorded_by_nfc_uid: '',  // 현재 verify된 카드 nfc_uid (아래에서 채움)
-      image_b64: newPhotoB64,   // GAS 키 이름과 일치 (saveBookPage)
-      keep_existing_photo: keepExisting ? 'Y' : 'N'
-    };
-
-    // 현재 verify된 카드 nfc_uid 채우기 (record 모드 진입 시 매칭된 카드)
-    try {
-      if (STATE._htpRecordSeq) {
-        var bookNfcs = await _sbFetch('student_book_nfc', {
-          student_uid: 'eq.' + STATE.user.student_uid,
-          seq: 'eq.' + STATE._htpRecordSeq,
-          released_at: 'is.null',
-          select: 'nfc_uid', limit: '1'
-        });
-        if (bookNfcs && bookNfcs.length) payload.recorded_by_nfc_uid = bookNfcs[0].nfc_uid || '';
-      }
-    } catch(e) {}
-
-    var res = await api('save_book_page', payload);
-    if (!res || res.status !== 'ok') {
-      throw new Error((res && res.message) || '저장 실패');
+    if (STATE._htpRecordSeq) {
+      var bookNfcs = await _sbFetch('student_book_nfc', {
+        student_uid: 'eq.' + STATE.user.student_uid,
+        seq: 'eq.' + STATE._htpRecordSeq,
+        released_at: 'is.null',
+        select: 'nfc_uid', limit: '1'
+      });
+      if (bookNfcs && bookNfcs.length) recordedByNfcUid = bookNfcs[0].nfc_uid || '';
     }
+  } catch(e) {}
 
-    // 캐시 즉시 갱신 (낙관적 UI 대신 응답 받은 데이터 반영 — Drive file_id 필요)
+  // ② 백그라운드 GAS 호출 (fire-and-forget — 응답 오면 swap, 실패면 롤백)
+  var payload = {
+    student_uid: STATE.user.student_uid,
+    week_no: week_no,
+    word: word,
+    student_text: text,
+    bot_line: bot_line,
+    recorded_by_nfc_uid: recordedByNfcUid,
+    image_b64: newPhotoB64,
+    keep_existing_photo: keepExisting ? 'Y' : 'N'
+  };
+
+  api('save_book_page', payload).then(function(res) {
+    if (!res || res.status !== 'ok') throw new Error((res && res.message) || '저장 실패');
+    // ③ 응답 OK — photo_url을 진짜 file_id로 swap (현재 페이지 그대로면 silent 재렌더)
     var saved = res.data || {};
-    if (!STATE._htpPages) STATE._htpPages = {};
+    var cur = STATE._htpPages[week_no] || {};
     STATE._htpPages[week_no] = {
-      page_uid: saved.page_uid || (STATE._htpPages[week_no] && STATE._htpPages[week_no].page_uid) || '',
+      page_uid: saved.page_uid || cur.page_uid || '',
       week_no: week_no,
       word: word,
-      photo_url: saved.photo_url || (keepExisting ? STATE._htpRecordingExistingPhotoUrl : ''),
-      thumb_url: saved.thumb_url || '',
+      photo_url: saved.photo_url || cur.photo_url || '',
+      thumb_url: saved.thumb_url || cur.thumb_url || '',
       student_text: text,
       bot_line: bot_line,
-      recorded_at: saved.recorded_at || (new Date()).toISOString(),
-      recorded_by_nfc_uid: payload.recorded_by_nfc_uid
+      recorded_at: saved.recorded_at || cur.recorded_at,
+      recorded_by_nfc_uid: recordedByNfcUid
     };
-
-    closeModal('modal-heart-tale-record');
-    _renderHeartTalePage(week_no);  // 즉시 페이지 재렌더 + spine 갱신
+    if (STATE._htpCurrentWeek === week_no) _renderHeartTalePage(week_no);
     try { AUDIO.sfx('save'); } catch(e) {}
     toast('마음 페이지가 저장됐어요 📖');
-  } catch(e) {
+  }).catch(function(e) {
+    // ④ 실패 — 롤백
     console.error('[HT SAVE]', e && e.message ? e.message : e);
+    if (prevSnapshot) STATE._htpPages[week_no] = prevSnapshot;
+    else delete STATE._htpPages[week_no];
+    if (STATE._htpCurrentWeek === week_no) _renderHeartTalePage(week_no);
     toast('저장이 안 됐어요. 다시 시도해 주세요');
-  } finally {
-    hideLoading();
-    if (saveBtn) saveBtn.disabled = false;
-  }
+  });
 }
 
 // 삭제 확인 (UPDATE 빈값 — recorded_at NULL, photo·text 비우기, Drive 파일 trash, row 보존)
@@ -17048,35 +17067,40 @@ function _htpCropConfirm() {
   closeModal('modal-heart-tale-crop');
 }
 
-// 실제 삭제 — GAS save_book_page (delete 플래그)
-async function _htpDeleteRecord(week_no) {
+// 실제 삭제 — 낙관적 UI (CLAUDE.md 5-1 답습)
+//   ① 페이지 즉시 비우기(캐시 갱신) + 재렌더 + 토스트 "지우는 중"
+//   ② 백그라운드 GAS save_book_page (delete:'Y' — Drive trash + recorded_at NULL)
+//   ③ 성공: 토스트 "지웠어요"
+//   ④ 실패: 캐시 롤백 + 재렌더 + 토스트
+function _htpDeleteRecord(week_no) {
   if (!STATE.user || !STATE.user.student_uid) return;
-  showLoading('지우는 중이에요 🗑');
-  try {
-    var res = await api('save_book_page', {
-      student_uid: STATE.user.student_uid,
-      week_no: week_no,
-      delete: 'Y'
-    });
-    if (!res || res.status !== 'ok') throw new Error((res && res.message) || '삭제 실패');
+  if (!STATE._htpPages) STATE._htpPages = {};
+  var prevSnapshot = STATE._htpPages[week_no] ? JSON.parse(JSON.stringify(STATE._htpPages[week_no])) : null;
+  if (!prevSnapshot) return;  // 이미 비어 있음
 
-    // 캐시에서 row recorded_at 비우기 (행 보존)
-    if (STATE._htpPages && STATE._htpPages[week_no]) {
-      var prev = STATE._htpPages[week_no];
-      STATE._htpPages[week_no] = {
-        page_uid: prev.page_uid, week_no: week_no, word: prev.word,
-        photo_url: '', thumb_url: '', student_text: '', bot_line: '',
-        recorded_at: null, recorded_by_nfc_uid: prev.recorded_by_nfc_uid
-      };
-    }
-    _renderHeartTalePage(week_no);
+  // ① 낙관적 캐시 비우기 (행 보존, recorded_at NULL)
+  STATE._htpPages[week_no] = {
+    page_uid: prevSnapshot.page_uid, week_no: week_no, word: prevSnapshot.word,
+    photo_url: '', thumb_url: '', student_text: '', bot_line: '',
+    recorded_at: null, recorded_by_nfc_uid: prevSnapshot.recorded_by_nfc_uid
+  };
+  if (STATE._htpCurrentWeek === week_no) _renderHeartTalePage(week_no);
+  toast('지우는 중이에요 🗑');
+
+  // ② 백그라운드 호출
+  api('save_book_page', {
+    student_uid: STATE.user.student_uid,
+    week_no: week_no,
+    delete: 'Y'
+  }).then(function(res) {
+    if (!res || res.status !== 'ok') throw new Error((res && res.message) || '삭제 실패');
     toast('마음 페이지를 지웠어요');
-  } catch(e) {
+  }).catch(function(e) {
     console.error('[HT DELETE]', e && e.message ? e.message : e);
+    if (prevSnapshot) STATE._htpPages[week_no] = prevSnapshot;
+    if (STATE._htpCurrentWeek === week_no) _renderHeartTalePage(week_no);
     toast('지우기가 안 됐어요. 다시 시도해 주세요');
-  } finally {
-    hideLoading();
-  }
+  });
 }
 
 // 자물쇠 풀림 → 표지 진입
