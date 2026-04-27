@@ -17855,16 +17855,36 @@ function _adminTeacherMeta(teacher_uid) {
 // ════════════════════════════════════════
 // 81차c: 관리자 위기 신호 상세 모달 — 카드 클릭 시 학교·학급·담임·시각 표시
 //   변쌤 명시: 숫자 1만 표시되면 누군지 어디서인지 알 수 없음
-//   알고리즘은 GAS countTodayCrisis와 동일 (학생 단위 union):
-//     ① chat_log: 오늘 + crisis_flag='Y' (위기 대화)
-//     ② emotions: 학생별 최근 3개 모두 macro_emotion='negative' (감정 위기, 3일치 fetch)
+//   알고리즘은 rpc_today_crisis_count과 동일 (학생 단위 union):
+//     ① chat_log: 오늘 + crisis_flag='Y' (위기 대화) — date 'like.오늘*' 패턴
+//     ② emotions: 학생별 최근 3개 모두 macro_emotion='negative' (30일치 fetch)
+//   민감 정보 마스킹: 학생명·교사명은 _maskName으로 가운데 글자 O 처리 (변쌤 명시)
 // ════════════════════════════════════════
+// 81차c v3: 가운데 글자 마스킹 — 위기 신호 모달 전용 (관리자 일반 화면은 실명 그대로)
+//   "홍길동" → "홍O동" / "수아" → "수O" / 외자 → 그대로
+function _maskName(name) {
+  if (!name) return '';
+  var s = String(name);
+  if (s.length <= 1) return s;
+  if (s.length === 2) return s.charAt(0) + 'O';
+  return s.charAt(0) + new Array(s.length - 1).join('O') + s.charAt(s.length - 1);
+}
+// 81차c v3: ms → KST 'M/D' 라벨 (감정 위기 streak 날짜 표시용)
+function _kstMmDdLabel(ms) {
+  if (!ms) return '';
+  var d = new Date(ms + 9*3600000);
+  return (d.getUTCMonth()+1) + '/' + d.getUTCDate();
+}
 function _ensureAdminCrisisModal() {
   if (document.getElementById('modal-admin-crisis')) return;
+  // 81차c v3: 위기창임을 한눈에 알 수 있게 주황 테두리 + 헤더 그라디언트 (변쌤 명시)
   var html =
     '<div class="modal-overlay hidden" id="modal-admin-crisis" style="z-index:3100" onclick="if(event.target===this)closeModal(\'modal-admin-crisis\')">' +
-      '<div class="modal-box" style="max-width:540px;width:min(540px,94vw);max-height:88vh;display:flex;flex-direction:column">' +
-        '<div class="modal-title" style="color:#e74c3c">⚠️ 오늘의 위기 신호</div>' +
+      '<div class="modal-box" style="max-width:540px;width:min(540px,94vw);max-height:88vh;display:flex;flex-direction:column;border:2.5px solid #e67e22;box-shadow:0 12px 40px rgba(230,126,34,0.28),0 0 0 4px rgba(230,126,34,0.08);padding-top:18px">' +
+        '<div class="modal-title" style="color:#c0392b;border-bottom:2px dashed #f5c79b;padding-bottom:12px;margin-bottom:0">' +
+          '⚠️ 오늘의 위기 신호' +
+          '<div style="font-size:11px;color:#999;font-weight:500;margin-top:4px;line-height:1.4">민감 정보 보호를 위해 학생·담임 이름은 가운데 글자를 가렸어요</div>' +
+        '</div>' +
         '<div id="admCrisisBody" style="min-height:200px;flex:1;overflow-y:auto;margin:14px 0"></div>' +
         '<div style="text-align:center">' +
           '<button class="btn btn-secondary" onclick="closeModal(\'modal-admin-crisis\')" style="min-width:120px">닫기</button>' +
@@ -17930,11 +17950,18 @@ async function openAdminCrisisDetail() {
       if (arr.length < 3) return;
       arr.sort(function(a,b){ return b.ts - a.ts; });
       if (arr[0].macro === 'negative' && arr[1].macro === 'negative' && arr[2].macro === 'negative') {
+        // 81차c v3: 연속 negative streak 전체 추출 (ts desc) — 카드에 날짜 표시용
+        var streak = [];
+        for (var k=0; k<arr.length; k++) {
+          if (arr[k].macro !== 'negative') break;
+          streak.push(arr[k].ts);
+        }
         emoCrisis[uid] = {
           student_uid: uid,
           student_name: byStu[uid].name,
           teacher_uid: byStu[uid].teacher_uid,
           latest_ts: arr[0].ts,
+          streakTs: streak,  // ts desc, 모두 negative
           hasEmotion: true
         };
       }
@@ -18003,7 +18030,10 @@ async function openAdminCrisisDetail() {
       var school = (meta && meta.school_name) ? meta.school_name : '학교 정보 없음';
       var grade  = meta && meta.grade;
       var classN = meta && meta.class;
-      var teacher = (meta && meta.name) ? meta.name : '담임 미배정';
+      // 81차c v3: 학생·담임 이름 마스킹 (위기 모달은 민감도 높음 — 변쌤 명시)
+      var studentMasked = _maskName(s.student_name || '학생');
+      var teacherRaw = (meta && meta.name) ? meta.name : '';
+      var teacherMasked = teacherRaw ? _maskName(teacherRaw) : '담임 미배정';
       var classLabel = (grade && classN) ? (grade + '학년 ' + classN + '반') : '학급 정보 없음';
 
       var badges = '';
@@ -18015,20 +18045,37 @@ async function openAdminCrisisDetail() {
         badges += '<span style="display:inline-block;padding:3px 9px;border-radius:11px;background:#fff7ed;color:#c2410c;font-size:11px;font-weight:700;margin:0 5px 4px 0">💔 연속 부정 감정</span>';
       }
 
+      // 81차c v3: emotion streak 날짜 표시 (5개 이내는 나열, 6개 이상은 기간+횟수)
+      var streakHtml = '';
+      if (s.streakTs && s.streakTs.length >= 3) {
+        var n = s.streakTs.length;
+        if (n <= 5) {
+          // 가장 옛날부터 → 최신 순서로 보기 (asc)
+          var asc = s.streakTs.slice().sort(function(a,b){ return a-b; });
+          var dates = asc.map(function(ms){ return _kstMmDdLabel(ms); }).join(', ');
+          streakHtml = '<div style="font-size:11.5px;color:#c2410c;margin-top:6px;line-height:1.5">📅 부정 감정 ' + n + '회 연속: <b>' + dates + '</b></div>';
+        } else {
+          var oldest = _kstMmDdLabel(s.streakTs[s.streakTs.length - 1]);
+          var newest = _kstMmDdLabel(s.streakTs[0]);
+          streakHtml = '<div style="font-size:11.5px;color:#c2410c;margin-top:6px;line-height:1.5">📅 부정 감정 <b>' + oldest + ' ~ ' + newest + '</b> 기간 <b>' + n + '회 연속</b></div>';
+        }
+      }
+
       var timeStr = s.latest_ts ? _timeAgo(s.latest_ts) : '';
 
       html +=
-        '<div style="border:1px solid #f0f0f0;border-radius:14px;padding:13px 15px;margin-bottom:10px;background:#fafafa">' +
+        '<div style="border:1px solid #ffd9b3;border-left:4px solid #e67e22;border-radius:14px;padding:13px 15px;margin-bottom:10px;background:#fff8f1">' +
           '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:8px">' +
             '<div style="font-size:14.5px;font-weight:700;color:var(--navy);word-break:keep-all">' +
-              _escHtml(s.student_name || '학생') +
+              _escHtml(studentMasked) +
             '</div>' +
             (timeStr ? '<div style="font-size:11px;color:var(--gray);flex-shrink:0">' + timeStr + '</div>' : '') +
           '</div>' +
           '<div style="font-size:12px;color:var(--gray);margin-bottom:8px;line-height:1.5;word-break:keep-all">' +
-            '🏫 ' + _escHtml(school) + ' · 📚 ' + classLabel + ' · 👩‍🏫 ' + _escHtml(teacher) +
+            '🏫 ' + _escHtml(school) + ' · 📚 ' + classLabel + ' · 👩‍🏫 ' + _escHtml(teacherMasked) +
           '</div>' +
           '<div style="line-height:1.7">' + badges + '</div>' +
+          streakHtml +
           (s.keyword ? '<div style="font-size:11.5px;color:#b91c1c;margin-top:6px;line-height:1.5">감지 키워드: <b>' + _escHtml(s.keyword) + '</b></div>' : '') +
         '</div>';
     });
