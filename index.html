@@ -7865,6 +7865,77 @@ function previewTeacher() {
     }
   }
 
+  // 81차d: 교사 알림 더미 — 교사 수신 type 7개
+  //   related_uid는 학생 카드 클릭/모달 진입 시 STATE.students 매핑에 사용
+  //   _resolveNotifBody가 새 body 패턴(시작 텍스트) 감지 시 학생명 prefix 자동 추가
+  _notifications = [
+    { notification_uid:'tn1', type:'crisis_chat', title:'⚠️ 마음봇 대화 위기 신호',
+      body:'오늘 마음봇 대화에서 위기 신호가 감지됐어요', sender_name:'',
+      is_read:false, created_at:new Date(Date.now()-15*60000).toISOString(), related_uid:'s07' },
+    { notification_uid:'tn2', type:'emotion_crisis', title:'⚡ 연속 부정 감정',
+      body:'연속 3회 부정 감정을 표현했어요', sender_name:'',
+      is_read:false, created_at:new Date(Date.now()-50*60000).toISOString(), related_uid:'s12' },
+    { notification_uid:'tn3', type:'attendance', title:'🏫 등교 완료',
+      body:'등교했어요', sender_name:'',
+      is_read:false, created_at:new Date(Date.now()-2*3600000).toISOString(), related_uid:'s05' },
+    { notification_uid:'tn4', type:'attendance', title:'🏫 등교 완료',
+      body:'등교했어요', sender_name:'',
+      is_read:true, created_at:new Date(Date.now()-2.2*3600000).toISOString(), related_uid:'s11' },
+    { notification_uid:'tn5', type:'warmth_full', title:'🔥 훈훈 습도계 꽉 찼어요!',
+      body:'우리 반 모두에게 +2 마음토큰이 지급됐어요', sender_name:'',
+      is_read:true, created_at:new Date(Date.now()-5*3600000).toISOString() },
+    { notification_uid:'tn6', type:'school_change_result', title:'🏫 학급 변경 신청 결과',
+      body:'학급 변경 신청이 수락됐어요. 정보가 자동으로 갱신됐어요', sender_name:'',
+      is_read:true, created_at:new Date(Date.now()-24*3600000).toISOString() },
+    { notification_uid:'tn7', type:'app_update', title:'🔄 새 업데이트가 있어요',
+      body:'새 버전이 준비됐어요. 지금 새로고침해 주세요', sender_name:'',
+      is_read:false, created_at:new Date(Date.now()-30*60000).toISOString() },
+    { notification_uid:'tn8', type:'privacy_notice', title:'📜 개인정보 처리방침 변경',
+      body:'처리방침이 일부 개정됐어요. 알림을 눌러 자세히 봐주세요', sender_name:'',
+      is_read:true, created_at:new Date(Date.now()-2*86400000).toISOString() },
+  ];
+
+  // 81차d: 감정앨범 학급 학생 사진 더미 — 78차 컬럼 구조, carousel 진입 시연용
+  //   8명 학생이 emotion_id별로 사진 채움. 한 학생이 여러 감정 사진 가능.
+  //   placeholder SVG data URI (외부 의존 X, 메모리 100KB+ embed 금지 준수)
+  var _pvSvgYellow = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g1' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23ffd54f'/><stop offset='1' stop-color='%23ffb300'/></linearGradient></defs><rect width='100' height='100' fill='url(%23g1)'/><circle cx='50' cy='42' r='14' fill='%23fff8e1'/><path d='M30 70 Q50 90 70 70' stroke='%23fff8e1' stroke-width='4' fill='none'/></svg>";
+  var _pvSvgPink = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g3' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23f8bbd0'/><stop offset='1' stop-color='%23ec407a'/></linearGradient></defs><rect width='100' height='100' fill='url(%23g3)'/><path d='M50 75 L30 50 Q30 35 45 35 Q50 35 50 45 Q50 35 55 35 Q70 35 70 50 Z' fill='%23fff'/></svg>";
+  var _pvSvgGreen = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g4' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23a5d6a7'/><stop offset='1' stop-color='%2343a047'/></linearGradient></defs><rect width='100' height='100' fill='url(%23g4)'/><circle cx='50' cy='50' r='20' fill='%23fff' opacity='0.7'/><circle cx='50' cy='50' r='10' fill='%23fff'/></svg>";
+  var _pvSvgBlue = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g2' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%2381d4fa'/><stop offset='1' stop-color='%234a90d9'/></linearGradient></defs><rect width='100' height='100' fill='url(%23g2)'/><path d='M20 60 Q50 30 80 60' stroke='%23fff' stroke-width='3' fill='none'/><circle cx='35' cy='45' r='3' fill='%23fff'/><circle cx='65' cy='45' r='3' fill='%23fff'/></svg>";
+  var _pvSvgPurple = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g5' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23ce93d8'/><stop offset='1' stop-color='%237b1fa2'/></linearGradient></defs><rect width='100' height='100' fill='url(%23g5)'/><path d='M30 70 Q50 50 70 70' stroke='%23fff' stroke-width='4' fill='none'/></svg>";
+  var _pvSvgGray = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g6' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23cfd8dc'/><stop offset='1' stop-color='%2378909c'/></linearGradient></defs><rect width='100' height='100' fill='url(%23g6)'/><circle cx='50' cy='50' r='15' fill='%23fff' opacity='0.5'/></svg>";
+  function _pvAlbum(uid, sname, eid, img, cap, daysAgo, isCover) {
+    var ts = new Date(Date.now() - daysAgo*86400000).toISOString().slice(0,19);
+    return { album_uid:'pa-t-'+uid+'-'+eid, timestamp:ts,
+      student_uid:uid, student_name:sname, teacher_uid:'PREVIEW_TEACHER',
+      image_url:img, thumb_url:img, caption:cap, emotion_id:eid,
+      date:ts.slice(0,10), is_class_cover:!!isCover, is_teacher_upload:false,
+      updated_at:ts, album_type:'emotion', is_deleted:false };
+  }
+  _emotionAlbumCache = [
+    // 기쁜 — 5건 (cover: s01)
+    _pvAlbum('s01','김민준','기쁜', _pvSvgYellow, '운동장에서 햇살 가득', 0, true),
+    _pvAlbum('s06','한지수','기쁜', _pvSvgYellow, '친구랑 같이 웃었어요', 1),
+    _pvAlbum('s11','신도윤','기쁜', _pvSvgYellow, '오늘 잘 풀린 하루', 2),
+    _pvAlbum('s20','서하늘','기쁜', _pvSvgYellow, '엄마가 칭찬해줬어요', 1),
+    _pvAlbum('s24','최수빈','기쁜', _pvSvgYellow, '체육 시간이 즐거웠어요', 0),
+    // 설레는 — 3건
+    _pvAlbum('s04','최유나','설레는', _pvSvgPink, '내일 소풍 기대', 0),
+    _pvAlbum('s09','강민재','설레는', _pvSvgPink, '새 친구가 생겼어요', 2),
+    _pvAlbum('s14','류다인','설레는', _pvSvgPink, '발표가 기대돼요', 1),
+    // 그냥그래 — 2건
+    _pvAlbum('s05','정태양','그냥그래', _pvSvgGreen, '평범한 하루', 0),
+    _pvAlbum('s23','이도현','그냥그래', _pvSvgGreen, '특별한 일 없는 날', 1),
+    // 걱정돼 — 2건
+    _pvAlbum('s07','오준혁','걱정돼', _pvSvgBlue, '시험이 다가와요', 0),
+    _pvAlbum('s12','백서아','걱정돼', _pvSvgBlue, '발표가 떨려요', 1),
+    // 속상한 — 1건
+    _pvAlbum('s17','조현우','속상한', _pvSvgPurple, '친구랑 다퉜어요', 0),
+    // 멍한 — 1건
+    _pvAlbum('s13','남준호','멍한', _pvSvgGray, '머리가 안 돌아요', 2),
+  ];
+  _emotionAlbumLoaded = true;
+
   document.getElementById('headerUser').textContent = '미리보기 선생님 (교사 미리보기)';
   document.getElementById('btnBackAdmin').classList.remove('hidden');
   buildTeacherUI();
