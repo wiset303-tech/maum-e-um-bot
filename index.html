@@ -10228,6 +10228,8 @@ function _resolveNotifBody(n) {
   }
   // sender_name fallback은 76차 sender_name PII 정리로 빈 값 — 새 알림은 매핑이 정답
   var role = STATE.role || (STATE.user && STATE.user.role);
+  // 81차d: 관리자 화면은 학생명 마스킹 (교사·학부모는 자기 학생/자녀라 실명)
+  stuName = _adminMask(stuName);
   var prefix;
   if (n.type === 'token_gift') {
     prefix = stuName ? (_subjGa(stuName) + ' ') : '친구가 ';
@@ -12824,8 +12826,9 @@ function _renderRecordList(emotions) {
       var _t = tsSrc ? new Date(String(tsSrc).replace('T',' ')) : null;
       var timeStr = _t && !isNaN(_t) ? ((_t.getMonth()+1)+'/'+ _t.getDate()+' '+('0'+_t.getHours()).slice(-2)+':'+('0'+_t.getMinutes()).slice(-2)) : '';
 
+      // 81차d: 관리자 화면은 학생명 마스킹 (교사 화면은 실명 — 자기 학급)
       return '<div style="display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px solid var(--lgray)">' +
-        '<span style="font-weight:700;font-size:13px;min-width:56px;flex-shrink:0">' + e.student_name + '</span>' +
+        '<span style="font-weight:700;font-size:13px;min-width:56px;flex-shrink:0">' + _adminMask(e.student_name) + '</span>' +
         '<span style="font-size:10px;color:var(--gray);flex-shrink:0">' + timeStr + '</span>' +
         (statusBadge ? '<span>' + statusBadge + '</span>' : '') +
         '<span style="font-size:13px;margin-left:auto;white-space:nowrap">' + emotionStr + '</span>' +
@@ -14627,8 +14630,9 @@ function openChatKeywords(student_uid, student_name) {
   if (!student_uid) { toast('학생 정보가 없어요'); return; }
 
   // 제목 세팅
+  // 81차d: 관리자 화면은 학생명 마스킹 (교사·학부모는 자기 학생/자녀라 실명)
   var titleEl = document.getElementById('chatKwTitle');
-  if (titleEl) titleEl.textContent = '📖 ' + (student_name || '학생') + ' 마음대화열기';
+  if (titleEl) titleEl.textContent = '📖 ' + _adminMask(student_name || '학생') + ' 마음대화열기';
   var body = document.getElementById('chatKwBody');
 
   // 66차: 학부모 프리로드 캐시가 있으면 로딩 HTML 스킵, 바로 렌더 후 모달 오픈
@@ -17860,14 +17864,22 @@ function _adminTeacherMeta(teacher_uid) {
 //     ② emotions: 학생별 최근 3개 모두 macro_emotion='negative' (30일치 fetch)
 //   민감 정보 마스킹: 학생명·교사명은 _maskName으로 가운데 글자 O 처리 (변쌤 명시)
 // ════════════════════════════════════════
-// 81차c v3: 가운데 글자 마스킹 — 위기 신호 모달 전용 (관리자 일반 화면은 실명 그대로)
-//   "홍길동" → "홍O동" / "수아" → "수O" / 외자 → 그대로
+// 81차c v3: 가운데 글자 마스킹 — "홍길동" → "홍O동" / "수아" → "수O" / 외자 → 그대로
 function _maskName(name) {
   if (!name) return '';
   var s = String(name);
   if (s.length <= 1) return s;
   if (s.length === 2) return s.charAt(0) + 'O';
   return s.charAt(0) + new Array(s.length - 1).join('O') + s.charAt(s.length - 1);
+}
+// 81차d: 관리자 화면 PII 마스킹 정책 — 마음 데이터(감정앨범·일상앨범·위기·대시보드 감정 기록·알림 학생명 prefix·마음대화열기 모달)는
+//   관리자에게 마스킹, 계정관리·미리보기는 실명. 호출처에서 _adminMask(name)로 한 줄 교체.
+//   교사·학부모는 자기 학생/자녀라 실명 그대로 (이 헬퍼가 STATE.role 분기 자동 처리).
+function _adminMask(name) {
+  if (!name) return '';
+  if (STATE.role !== 'admin') return name;
+  if (STATE.isPreview) return name;
+  return _maskName(name);
 }
 // 81차c v3: ms → KST 'M/D' 라벨 (감정 위기 streak 날짜 표시용)
 function _kstMmDdLabel(ms) {
@@ -17883,7 +17895,6 @@ function _ensureAdminCrisisModal() {
       '<div class="modal-box" style="max-width:540px;width:min(540px,94vw);max-height:88vh;display:flex;flex-direction:column;border:2.5px solid #e67e22;box-shadow:0 12px 40px rgba(230,126,34,0.28),0 0 0 4px rgba(230,126,34,0.08);padding-top:18px">' +
         '<div class="modal-title" style="color:#c0392b;border-bottom:2px dashed #f5c79b;padding-bottom:12px;margin-bottom:0">' +
           '⚠️ 오늘의 위기 신호' +
-          '<div style="font-size:11px;color:#999;font-weight:500;margin-top:4px;line-height:1.4">민감 정보 보호를 위해 학생·담임 이름은 가운데 글자를 가렸어요</div>' +
         '</div>' +
         '<div id="admCrisisBody" style="min-height:200px;flex:1;overflow-y:auto;margin:14px 0"></div>' +
         '<div style="text-align:center">' +
@@ -18292,7 +18303,8 @@ function _renderCfCarousel(forceRebuild) {
 // 81차c: 관리자는 라벨에 학교명을 함께 표시 (학급 번호까지는 X — 변쌤 명시)
 function _cfCardInnerHTML(item) {
   var img = item.thumb_url || item.image_url || '';
-  var who = item.is_teacher_upload ? '선생님' : (item.student_name || '');
+  // 81차d: 관리자 화면은 학생명 마스킹 (교사 화면은 실명 — 자기 학급)
+  var who = item.is_teacher_upload ? '선생님' : _adminMask(item.student_name || '');
   var cap = item.caption || '';
   var marbleInner = '';
   if (img) marbleInner += '<img class="cf-photo" src="'+img+'" alt="'+_escHtml(who)+'" loading="lazy">';
@@ -18562,7 +18574,8 @@ async function _cfDeleteCurrent() {
   var n = _cfState.cards.length; if (!n) return;
   var cur = _cfState.cards[_cfState.idx];
   if (!cur || !cur.album_uid) return;
-  var who = cur.is_teacher_upload ? '학급 표지 사진' : (cur.student_name + ' 학생의 사진');
+  // 81차d: 관리자 화면은 학생명 마스킹 (교사 화면은 실명)
+  var who = cur.is_teacher_upload ? '학급 표지 사진' : (_adminMask(cur.student_name) + ' 학생의 사진');
   if (!confirm(who + '을(를) 삭제할까요?\n삭제된 사진은 복구할 수 없어요.')) return;
 
   // 낙관적 UI — 현재 카드 풀에서 제거 + 인덱스 보정
@@ -19636,8 +19649,10 @@ function albumItemHTML(a, canDelete) {
   var thumb = resolveAlbumThumb(a);
   var dateStr = String(a.date).slice(0, 10);
   // 교사/관리자 뷰에서만 학생 이름 뱃지 표시 (학생 본인 뷰는 불필요)
+  // 81차d: 관리자 화면은 학생명 마스킹 (교사 화면은 실명 — 자기 학급)
   var showName = (STATE.role !== 'student') && a.student_name;
-  var nmSafe = showName ? String(a.student_name).replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+  var nmRaw = showName ? _adminMask(a.student_name) : '';
+  var nmSafe = nmRaw.replace(/</g,'&lt;').replace(/>/g,'&gt;');
   var nameBadge = showName ? '<div class="album-name">' + nmSafe + '</div>' : '';
   return '<div class="album-item" onclick="openAlbumPopup(' + idx + ')">' +
     '<img src="' + thumb + '" alt="마음앨범" loading="lazy" onerror="this.parentNode.style.display=\'none\'">' +
