@@ -3059,19 +3059,22 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <div class="modal-title" id="bookNfcTitle">📖 마음동화 NFC</div>
     <button class="modal-close" onclick="closeBookNfcRegister()">✕</button>
 
-    <!-- 1단계: 책 종이 수 입력 (book_nfc_count 미설정 시) -->
+    <!-- 1단계: 책 종이 수 입력 (book_nfc_count 미설정 시 또는 변경 시) -->
     <div id="bookNfcSetup" style="display:none">
+      <!-- 이전 버튼 (count 이미 설정된 상태에서 변경 진입한 경우만 표시) -->
+      <div id="bookNfcSetupBack" style="display:none;margin-bottom:8px">
+        <button onclick="_backToBookNfcList()" style="background:none;border:none;color:var(--gray);font-size:12.5px;cursor:pointer;padding:4px 0">← 이전</button>
+      </div>
       <div style="text-align:center;font-size:14px;color:var(--navy);margin-bottom:14px;line-height:1.7;word-break:keep-all">
         이 책에 종이가 몇 장이에요?<br>
-        <span style="font-size:11.5px;color:var(--gray)">앞표지·뒷표지 제외, 안쪽 종이 수예요</span>
+        <span style="font-size:11.5px;color:var(--gray)">앞표지·뒷표지 제외한 안쪽 종이 수예요<br>한 종이 = 한 주차 페이지 (마음이음 36주 기준)</span>
       </div>
+      <div style="text-align:center;font-size:11.5px;color:var(--gray);margin-bottom:6px">아래에서 골라주세요</div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:14px" id="bookNfcCountChips"></div>
-      <div style="display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:6px">
-        <input type="number" id="bookNfcCountInput" min="4" max="36" placeholder="4~36" style="width:88px;padding:8px 10px;border:1.5px solid var(--lgray);border-radius:10px;text-align:center;font-size:14px;font-weight:700;color:var(--navy)">
+      <div style="text-align:center;font-size:11.5px;color:var(--gray);margin-bottom:6px">또는 직접 입력 (4 ~ 36장)</div>
+      <div style="display:flex;gap:8px;align-items:center;justify-content:center">
+        <input type="number" id="bookNfcCountInput" min="4" max="36" placeholder="예: 12" style="width:88px;padding:8px 10px;border:1.5px solid var(--lgray);border-radius:10px;text-align:center;font-size:14px;font-weight:700;color:var(--navy)">
         <button class="btn-primary" style="width:auto;padding:9px 20px;border-radius:10px;font-size:13px;font-weight:700" onclick="_setBookCountConfirm()">확인</button>
-      </div>
-      <div style="text-align:center;font-size:11px;color:var(--gray);margin-top:10px">
-        설정 후엔 학생별로 변경 가능 (그때 모든 NFC가 해제돼요)
       </div>
     </div>
 
@@ -15544,24 +15547,17 @@ function simulateBookTag() {
 // 자물쇠 페이지네이션·기록 흐름은 82차 작업 (이번 차수는 등록 마법사까지)
 // ─────────────────────────────────────────
 
-// 36주를 N등분 (앞 묶음이 +1주 추가) — 클라이언트·서버 공통 분배 로직
+// 옵션 X: NFC 1개 = 페이지 1개 = 1주차 (1:1 매핑)
+// 책 종이 N장 = 학생이 그 책 한 권에 채울 N주차 (마음이음 36주 기준 N <= 36)
 function _getWeekRange(seq, count) {
   var n = parseInt(count, 10) || 0;
   var s = parseInt(seq, 10)   || 0;
   if (!n || s < 1 || s > n) return { start: 0, end: 0 };
-  var base  = Math.floor(36 / n);
-  var extra = 36 % n;
-  if (s <= extra) {
-    return { start: (s-1)*(base+1)+1, end: s*(base+1) };
-  }
-  return {
-    start: extra*(base+1) + (s-extra-1)*base + 1,
-    end:   extra*(base+1) + (s-extra)*base
-  };
+  return { start: s, end: s };
 }
 
-// 책 페이지 수 추천 chip 옵션 (가장 흔한 종이 책 수)
-var _BOOK_NFC_COUNT_CHIPS = [8, 10, 12, 18, 30];
+// 책 페이지 수 추천 chip 옵션 (마음이음 36주 기준 — 우리 교육과정)
+var _BOOK_NFC_COUNT_CHIPS = [8, 10, 12, 18, 30, 36];
 
 // 9종 안내 문구 매트릭스 (책 본체 480px 가용 · 모바일 word-break:keep-all)
 function _bookNfcStatusMessage(status, name, seq) {
@@ -15619,8 +15615,7 @@ function openBookNfcRegister(student_uid, student_name) {
   STATE._bookNfcCtx   = { student_uid: student_uid, student_name: student_name || '학생' };
   var titleEl = document.getElementById('bookNfcTitle');
   if (titleEl) titleEl.textContent = '📖 ' + (student_name || '학생') + ' 마음동화 NFC';
-  _showBookNfcStep(null);
-  document.getElementById('modal-book-nfc-register').classList.remove('hidden');
+  // 모달 열기는 _loadBookNfcs 응답 후 (빈 흰 박스 노출 방지)
   _loadBookNfcs(student_uid);
 }
 
@@ -15632,32 +15627,63 @@ function closeBookNfcRegister() {
   STATE._bookNfcReleaseAllOnNext = false;
 }
 
-// 학생 활성 NFC + book_nfc_count 조회 → 캐시 set → 1단계/2단계 분기 렌더
+// 학생 활성 NFC + book_nfc_count 조회 → 캐시 set → 모달 열기 + 분기 렌더
+// Supabase 직접 빠른 경로 (76차 패턴 답습) + GAS fallback
 async function _loadBookNfcs(student_uid) {
   showLoading('마음동화 NFC 정보를 불러오는 중이에요');
   try {
-    var res = await api('list_book_nfcs', { student_uid: student_uid });
-    hideLoading();
-    if (!res || res.status !== 'ok' || !res.data) {
-      toast('정보를 불러오지 못했어요');
+    // Supabase 직접 조회
+    var stRows = await _sbFetch('students', { student_uid: 'eq.' + student_uid });
+    if (!stRows || stRows.length === 0) {
+      hideLoading();
+      toast('학생 정보를 찾을 수 없어요');
       closeBookNfcRegister(); return;
     }
-    var d = res.data;
-    if (d.status !== 'OK') {
-      toast(d.status === 'STUDENT_NOT_FOUND' ? '학생 정보를 찾을 수 없어요' : '정보를 불러오지 못했어요');
+    var stu = stRows[0];
+    if (stu.active !== 'Y' && stu.active !== true) {
+      hideLoading();
+      toast('비활성 학생이에요');
       closeBookNfcRegister(); return;
     }
+    var nfcs = await _sbFetch('student_book_nfc', {
+      student_uid: 'eq.' + student_uid,
+      released_at: 'is.null',
+      order: 'seq.asc'
+    });
     STATE._bookNfcCache = {
       student_uid: student_uid,
-      count: parseInt(d.book_nfc_count, 10) || 0,
-      nfcs: d.nfcs || []
+      count: parseInt(stu.book_nfc_count, 10) || 0,
+      nfcs: nfcs || []
     };
-    _renderBookNfcContent();
-  } catch(e) {
     hideLoading();
+    _renderBookNfcContent();
+    // 모달은 데이터 준비 끝나고 열기 (빈 흰 박스 노출 차단)
+    document.getElementById('modal-book-nfc-register').classList.remove('hidden');
+  } catch(e) {
     console.error('[BOOK NFC LOAD]', e && e.message ? e.message : e);
-    toast('정보를 불러오지 못했어요');
-    closeBookNfcRegister();
+    // GAS fallback
+    try {
+      var res = await api('list_book_nfcs', { student_uid: student_uid });
+      hideLoading();
+      if (res && res.status === 'ok' && res.data && res.data.status === 'OK') {
+        var d = res.data;
+        STATE._bookNfcCache = {
+          student_uid: student_uid,
+          count: parseInt(d.book_nfc_count, 10) || 0,
+          nfcs: d.nfcs || []
+        };
+        _renderBookNfcContent();
+        document.getElementById('modal-book-nfc-register').classList.remove('hidden');
+      } else {
+        toast('정보를 불러오지 못했어요');
+        closeBookNfcRegister();
+      }
+    } catch(e2) {
+      hideLoading();
+      console.error('[BOOK NFC LOAD GAS]', e2 && e2.message ? e2.message : e2);
+      toast('정보를 불러오지 못했어요');
+      closeBookNfcRegister();
+    }
   }
 }
 
@@ -15674,8 +15700,13 @@ function _renderBookNfcContent() {
   }
 }
 
-// 1단계 chip 렌더 (8/10/12/18/30)
+// 1단계 chip 렌더 (8/10/12/18/30/36)
 function _renderCountChips() {
+  // 이전 버튼 분기 — 이미 count 설정된 상태(변경 진입)에서만 표시
+  var c = STATE._bookNfcCache;
+  var backWrap = document.getElementById('bookNfcSetupBack');
+  if (backWrap) backWrap.style.display = (c && c.count >= 4) ? '' : 'none';
+
   var wrap = document.getElementById('bookNfcCountChips');
   if (!wrap) return;
   wrap.innerHTML = _BOOK_NFC_COUNT_CHIPS.map(function(n) {
@@ -15683,6 +15714,17 @@ function _renderCountChips() {
   }).join('');
   var input = document.getElementById('bookNfcCountInput');
   if (input) input.value = '';
+}
+
+// 책 페이지 수 변경 화면에서 이전 (count 이미 설정된 경우만 의미 있음)
+function _backToBookNfcList() {
+  var c = STATE._bookNfcCache;
+  if (!c || !c.count || c.count < 4) {
+    closeBookNfcRegister();
+    return;
+  }
+  STATE._bookNfcReleaseAllOnNext = false;
+  _renderBookNfcContent();  // list 단계로 복귀
 }
 
 // chip 클릭 → input 채우기 + 시각 강조
@@ -15764,11 +15806,8 @@ function _renderBookNfcRows() {
   }
   var html = '';
   for (var s=1; s<=c.count; s++) {
-    var rng = _getWeekRange(s, c.count);
     var bound = bySeq[s];
-    var rangeTxt = rng.start === rng.end
-      ? (rng.start + '주차')
-      : (rng.start + '~' + rng.end + '주차');
+    var rangeTxt = s + '주차';  // 옵션 X — NFC 1개 = 1주차 1:1 매핑
     if (bound) {
       var shortUid = String(bound.nfc_uid || '').slice(-4).toUpperCase();
       html += '<div class="book-nfc-row registered">'
@@ -15802,13 +15841,11 @@ function _renderBookNfcRows() {
 function _startBookNfcTag(seq, isReplace) {
   var c = STATE._bookNfcCache;
   if (!c) return;
-  var rng = _getWeekRange(seq, c.count);
-  var rangeTxt = rng.start === rng.end ? (rng.start + '주차') : (rng.start + '~' + rng.end + '주차');
   var msgEl  = document.getElementById('bookNfcTagMsg');
   var subEl  = document.getElementById('bookNfcTagSub');
   var hintEl = document.getElementById('bookNfcTagHint');
   if (msgEl)  msgEl.innerHTML = (isReplace ? '🔄 ' : '📖 ') + seq + '번째 종이<br>NFC 스티커를 대주세요';
-  if (subEl)  subEl.textContent = rangeTxt + ' 담당';
+  if (subEl)  subEl.textContent = seq + '주차 페이지';  // 옵션 X — 1:1 매핑
   if (hintEl) hintEl.textContent = isReplace
     ? '새 스티커가 자동으로 교체돼요'
     : '스티커를 리더기에 가까이 대주세요';
