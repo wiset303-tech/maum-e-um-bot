@@ -3067,15 +3067,17 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       </div>
       <div style="text-align:center;font-size:14px;color:var(--navy);margin-bottom:14px;line-height:1.7;word-break:keep-all">
         이 책에 종이가 몇 장이에요?<br>
-        <span style="font-size:11.5px;color:var(--gray)">앞표지·뒷표지 제외한 안쪽 종이 수예요<br>한 종이 = 한 주차 페이지 (마음이음 36주 기준)</span>
+        <span style="font-size:11.5px;color:var(--gray)">앞표지·뒷표지 제외, 안쪽 종이 수예요<br>한 책 1권 = 종이 수만큼 주차 페이지 담기</span>
       </div>
       <div style="text-align:center;font-size:11.5px;color:var(--gray);margin-bottom:6px">아래에서 골라주세요</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:14px" id="bookNfcCountChips"></div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:10px" id="bookNfcCountChips"></div>
       <div style="text-align:center;font-size:11.5px;color:var(--gray);margin-bottom:6px">또는 직접 입력 (4 ~ 36장)</div>
-      <div style="display:flex;gap:8px;align-items:center;justify-content:center">
-        <input type="number" id="bookNfcCountInput" min="4" max="36" placeholder="예: 12" style="width:88px;padding:8px 10px;border:1.5px solid var(--lgray);border-radius:10px;text-align:center;font-size:14px;font-weight:700;color:var(--navy)">
+      <div style="display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:8px">
+        <input type="number" id="bookNfcCountInput" min="4" max="36" placeholder="예: 12" oninput="_renderBookCountHint(this.value)" style="width:88px;padding:8px 10px;border:1.5px solid var(--lgray);border-radius:10px;text-align:center;font-size:14px;font-weight:700;color:var(--navy)">
         <button class="btn-primary" style="width:auto;padding:9px 20px;border-radius:10px;font-size:13px;font-weight:700" onclick="_setBookCountConfirm()">확인</button>
       </div>
+      <!-- 권장 NFC 수 동적 안내 (chip/input 채워지면 표시) -->
+      <div id="bookNfcCountHint" style="text-align:center;font-size:12px;color:var(--mint2);font-weight:700;margin-top:4px;min-height:18px;line-height:1.5;word-break:keep-all"></div>
     </div>
 
     <!-- 2단계: 등록 현황 (book_nfc_count 설정 후) -->
@@ -15547,17 +15549,110 @@ function simulateBookTag() {
 // 자물쇠 페이지네이션·기록 흐름은 82차 작업 (이번 차수는 등록 마법사까지)
 // ─────────────────────────────────────────
 
-// 옵션 X: NFC 1개 = 페이지 1개 = 1주차 (1:1 매핑)
-// 책 종이 N장 = 학생이 그 책 한 권에 채울 N주차 (마음이음 36주 기준 N <= 36)
-function _getWeekRange(seq, count) {
-  var n = parseInt(count, 10) || 0;
-  var s = parseInt(seq, 10)   || 0;
-  if (!n || s < 1 || s > n) return { start: 0, end: 0 };
-  return { start: s, end: s };
+// 변쌤 정정 모델: NFC 1개 = 책 1권 = N 페이지 (N=책 1권의 종이 수)
+// 권장 NFC = ceil(36/N) (마음이음 36주 교육과정 기준)
+// 최대 NFC = ceil(52/N) (학생 자율 확장 최대 52주)
+// seq i → 페이지 범위: (i-1)*N+1 ~ min(i*N, 52)
+function _getWeekRange(seq, pagesPerBook) {
+  var n = parseInt(pagesPerBook, 10) || 0;
+  var s = parseInt(seq, 10) || 0;
+  if (!n || s < 1) return { start: 0, end: 0 };
+  var start = (s - 1) * n + 1;
+  if (start > 52) return { start: 0, end: 0 };
+  return { start: start, end: Math.min(s * n, 52) };
 }
 
-// 책 페이지 수 추천 chip 옵션 (마음이음 36주 기준 — 우리 교육과정)
+// 책 페이지 수 N → {권장, 최대} NFC 수 산출
+function _bookNfcCounts(pagesPerBook) {
+  var n = parseInt(pagesPerBook, 10) || 0;
+  if (!n) return { recommended: 0, max: 0 };
+  return {
+    recommended: Math.ceil(36 / n),  // 1년 36주 (마음이음 교육과정)
+    max:         Math.ceil(52 / n)   // 학생 자율 확장 (최대 52주)
+  };
+}
+
+// chip/input 채워질 때 권장 NFC 수 동적 안내
+function _renderBookCountHint(n) {
+  var hint = document.getElementById('bookNfcCountHint');
+  if (!hint) return;
+  var num = parseInt(n, 10);
+  if (!(num >= 4 && num <= 36)) { hint.textContent = ''; return; }
+  var c = _bookNfcCounts(num);
+  hint.innerHTML = num + '장 책 → NFC <b>' + c.recommended + '장 권장</b> (1년 36주)<br>'
+                 + '<span style="font-size:11px;color:var(--gray);font-weight:500">최대 ' + c.max + '장까지 등록 가능 (52주)</span>';
+}
+
+// 책 페이지 수 추천 chip 옵션 (마음이음 36주 기준)
 var _BOOK_NFC_COUNT_CHIPS = [8, 10, 12, 18, 30, 36];
+
+// 클라이언트 충돌 검사 (낙관적 UI 직전 — Supabase 직접 fetch)
+// STUDENTS.nfc_uid + STUDENTS.book_nfc_uid(deprecated) + student_book_nfc 활성 + TEACHERS.nfc_uid + admins.nfc_uid
+async function _checkBookNfcConflictClient(uid, my_student_uid) {
+  var n = _normalizeNfc(uid);
+  if (!n) return { kind: 'EMPTY' };
+
+  // 1. STUDENTS — nfc_uid (등교 카드) + book_nfc_uid (deprecated 단일 81차a)
+  try {
+    var stRows = await _sbFetch('students', { active: 'eq.Y' });
+    for (var i = 0; i < (stRows||[]).length; i++) {
+      var r = stRows[i];
+      var attendNfc = _normalizeNfc(r.nfc_uid);
+      var bookNfc   = r.book_nfc_uid ? _normalizeNfc(r.book_nfc_uid) : '';
+      if (attendNfc && attendNfc === n) {
+        return {
+          kind: r.student_uid === my_student_uid ? 'ERR_SELF_ATTEND' : 'ERR_OTHER_ATTEND',
+          name: r.name || ''
+        };
+      }
+      if (bookNfc && bookNfc === n && r.student_uid !== my_student_uid) {
+        return { kind: 'ERR_OTHER_BOOK', name: r.name || '' };
+      }
+    }
+  } catch(e) { console.warn('[BOOK CONFLICT students]', e && e.message ? e.message : e); }
+
+  // 2. student_book_nfc 활성 행 (다중 NFC)
+  try {
+    var sbnRows = await _sbFetch('student_book_nfc', {
+      nfc_uid: 'eq.' + encodeURIComponent(n),
+      released_at: 'is.null'
+    });
+    if (sbnRows && sbnRows.length > 0) {
+      var sb = sbnRows[0];
+      var sName = '';
+      try {
+        var stOne = await _sbFetch('students', { student_uid: 'eq.' + sb.student_uid });
+        if (stOne && stOne.length > 0) sName = stOne[0].name || '';
+      } catch(_e2){}
+      if (sb.student_uid === my_student_uid) {
+        return { kind: 'ERR_SELF_DUP_NFC', seq: sb.seq, name: sName };
+      }
+      return { kind: 'ERR_OTHER_BOOK_SEQ', seq: sb.seq, name: sName };
+    }
+  } catch(e) { console.warn('[BOOK CONFLICT student_book_nfc]', e && e.message ? e.message : e); }
+
+  // 3. TEACHERS.nfc_uid (교사 카드)
+  try {
+    var teRows = await _sbFetch('teachers', { active: 'eq.Y' });
+    for (var j = 0; j < (teRows||[]).length; j++) {
+      if (_normalizeNfc(teRows[j].nfc_uid) === n) {
+        return { kind: 'ERR_TEACHER_CARD', name: teRows[j].name || '' };
+      }
+    }
+  } catch(e) { console.warn('[BOOK CONFLICT teachers]', e && e.message ? e.message : e); }
+
+  // 4. admins.nfc_uid (관리자 카드)
+  try {
+    var adRows = await _sbFetch('admins', {});
+    for (var k = 0; k < (adRows||[]).length; k++) {
+      if (_normalizeNfc(adRows[k].nfc_uid) === n) {
+        return { kind: 'ERR_ADMIN_CARD', name: adRows[k].name || '' };
+      }
+    }
+  } catch(e) { console.warn('[BOOK CONFLICT admins]', e && e.message ? e.message : e); }
+
+  return { kind: '' };
+}
 
 // 9종 안내 문구 매트릭스 (책 본체 480px 가용 · 모바일 word-break:keep-all)
 function _bookNfcStatusMessage(status, name, seq) {
@@ -15710,10 +15805,12 @@ function _renderCountChips() {
   var wrap = document.getElementById('bookNfcCountChips');
   if (!wrap) return;
   wrap.innerHTML = _BOOK_NFC_COUNT_CHIPS.map(function(n) {
-    return '<button class="book-nfc-count-chip" onclick="_pickBookCountChip(' + n + ')">' + n + '장</button>';
+    var c = _bookNfcCounts(n);
+    return '<button class="book-nfc-count-chip" onclick="_pickBookCountChip(' + n + ')" title="NFC ' + c.recommended + '장 권장 / 최대 ' + c.max + '장">' + n + '장</button>';
   }).join('');
   var input = document.getElementById('bookNfcCountInput');
   if (input) input.value = '';
+  _renderBookCountHint('');  // hint 초기화
 }
 
 // 책 페이지 수 변경 화면에서 이전 (count 이미 설정된 경우만 의미 있음)
@@ -15727,7 +15824,7 @@ function _backToBookNfcList() {
   _renderBookNfcContent();  // list 단계로 복귀
 }
 
-// chip 클릭 → input 채우기 + 시각 강조
+// chip 클릭 → input 채우기 + 시각 강조 + 권장 NFC 수 안내 동적 표시
 function _pickBookCountChip(n) {
   var input = document.getElementById('bookNfcCountInput');
   if (input) input.value = n;
@@ -15736,9 +15833,10 @@ function _pickBookCountChip(n) {
   for (var j=0; j<chips.length; j++) {
     if (chips[j].textContent === (n + '장')) { chips[j].classList.add('selected'); break; }
   }
+  _renderBookCountHint(n);
 }
 
-// 1단계 확인 → set_book_count API (강제 해제 분기 처리)
+// 1단계 확인 → 낙관적 UI (즉시 list 단계 갱신 + 백그라운드 GAS · students 테이블은 anon UPDATE 차단이라 GAS만 가능)
 async function _setBookCountConfirm() {
   var c = STATE._bookNfcCache;
   if (!c) return;
@@ -15746,8 +15844,23 @@ async function _setBookCountConfirm() {
   var n = parseInt(input && input.value, 10);
   if (!(n >= 4 && n <= 36)) { toast('4 ~ 36 사이로 입력해 주세요'); return; }
   if (n === c.count) { toast('현재와 같은 페이지 수예요'); return; }
+
   var releaseAll = !!STATE._bookNfcReleaseAllOnNext;
-  showLoading('설정 중이에요');
+  var prevCount = c.count;
+  var prevNfcs  = (c.nfcs || []).slice();
+
+  // 낙관적: 즉시 캐시·UI 갱신
+  c.count = n;
+  if (releaseAll) c.nfcs = [];
+  STATE._bookNfcReleaseAllOnNext = false;
+  _renderBookNfcContent();
+  AUDIO.sfx('save');
+  var initToast = (releaseAll && prevNfcs.length > 0)
+    ? ('🔄 ' + n + '장으로 변경 (NFC ' + prevNfcs.length + '개 해제)')
+    : ('✅ ' + n + '장으로 설정');
+  toast(initToast);
+
+  // 백그라운드 GAS — students.book_nfc_count UPDATE
   try {
     var res = await api('set_book_count', {
       student_uid: c.student_uid,
@@ -15755,65 +15868,96 @@ async function _setBookCountConfirm() {
       caller_role: STATE.user.role,
       confirm_release_all: releaseAll
     });
-    hideLoading();
-    if (!res || res.status !== 'ok') { toast('설정 실패'); return; }
-    var d = res.data || {};
-    if (d.status === 'OK') {
-      STATE._bookNfcReleaseAllOnNext = false;
-      AUDIO.sfx('save');
-      var msg = (d.released_count > 0)
-        ? ('✅ 변경 완료 (NFC ' + d.released_count + '개 해제)')
-        : '✅ 설정 완료';
-      toast(msg);
-      await _loadBookNfcs(c.student_uid);
+    var d = res && res.data;
+    if (!d || d.status !== 'OK') {
+      // HAS_ACTIVE_NFCS 처리: 클라이언트가 사전 confirm_release_all=false로 시도했는데 GAS가 활성 NFC 발견
+      if (d && d.status === 'HAS_ACTIVE_NFCS') {
+        // UI 복구 후 confirm 모달
+        c.count = prevCount;
+        c.nfcs = prevNfcs;
+        _renderBookNfcContent();
+        var releaseCount = d.active_count || 0;
+        _uiConfirm(
+          '활성 마음동화 NFC ' + releaseCount + '개',
+          '책 페이지 수를 바꾸면 모두 해제돼요.\n계속할까요?',
+          async function() {
+            STATE._bookNfcReleaseAllOnNext = true;
+            // input 값 복구 후 재시도
+            var inp2 = document.getElementById('bookNfcCountInput');
+            if (inp2) inp2.value = n;
+            await _setBookCountConfirm();
+          },
+          { okLabel:'계속', cancelLabel:'취소', danger:true }
+        );
+        return;
+      }
+      // 그 외 실패 — UI 복구
+      c.count = prevCount;
+      c.nfcs = prevNfcs;
+      _renderBookNfcContent();
+      AUDIO.sfx('error');
+      toast(_bookNfcStatusMessage(d && d.status, '', 0));
       return;
     }
-    if (d.status === 'HAS_ACTIVE_NFCS') {
-      var releaseCount = d.active_count || 0;
-      _uiConfirm(
-        '활성 마음동화 NFC ' + releaseCount + '개',
-        '책 페이지 수를 바꾸면 모두 해제돼요.\n계속할까요?',
-        async function() {
-          STATE._bookNfcReleaseAllOnNext = true;
-          await _setBookCountConfirm();
-        },
-        { okLabel:'계속', cancelLabel:'취소', danger:true }
-      );
-      return;
-    }
-    toast(_bookNfcStatusMessage(d.status, '', 0));
+    // 서버에서 NFC 해제 처리됐을 수 있음 (releaseAll=true) — 정확한 상태로 다시 fetch
+    if (d.released_count > 0) _loadBookNfcs(c.student_uid);
   } catch(e) {
-    hideLoading();
     console.error('[SET BOOK COUNT]', e && e.message ? e.message : e);
-    toast('설정 실패');
+    c.count = prevCount;
+    c.nfcs = prevNfcs;
+    _renderBookNfcContent();
+    AUDIO.sfx('error');
+    toast('설정 실패. 다시 시도해 주세요');
   }
 }
 
-// 2단계 종이 N개 카드 렌더
+// 2단계 카드 렌더 — 권장수 카드 + 권장 다 채워지면 + 카드 자동 노출 (max까지)
 function _renderBookNfcRows() {
   var c = STATE._bookNfcCache;
   if (!c) return;
   var meta = document.getElementById('bookNfcMeta');
   var rows = document.getElementById('bookNfcRows');
   if (!meta || !rows) return;
+
+  var counts = _bookNfcCounts(c.count);
   var registered = (c.nfcs || []).length;
-  meta.innerHTML = '등록된 종이: <b style="color:var(--mint2)">' + registered + '</b> / ' + c.count + '장';
+  meta.innerHTML = '권장 <b style="color:var(--mint2)">' + counts.recommended + '장</b> / 등록 <b>' + registered + '장</b>'
+                + ' <span style="font-size:11px;color:var(--gray);font-weight:500">(최대 ' + counts.max + '장 · ' + c.count + '장 책 기준)</span>';
+
   // seq → bound 매핑
   var bySeq = {};
   for (var i=0; i<(c.nfcs || []).length; i++) {
     var bn = c.nfcs[i];
     bySeq[parseInt(bn.seq, 10)] = bn;
   }
+
+  // 표시할 seq 범위:
+  //   - 항상 1 ~ 권장수
+  //   - 권장 초과 등록된 seq가 있으면 그 seq까지
+  //   - 권장수 모두 등록 완료면 +1 카드 자동 노출 (max까지)
+  var visibleN = counts.recommended;
+  for (var si = counts.recommended + 1; si <= counts.max; si++) {
+    if (bySeq[si]) visibleN = si;
+  }
+  var allRecCovered = true;
+  for (var rs = 1; rs <= counts.recommended; rs++) {
+    if (!bySeq[rs]) { allRecCovered = false; break; }
+  }
+  if (allRecCovered && visibleN < counts.max) visibleN = Math.min(visibleN + 1, counts.max);
+
   var html = '';
-  for (var s=1; s<=c.count; s++) {
+  for (var s=1; s<=visibleN; s++) {
+    var rng = _getWeekRange(s, c.count);
     var bound = bySeq[s];
-    var rangeTxt = s + '주차';  // 옵션 X — NFC 1개 = 1주차 1:1 매핑
+    var rangeTxt = (rng.start === rng.end) ? (rng.start + '주차') : (rng.start + '~' + rng.end + '주차');
+    var isExtra = (s > counts.recommended);
+    var extraLabel = isExtra ? ' <span style="font-size:10px;color:var(--mint2);font-weight:700;background:var(--mint4);padding:1px 6px;border-radius:8px;margin-left:4px">확장</span>' : '';
     if (bound) {
       var shortUid = String(bound.nfc_uid || '').slice(-4).toUpperCase();
       html += '<div class="book-nfc-row registered">'
             + '<div class="book-nfc-row-num">' + _seqEmoji(s) + '</div>'
             + '<div class="book-nfc-row-info">'
-              + '<div class="book-nfc-row-range">' + rangeTxt + '</div>'
+              + '<div class="book-nfc-row-range">' + rangeTxt + extraLabel + '</div>'
               + '<div class="book-nfc-row-status">✅ 등록 ' + shortUid + '</div>'
             + '</div>'
             + '<div class="book-nfc-row-actions">'
@@ -15825,7 +15969,7 @@ function _renderBookNfcRows() {
       html += '<div class="book-nfc-row">'
             + '<div class="book-nfc-row-num">' + _seqEmoji(s) + '</div>'
             + '<div class="book-nfc-row-info">'
-              + '<div class="book-nfc-row-range">' + rangeTxt + '</div>'
+              + '<div class="book-nfc-row-range">' + rangeTxt + extraLabel + '</div>'
               + '<div class="book-nfc-row-status">⬜ 미등록</div>'
             + '</div>'
             + '<div class="book-nfc-row-actions">'
@@ -15841,11 +15985,13 @@ function _renderBookNfcRows() {
 function _startBookNfcTag(seq, isReplace) {
   var c = STATE._bookNfcCache;
   if (!c) return;
+  var rng = _getWeekRange(seq, c.count);
+  var rangeTxt = (rng.start === rng.end) ? (rng.start + '주차') : (rng.start + '~' + rng.end + '주차');
   var msgEl  = document.getElementById('bookNfcTagMsg');
   var subEl  = document.getElementById('bookNfcTagSub');
   var hintEl = document.getElementById('bookNfcTagHint');
-  if (msgEl)  msgEl.innerHTML = (isReplace ? '🔄 ' : '📖 ') + seq + '번째 종이<br>NFC 스티커를 대주세요';
-  if (subEl)  subEl.textContent = seq + '주차 페이지';  // 옵션 X — 1:1 매핑
+  if (msgEl)  msgEl.innerHTML = (isReplace ? '🔄 ' : '📖 ') + seq + '번째 책<br>NFC 스티커를 대주세요';
+  if (subEl)  subEl.textContent = rangeTxt + ' 페이지 담당';
   if (hintEl) hintEl.textContent = isReplace
     ? '새 스티커가 자동으로 교체돼요'
     : '스티커를 리더기에 가까이 대주세요';
@@ -15866,94 +16012,171 @@ function _cancelBookNfcTag() {
   _showBookNfcStep('list');
 }
 
-// NFC 태깅 결과 처리 (handleNfcUid → 분기 → 여기로)
+// NFC 태깅 결과 처리 — 낙관적 UI (Supabase 직접 INSERT/PATCH, GAS는 fallback)
+//   1. 클라이언트 충돌 검사 (_checkBookNfcConflictClient — STUDENTS·TEACHERS·admins·student_book_nfc 활성)
+//   2. 같은 seq 기존 행 있으면 NEEDS_REPLACE_CONFIRM 흐름 (확인 모달)
+//   3. 충돌 없으면 즉시 캐시·UI 갱신 + 백그라운드 _sbPatch(옛 행 release) + _sbInsert(새 행)
+//   4. 백그라운드 실패 시 UI 복구 + 토스트
 async function _handleBookNfcTagged(uid) {
   var ctx = STATE._bookNfcAwait;
   if (!ctx) return;
-  // 한 번만 처리 (중복 태깅 방지)
   STATE._bookNfcAwait = null;
-  showLoading('등록 중이에요');
-  try {
-    var res = await api('register_book_nfc_seq', {
-      student_uid:     ctx.student_uid,
-      seq:             ctx.seq,
-      book_nfc_uid:    uid,
-      caller_role:     STATE.user.role,
-      confirm_replace: !!ctx.confirm_replace
-    });
-    hideLoading();
-    if (!res) {
-      AUDIO.sfx('error');
-      toast('등록 실패. 다시 시도해 주세요');
-      _showBookNfcStep('list');
-      return;
-    }
-    if (res.status === 'error') {
-      AUDIO.sfx('error');
-      toast(_bookNfcStatusMessage(res.message || '', '', 0));
-      _showBookNfcStep('list');
-      return;
-    }
-    var d = res.data || {};
-    if (d.status === 'OK') {
-      AUDIO.sfx('save');
-      toast(d.idempotent
-        ? '✅ 이미 등록된 스티커예요'
-        : (ctx.is_replace ? '✅ 교체 완료' : '✅ ' + ctx.seq + '번째 종이 등록 완료'));
-      await _loadBookNfcs(ctx.student_uid);
-      return;
-    }
-    if (d.status === 'NEEDS_REPLACE_CONFIRM') {
-      _showBookNfcStep('list');
-      var existShort = String(d.existing_short || '').toUpperCase();
-      _uiConfirm(
-        '이미 등록된 마음동화 스티커가 있어요',
-        '마지막 4자리: ' + existShort + '\n새 스티커로 교체할까요?',
-        function() { _startBookNfcTag(ctx.seq, true); },
-        { okLabel:'교체', cancelLabel:'취소' }
-      );
-      return;
-    }
+  var c = STATE._bookNfcCache;
+  if (!c) return;
+
+  var newUid = _normalizeNfc(uid);
+  if (!newUid) {
     AUDIO.sfx('error');
-    toast(_bookNfcStatusMessage(d.status, d.name || '', d.seq || 0));
+    toast('NFC 카드를 다시 인식시켜 주세요');
     _showBookNfcStep('list');
+    return;
+  }
+
+  showLoading('확인 중이에요');
+
+  // 1. 충돌 검사
+  var conflict;
+  try {
+    conflict = await _checkBookNfcConflictClient(newUid, ctx.student_uid);
   } catch(e) {
     hideLoading();
     AUDIO.sfx('error');
-    console.error('[BOOK NFC REGISTER]', e && e.message ? e.message : e);
-    toast('등록 실패. 다시 시도해 주세요');
+    console.error('[BOOK NFC CONFLICT CHECK]', e && e.message ? e.message : e);
+    toast('확인 실패. 다시 시도해 주세요');
     _showBookNfcStep('list');
+    return;
+  }
+
+  // 같은 학생·같은 seq 동일 UID → idempotent OK
+  if (conflict.kind === 'ERR_SELF_DUP_NFC' && conflict.seq === ctx.seq) {
+    hideLoading();
+    AUDIO.sfx('save');
+    toast('✅ 이미 등록된 스티커예요');
+    _showBookNfcStep('list');
+    return;
+  }
+  if (conflict.kind) {
+    hideLoading();
+    AUDIO.sfx('error');
+    toast(_bookNfcStatusMessage(conflict.kind, conflict.name || '', conflict.seq || 0));
+    _showBookNfcStep('list');
+    return;
+  }
+
+  // 2. 같은 seq에 이미 등록된 행 (교체 케이스)
+  var existingAtSeq = null;
+  for (var i=0; i<(c.nfcs || []).length; i++) {
+    if (parseInt(c.nfcs[i].seq, 10) === ctx.seq) { existingAtSeq = c.nfcs[i]; break; }
+  }
+  if (existingAtSeq && !ctx.confirm_replace) {
+    hideLoading();
+    var existShort = _normalizeNfc(existingAtSeq.nfc_uid).slice(-4).toUpperCase();
+    _showBookNfcStep('list');
+    _uiConfirm(
+      '이미 등록된 마음동화 스티커가 있어요',
+      '마지막 4자리: ' + existShort + '\n새 스티커로 교체할까요?',
+      function() { _startBookNfcTag(ctx.seq, true); },
+      { okLabel:'교체', cancelLabel:'취소' }
+    );
+    return;
+  }
+
+  // 3. 낙관적 UI — 즉시 캐시·UI 갱신
+  hideLoading();
+  AUDIO.sfx('save');
+
+  var newBindUid = 'bn_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  var nowKst = new Date(Date.now() + 9*3600000).toISOString().slice(0, 19);
+  var newBinding = {
+    bind_uid: newBindUid,
+    student_uid: ctx.student_uid,
+    seq: ctx.seq,
+    nfc_uid: newUid,
+    registered_at: nowKst,
+    released_at: null
+  };
+
+  // 옵티미스틱 캐시 갱신
+  if (existingAtSeq) {
+    c.nfcs = c.nfcs.filter(function(x){ return parseInt(x.seq, 10) !== ctx.seq; });
+  }
+  c.nfcs.push(newBinding);
+  c.nfcs.sort(function(a,b){ return parseInt(a.seq, 10) - parseInt(b.seq, 10); });
+  _renderBookNfcContent();
+  _showBookNfcStep('list');
+  toast(ctx.is_replace ? ('✅ ' + ctx.seq + '번째 책 NFC 교체 완료') : ('✅ ' + ctx.seq + '번째 책 NFC 등록 완료'));
+
+  // 4. 백그라운드 — 옛 seq 행 release (있으면) + 새 행 INSERT
+  try {
+    if (existingAtSeq) {
+      await _sbPatch('student_book_nfc',
+        { bind_uid: 'eq.' + existingAtSeq.bind_uid },
+        { released_at: nowKst });
+    }
+    await _sbInsert('student_book_nfc', newBinding);
+  } catch(e) {
+    console.error('[BOOK NFC INSERT]', e && e.message ? e.message : e);
+    // UI 복구 — 옵티미스틱 새 행 제거 + 옛 행 복구
+    c.nfcs = c.nfcs.filter(function(x){ return x.bind_uid !== newBindUid; });
+    if (existingAtSeq) c.nfcs.push(existingAtSeq);
+    c.nfcs.sort(function(a,b){ return parseInt(a.seq, 10) - parseInt(b.seq, 10); });
+    _renderBookNfcContent();
+    AUDIO.sfx('error');
+    toast('등록 실패. 다시 시도해 주세요');
+    // GAS fallback 시도 (RLS 차단 시 service_role로 처리)
+    try {
+      var res = await api('register_book_nfc_seq', {
+        student_uid: ctx.student_uid, seq: ctx.seq, book_nfc_uid: newUid,
+        caller_role: STATE.user.role, confirm_replace: !!ctx.confirm_replace
+      });
+      if (res && res.status === 'ok' && res.data && res.data.status === 'OK') {
+        AUDIO.sfx('save');
+        toast('✅ ' + ctx.seq + '번째 책 NFC 등록 완료');
+        _loadBookNfcs(ctx.student_uid);
+      }
+    } catch(_e2){ /* fallback 실패 — 위 토스트 유지 */ }
   }
 }
 
-// 분실 해제 (확인 모달 + API)
+// 분실 해제 — 낙관적 UI (즉시 캐시·UI 갱신 + 백그라운드 _sbPatch · 실패 시 복구)
 function _releaseBookNfcSeq(bind_uid, seq) {
   var c = STATE._bookNfcCache;
   if (!c) return;
   _uiConfirm(
-    seq + '번째 종이 NFC 해제',
+    seq + '번째 책 NFC 해제',
     '분실하셨거나 새 스티커로 바꾸려는 거죠?\n해제하면 다시 등록할 수 있어요',
     async function() {
-      showLoading('해제 중이에요');
+      // 옵티미스틱 — 즉시 캐시에서 제거 + UI 갱신
+      var prevNfcs = c.nfcs.slice();
+      c.nfcs = c.nfcs.filter(function(x){ return x.bind_uid !== bind_uid; });
+      _renderBookNfcContent();
+      AUDIO.sfx('save');
+      toast('✅ ' + seq + '번째 책 NFC 해제 완료');
+
+      // 백그라운드 _sbPatch released_at
       try {
-        var res = await api('release_book_nfc_seq', {
-          bind_uid: bind_uid,
-          caller_role: STATE.user.role
-        });
-        hideLoading();
-        if (res && res.status === 'ok' && res.data && res.data.status === 'OK') {
-          AUDIO.sfx('save');
-          toast('✅ ' + seq + '번째 종이 NFC 해제 완료');
-          await _loadBookNfcs(c.student_uid);
-        } else {
-          AUDIO.sfx('error');
-          toast('해제 실패');
-        }
+        var nowKst = new Date(Date.now() + 9*3600000).toISOString().slice(0, 19);
+        await _sbPatch('student_book_nfc',
+          { bind_uid: 'eq.' + bind_uid },
+          { released_at: nowKst });
       } catch(e) {
-        hideLoading();
-        AUDIO.sfx('error');
         console.error('[BOOK NFC RELEASE]', e && e.message ? e.message : e);
-        toast('해제 실패');
+        // UI 복구
+        c.nfcs = prevNfcs;
+        _renderBookNfcContent();
+        AUDIO.sfx('error');
+        toast('해제 실패. 다시 시도해 주세요');
+        // GAS fallback
+        try {
+          var res = await api('release_book_nfc_seq', { bind_uid: bind_uid, caller_role: STATE.user.role });
+          if (res && res.status === 'ok' && res.data && res.data.status === 'OK') {
+            // GAS가 처리 성공 — 다시 옵티미스틱 적용
+            c.nfcs = c.nfcs.filter(function(x){ return x.bind_uid !== bind_uid; });
+            _renderBookNfcContent();
+            AUDIO.sfx('save');
+            toast('✅ ' + seq + '번째 책 NFC 해제 완료');
+          }
+        } catch(_e2){ /* fallback 실패 — 위 토스트 유지 */ }
       }
     },
     { okLabel:'해제', cancelLabel:'취소', danger:true }
