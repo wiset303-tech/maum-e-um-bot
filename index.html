@@ -8023,10 +8023,9 @@ function applyPreviewPreset(key) {
 
   // 73차: 28명 학생을 매번 다른 결정적 셔플로 분포에 분배 — 1~20번 다 제출 같은 인위적 패턴 제거
   // (시드는 key별로 고정 → 같은 프리셋에서 같은 학생 분배. 프리셋 바꾸면 분배도 바뀜)
+  // 81차c: 워드클라우드도 _applyPreviewEmotionsByPreset 안에서 분배 결과로 직접 그림 (감정바코드 정합성)
+  //   이전 줄 `renderWordCloud(p.words)` 제거 — PREVIEW_PRESETS.words 정적 풀이 학생 분배와 단절되던 원인
   _applyPreviewEmotionsByPreset(key, p);
-
-  // 워드클라우드
-  renderWordCloud(p.words);
 }
 
 // 73차: 프리셋 분포(pos/neu/neg)에 맞춰 28명을 셔플 분배 + 바코드/미제출 리스트 갱신
@@ -8087,6 +8086,21 @@ function _applyPreviewEmotionsByPreset(key, p) {
 
   // 바코드 즉시 갱신
   if (typeof renderEmotionBarcode === 'function') renderEmotionBarcode();
+
+  // 81차c: 워드클라우드도 같은 분배(STATE.studentEmotions)에서 동적 산출 (감정바코드 hover ↔ 워드클라우드 정합성)
+  //   이전: PREVIEW_PRESETS[key].words 정적 배열 사용 → 학생 분배 micro와 단절 (단어·카운트 모두 불일치)
+  //   현재: 분배된 학생들의 micro를 카운트 집계 → 항상 일치
+  var wordCount = {};
+  students.forEach(function(s){
+    var e = newEmo[s.student_uid];
+    if (!e || !e.micro) return;
+    var w = e.micro;
+    if (!wordCount[w]) wordCount[w] = { word: w, type: e.macro, count: 0 };
+    wordCount[w].count++;
+  });
+  var wordsForCloud = Object.keys(wordCount).map(function(k){ return wordCount[k]; })
+                            .sort(function(a,b){ return b.count - a.count; });
+  if (typeof renderWordCloud === 'function') renderWordCloud(wordsForCloud);
 }
 
 function previewStudent() {
@@ -16996,7 +17010,8 @@ function switchAlbumSubTab(sub) {
 //   관리자는 단순 열람만 (⭐ 지정·삭제 권한 X — 교사 권한)
 function _adminAlbumSubTabsHTML() {
   // 78차 디자인 fix: 위치 반대 — [💗 감정앨범 / 📷 일상앨범]
-  var sub = (typeof STATE !== 'undefined' && STATE._adminAlbumSubTab) || 'daily';
+  // 81차c: 디폴트 'emotion' (변쌤 명시 — 학생/교사와 일관)
+  var sub = (typeof STATE !== 'undefined' && STATE._adminAlbumSubTab) || 'emotion';
   return '<div class="album-subtabs">' +
     '<button class="album-subtab'+(sub==='emotion'?' active':'')+'" data-sub="emotion" onclick="switchAdminAlbumSubTab(\'emotion\')">💗 감정앨범</button>' +
     '<button class="album-subtab'+(sub==='daily'?' active':'')+'"   data-sub="daily"   onclick="switchAdminAlbumSubTab(\'daily\')">📷 일상앨범</button>' +
@@ -18374,7 +18389,10 @@ async function renderAdminAlbum() {
   if (!el) return;
   // 81차c: 관리자 감정앨범 = 교사 4x5 구슬 그리드 차용 (변쌤 명시 — 감정 구슬·전국 carousel)
   //   감정 모드면 renderEmotionAlbum()이 #adminAlbumList 자리에 직접 그림 (학교별 그리드 X)
-  if (STATE && STATE._adminAlbumSubTab === 'emotion') {
+  //   디폴트도 'emotion' — STATE._adminAlbumSubTab 미정의면 emotion부터 그림
+  var subMode0 = (STATE && STATE._adminAlbumSubTab) || 'emotion';
+  if (subMode0 === 'emotion') {
+    if (STATE) STATE._adminAlbumSubTab = 'emotion';  // STATE 명시 보장
     try { await _loadEmotionsMaster(); } catch(e) {}
     _emotionAlbumLoaded = false;  // 진입 시 fresh fetch (학생 INSERT 즉시 반영)
     await renderEmotionAlbum();
