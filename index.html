@@ -8176,15 +8176,90 @@ function previewStudent() {
   STATE.selectedMacro = null;
   STATE.selectedMicro = null;
 
-  // 알림 더미
+  // 81차d: 알림 더미 강화 — 학생 수신 type 8개
+  //   token_gift body는 '마음토큰을 선물' 패턴 시작 → _resolveNotifBody가 학생명+_subjGa prefix 자동 추가
+  //   related_uid:'s02' → STATE.students 매핑 (이서연) → 선물받음 모달 클릭 시 sender 자동 표시
   _notifications = [
     { notification_uid:'pn1', type:'token_gift', title:'💝 마음토큰 선물 도착!',
-      body:'이서연이(가) 마음토큰을 선물했어요', sender_name:'이서연',
-      is_read: false, created_at: new Date(Date.now()-300000).toISOString() },
-    { notification_uid:'pn2', type:'attendance', title:'🏫 등교 완료',
+      body:'마음토큰을 선물했어요\n💌 오늘도 멋진 너에게 응원 보내!', sender_name:'',
+      is_read:false, created_at:new Date(Date.now()-5*60000).toISOString(), related_uid:'s02' },
+    { notification_uid:'pn2', type:'emotion_unlock', title:'🔓 감정 다시 쓰기',
+      body:'선생님이 오늘 감정을 다시 쓸 수 있게 해주셨어요', sender_name:'',
+      is_read:false, created_at:new Date(Date.now()-20*60000).toISOString() },
+    { notification_uid:'pn3', type:'app_update', title:'🔄 새 업데이트가 있어요',
+      body:'새 버전이 준비됐어요. 지금 새로고침해 주세요', sender_name:'',
+      is_read:false, created_at:new Date(Date.now()-40*60000).toISOString() },
+    { notification_uid:'pn4', type:'warmth_full', title:'🔥 훈훈 습도계 꽉 찼어요!',
+      body:'우리 반 모두에게 +2 마음토큰이 지급됐어요', sender_name:'',
+      is_read:true, created_at:new Date(Date.now()-2*3600000).toISOString() },
+    { notification_uid:'pn5', type:'attendance', title:'🏫 등교 완료',
       body:'오늘도 학교에 잘 도착했어요', sender_name:'',
-      is_read: true, created_at: new Date(Date.now()-3600000).toISOString() },
+      is_read:true, created_at:new Date(Date.now()-3*3600000).toISOString() },
+    { notification_uid:'pn6', type:'album_limit', title:'📸 마음앨범 한도 변경',
+      body:'오늘부터 마음앨범에 하루 3장까지 올릴 수 있어요', sender_name:'',
+      is_read:true, created_at:new Date(Date.now()-6*3600000).toISOString() },
+    { notification_uid:'pn7', type:'pw_reset', title:'🔐 비밀번호 초기화',
+      body:'비밀번호가 maum1234로 초기화됐어요. 다음 로그인 후 변경해 주세요', sender_name:'',
+      is_read:true, created_at:new Date(Date.now()-24*3600000).toISOString() },
+    { notification_uid:'pn8', type:'privacy_notice', title:'📜 개인정보 처리방침 변경',
+      body:'처리방침이 일부 개정됐어요. 알림을 눌러 자세히 봐주세요', sender_name:'',
+      is_read:true, created_at:new Date(Date.now()-2*86400000).toISOString() },
   ];
+
+  // 81차d: 마음토큰 기록 더미 — 7종류 (loadTokenLog가 isPreview 가드 후 _tokenLogs 그대로 렌더)
+  _tokenLogs = [
+    { date:'4/27', label:'출석 토큰',           amount:'+1', gain:true,  type:'daily' },
+    { date:'4/27', label:'이서연에게서 선물',    amount:'+1', gain:true,  type:'gift_received' },
+    { date:'4/27', label:'학급 보너스',         amount:'+2', gain:true,  type:'class_bonus' },
+    { date:'4/26', label:'박지호에게 선물',      amount:'+1', gain:false, type:'gift_sent' },
+    { date:'4/26', label:'저축',                amount:'-1', gain:false, type:'save' },
+    { date:'4/25', label:'선생님 선물',         amount:'+1', gain:true,  type:'teacher_gift' },
+    { date:'4/24', label:'🌡️ 마음토큰 초기화', amount:'',   gain:false, type:'admin_reset' },
+  ];
+  _tokenLogPage = 0;
+
+  // 81차d: 감정앨범 더미 — 학생 본인 채운 사진 2건 (78차 album 컬럼 구조)
+  //   placeholder: 작은 SVG data URI (외부 의존 없음, 변쌤 메모리 100KB+ embed 금지 준수)
+  var _pvSvgYellow = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g1' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23ffd54f'/><stop offset='1' stop-color='%23ffb300'/></linearGradient></defs><rect width='100' height='100' fill='url(%23g1)'/><circle cx='50' cy='42' r='14' fill='%23fff8e1'/><path d='M30 70 Q50 90 70 70' stroke='%23fff8e1' stroke-width='4' fill='none'/></svg>";
+  var _pvSvgBlue = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g2' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%2381d4fa'/><stop offset='1' stop-color='%234a90d9'/></linearGradient></defs><rect width='100' height='100' fill='url(%23g2)'/><path d='M20 60 Q50 30 80 60' stroke='%23fff' stroke-width='3' fill='none'/><circle cx='35' cy='45' r='3' fill='%23fff'/><circle cx='65' cy='45' r='3' fill='%23fff'/></svg>";
+  _emotionAlbumCache = [
+    { album_uid:'pa1', timestamp:'2026-04-27T08:30:00',
+      student_uid:'PREVIEW_STUDENT', student_name:'김민준',
+      teacher_uid:'PREVIEW_TEACHER',
+      image_url:_pvSvgYellow, thumb_url:_pvSvgYellow,
+      caption:'운동장에서 본 따뜻한 햇살', emotion_id:'기쁜', date:'2026-04-27',
+      is_class_cover:false, is_teacher_upload:false,
+      updated_at:'2026-04-27T08:30:00', album_type:'emotion', is_deleted:false },
+    { album_uid:'pa2', timestamp:'2026-04-26T15:00:00',
+      student_uid:'PREVIEW_STUDENT', student_name:'김민준',
+      teacher_uid:'PREVIEW_TEACHER',
+      image_url:_pvSvgBlue, thumb_url:_pvSvgBlue,
+      caption:'시험 앞두고 떨리는 마음', emotion_id:'걱정돼', date:'2026-04-26',
+      is_class_cover:false, is_teacher_upload:false,
+      updated_at:'2026-04-26T15:00:00', album_type:'emotion', is_deleted:false },
+  ];
+  _emotionAlbumLoaded = true;
+
+  // 81차d: 마음출석부 더미 — 최근 14일 KST 기준 _stuAtt.map 채움
+  //   _loadStuAttMap이 isPreview 가드라 fetch 안 함. renderStudentAttendance 호출 시 그대로 사용.
+  var _pvKstNow = new Date(Date.now() + 9*3600000);
+  _stuAtt.year = _pvKstNow.getUTCFullYear();
+  _stuAtt.month = _pvKstNow.getUTCMonth();
+  _stuAtt.map = {};
+  var _pvEmoPool = [
+    {macro:'positive', micro:'기쁜'},     {macro:'positive', micro:'설레는'},
+    {macro:'positive', micro:'기대되는'}, {macro:'neutral',  micro:'그냥그래'},
+    {macro:'neutral',  micro:'멍한'},     {macro:'negative', micro:'걱정돼'},
+    {macro:'negative', micro:'속상한'},   {macro:'negative', micro:'심심한'},
+  ];
+  var _pvPad = function(n){ return n<10 ? '0'+n : ''+n; };
+  for (var _pvi = 1; _pvi <= 14; _pvi++) {
+    var _pvD = new Date(_pvKstNow.getTime() - _pvi*86400000);
+    var _pvKey = _pvD.getUTCFullYear() + '-' + _pvPad(_pvD.getUTCMonth()+1) + '-' + _pvPad(_pvD.getUTCDate());
+    var _pvE = _pvEmoPool[_pvi % _pvEmoPool.length];
+    _stuAtt.map[_pvKey] = { macro:_pvE.macro, micro:_pvE.micro,
+      is_custom:false, custom_text:'', is_modified:(_pvi%5===0), modified_at:'' };
+  }
 
   buildStudentUI();
   hideLoading(); // 스피너 해제
@@ -10080,6 +10155,9 @@ function natMapClosePopup() {
 // 🔔 알림 시스템
 // ══════════════════════════════════════════════
 async function loadNotifications() {
+  // 81차d: 미리보기는 previewStudent/previewTeacher가 _notifications 더미 직접 주입.
+  //   드롭다운 토글 시 fetch 덮어쓰기 차단 — 변쌤 신고 "빨간 숫자 vs 빈 목록" 진단 fix.
+  if (STATE.isPreview) return;
   // 역할별로 자신의 uid만 사용 (teacher_uid는 학생도 갖고 있어서 || 방식 금지)
   // 72차: admin은 admin_uid · teacher는 teacher_uid로 분리 (관리자 알림 미수신 버그 fix)
   var uid;
@@ -10315,10 +10393,13 @@ async function markNotifRead(uid, el) {
   _notifications.forEach(function(n){ if (n.notification_uid === uid) { n.is_read = true; notif = n; } });
   if (el) el.style.background = '#fff';
   updateNotifBadge();
-  // 56차(fix2): RPC가 0 rows 반환하면(SQL 미실행·RLS) GAS fallback
-  var _ok = false;
-  try { var n = await _sbRpc('rpc_mark_one_read', { p_notification_uid: uid }); _ok = (typeof n === 'number' && n > 0); } catch(e) {}
-  if (!_ok) await api('mark_notification_read', { notification_uid: uid });
+  // 81차d: 미리보기는 RPC/api 호출 skip (모달 진입은 아래 분기 그대로 유지)
+  if (!STATE.isPreview) {
+    // 56차(fix2): RPC가 0 rows 반환하면(SQL 미실행·RLS) GAS fallback
+    var _ok = false;
+    try { var n = await _sbRpc('rpc_mark_one_read', { p_notification_uid: uid }); _ok = (typeof n === 'number' && n > 0); } catch(e) {}
+    if (!_ok) await api('mark_notification_read', { notification_uid: uid });
+  }
   // 선물 알림 클릭 시 토큰 탭 내역 갱신 + 68차: 선물받은 팝업
   if (notif && notif.type === 'token_gift') {
     loadTokenBalance();
@@ -10385,6 +10466,9 @@ async function markAllNotifsRead() {
   updateNotifBadge();
   renderNotifDropdown(); // 드롭다운 그대로 유지하며 배경색만 업데이트
 
+  // 81차d: 미리보기는 RPC/api 호출 skip — 로컬 반영만으로 충분
+  if (STATE.isPreview) { toast('모두 읽음 처리했어요 ✅'); return; }
+
   // ② 수신자 uid 결정 (73차: admin 분기 분리 — 72차 fix 누락분)
   var uid;
   var role = STATE.role || (STATE.user && STATE.user.role);
@@ -10417,6 +10501,8 @@ async function clearAllNotifs() {
       _notifPage = 0;
       updateNotifBadge();
       renderNotifDropdown();
+      // 81차d: 미리보기는 로컬만 비우고 RPC/api 호출 skip
+      if (STATE.isPreview) return;
       // 55차: Supabase 직접 DELETE / 56차(fix2): RPC 0 rows면 fallback
       var uid = STATE.user ? (STATE.user.student_uid || STATE.user.teacher_uid || '') : '';
       var _delOk = false;
@@ -13130,6 +13216,8 @@ function _renderStuAttHeader() {
 }
 
 async function _loadStuAttMap(year, month) {
+  // 81차d: 미리보기는 previewStudent가 _stuAtt.map 더미 직접 주입 — fetch 덮어쓰기 차단
+  if (STATE.isPreview) return;
   var pad = function(n){ return n<10 ? '0'+n : ''+n; };
   var firstDateStr = year + '-' + pad(month+1) + '-01';
   var lastDay  = new Date(Date.UTC(year, month+1, 0)).getUTCDate();
@@ -14384,6 +14472,8 @@ function _refreshTokenCards(tb) {
 }
 
 async function loadTokenBalance() {
+  // 81차d: 미리보기는 previewStudent가 STATE.tokenBalance 더미 직접 주입 — fetch 덮어쓰기 차단
+  if (STATE.isPreview) return;
   // 62차: Supabase 직접 조회로 전환 (GAS cold start 제거)
   // 60차 Δ²에서 Promise.all 분리했던 이유가 GAS cold start 2~5초였는데,
   // 모든 쓰기 경로(register/update/giveDaily/classBonus/rpc_save/rpc_gift)가
@@ -14481,6 +14571,8 @@ var TOKEN_LOG_PAGE = 10;
 async function loadTokenLog() {
   var el = document.getElementById('tokenLogList');
   if (!el) return;
+  // 81차d: 미리보기는 previewStudent가 _tokenLogs 더미 직접 주입 — fetch 덮어쓰기 차단, 더미 그대로 렌더
+  if (STATE.isPreview) { _tokenLogPage = 0; renderTokenLogPage(); return; }
   var studentUid = STATE.user && STATE.user.student_uid;
   if (!studentUid) return;
   // 55차: Supabase 직접 조회, GAS fallback
@@ -17097,6 +17189,8 @@ async function _loadEmotionsMaster() {
 //   학생: student_uid=eq.본인 + album_type=eq.emotion + is_deleted=eq.false
 //   교사: teacher_uid=eq.본인 + album_type=eq.emotion + is_deleted=eq.false (학급 전체)
 async function _loadEmotionAlbumCache() {
+  // 81차d: 미리보기는 previewStudent/previewTeacher가 _emotionAlbumCache 더미 직접 주입 — fetch 덮어쓰기 차단
+  if (STATE.isPreview) { _emotionAlbumLoaded = true; return _emotionAlbumCache || []; }
   if (_emotionAlbumLoaded && _emotionAlbumCache) return _emotionAlbumCache;
   var role = STATE.role;
   var filters = {
