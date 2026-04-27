@@ -3446,7 +3446,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 <!-- ══ 모달: 마음동화 NFC 등록 마법사 (81차b — 다중 NFC, 책 종이 차례별) ══ -->
 <div id="modal-book-nfc-register" class="modal-overlay hidden" style="z-index:3500" onclick="closeModalOutside(event,'modal-book-nfc-register')">
   <div class="modal-box" style="position:relative;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">
-    <div class="modal-title" id="bookNfcTitle">📖 마음동화 NFC</div>
+    <div class="modal-title" id="bookNfcTitle">🌈 마음동화 스티커</div>
     <button class="modal-close" onclick="closeBookNfcRegister()">✕</button>
 
     <!-- 1단계: 책 종이 수 입력 (book_nfc_count 미설정 시 또는 변경 시) -->
@@ -7920,7 +7920,7 @@ function _buildStudentListHTML(students) {
           (s.nfc_uid
             ? '<button onclick="openStudentEditById(\'' + uid2 + '\',\'' + nm2 + '\',\'replace\');closeStuMenu()" data-uid="' + uid2 + '" data-name="' + nm2 + '">🪪 마음카드 교체</button>'
             : '<button onclick="openStudentEditById(\'' + uid2 + '\',\'' + nm2 + '\',\'register\');closeStuMenu()" data-uid="' + uid2 + '" data-name="' + nm2 + '">🪪 마음카드 등록</button>') +
-          '<button onclick="openBookNfcRegister(\'' + uid2 + '\',\'' + nm2 + '\');closeStuMenu()">📖 마음동화 NFC</button>' +
+          '<button onclick="openBookNfcRegister(\'' + uid2 + '\',\'' + nm2 + '\');closeStuMenu()">🌈 마음동화 스티커</button>' +
           '<div class="divider"></div>' +
           '<button class="danger" onclick="deactivateBtn(this)" data-uid="' + uid2 + '" data-name="' + nm2 + '">🚫 비활성</button>' +
         '</div>' +
@@ -12235,7 +12235,7 @@ function renderStudentList() {
             + '<button onclick="openChangePw(\''+uid2+'\',\''+nm2+'\')">&#128273; 암호변경</button>'
             + '<button onclick="resetStudentPw(\''+uid2+'\',\''+nm2+'\')">\uD83D\uDD04 \uc554\ud638\ucd08\uae30\ud654</button>'
             + (s.nfc_uid ? '<button onclick="openStudentEditById(\''+uid2+'\',\''+nm2+'\',\'replace\');closeStuMenu()" data-uid="'+uid2+'" data-name="'+nm2+'">🪪 마음카드 교체</button>' : '<button onclick="openStudentEditById(\''+uid2+'\',\''+nm2+'\',\'register\');closeStuMenu()" data-uid="'+uid2+'" data-name="'+nm2+'">🪪 마음카드 등록</button>')
-            + '<button onclick="openBookNfcRegister(\''+uid2+'\',\''+nm2+'\');closeStuMenu()">📖 마음동화 NFC</button>'
+            + '<button onclick="openBookNfcRegister(\''+uid2+'\',\''+nm2+'\');closeStuMenu()">🌈 마음동화 스티커</button>'
             + '<button onclick="openParentCreate(\''+uid2+'\',\''+nm2+'\',\''+(s.student_id||'')+'\')">\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67 \ud559\ubd80\ubaa8 \uacc4\uc815</button>'
             + '<div class="divider"></div>'
             + '<button class="danger" onclick="deactivateBtn(this)" data-uid="'+uid2+'" data-name="'+nm2+'">\uD83D\uDEAB \ube44\ud65c\uc131</button>'
@@ -16234,7 +16234,7 @@ function _buildHeartTaleLockGateHTML() {
   html += '<div class="heart-tale-lock-keyhole"></div>';
   html += '</div></div></div>';
   html += '<div class="heart-tale-lock-msg">🌈 마음동화 스티커를 태그해 주세요</div>';
-  html += '<div class="heart-tale-lock-sub">기록하려면 내 🌈 마음동화 스티커가 필요해요</div>';
+  html += '<div class="heart-tale-lock-sub">기록하려면 내 마음동화 스티커가 필요해요</div>';
   html += '<div class="heart-tale-lock-error-msg" id="htpLockErrorMsg"></div>';
   // 미리보기 모드에서만 NFC 인식 시뮬 버튼 노출 (실 사용은 카드 태깅 대기)
   if (STATE.isPreview || !STATE.user) {
@@ -16351,6 +16351,47 @@ async function _handleHeartTaleNfc(uid) {
 //   STATE._htpMode        = 'record' | 'view'
 //   STATE._htpRecordSeq   = N (기록 가능 묶음 seq, view 모드에선 null)
 // ════════════════════════════════════════
+
+// 82차 Phase 7: 책 모달 열린 동안 weekly_book realtime 구독 (학생 본인/교사·학부모 열람 학생 student_uid filter)
+//   학생이 페이지 채우면 다른 기기·교사·학부모 화면에 즉시 반영
+//   인증·필터로 가벼움 — 그 학생 행만 push
+var _htpRealtimeChannel = null;
+function _htpStartRealtime(student_uid) {
+  _htpStopRealtime();
+  if (!student_uid) return;
+  try {
+    if (!_sbClient && typeof supabase !== 'undefined') {
+      _sbClient = supabase.createClient(SB_URL, SB_KEY);
+    }
+    if (!_sbClient) return;
+    var channelName = 'ht-pages-' + student_uid;
+    var insertCfg = { event:'INSERT', schema:'public', table:'weekly_book', filter:'student_uid=eq.' + student_uid };
+    var updateCfg = { event:'UPDATE', schema:'public', table:'weekly_book', filter:'student_uid=eq.' + student_uid };
+    var onChange = function(payload) {
+      try { console.log('[HT RT]', payload && payload.eventType); } catch(e) {}
+      var row = payload && payload.new;
+      if (!row || !row.week_no) return;
+      var w = parseInt(row.week_no, 10);
+      if (!(w >= 1 && w <= HEART_TALE_TOTAL_WEEKS)) return;
+      if (!STATE._htpPages) STATE._htpPages = {};
+      STATE._htpPages[w] = row;
+      // 현재 페이지면 즉시 재렌더 (다른 페이지면 spine 갱신만 — 페이지는 이동 시 자동 반영)
+      if (STATE._htpCurrentWeek === w) _renderHeartTalePage(w);
+      else _renderHeartTaleSpine();
+    };
+    _htpRealtimeChannel = _sbClient
+      .channel(channelName)
+      .on('postgres_changes', insertCfg, onChange)
+      .on('postgres_changes', updateCfg, onChange)
+      .subscribe(function(status){ try { console.log('[HT RT subscribe]', channelName, status); } catch(e) {} });
+  } catch(e) { console.error('[HT RT]', e && e.message ? e.message : e); }
+}
+function _htpStopRealtime() {
+  if (_htpRealtimeChannel && _sbClient) {
+    try { _sbClient.removeChannel(_htpRealtimeChannel); } catch(e) {}
+    _htpRealtimeChannel = null;
+  }
+}
 
 // 학생 본인 weekly_book 36행 일괄 fetch → STATE._htpPages 캐싱
 async function _htpFetchPages(student_uid) {
@@ -17257,6 +17298,8 @@ function openHeartTalePage(student_uid, week_no) {
     //   학생: book_count는 _handleHeartTaleNfc 매칭 시 fetch (record 모드만 필요)
     //   교사·학부모: book_count 의미 없음 (열람 모드만 가능)
     try { _htpFetchPages(target_uid); } catch(e) {}
+    // 82차 Phase 7: weekly_book realtime 구독 — 학생이 페이지 채우면 교사·학부모 화면 즉시 반영
+    try { _htpStartRealtime(target_uid); } catch(e) {}
   }
 
   // 자물쇠 게이트 vs 즉시 표지 분기
@@ -17284,12 +17327,14 @@ function openHeartTalePage(student_uid, week_no) {
   }
 }
 
-// 모달 닫기 — 키보드+스와이프 unbind, 다음 진입 시 자물쇠부터 다시
+// 모달 닫기 — 키보드+스와이프 unbind, realtime 정지, 다음 진입 시 자물쇠부터 다시
 function closeHeartTalePage() {
   var el = document.getElementById('modal-heart-tale-page');
   if (el) el.classList.add('hidden');
   _unbindHeartTaleKeyHandlers();
   _unbindHeartTaleSwipeHandlers();
+  // 82차 Phase 7: realtime 정지 (자원 절약)
+  try { _htpStopRealtime(); } catch(e) {}
   STATE._htpLocked = false;
   STATE._htpCurrentWeek = undefined;
 }
@@ -17408,26 +17453,23 @@ function _renderBookCountHint(n) {
 var _BOOK_NFC_COUNT_CHIPS = [8, 10, 12, 18, 30, 36];
 
 // 클라이언트 충돌 검사 (낙관적 UI 직전 — Supabase 직접 fetch)
-// STUDENTS.nfc_uid + STUDENTS.book_nfc_uid(deprecated) + student_book_nfc 활성 + TEACHERS.nfc_uid + admins.nfc_uid
+// STUDENTS.nfc_uid (등교 카드) + student_book_nfc 활성 (다중 NFC) + TEACHERS.nfc_uid + admins.nfc_uid
+//   82차: students.book_nfc_uid 컬럼 정리 — 단일 NFC 잔존 검사 제거. 다중 NFC만 검사.
 async function _checkBookNfcConflictClient(uid, my_student_uid) {
   var n = _normalizeNfc(uid);
   if (!n) return { kind: 'EMPTY' };
 
-  // 1. STUDENTS — nfc_uid (등교 카드) + book_nfc_uid (deprecated 단일 81차a)
+  // 1. STUDENTS.nfc_uid (등교 카드)
   try {
     var stRows = await _sbFetch('students', { active: 'eq.Y' });
     for (var i = 0; i < (stRows||[]).length; i++) {
       var r = stRows[i];
       var attendNfc = _normalizeNfc(r.nfc_uid);
-      var bookNfc   = r.book_nfc_uid ? _normalizeNfc(r.book_nfc_uid) : '';
       if (attendNfc && attendNfc === n) {
         return {
           kind: r.student_uid === my_student_uid ? 'ERR_SELF_ATTEND' : 'ERR_OTHER_ATTEND',
           name: r.name || ''
         };
-      }
-      if (bookNfc && bookNfc === n && r.student_uid !== my_student_uid) {
-        return { kind: 'ERR_OTHER_BOOK', name: r.name || '' };
       }
     }
   } catch(e) { console.warn('[BOOK CONFLICT students]', e && e.message ? e.message : e); }
@@ -17530,7 +17572,7 @@ function openBookNfcRegister(student_uid, student_name) {
   STATE._bookNfcReleaseAllOnNext = false;
   STATE._bookNfcCtx   = { student_uid: student_uid, student_name: student_name || '학생' };
   var titleEl = document.getElementById('bookNfcTitle');
-  if (titleEl) titleEl.textContent = '📖 ' + (student_name || '학생') + ' 마음동화 NFC';
+  if (titleEl) titleEl.textContent = '🌈 ' + (student_name || '학생') + ' 마음동화 스티커';
   // 모달 열기는 _loadBookNfcs 응답 후 (빈 흰 박스 노출 방지)
   _loadBookNfcs(student_uid);
 }
@@ -17546,7 +17588,7 @@ function closeBookNfcRegister() {
 // 학생 활성 NFC + book_nfc_count 조회 → 캐시 set → 모달 열기 + 분기 렌더
 // Supabase 직접 빠른 경로 (76차 패턴 답습) + GAS fallback
 async function _loadBookNfcs(student_uid) {
-  showLoading('마음동화 NFC 정보를 불러오는 중이에요');
+  showLoading('마음동화 스티커 정보를 불러오는 중이에요');
   try {
     // Supabase 직접 조회
     var stRows = await _sbFetch('students', { student_uid: 'eq.' + student_uid });
@@ -17697,7 +17739,7 @@ async function _setBookCountConfirm() {
         _renderBookNfcContent();
         var releaseCount = d.active_count || 0;
         _uiConfirm(
-          '활성 마음동화 NFC ' + releaseCount + '개',
+          '활성 마음동화 스티커 ' + releaseCount + '개',
           '책 페이지 수를 바꾸면 모두 해제돼요.\n계속할까요?',
           async function() {
             STATE._bookNfcReleaseAllOnNext = true;
