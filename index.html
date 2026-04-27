@@ -1719,6 +1719,51 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   transform:none;
 }
 
+/* 82차 Phase 6: 마음동화 수업 시작·종료 버튼 (교사 마음앨범 「📖 마음동화」 탭 상단) */
+.ht-class-bar{
+  background:linear-gradient(135deg, #fff8f0, #fff1e0);
+  border-radius:14px;
+  padding:14px 16px;
+  margin-bottom:14px;
+  border:1px solid #ffd9b3;
+}
+.ht-class-row{ display:flex; gap:8px; }
+.ht-class-btn{
+  flex:1;
+  padding:11px 10px; border-radius:12px;
+  font-size:13px; font-weight:700;
+  border:none; cursor:pointer;
+  letter-spacing:-0.3px;
+  transition:transform .15s, box-shadow .15s;
+}
+.ht-class-btn:hover{ transform:translateY(-1px); box-shadow:0 3px 10px rgba(0,0,0,0.10); }
+.ht-class-btn:active{ transform:translateY(0) scale(.98); }
+.ht-class-start{
+  background:linear-gradient(135deg, #ffa64d, #ff8533);
+  color:#fff;
+  box-shadow:0 2px 8px rgba(255,133,51,0.3);
+}
+.ht-class-end{
+  background:linear-gradient(135deg, #d9455f, #c0392b);
+  color:#fff;
+  box-shadow:0 2px 8px rgba(192,57,43,0.3);
+  width:100%;
+}
+.ht-class-info{
+  font-size:12px; color:#8a4a1a;
+  text-align:center;
+  margin-top:8px;
+  font-weight:600;
+}
+.ht-class-sub{
+  font-size:11.5px; color:#8a6a48;
+  text-align:center;
+  margin-top:8px;
+  letter-spacing:-0.2px;
+  word-break:keep-all;
+  line-height:1.5;
+}
+
 /* 82차 Phase 4: 사진 자르기 모달 (자동 외곽선 검출 + 4 모서리 드래그 보정) */
 #modal-heart-tale-crop{ perspective:1500px; }
 .ht-crop-modal-box{
@@ -6765,11 +6810,15 @@ async function handleNfcUid(uid) {
     return;
   }
 
-  // 82차: 마음동화 펼치기 모달이 열려있고 자물쇠 잠금 중이면 → 마음동화 NFC 분기 (학생만)
+  // 82차: 마음동화 펼치기 모달 NFC 분기 (학생만)
+  //   ① 자물쇠 잠금 중 → 첫 진입 verify (NFC 또는 "기록 없이 열람")
+  //   ② Phase 6: view 모드(수업 종료 후 등) + 모달 열림 → 카드 갖다 대면 record 모드 복귀 (수정 가능 회복)
   var _heartTaleModal = document.getElementById('modal-heart-tale-page');
-  if (_heartTaleModal && !_heartTaleModal.classList.contains('hidden') && STATE._htpLocked && STATE.role === 'student') {
-    _handleHeartTaleNfc(uid);
-    return;
+  if (_heartTaleModal && !_heartTaleModal.classList.contains('hidden') && STATE.role === 'student') {
+    if (STATE._htpLocked || STATE._htpMode === 'view') {
+      _handleHeartTaleNfc(uid);
+      return;
+    }
   }
 
   // 연속등교 모드 모달이 열려있으면 → 등교 처리
@@ -11532,6 +11581,29 @@ function _onNewNotification(row) {
     STATE.selectedMicro = null;
     if (typeof updateEmotionSubmittedBanner === 'function') updateEmotionSubmittedBanner();
   }
+  // 82차 Phase 6: 마음동화 수업 알림 — 학생만 자동 진입·모드 전환 처리 (교사 본인 수신은 toast만)
+  if (n.type === 'heart_tale_class_start' && STATE.role === 'student') {
+    var sn1 = parseInt(n.body, 10) || 1;
+    if (typeof _onHeartTaleClassStartReceived === 'function') _onHeartTaleClassStartReceived(sn1);
+    return;  // 자체 toast 발동했으므로 일반 toast(n.title) skip
+  }
+  if (n.type === 'heart_tale_class_end' && STATE.role === 'student') {
+    var sn2 = parseInt(n.body, 10) || 1;
+    if (typeof _onHeartTaleClassEndReceived === 'function') _onHeartTaleClassEndReceived(sn2);
+    return;
+  }
+  // 82차 Phase 6: 교사 본인은 차시 active 상태 갱신 + 마음앨범 탭 보고 있으면 헤더 재렌더
+  if ((n.type === 'heart_tale_class_start' || n.type === 'heart_tale_class_end') && STATE.role === 'teacher') {
+    if (n.type === 'heart_tale_class_start') {
+      STATE._heartTaleClassActive = { session_no: parseInt(n.body, 10) || 1, started_at: n.created_at };
+    } else {
+      STATE._heartTaleClassActive = null;
+    }
+    var taleSec = document.getElementById('albumTaleSection');
+    if (taleSec && taleSec.style.display !== 'none' && typeof renderTeacherTaleAlbum === 'function') {
+      renderTeacherTaleAlbum();
+    }
+  }
   toast(n.title);  // 예: "🏫 등교 완료" — 알림 제목이 자체로 친근하게 구성돼 있음
 }
 
@@ -16246,7 +16318,14 @@ async function _handleHeartTaleNfc(uid) {
       // 책 페이지 수도 미리 캐싱 (페이지 묶음 판정에 필요) — 페이지 fetch는 openHeartTalePage에서 이미 호출됨
       try { await _htpFetchBookCount(myUid); } catch(e) {}
       if (errEl) errEl.textContent = '';
-      _unlockHeartTale();
+      // 82차 Phase 6: 자물쇠 게이트면 unlock 흐름, 이미 unlock(view 모드)이면 record 전환만 + 현재 페이지 재렌더
+      if (STATE._htpLocked) {
+        _unlockHeartTale();
+      } else {
+        var w = STATE._htpCurrentWeek;
+        if (w !== undefined && w !== null) _renderHeartTalePage(w);
+        toast('마음동화 카드 인식 — 이제 수정할 수 있어요');
+      }
       return;
     }
 
@@ -16324,10 +16403,197 @@ function _htpSeqOfWeek(week_no) {
 }
 
 // 현재 모드/seq 기준으로 week_no가 내 기록 가능 묶음인지
+//   82차 Phase 6: 'class' 모드(교사 마음동화 수업 중)는 NFC 없이 모든 주차 자유 기록
 function _htpIsMyRecordWeek(week_no) {
+  if (STATE._htpMode === 'class') return true;
   if (STATE._htpMode !== 'record') return false;
   if (!STATE._htpRecordSeq) return false;
   return _htpSeqOfWeek(week_no) === parseInt(STATE._htpRecordSeq, 10);
+}
+
+// ════════════════════════════════════════
+// 82차 Phase 6: 마음동화 수업 알림 (교사 → 학생 N명 + 교사 본인)
+//   broadcast = 클라이언트 직접 Supabase notifications INSERT (76차 attendance 패턴 답습)
+//   알림 type 2개: heart_tale_class_start · heart_tale_class_end
+//   body = "1" or "2" (차시 번호) / related_uid = teacher_uid
+// ════════════════════════════════════════
+
+// 마음동화 모듈 글로벌 헬퍼 (notifications INSERT용)
+function _htNewUuid() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c){
+    var r = Math.random()*16|0, v = c==='x'?r:(r&0x3|0x8); return v.toString(16);
+  });
+}
+function _htNewKstTs() {
+  return new Date(Date.now()+9*3600000).toISOString().slice(0,19);
+}
+
+// 활성 차시 fetch — 가장 최근 마음동화 수업 알림 1건으로 산출
+//   start이고 그 이후 end가 없으면 active. end가 더 최근이면 inactive.
+async function _fetchHeartTaleClassActive(teacher_uid) {
+  if (!teacher_uid) return null;
+  try {
+    var rows = await _sbFetch('notifications', {
+      recipient_uid: 'eq.' + teacher_uid,
+      type: 'in.(heart_tale_class_start,heart_tale_class_end)',
+      order: 'created_at.desc',
+      limit: '1'
+    });
+    if (!rows || !rows.length) return null;
+    var r = rows[0];
+    if (r.type === 'heart_tale_class_start') {
+      return { session_no: parseInt(r.body, 10) || 1, started_at: r.created_at };
+    }
+    return null;  // 가장 최근이 end면 inactive
+  } catch(e) {
+    console.error('[HT CLASS FETCH]', e && e.message ? e.message : e);
+    return null;
+  }
+}
+
+// 수업 시작 — 학급 학생 + 교사 본인에게 알림 broadcast
+async function _startHeartTaleClass(session_no) {
+  if (!STATE.user || !STATE.user.teacher_uid) { toast('교사 정보가 없어요'); return; }
+  if (STATE._heartTaleClassActive) { toast('이미 진행 중인 수업이 있어요'); return; }
+  if (session_no !== 1 && session_no !== 2) return;
+
+  showLoading('수업 시작 알림 보내는 중이에요 📣');
+  try {
+    var students = STATE.students || [];
+    var actives = students.filter(function(s){ return s && s.active !== 'N'; });
+    var teacher_uid = STATE.user.teacher_uid;
+
+    var recipients = actives.map(function(s){ return s.student_uid; });
+    recipients.push(teacher_uid);  // 교사 본인도 수신 (active 상태 다른 화면에서도 인지)
+
+    var ts = _htNewKstTs();
+    var inserts = recipients.map(function(uid) {
+      return _sbInsert('notifications', {
+        notification_uid: _htNewUuid(), created_at: ts,
+        recipient_uid: uid, type: 'heart_tale_class_start',
+        title: '📣 ' + session_no + '차시 마음동화 수업이 시작됐어요',
+        body: String(session_no),
+        sender_name: '', is_read: false, related_uid: teacher_uid
+      });
+    });
+    await Promise.all(inserts);
+
+    STATE._heartTaleClassActive = { session_no: session_no, started_at: ts };
+    renderTeacherTaleAlbum();  // 헤더 갱신
+    try { AUDIO.sfx('save'); } catch(e) {}
+    toast(session_no + '차시 마음동화 수업이 시작됐어요 📣');
+  } catch(e) {
+    console.error('[HT CLASS START]', e && e.message ? e.message : e);
+    toast('수업 시작이 안 됐어요. 다시 시도해 주세요');
+  } finally {
+    hideLoading();
+  }
+}
+
+// 수업 종료 — 종료 알림 broadcast
+async function _endHeartTaleClass() {
+  if (!STATE.user || !STATE.user.teacher_uid) return;
+  var active = STATE._heartTaleClassActive;
+  if (!active) { toast('진행 중인 수업이 없어요'); return; }
+
+  showLoading('수업 종료 알림 보내는 중이에요 ⏹');
+  try {
+    var students = STATE.students || [];
+    var actives = students.filter(function(s){ return s && s.active !== 'N'; });
+    var teacher_uid = STATE.user.teacher_uid;
+    var session_no = active.session_no;
+
+    var recipients = actives.map(function(s){ return s.student_uid; });
+    recipients.push(teacher_uid);
+
+    var ts = _htNewKstTs();
+    var inserts = recipients.map(function(uid) {
+      return _sbInsert('notifications', {
+        notification_uid: _htNewUuid(), created_at: ts,
+        recipient_uid: uid, type: 'heart_tale_class_end',
+        title: '⏹ ' + session_no + '차시 마음동화 수업이 끝났어요',
+        body: String(session_no),
+        sender_name: '', is_read: false, related_uid: teacher_uid
+      });
+    });
+    await Promise.all(inserts);
+
+    STATE._heartTaleClassActive = null;
+    renderTeacherTaleAlbum();
+    toast(session_no + '차시 마음동화 수업을 종료했어요 ⏹');
+  } catch(e) {
+    console.error('[HT CLASS END]', e && e.message ? e.message : e);
+    toast('수업 종료가 안 됐어요. 다시 시도해 주세요');
+  } finally {
+    hideLoading();
+  }
+}
+
+// 차시 버튼 헤더 빌더 — 활성 상태에 따라 분기
+function _renderTaleAlbumHeader() {
+  var active = STATE._heartTaleClassActive;
+  var html = '<div class="ht-class-bar">';
+  if (active) {
+    var sn = active.session_no;
+    html += '<button class="ht-class-btn ht-class-end" onclick="_endHeartTaleClass()">⏹ ' + sn + '차시 마음동화 수업 종료</button>';
+    html += '<div class="ht-class-info">' + sn + '차시 진행 중 — 학생들이 카드 없이 책을 채울 수 있어요</div>';
+  } else {
+    html += '<div class="ht-class-row">';
+    html += '<button class="ht-class-btn ht-class-start" onclick="_startHeartTaleClass(1)">📣 1차시 시작</button>';
+    html += '<button class="ht-class-btn ht-class-start" onclick="_startHeartTaleClass(2)">📣 2차시 시작</button>';
+    html += '</div>';
+    html += '<div class="ht-class-sub">수업이 시작되면 학생들에게 알림이 가요.<br>그동안은 카드 없이도 자유롭게 채울 수 있어요.</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+// 학생 측: 수업 시작 알림 도착 시 — 자동 진입(닫혀있으면) 또는 모드만 전환(이미 열려있으면)
+function _onHeartTaleClassStartReceived(session_no) {
+  if (!STATE.user || !STATE.user.student_uid) return;
+  STATE._htpMode = 'class';
+  STATE._htpRecordSeq = null;  // 수업 모드는 묶음 제한 없음
+  STATE._htpLocked = false;
+  toast('📣 ' + session_no + '차시 마음동화 수업이 시작됐어요');
+
+  var modal = document.getElementById('modal-heart-tale-page');
+  if (modal && !modal.classList.contains('hidden')) {
+    var w = STATE._htpCurrentWeek;
+    if (w === undefined || w === null) w = 0;
+    _renderHeartTalePage(w);
+  } else {
+    openHeartTalePage();
+  }
+}
+
+// 학생 측: 수업 종료 알림 도착 시 — view 모드 전환 + 미저장 모달 자동 저장 안전망
+async function _onHeartTaleClassEndReceived(session_no) {
+  // 안전망: 기록 모달 열려 있고 사진/글이 있으면 자동 저장
+  var recModal = document.getElementById('modal-heart-tale-record');
+  if (recModal && !recModal.classList.contains('hidden')) {
+    var ti = document.getElementById('htRecTextInput');
+    var text = (ti && ti.value || '').trim();
+    var hasNew = !!STATE._htpRecordingPhotoB64;
+    var hasExist = !!STATE._htpRecordingExistingPhotoUrl;
+    if (text || hasNew || hasExist) {
+      try { await _htpSaveRecord(); } catch(e) { console.error('[HT END AUTO SAVE]', e); }
+    } else {
+      closeModal('modal-heart-tale-record');
+    }
+  }
+
+  STATE._htpMode = 'view';
+  STATE._htpRecordSeq = null;
+
+  var modal = document.getElementById('modal-heart-tale-page');
+  if (modal && !modal.classList.contains('hidden')) {
+    var w = STATE._htpCurrentWeek;
+    if (w !== undefined && w !== null) _renderHeartTalePage(w);
+    toast('⏹ 마음동화 수업이 끝났어요. 더 수정하려면 마음동화 카드를 갖다 대 주세요');
+  } else {
+    toast('⏹ ' + session_no + '차시 마음동화 수업이 끝났어요');
+  }
 }
 
 // ════════════════════════════════════════
@@ -16978,7 +17244,13 @@ function openHeartTalePage(student_uid, week_no) {
   _bindHeartTaleSwipeHandlers();
 
   if (roleForGate === 'student') {
-    _renderHeartTaleLockGate();
+    // 82차 Phase 6: 수업 모드('class')는 자물쇠 우회 — 진입 즉시 표지(0)
+    if (STATE._htpMode === 'class') {
+      STATE._htpLocked = false;
+      _renderHeartTalePage(0);
+    } else {
+      _renderHeartTaleLockGate();
+    }
   } else {
     // 교사·학부모: 열람 모드 자동 진입 (자물쇠 게이트 우회)
     STATE._htpMode = 'view';
@@ -18656,19 +18928,25 @@ async function renderTeacherTaleAlbum() {
   // 미리보기 모드 — 학생 28명 더미
   if (STATE.isPreview) {
     var previewStus = STATE._previewStudents || [];
-    sec.innerHTML = _buildTeacherTaleGridHTML(previewStus);
+    sec.innerHTML = _renderTaleAlbumHeader() + _buildTeacherTaleGridHTML(previewStus);
     return;
+  }
+  // 82차 Phase 6: 활성 차시 fetch (헤더 버튼 분기에 사용)
+  if (STATE.user && STATE.user.teacher_uid) {
+    try { STATE._heartTaleClassActive = await _fetchHeartTaleClassActive(STATE.user.teacher_uid); }
+    catch(e) { STATE._heartTaleClassActive = null; }
   }
   // 실제 — 본인 학급 학생 (STATE.students에 이미 로드돼 있음)
   var stus = STATE.students || [];
   if (!stus.length) {
-    sec.innerHTML = '<div style="color:var(--gray);text-align:center;padding:30px;font-size:13px">학급 학생 정보 불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div>';
+    sec.innerHTML = _renderTaleAlbumHeader() +
+      '<div style="color:var(--gray);text-align:center;padding:30px;font-size:13px">학급 학생 정보 불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div>';
     try {
       if (typeof loadStudents === 'function') await loadStudents();
       stus = STATE.students || [];
     } catch(e) { console.error('[TEACHER TALE LOAD STUS]', e && e.message ? e.message : e); }
   }
-  sec.innerHTML = _buildTeacherTaleGridHTML(stus);
+  sec.innerHTML = _renderTaleAlbumHeader() + _buildTeacherTaleGridHTML(stus);
 }
 
 function _buildTeacherTaleGridHTML(stus) {
