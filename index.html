@@ -3070,7 +3070,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
         <span style="font-size:11.5px;color:var(--gray)">앞표지·뒷표지 제외, 안쪽 종이 수예요<br>한 책 1권 = 종이 수만큼 주차 페이지 담기</span>
       </div>
       <div style="text-align:center;font-size:11.5px;color:var(--gray);margin-bottom:6px">아래에서 골라주세요</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:10px" id="bookNfcCountChips"></div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:10px" id="bookNfcCountChips"></div>
       <div style="text-align:center;font-size:11.5px;color:var(--gray);margin-bottom:6px">또는 직접 입력 (4 ~ 36장)</div>
       <div style="display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:8px">
         <input type="number" id="bookNfcCountInput" min="4" max="36" placeholder="예: 12" oninput="_renderBookCountHint(this.value)" style="width:88px;padding:8px 10px;border:1.5px solid var(--lgray);border-radius:10px;text-align:center;font-size:14px;font-weight:700;color:var(--navy)">
@@ -15860,19 +15860,17 @@ async function _setBookCountConfirm() {
     : ('✅ ' + n + '장으로 설정');
   toast(initToast);
 
-  // 백그라운드 GAS — students.book_nfc_count UPDATE
+  // 백그라운드 — Supabase RPC `rpc_set_book_count` (GAS 의존 0)
+  // students.book_nfc_count UPDATE + 활성 NFC release 트랜잭션 일관 처리
   try {
-    var res = await api('set_book_count', {
-      student_uid: c.student_uid,
-      count: n,
-      caller_role: STATE.user.role,
-      confirm_release_all: releaseAll
+    var d = await _sbRpc('rpc_set_book_count', {
+      p_student_uid: c.student_uid,
+      p_count: n,
+      p_release_all: releaseAll
     });
-    var d = res && res.data;
     if (!d || d.status !== 'OK') {
-      // HAS_ACTIVE_NFCS 처리: 클라이언트가 사전 confirm_release_all=false로 시도했는데 GAS가 활성 NFC 발견
+      // HAS_ACTIVE_NFCS — 활성 NFC 있는데 release_all=false로 시도. confirm 모달
       if (d && d.status === 'HAS_ACTIVE_NFCS') {
-        // UI 복구 후 confirm 모달
         c.count = prevCount;
         c.nfcs = prevNfcs;
         _renderBookNfcContent();
@@ -15882,7 +15880,6 @@ async function _setBookCountConfirm() {
           '책 페이지 수를 바꾸면 모두 해제돼요.\n계속할까요?',
           async function() {
             STATE._bookNfcReleaseAllOnNext = true;
-            // input 값 복구 후 재시도
             var inp2 = document.getElementById('bookNfcCountInput');
             if (inp2) inp2.value = n;
             await _setBookCountConfirm();
@@ -15899,10 +15896,10 @@ async function _setBookCountConfirm() {
       toast(_bookNfcStatusMessage(d && d.status, '', 0));
       return;
     }
-    // 서버에서 NFC 해제 처리됐을 수 있음 (releaseAll=true) — 정확한 상태로 다시 fetch
+    // RPC가 release한 NFC 있으면 정확한 상태로 다시 fetch
     if (d.released_count > 0) _loadBookNfcs(c.student_uid);
   } catch(e) {
-    console.error('[SET BOOK COUNT]', e && e.message ? e.message : e);
+    console.error('[SET BOOK COUNT RPC]', e && e.message ? e.message : e);
     c.count = prevCount;
     c.nfcs = prevNfcs;
     _renderBookNfcContent();
