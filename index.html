@@ -7948,8 +7948,10 @@ var PREVIEW_PRESETS = {
     ]
   },
   rainbow: {
-    pos:7, neu:6, neg:7, weather:'rainbow',
-    label:'🌈 감정 다양',
+    // 81차c: 무지개 = 부정을 거쳐 긍정 회복 흐름 (변쌤 명시 — 긍정 60%+) — 13/4/3 = 20 (28명 중 8명 미제출)
+    pos:13, neu:4, neg:3, weather:'rainbow',
+    label:'🌈 무지개',
+    // 워드클라우드는 _applyPreviewEmotionsByPreset이 학생 분배 micro로 동적 생성 (이 words 배열은 더 이상 사용 X — 호환 위해 보존)
     words: [
       {word:'설레는',   type:'positive', count:4},
       {word:'기쁜',     type:'positive', count:3},
