@@ -17891,17 +17891,23 @@ async function openAdminCrisisDetail() {
     }
 
     var todayStr = _todayKstStr();
-    // emotions 위기 판정: 최근 3개 검사 위해 안전하게 3일치 fetch (오늘 + 2일 전)
-    var threeDaysAgo = new Date(Date.now() + 9*3600000 - 2*86400000).toISOString().slice(0,10);
+    // 81차c v3: emotions fetch 범위 30일치 — RPC 알고리즘은 전체 history 학생별 최근 3개 검사
+    //   3일치만 받으면 결석·체크인 부족 학생 누락. 30일이면 활성 학생 거의 다 커버
+    var thirtyDaysAgo = new Date(Date.now() + 9*3600000 - 30*86400000).toISOString().slice(0,10);
 
     // 두 출처 병렬 fetch (Supabase 직접 — admin anon SELECT 가능)
+    // 81차c v2: select 컬럼 안전하게 줄임 (_sbGetStudentChatHistory 검증된 컬럼만 + crisis_flag)
+    //   PostgREST 400 함정 회피 — Supabase chat_log에 없는 컬럼(crisis_severity 등) 제거
+    // 81차c v3: chat_log filter — date 'like.' 패턴 (RPC와 동일 substring 매칭)
+    //   chat_log.date는 ISO 문자열(yyyy-MM-ddTHH:mm:ss...)이라 'eq.오늘'은 매칭 X.
+    //   PostgREST `*`는 SQL `%`로 자동 변환 → SQL: `date LIKE '2026-04-27%'`
     var results = await Promise.all([
       _sbFetch('chat_log', {
-        date: 'eq.' + todayStr,
+        date: 'like.' + todayStr + '*',
         crisis_flag: 'eq.Y',
-        select: 'log_uid,date,timestamp,student_uid,student_name,teacher_uid,crisis_severity,crisis_keyword,crisis_reason,dominant_keywords'
+        select: 'log_uid,date,student_uid,student_name,teacher_uid,crisis_flag,dominant_keywords'
       }).catch(function(e){ console.error('[ADMIN CRISIS chat_log]', e); return []; }),
-      _sbFetchEmotionsSince(threeDaysAgo, {
+      _sbFetchEmotionsSince(thirtyDaysAgo, {
         type: 'eq.checkin',
         select: 'student_uid,student_name,teacher_uid,timestamp,macro_emotion'
       }).catch(function(e){ console.error('[ADMIN CRISIS emotions]', e); return []; })
