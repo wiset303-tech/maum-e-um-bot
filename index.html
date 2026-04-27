@@ -1545,6 +1545,347 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .heart-tale-lock-sim:hover{ transform:translateY(-1px); box-shadow:0 4px 10px rgba(60,140,120,0.4); }
 .heart-tale-lock-sim:active{ transform:translateY(0) scale(.98); }
 
+/* 82차: 자물쇠 게이트 "기록 없이 열람할게요" 링크 (NFC = 기록 권한 verify, 열람은 자유) */
+.heart-tale-lock-readonly{
+  margin-top:14px;
+  background:none; border:none;
+  font-size:11.5px; color:#8a6a48;
+  text-decoration:underline; text-underline-offset:3px;
+  letter-spacing:-0.2px;
+  cursor:pointer;
+  opacity:.75;
+  transition:opacity .2s;
+}
+.heart-tale-lock-readonly:hover{ opacity:1; color:#5a3a1a; }
+
+/* 82차 Phase 3: 마음동화 빈 주차 「+ 마음 기록하기」 큰 버튼 */
+.heart-tale-record-cta{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:6px;
+  width:100%; height:100%;
+  background:linear-gradient(135deg, rgba(126,214,192,0.10) 0%, rgba(92,196,173,0.18) 100%);
+  border:2px dashed rgba(60,140,120,0.45);
+  border-radius:12px;
+  cursor:pointer;
+  transition:transform .2s, background .2s, border-color .2s;
+  padding:12px;
+}
+.heart-tale-record-cta:hover{
+  transform:translateY(-2px);
+  background:linear-gradient(135deg, rgba(126,214,192,0.18) 0%, rgba(92,196,173,0.28) 100%);
+  border-color:rgba(60,140,120,0.7);
+}
+.heart-tale-record-cta:active{ transform:translateY(0) scale(.98); }
+.ht-cta-plus{
+  font-size:42px; font-weight:300; color:#5cc4ad; line-height:1;
+  margin-bottom:4px;
+}
+.ht-cta-text{
+  font-size:15px; font-weight:700; color:#3a7a6a;
+  letter-spacing:-0.3px;
+}
+.ht-cta-sub{
+  font-size:11px; color:#7a9a8a;
+  letter-spacing:-0.2px;
+  word-break:keep-all;
+}
+
+/* 82차 Phase 3: 기록된 페이지 수정·삭제 버튼 */
+.heart-tale-record-actions{
+  display:flex; gap:8px; justify-content:center;
+  margin-top:10px;
+}
+.ht-rec-btn{
+  border:none;
+  font-size:11.5px; font-weight:600;
+  padding:6px 14px; border-radius:14px;
+  cursor:pointer;
+  letter-spacing:-0.2px;
+  transition:transform .15s, box-shadow .15s;
+}
+.ht-rec-btn:hover{ transform:translateY(-1px); box-shadow:0 3px 8px rgba(0,0,0,0.12); }
+.ht-rec-btn:active{ transform:translateY(0); }
+.ht-rec-edit{
+  background:linear-gradient(135deg, #7ed6c0, #5cc4ad);
+  color:#fff;
+}
+.ht-rec-delete{
+  background:#fff;
+  color:#c0392b;
+  border:1px solid #f0c4be;
+}
+
+/* 82차 Phase 3: 기록 모달 (z-index:3300, 마음동화 모달 3200 위에) */
+#modal-heart-tale-record{ perspective:1500px; }
+.ht-rec-modal-box{
+  background:#fff;
+  border-radius:24px;
+  max-width:480px;
+  width:92%;
+  margin:auto;
+  padding:22px 22px 18px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.3);
+  animation:popIn .25s cubic-bezier(.2,.9,.3,1.2);
+  position:relative;
+}
+.ht-rec-title{
+  font-size:16px; font-weight:700;
+  color:var(--navy);
+  letter-spacing:-0.3px;
+  margin-bottom:4px;
+  text-align:center;
+}
+.ht-rec-week-label{
+  font-size:12px; color:var(--mint2); font-weight:600;
+  text-align:center; margin-bottom:14px;
+}
+.ht-rec-photo-area{
+  background:#fafaf6;
+  border:2px dashed #d6d4ce;
+  border-radius:14px;
+  min-height:180px;
+  display:flex; align-items:center; justify-content:center;
+  position:relative;
+  overflow:hidden;
+  margin-bottom:12px;
+}
+.ht-rec-photo-area img{
+  max-width:100%; max-height:240px; object-fit:contain; border-radius:10px;
+}
+.ht-rec-photo-empty{
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+  color:#999; font-size:12px;
+  padding:18px;
+  text-align:center;
+}
+.ht-rec-photo-empty .ht-rec-emoji{ font-size:36px; opacity:.6; }
+.ht-rec-photo-buttons{
+  display:flex; gap:8px;
+  margin-bottom:12px;
+}
+.ht-rec-photo-btn{
+  flex:1;
+  background:#f4f1ea; border:1px solid #e6e1d6;
+  font-size:12.5px; font-weight:600; color:var(--navy);
+  padding:9px 12px; border-radius:12px;
+  cursor:pointer;
+  letter-spacing:-0.2px;
+  transition:background .15s;
+}
+.ht-rec-photo-btn:hover{ background:#ece6d6; }
+.ht-rec-photo-btn.has-photo{
+  background:#fff;
+}
+.ht-rec-text-area{
+  width:100%;
+  min-height:70px;
+  padding:10px 12px;
+  border:1px solid #e6e1d6; border-radius:12px;
+  font-size:13.5px; line-height:1.5;
+  color:var(--navy);
+  resize:vertical;
+  font-family:'Noto Sans KR', sans-serif;
+  letter-spacing:-0.2px;
+  margin-bottom:12px;
+  box-sizing:border-box;
+}
+.ht-rec-text-area:focus{
+  outline:none;
+  border-color:var(--mint2);
+  box-shadow:0 0 0 3px rgba(78,205,180,0.15);
+}
+.ht-rec-actions{
+  display:flex; gap:8px; justify-content:flex-end;
+  margin-top:6px;
+}
+.ht-rec-action{
+  padding:9px 18px; border-radius:14px;
+  font-size:13px; font-weight:600;
+  border:none; cursor:pointer;
+  letter-spacing:-0.2px;
+  transition:transform .15s, box-shadow .15s;
+}
+.ht-rec-action:hover{ transform:translateY(-1px); }
+.ht-rec-cancel{
+  background:#f4f1ea; color:var(--navy);
+}
+.ht-rec-save{
+  background:linear-gradient(135deg, #7ed6c0, #5cc4ad);
+  color:#fff;
+  box-shadow:0 2px 8px rgba(60,140,120,0.3);
+}
+.ht-rec-save:disabled{
+  opacity:.5; cursor:not-allowed;
+  transform:none;
+}
+
+/* 82차 Phase 4: 사진 자르기 모달 (자동 외곽선 검출 + 4 모서리 드래그 보정) */
+#modal-heart-tale-crop{ perspective:1500px; }
+.ht-crop-modal-box{
+  background:#fff;
+  border-radius:24px;
+  max-width:520px;
+  width:94%;
+  margin:auto;
+  padding:18px 18px 16px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.3);
+  animation:popIn .25s cubic-bezier(.2,.9,.3,1.2);
+  position:relative;
+}
+.ht-crop-title{
+  font-size:16px; font-weight:700;
+  color:var(--navy);
+  letter-spacing:-0.3px;
+  text-align:center;
+  margin-bottom:4px;
+}
+.ht-crop-sub{
+  font-size:12px; color:var(--gray);
+  text-align:center;
+  letter-spacing:-0.2px;
+  margin-bottom:12px;
+  word-break:keep-all;
+}
+.ht-crop-stage{
+  position:relative;
+  background:#1a1a1a;
+  border-radius:14px;
+  overflow:hidden;
+  margin-bottom:12px;
+  user-select:none;
+  -webkit-user-select:none;
+  touch-action:none;
+}
+.ht-crop-stage canvas{
+  display:block;
+  width:100%; height:auto;
+}
+.ht-crop-overlay{
+  position:absolute; top:0; left:0; right:0; bottom:0;
+  pointer-events:none;
+}
+.ht-crop-mask{
+  position:absolute;
+  background:rgba(0,0,0,0.55);
+  pointer-events:none;
+}
+.ht-crop-box{
+  position:absolute;
+  border:2px solid #5cc4ad;
+  box-shadow:0 0 0 9999px rgba(0,0,0,0) inset;
+  cursor:move;
+  pointer-events:auto;
+  touch-action:none;
+}
+.ht-crop-handle{
+  position:absolute;
+  width:28px; height:28px;
+  background:#fff;
+  border:3px solid #5cc4ad;
+  border-radius:50%;
+  margin:-14px 0 0 -14px;
+  box-shadow:0 2px 6px rgba(0,0,0,0.4);
+  cursor:grab;
+  pointer-events:auto;
+  touch-action:none;
+  transition:transform .1s;
+}
+.ht-crop-handle:active{ cursor:grabbing; transform:scale(1.15); }
+.ht-crop-actions{
+  display:flex; gap:8px; flex-wrap:wrap;
+  margin-top:6px;
+}
+.ht-crop-btn{
+  padding:9px 14px; border-radius:14px;
+  font-size:12.5px; font-weight:600;
+  border:none; cursor:pointer;
+  letter-spacing:-0.2px;
+  transition:transform .15s, box-shadow .15s;
+}
+.ht-crop-btn:hover{ transform:translateY(-1px); }
+.ht-crop-btn-cancel{
+  background:#f4f1ea; color:var(--navy);
+  flex:0 0 auto;
+}
+.ht-crop-btn-original{
+  background:#fff; color:var(--navy);
+  border:1px solid #e6e1d6;
+  flex:0 0 auto;
+}
+.ht-crop-btn-redetect{
+  background:#fff8e6; color:#a37200;
+  border:1px solid #ffe6a3;
+  flex:0 0 auto;
+}
+.ht-crop-btn-confirm{
+  background:linear-gradient(135deg, #7ed6c0, #5cc4ad);
+  color:#fff;
+  box-shadow:0 2px 8px rgba(60,140,120,0.3);
+  flex:1;
+  font-size:13px; font-weight:700;
+}
+
+/* 82차: 교사 마음앨범 「📖 마음동화」 탭 — 학생별 책 썸네일 그리드 */
+.tale-book-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(106px, 1fr));
+  gap:14px;
+  padding:6px 2px 14px;
+}
+.tale-book-item{
+  position:relative;
+  cursor:pointer;
+  transition:transform .25s cubic-bezier(.2,.8,.2,1), filter .25s;
+}
+.tale-book-item:hover{ transform:translateY(-3px); filter:drop-shadow(0 4px 8px rgba(60,40,20,0.14)); }
+.tale-book-cover{
+  background:linear-gradient(135deg, #faf6ed 0%, #f3e8d0 100%);
+  border-radius:3px 12px 12px 3px;
+  padding:14px 10px 10px 16px;
+  box-shadow:0 2px 5px rgba(60,40,20,0.10), 0 8px 18px rgba(60,40,20,0.07);
+  min-height:128px;
+  display:flex; flex-direction:column;
+  position:relative;
+  overflow:hidden;
+}
+.tale-book-cover::before{
+  /* 왼쪽 책등 음영 */
+  content:'';
+  position:absolute; top:0; bottom:0; left:0;
+  width:7px;
+  background:linear-gradient(90deg, rgba(90,60,30,0.30) 0%, rgba(90,60,30,0.10) 70%, transparent 100%);
+  pointer-events:none;
+}
+.tale-book-cover::after{
+  /* 우측 상단 페이지 모서리 */
+  content:'';
+  position:absolute; top:0; right:0;
+  width:18px; height:18px;
+  background:linear-gradient(225deg, transparent 48%, rgba(0,0,0,0.06) 50%, rgba(255,255,255,0.85) 52%, #faf6ed 100%);
+  filter:drop-shadow(-1px 1px 2px rgba(60,40,20,0.10));
+  pointer-events:none;
+}
+.tale-book-num{ font-size:11px; color:var(--gray); font-weight:600; }
+.tale-book-name{
+  font-size:13.5px; font-weight:700; color:var(--navy);
+  letter-spacing:-0.3px;
+  margin-top:3px; flex:1;
+  word-break:keep-all;
+}
+.tale-book-progress{
+  font-size:10.5px; color:var(--mint2); font-weight:600;
+  margin-top:5px; letter-spacing:-0.2px;
+}
+.tale-book-rainbow{
+  display:flex; gap:2px;
+  margin-top:7px;
+}
+.tale-book-rainbow span{
+  flex:1; height:5px;
+  border-radius:1px;
+  opacity:0.85;
+}
+
 /* 페이지 카드 (왼쪽) — padding 0 (inner에 padding) */
 .heart-tale-card{
   flex:1; min-width:0;
@@ -3697,6 +4038,58 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <button id="htp-prev-btn" onclick="_navHeartTalePage(-1)" aria-label="이전">◀</button>
       <span class="heart-tale-week-indicator" id="htp-week-indicator">— / 36주차</span>
       <button id="htp-next-btn" onclick="_navHeartTalePage(1)" aria-label="다음">▶</button>
+    </div>
+  </div>
+</div>
+
+<!-- 82차 Phase 3: 마음동화 페이지 기록·수정 모달 (z-index:3300, 마음동화 모달 위) -->
+<div id="modal-heart-tale-record" class="modal-overlay hidden" style="z-index:3300" onclick="closeModalOutside(event,'modal-heart-tale-record')">
+  <div class="ht-rec-modal-box" onclick="event.stopPropagation()">
+    <div class="ht-rec-title" id="htRecTitle">마음 기록하기</div>
+    <div class="ht-rec-week-label" id="htRecWeekLabel">— 주차</div>
+    <div class="ht-rec-photo-area" id="htRecPhotoArea">
+      <div class="ht-rec-photo-empty" id="htRecPhotoEmpty">
+        <span class="ht-rec-emoji">📷</span>
+        <span>아래 버튼으로 사진을 골라주세요</span>
+      </div>
+    </div>
+    <div class="ht-rec-photo-buttons">
+      <button class="ht-rec-photo-btn" onclick="_htpPickPhoto()">📷 사진 고르기</button>
+      <button class="ht-rec-photo-btn" id="htRecPhotoRemoveBtn" onclick="_htpClearPhoto()" style="display:none">🗑 사진 지우기</button>
+    </div>
+    <input type="file" id="htRecPhotoInput" accept="image/*" style="display:none" onchange="_htpOnPhotoSelected(this)">
+    <textarea class="ht-rec-text-area" id="htRecTextInput" placeholder="이번 주 마음을 한 줄 글로 남겨보세요" maxlength="200"></textarea>
+    <div class="ht-rec-actions">
+      <button class="ht-rec-action ht-rec-cancel" onclick="closeModal('modal-heart-tale-record')">취소</button>
+      <button class="ht-rec-action ht-rec-save" id="htRecSaveBtn" onclick="_htpSaveRecord()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 82차 Phase 4: 사진 자르기 모달 (자동 외곽선 검출 + 4 모서리 드래그 보정, z-index:3400) -->
+<div id="modal-heart-tale-crop" class="modal-overlay hidden" style="z-index:3400" onclick="closeModalOutside(event,'modal-heart-tale-crop')">
+  <div class="ht-crop-modal-box" onclick="event.stopPropagation()">
+    <div class="ht-crop-title">사진 자르기</div>
+    <div class="ht-crop-sub">네 귀퉁이를 손가락으로 옮겨서 조정할 수 있어요</div>
+    <div class="ht-crop-stage" id="htCropStage">
+      <canvas id="htCropCanvas"></canvas>
+      <div class="ht-crop-overlay" id="htCropOverlay">
+        <div class="ht-crop-mask" id="htCropMaskTop"></div>
+        <div class="ht-crop-mask" id="htCropMaskBottom"></div>
+        <div class="ht-crop-mask" id="htCropMaskLeft"></div>
+        <div class="ht-crop-mask" id="htCropMaskRight"></div>
+        <div class="ht-crop-box" id="htCropBox"></div>
+        <div class="ht-crop-handle" id="htCropHandleTL" data-corner="tl"></div>
+        <div class="ht-crop-handle" id="htCropHandleTR" data-corner="tr"></div>
+        <div class="ht-crop-handle" id="htCropHandleBL" data-corner="bl"></div>
+        <div class="ht-crop-handle" id="htCropHandleBR" data-corner="br"></div>
+      </div>
+    </div>
+    <div class="ht-crop-actions">
+      <button class="ht-crop-btn ht-crop-btn-cancel" onclick="closeModal('modal-heart-tale-crop')">취소</button>
+      <button class="ht-crop-btn ht-crop-btn-original" onclick="_htpCropResetOriginal()">원본 그대로</button>
+      <button class="ht-crop-btn ht-crop-btn-redetect" onclick="_htpCropAutoDetect()">다시 자동</button>
+      <button class="ht-crop-btn ht-crop-btn-confirm" onclick="_htpCropConfirm()">이대로 잘라주기</button>
     </div>
   </div>
 </div>
@@ -6369,6 +6762,13 @@ async function handleNfcUid(uid) {
   var _bookNfcModal = document.getElementById('modal-book-nfc-register');
   if (_bookNfcModal && !_bookNfcModal.classList.contains('hidden') && STATE._bookNfcAwait) {
     _handleBookNfcTagged(uid);
+    return;
+  }
+
+  // 82차: 마음동화 펼치기 모달이 열려있고 자물쇠 잠금 중이면 → 마음동화 NFC 분기 (학생만)
+  var _heartTaleModal = document.getElementById('modal-heart-tale-page');
+  if (_heartTaleModal && !_heartTaleModal.classList.contains('hidden') && STATE._htpLocked && STATE.role === 'student') {
+    _handleHeartTaleNfc(uid);
     return;
   }
 
@@ -13171,12 +13571,32 @@ function buildParentUI() {
 
 function parentDashboardHTML() {
   var u = STATE.user || {};
+  var sname = _escHtml(u.student_name || '자녀');
   return '<div style="padding:4px 0">' +
     '<div class="card" style="margin-bottom:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;border-left:4px solid var(--mint)">' +
       '<div style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--mint3),var(--mint));display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 2px 8px rgba(78,205,180,0.25)">👦</div>' +
       '<div>' +
-        '<div style="font-weight:700;font-size:15px;color:var(--navy)">' + (u.student_name || '') + '</div>' +
-        '<div style="font-size:12px;color:var(--gray)">' + (u.school_name || '') + '</div>' +
+        '<div style="font-weight:700;font-size:15px;color:var(--navy)">' + sname + '</div>' +
+        '<div style="font-size:12px;color:var(--gray)">' + _escHtml(u.school_name || '') + '</div>' +
+      '</div>' +
+    '</div>' +
+    // 82차: 자녀 마음동화 진입 카드 (학생 첫 화면 카드와 대칭, NFC 없이 열람 모드)
+    '<div class="heart-tale-entry" onclick="openHeartTalePage()">' +
+      '<div class="heart-tale-entry-row">' +
+        '<div class="heart-tale-entry-emoji">📖</div>' +
+        '<div class="heart-tale-entry-text">' +
+          '<div class="heart-tale-entry-title">' + sname + ' 마음동화</div>' +
+          '<div class="heart-tale-entry-sub">자녀가 한 주 한 주 채워가는 마음 이야기</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="heart-tale-entry-rainbow">' +
+        '<span style="background:#D9455F"></span>' +
+        '<span style="background:#E67E22"></span>' +
+        '<span style="background:#C9A227"></span>' +
+        '<span style="background:#2E8B57"></span>' +
+        '<span style="background:#1E6FB8"></span>' +
+        '<span style="background:#1A237E"></span>' +
+        '<span style="background:#6A3DB5"></span>' +
       '</div>' +
     '</div>' +
     '<div class="card" style="margin-bottom:12px">' +
@@ -15544,6 +15964,15 @@ function _buildWeekRainbow(rainbow, sealed, mode) {
 // ───── 페이지 HTML 빌더 (표지 0 / 주차 1~36 분기) ─────
 function _buildHeartTalePageHTML(week_no) {
   if (week_no === 0) return _buildHeartTaleCoverHTML();
+  // 82차 Phase 3: 미리보기 vs 실 모드 분기
+  if (STATE.isPreview || !STATE.user) {
+    return _buildHeartTalePagePreviewHTML(week_no);
+  }
+  return _buildHeartTalePageRealHTML(week_no);
+}
+
+// 80차 미리보기 페이지 (이전 _buildHeartTalePageHTML 본문 그대로 — 회귀 0건 보장)
+function _buildHeartTalePagePreviewHTML(week_no) {
   var key = STATE._htpStudentUid || 'me';
   var pages = STATE._previewHeartTale && STATE._previewHeartTale[key];
   if (!pages) return '';
@@ -15582,6 +16011,101 @@ function _buildHeartTalePageHTML(week_no) {
   html += '</div>';
   html += '<div class="heart-tale-week-range">' + week_no + '주차: ' + _heartTaleWeekRange(week_no) + '</div>';
   return html;
+}
+
+// 82차 Phase 3: 실 모드 페이지 — STATE._htpPages 기반
+//   record + 내 묶음 + 빈 주차 → 큰 「+ 마음 기록하기」 버튼
+//   record + 내 묶음 + 기록된 주차 → 사진+글 + 「✏️ 수정」 + 「🗑 지우기」
+//   record + 다른 묶음 → "다른 카드로 기록할 수 있는 마음동화예요." 안내 + 빈/기록 열람만
+//   view → 모든 페이지 열람만
+function _buildHeartTalePageRealHTML(week_no) {
+  var word = _PV_HEART_TALE_WORDS[(week_no - 1) % _PV_HEART_TALE_WORDS.length];
+  var pages = STATE._htpPages || {};
+  var row = pages[week_no];
+  var hasRecord = !!(row && row.recorded_at);
+  var canRecord = _htpIsMyRecordWeek(week_no);     // record 모드 + 내 묶음
+  var isOtherSeq = (STATE._htpMode === 'record') && !canRecord;  // 다른 묶음
+
+  var html = '';
+  html += '<div class="heart-tale-meta">' + week_no + '주차</div>';
+  html += '<div class="heart-tale-meta-divider"></div>';
+  html += '<h2 class="heart-tale-week-word">' + _escHtml(word) + '</h2>';
+
+  if (hasRecord) {
+    // 기록된 주차 — 사진 + 글 + 마음봇 한 줄
+    var photoUrl = row.thumb_url || row.photo_url || '';
+    var photoSrc = _htpResolvePhotoSrc(photoUrl);
+    html += '<div class="heart-tale-photo-wrap" style="background:#fff">';
+    if (photoSrc) {
+      html += '<img src="' + _escHtml(photoSrc) + '" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:8px">';
+    } else {
+      html += '<div class="heart-tale-photo-placeholder"><span style="font-size:36px;opacity:.4">📷</span></div>';
+    }
+    html += '</div>';
+    if (row.student_text) {
+      html += '<div class="heart-tale-handwritten">' + _escHtml(row.student_text) + '</div>';
+    }
+    if (row.bot_line) {
+      html += '<div class="heart-tale-bot-row">';
+      html += '<div class="heart-tale-bot-avatar" aria-hidden="true"></div>';
+      html += '<div class="heart-tale-bot-bubble">' + _escHtml(row.bot_line) + '</div>';
+      html += '</div>';
+    }
+    // record 모드 + 내 묶음만 수정·삭제 버튼
+    if (canRecord) {
+      html += '<div class="heart-tale-record-actions">';
+      html += '<button class="ht-rec-btn ht-rec-edit" onclick="_htpOpenRecordModal(' + week_no + ')">✏️ 수정</button>';
+      html += '<button class="ht-rec-btn ht-rec-delete" onclick="_htpConfirmDelete(' + week_no + ')">🗑 지우기</button>';
+      html += '</div>';
+    }
+  } else {
+    // 빈 주차
+    if (canRecord) {
+      // 큰 「+ 마음 기록하기」 버튼
+      html += '<div class="heart-tale-photo-wrap" style="background:rgba(255,255,255,0.4)">';
+      html += '<button class="heart-tale-record-cta" onclick="_htpOpenRecordModal(' + week_no + ')">';
+      html += '<span class="ht-cta-plus">＋</span>';
+      html += '<span class="ht-cta-text">마음 기록하기</span>';
+      html += '<span class="ht-cta-sub">사진과 한 줄 글로 채워보세요</span>';
+      html += '</button>';
+      html += '</div>';
+    } else if (isOtherSeq) {
+      html += '<div class="heart-tale-photo-wrap" style="background:rgba(255,255,255,0.4)">';
+      html += '<div class="heart-tale-photo-placeholder">';
+      html += '<span style="font-size:36px;opacity:.4">📖</span>';
+      html += '<span class="htp-ph-label" style="word-break:keep-all">다른 카드로 기록할 수 있는<br>마음동화예요.</span>';
+      html += '</div></div>';
+    } else {
+      // view 모드 빈 주차
+      html += '<div class="heart-tale-photo-wrap" style="background:rgba(255,255,255,0.4)">';
+      html += '<div class="heart-tale-photo-placeholder">';
+      html += '<span style="font-size:36px;opacity:.4">📖</span>';
+      html += '<span class="htp-ph-label">아직 채우지 않은 페이지예요</span>';
+      html += '</div></div>';
+      html += '<div style="text-align:center;color:#8a6a48;font-size:11.5px;line-height:1.5;padding:8px 0;word-break:keep-all">이 주의 마음 페이지는 아직 비어 있어요</div>';
+    }
+  }
+
+  // 무지개바 (실 모드는 일단 회색 placeholder — 추후 감정 분포 연결 시 색 채움)
+  html += '<div class="heart-tale-rainbow-label">한 주의 마음 무지개</div>';
+  html += '<div class="heart-tale-rainbow-bar">' + _buildWeekRainbow([1,2,3,4,5,6,7], hasRecord, 'full') + '</div>';
+  html += '<div class="heart-tale-rainbow-domains">';
+  for (var di = 0; di < 7; di++) {
+    html += '<span>' + _HEART_DOMAIN_LABELS[di] + '</span>';
+  }
+  html += '</div>';
+  html += '<div class="heart-tale-week-range">' + week_no + '주차: ' + _heartTaleWeekRange(week_no) + '</div>';
+  return html;
+}
+
+// photo_url 해석 — Drive file_id면 thumbnail URL로 변환, base64면 그대로
+function _htpResolvePhotoSrc(photoUrl) {
+  if (!photoUrl) return '';
+  var s = String(photoUrl);
+  if (s.indexOf('data:image/') === 0) return s;
+  if (s.indexOf('http') === 0) return s;
+  // Drive file_id → 썸네일 URL
+  return 'https://lh3.googleusercontent.com/d/' + s + '=w500';
 }
 
 // 표지 빌더 — 학생 프로필 원형 (있으면 image, 없으면 placeholder 이모지) + "○○의 마음동화"
@@ -15623,7 +16147,9 @@ function _renderHeartTalePage(week_no) {
   _renderHeartTaleSpine();
 }
 
-// ───── 자물쇠 잠금해제 게이트 (NFC 인증 페이지) ─────
+// ───── 자물쇠 잠금해제 게이트 (NFC = 기록 권한 verify) ─────
+// 82차 정책: NFC 갖다 대면 → 기록 모드 (그 카드 담당 묶음만 기록·수정·삭제 가능)
+//             "기록 없이 열람할게요" 링크 → 열람 모드 (모든 페이지 열람만)
 function _buildHeartTaleLockGateHTML() {
   var html = '<div class="heart-tale-lock-gate">';
   html += '<div class="heart-tale-lock-wrap">';
@@ -15635,10 +16161,15 @@ function _buildHeartTaleLockGateHTML() {
   html += '<div class="heart-tale-lock-body">';
   html += '<div class="heart-tale-lock-keyhole"></div>';
   html += '</div></div></div>';
-  html += '<div class="heart-tale-lock-msg">마음동화 스티커를 인식합니다</div>';
-  html += '<div class="heart-tale-lock-sub">내 마음동화는 나만 펼쳐요</div>';
+  html += '<div class="heart-tale-lock-msg">마음동화 카드를 갖다 대 주세요</div>';
+  html += '<div class="heart-tale-lock-sub">기록하려면 내 마음동화 카드가 필요해요</div>';
   html += '<div class="heart-tale-lock-error-msg" id="htpLockErrorMsg"></div>';
-  html += '<button class="heart-tale-lock-sim" onclick="_htpSimulateUnlock()">🌈 (미리보기) 카드 인식 시뮬</button>';
+  // 미리보기 모드에서만 NFC 인식 시뮬 버튼 노출 (실 사용은 카드 태깅 대기)
+  if (STATE.isPreview || !STATE.user) {
+    html += '<button class="heart-tale-lock-sim" onclick="_htpSimulateUnlock()">🌈 (미리보기) 카드 인식 시뮬</button>';
+  }
+  // 82차: "기록 없이 열람할게요" 작은 링크 — 열람 모드 진입 (NFC 없이 펼침)
+  html += '<button class="heart-tale-lock-readonly" onclick="_htpEnterReadOnly()">기록 없이 열람할게요</button>';
   html += '</div>';
   return html;
 }
@@ -15663,9 +16194,623 @@ function _renderHeartTaleLockGate() {
 }
 
 // 미리보기 시뮬 — 사용자 클릭 트리거 (실 사용 시 NFC 카드 태깅이 _unlockHeartTale 호출)
+// 82차 정책: 시뮬 = 기록 모드 진입 (실 사용에서도 NFC 갖다 대면 동일 흐름)
 function _htpSimulateUnlock() {
   if (!STATE._htpLocked) return;
+  STATE._htpMode = 'record';   // 미리보기는 단일 NFC seq 가정 → 1번 묶음 진입
+  STATE._htpRecordSeq = 1;
   _unlockHeartTale();
+}
+
+// 82차: "기록 없이 열람할게요" 링크 — NFC 없이 열람 모드 진입
+function _htpEnterReadOnly() {
+  if (!STATE._htpLocked) return;
+  STATE._htpMode = 'view';     // 열람 모드 — 모든 페이지 열람만
+  STATE._htpRecordSeq = null;
+  _unlockHeartTale();
+}
+
+// 82차: 학생 자물쇠 게이트에서 NFC 카드 인식 → 매칭 분기
+//   ✅ 본인 활성 마음동화 카드 → 그 카드 담당 묶음(seq) 진입, 기록 모드
+//   ❌ 본인 등교 카드 → "이건 등교 카드예요" 안내
+//   ❌ 그 외 → "내 마음동화 카드가 아니에요" 안내
+async function _handleHeartTaleNfc(uid) {
+  if (!uid || !STATE.user || !STATE.user.student_uid) return;
+  var errEl = document.getElementById('htpLockErrorMsg');
+  if (errEl) errEl.textContent = '카드 확인 중...';
+
+  var normUid = (typeof _normalizeNfc === 'function') ? _normalizeNfc(uid) : uid;
+  var myUid = STATE.user.student_uid;
+
+  try {
+    // 본인 활성 마음동화 NFC 조회 (Supabase 직접 — 빠른 경로)
+    var bookNfcs = await _sbFetch('student_book_nfc', {
+      student_uid: 'eq.' + myUid,
+      released_at: 'is.null',
+      select: 'bind_uid,seq,nfc_uid'
+    });
+
+    var matched = null;
+    for (var i = 0; i < (bookNfcs || []).length; i++) {
+      if (_normalizeNfc(bookNfcs[i].nfc_uid) === normUid) {
+        matched = bookNfcs[i];
+        break;
+      }
+    }
+
+    if (matched) {
+      // ✅ 본인 마음동화 카드 매칭 → 기록 모드 진입
+      try { AUDIO.sfx('nfc'); } catch(e) {}
+      STATE._htpMode = 'record';
+      STATE._htpRecordSeq = parseInt(matched.seq, 10) || 1;
+      // 책 페이지 수도 미리 캐싱 (페이지 묶음 판정에 필요) — 페이지 fetch는 openHeartTalePage에서 이미 호출됨
+      try { await _htpFetchBookCount(myUid); } catch(e) {}
+      if (errEl) errEl.textContent = '';
+      _unlockHeartTale();
+      return;
+    }
+
+    // ❌ 본인 등교 카드인지 판별
+    var myAttendUid = STATE.user.nfc_uid ? _normalizeNfc(STATE.user.nfc_uid) : '';
+    if (myAttendUid && myAttendUid === normUid) {
+      if (errEl) errEl.textContent = '이건 등교 카드예요 (마음동화 카드가 따로 있어요)';
+      return;
+    }
+
+    // ❌ 그 외
+    if (errEl) errEl.textContent = '내 마음동화 카드가 아니에요';
+  } catch(e) {
+    console.error('[HT NFC]', e && e.message ? e.message : e);
+    if (errEl) errEl.textContent = '카드 확인이 잘 안돼요. 다시 시도해 주세요';
+  }
+}
+
+// ════════════════════════════════════════
+// 82차 Phase 3: 마음동화 페이지 데이터 — 실 모드 (Supabase weekly_book)
+//   STATE._htpPages       = { 1: {page row}, 2: null, ..., 36: {...} } (1-based, null = 빈 주차)
+//   STATE._htpBookCount   = 책 페이지 수 (학생이 마음동화 카드 N장 등록 시점에 설정)
+//   STATE._htpMode        = 'record' | 'view'
+//   STATE._htpRecordSeq   = N (기록 가능 묶음 seq, view 모드에선 null)
+// ════════════════════════════════════════
+
+// 학생 본인 weekly_book 36행 일괄 fetch → STATE._htpPages 캐싱
+async function _htpFetchPages(student_uid) {
+  if (!student_uid) { STATE._htpPages = null; return; }
+  try {
+    var rows = await _sbFetch('weekly_book', {
+      student_uid: 'eq.' + student_uid,
+      select: 'page_uid,week_no,word,photo_url,thumb_url,student_text,bot_line,recorded_at,recorded_by_nfc_uid'
+    });
+    var byWeek = {};
+    for (var i = 0; i < (rows || []).length; i++) {
+      var r = rows[i];
+      var w = parseInt(r.week_no, 10);
+      if (w >= 1 && w <= HEART_TALE_TOTAL_WEEKS) byWeek[w] = r;
+    }
+    STATE._htpPages = byWeek;
+  } catch(e) {
+    console.error('[HT FETCH PAGES]', e && e.message ? e.message : e);
+    STATE._htpPages = {};
+  }
+}
+
+// 학생 본인 책 페이지 수 (students.book_nfc_count) 1회 fetch
+async function _htpFetchBookCount(student_uid) {
+  if (!student_uid) { STATE._htpBookCount = 0; return; }
+  try {
+    var rows = await _sbFetch('students', {
+      student_uid: 'eq.' + student_uid,
+      select: 'book_nfc_count',
+      limit: '1'
+    });
+    if (rows && rows.length) {
+      STATE._htpBookCount = parseInt(rows[0].book_nfc_count, 10) || 0;
+    } else {
+      STATE._htpBookCount = 0;
+    }
+  } catch(e) {
+    console.error('[HT FETCH BOOK COUNT]', e && e.message ? e.message : e);
+    STATE._htpBookCount = 0;
+  }
+}
+
+// 카드 묶음 판정 — week_no가 어느 seq에 속하는지
+//   pageRange = ceil(36 / book_nfc_count). 1번 카드 = 1~pageRange, 2번 = pageRange+1 ~ 2*pageRange, ...
+function _htpSeqOfWeek(week_no) {
+  var count = parseInt(STATE._htpBookCount, 10) || 0;
+  if (count <= 0) return 0;
+  var range = Math.ceil(HEART_TALE_TOTAL_WEEKS / count);
+  return Math.ceil(week_no / range);
+}
+
+// 현재 모드/seq 기준으로 week_no가 내 기록 가능 묶음인지
+function _htpIsMyRecordWeek(week_no) {
+  if (STATE._htpMode !== 'record') return false;
+  if (!STATE._htpRecordSeq) return false;
+  return _htpSeqOfWeek(week_no) === parseInt(STATE._htpRecordSeq, 10);
+}
+
+// ════════════════════════════════════════
+// 82차 Phase 3: 마음동화 페이지 기록·수정·삭제
+//   STATE._htpRecordingWeek    = 현재 기록 중인 주차 (모달 열림 동안)
+//   STATE._htpRecordingPhotoB64 = 사진 base64 (사용자 선택분, 저장 시 GAS로 전송)
+//   STATE._htpRecordingExistingPhotoUrl = 기존 사진 (수정 시, 새 사진 안 골랐으면 유지)
+// ════════════════════════════════════════
+
+// 기록 모달 열기 (빈 주차 = 신규 / 기록된 주차 = 수정)
+function _htpOpenRecordModal(week_no) {
+  if (!_htpIsMyRecordWeek(week_no)) {
+    toast('이 주차는 기록할 수 없어요');
+    return;
+  }
+  STATE._htpRecordingWeek = week_no;
+  STATE._htpRecordingPhotoB64 = '';
+  STATE._htpRecordingExistingPhotoUrl = '';
+
+  var pages = STATE._htpPages || {};
+  var row = pages[week_no];
+  var isEdit = !!(row && row.recorded_at);
+
+  // 모달 필드 초기화
+  document.getElementById('htRecTitle').textContent = isEdit ? '마음 페이지 수정' : '마음 기록하기';
+  var word = _PV_HEART_TALE_WORDS[(week_no - 1) % _PV_HEART_TALE_WORDS.length];
+  document.getElementById('htRecWeekLabel').textContent = week_no + '주차 · ' + word;
+  document.getElementById('htRecTextInput').value = (row && row.student_text) ? row.student_text : '';
+
+  var photoArea = document.getElementById('htRecPhotoArea');
+  var photoEmpty = document.getElementById('htRecPhotoEmpty');
+  var removeBtn = document.getElementById('htRecPhotoRemoveBtn');
+  if (isEdit && row.photo_url) {
+    STATE._htpRecordingExistingPhotoUrl = row.photo_url;
+    var src = _htpResolvePhotoSrc(row.thumb_url || row.photo_url);
+    photoArea.innerHTML = '<img src="' + _escHtml(src) + '" alt="">';
+    if (removeBtn) removeBtn.style.display = '';
+  } else {
+    if (photoEmpty) photoArea.innerHTML = '<div class="ht-rec-photo-empty"><span class="ht-rec-emoji">📷</span><span>아래 버튼으로 사진을 골라주세요</span></div>';
+    if (removeBtn) removeBtn.style.display = 'none';
+  }
+  // 모달 열기
+  document.getElementById('modal-heart-tale-record').classList.remove('hidden');
+}
+
+// 사진 고르기 — 갤러리 (Phase 4에서 카메라 자동 crop 추가 예정)
+function _htpPickPhoto() {
+  var input = document.getElementById('htRecPhotoInput');
+  if (input) input.click();
+}
+
+// 사진 선택됨 — 1440px 리사이즈 후 자동 crop 모달 진입 (Phase 4)
+function _htpOnPhotoSelected(input) {
+  var f = input && input.files && input.files[0];
+  if (!f) return;
+  if (!f.type || f.type.indexOf('image/') !== 0) { toast('사진 파일만 올릴 수 있어요'); input.value = ''; return; }
+  // 1440px·q0.85 리사이즈 → crop 모달 열기 (자동 외곽선 검출 + 4 모서리 드래그)
+  _htpResizeImage(f, 1440, 0.85, function(b64) {
+    _htpOpenCropModal(b64);
+  });
+  input.value = '';  // 같은 파일 재선택 가능하게
+}
+
+// crop 모달이 확정 후 부르는 콜백 — 새 base64를 기록 모달 미리보기에 반영
+function _htpApplyCroppedPhoto(b64) {
+  STATE._htpRecordingPhotoB64 = b64;
+  var photoArea = document.getElementById('htRecPhotoArea');
+  if (photoArea) photoArea.innerHTML = '<img src="' + b64 + '" alt="">';
+  var removeBtn = document.getElementById('htRecPhotoRemoveBtn');
+  if (removeBtn) removeBtn.style.display = '';
+}
+
+// 사진 지우기 (모달 안에서만 — 저장은 별도)
+function _htpClearPhoto() {
+  STATE._htpRecordingPhotoB64 = '';
+  STATE._htpRecordingExistingPhotoUrl = '';
+  var photoArea = document.getElementById('htRecPhotoArea');
+  if (photoArea) photoArea.innerHTML = '<div class="ht-rec-photo-empty"><span class="ht-rec-emoji">📷</span><span>아래 버튼으로 사진을 골라주세요</span></div>';
+  var removeBtn = document.getElementById('htRecPhotoRemoveBtn');
+  if (removeBtn) removeBtn.style.display = 'none';
+}
+
+// 이미지 리사이즈 (Canvas) — 1440px·q0.85
+function _htpResizeImage(file, maxW, quality, cb) {
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onload = function() {
+      var w = img.width, h = img.height;
+      if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      try { cb(canvas.toDataURL('image/jpeg', quality)); }
+      catch(err) { console.error('[HT RESIZE]', err); cb(e.target.result); }
+    };
+    img.onerror = function() { cb(e.target.result); };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// 저장 — GAS save_book_page (Drive 업로드 + weekly_book INSERT/UPDATE + Sheets 미러)
+async function _htpSaveRecord() {
+  var week_no = STATE._htpRecordingWeek;
+  if (!week_no) return;
+  if (!STATE.user || !STATE.user.student_uid) { toast('학생 정보가 없어요'); return; }
+  var text = (document.getElementById('htRecTextInput').value || '').trim();
+  var newPhotoB64 = STATE._htpRecordingPhotoB64 || '';
+  var keepExisting = !newPhotoB64 && !!STATE._htpRecordingExistingPhotoUrl;
+
+  // 사진·글 둘 다 비어 있으면 막기
+  if (!newPhotoB64 && !keepExisting && !text) {
+    toast('사진이나 한 줄 글 중 하나는 채워주세요');
+    return;
+  }
+
+  var saveBtn = document.getElementById('htRecSaveBtn');
+  if (saveBtn) saveBtn.disabled = true;
+  showLoading('마음 페이지 저장 중이에요 📖');
+
+  try {
+    var word = _PV_HEART_TALE_WORDS[(week_no - 1) % _PV_HEART_TALE_WORDS.length];
+    var bot_line = _PV_HEART_TALE_BOT_LINES[Math.floor(Math.random() * _PV_HEART_TALE_BOT_LINES.length)];
+
+    var payload = {
+      student_uid: STATE.user.student_uid,
+      week_no: week_no,
+      word: word,
+      student_text: text,
+      bot_line: bot_line,
+      recorded_by_nfc_uid: '',  // 현재 verify된 카드 nfc_uid (아래에서 채움)
+      image_b64: newPhotoB64,   // GAS 키 이름과 일치 (saveBookPage)
+      keep_existing_photo: keepExisting ? 'Y' : 'N'
+    };
+
+    // 현재 verify된 카드 nfc_uid 채우기 (record 모드 진입 시 매칭된 카드)
+    try {
+      if (STATE._htpRecordSeq) {
+        var bookNfcs = await _sbFetch('student_book_nfc', {
+          student_uid: 'eq.' + STATE.user.student_uid,
+          seq: 'eq.' + STATE._htpRecordSeq,
+          released_at: 'is.null',
+          select: 'nfc_uid', limit: '1'
+        });
+        if (bookNfcs && bookNfcs.length) payload.recorded_by_nfc_uid = bookNfcs[0].nfc_uid || '';
+      }
+    } catch(e) {}
+
+    var res = await api('save_book_page', payload);
+    if (!res || res.status !== 'ok') {
+      throw new Error((res && res.message) || '저장 실패');
+    }
+
+    // 캐시 즉시 갱신 (낙관적 UI 대신 응답 받은 데이터 반영 — Drive file_id 필요)
+    var saved = res.data || {};
+    if (!STATE._htpPages) STATE._htpPages = {};
+    STATE._htpPages[week_no] = {
+      page_uid: saved.page_uid || (STATE._htpPages[week_no] && STATE._htpPages[week_no].page_uid) || '',
+      week_no: week_no,
+      word: word,
+      photo_url: saved.photo_url || (keepExisting ? STATE._htpRecordingExistingPhotoUrl : ''),
+      thumb_url: saved.thumb_url || '',
+      student_text: text,
+      bot_line: bot_line,
+      recorded_at: saved.recorded_at || (new Date()).toISOString(),
+      recorded_by_nfc_uid: payload.recorded_by_nfc_uid
+    };
+
+    closeModal('modal-heart-tale-record');
+    _renderHeartTalePage(week_no);  // 즉시 페이지 재렌더 + spine 갱신
+    try { AUDIO.sfx('save'); } catch(e) {}
+    toast('마음 페이지가 저장됐어요 📖');
+  } catch(e) {
+    console.error('[HT SAVE]', e && e.message ? e.message : e);
+    toast('저장이 안 됐어요. 다시 시도해 주세요');
+  } finally {
+    hideLoading();
+    if (saveBtn) saveBtn.disabled = false;
+  }
+}
+
+// 삭제 확인 (UPDATE 빈값 — recorded_at NULL, photo·text 비우기, Drive 파일 trash, row 보존)
+function _htpConfirmDelete(week_no) {
+  if (!_htpIsMyRecordWeek(week_no)) { toast('이 주차는 지울 수 없어요'); return; }
+  appConfirm({
+    title: '마음 페이지 지우기',
+    message: week_no + '주차 마음 페이지를 지울까요?<br>사진과 글 모두 사라져요.',
+    okText: '지우기',
+    cancelText: '취소',
+    onOk: function() { _htpDeleteRecord(week_no); }
+  });
+}
+
+// ════════════════════════════════════════
+// 82차 Phase 4: 사진 자르기 (자동 외곽선 검출 + 4 모서리 드래그 보정)
+//   STATE._htpCropImage     = HTMLImageElement (원본)
+//   STATE._htpCropRect      = { left, top, right, bottom } in image px
+//   STATE._htpCropDragCorner = 'tl'|'tr'|'bl'|'br'|'box' 드래그 중 식별
+//   STATE._htpCropDragStart  = { px, py, rect } 드래그 시작 시점 스냅샷
+// ════════════════════════════════════════
+
+// crop 모달 열기 — 사진 base64를 받아 canvas 그리고 자동 외곽선 검출 + 핸들 표시
+function _htpOpenCropModal(b64) {
+  var img = new Image();
+  img.onload = function() {
+    STATE._htpCropImage = img;
+    var canvas = document.getElementById('htCropCanvas');
+    if (!canvas) return;
+    canvas.width = img.width;
+    canvas.height = img.height;
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    // 자동 외곽선 검출 → 초기 crop rect
+    STATE._htpCropRect = _htpAutoDetectCropRect(canvas);
+    document.getElementById('modal-heart-tale-crop').classList.remove('hidden');
+    // 다음 frame에서 핸들 위치 그리기 (모달 표시 후 stage 크기 측정 가능)
+    requestAnimationFrame(function() {
+      _htpDrawCropOverlay();
+      _htpBindCropDrag();
+    });
+  };
+  img.onerror = function() {
+    toast('사진을 읽을 수 없어요');
+  };
+  img.src = b64;
+}
+
+// 자동 외곽선 검출 — 행/열 평균 밝기 기반 (단순 알고리즘)
+//   종이가 책상보다 밝다는 가정 (대부분의 학교 환경에서 동작)
+//   행 평균이 max의 70% 미만 = 어두움(가장자리) → 잘라냄
+function _htpAutoDetectCropRect(canvas) {
+  var ctx = canvas.getContext('2d');
+  var w = canvas.width, h = canvas.height;
+  if (w < 50 || h < 50) return { left: 0, top: 0, right: w, bottom: h };
+
+  // 너무 큰 이미지는 다운샘플링 (성능 — 320x240 정도면 충분)
+  var sw = Math.min(w, 320), sh = Math.round(h * sw / w);
+  var tmp = document.createElement('canvas');
+  tmp.width = sw; tmp.height = sh;
+  var tctx = tmp.getContext('2d');
+  tctx.drawImage(canvas, 0, 0, sw, sh);
+  var data;
+  try { data = tctx.getImageData(0, 0, sw, sh).data; }
+  catch(e) { console.error('[HT CROP DETECT]', e); return { left: 0, top: 0, right: w, bottom: h }; }
+
+  var rowAvg = new Array(sh), colAvg = new Array(sw);
+  for (var y = 0; y < sh; y++) {
+    var sum = 0;
+    for (var x = 0; x < sw; x++) {
+      var i = (y * sw + x) * 4;
+      sum += (data[i] + data[i+1] + data[i+2]) / 3;
+    }
+    rowAvg[y] = sum / sw;
+  }
+  for (var x2 = 0; x2 < sw; x2++) {
+    var sum2 = 0;
+    for (var y2 = 0; y2 < sh; y2++) {
+      var i2 = (y2 * sw + x2) * 4;
+      sum2 += (data[i2] + data[i2+1] + data[i2+2]) / 3;
+    }
+    colAvg[x2] = sum2 / sh;
+  }
+
+  var rowMax = 0, colMax = 0;
+  for (var k = 0; k < sh; k++) if (rowAvg[k] > rowMax) rowMax = rowAvg[k];
+  for (var k2 = 0; k2 < sw; k2++) if (colAvg[k2] > colMax) colMax = colAvg[k2];
+  var rowThr = rowMax * 0.78;
+  var colThr = colMax * 0.78;
+
+  var top = 0, bottom = sh - 1, left = 0, right = sw - 1;
+  while (top < sh && rowAvg[top] < rowThr) top++;
+  while (bottom > top && rowAvg[bottom] < rowThr) bottom--;
+  while (left < sw && colAvg[left] < colThr) left++;
+  while (right > left && colAvg[right] < colThr) right--;
+
+  // 너무 작거나 의미 없는 결과 → 원본 그대로
+  if (right - left < sw * 0.30 || bottom - top < sh * 0.30) {
+    return { left: 0, top: 0, right: w, bottom: h };
+  }
+
+  // 다운샘플 좌표 → 원본 좌표 환원 + 약간 padding (외곽선 잘리지 않게)
+  var scale = w / sw;
+  var pad = Math.round(8 * scale);
+  return {
+    left:   Math.max(0, Math.round(left * scale) - pad),
+    top:    Math.max(0, Math.round(top * scale) - pad),
+    right:  Math.min(w, Math.round(right * scale) + pad),
+    bottom: Math.min(h, Math.round(bottom * scale) + pad)
+  };
+}
+
+// crop overlay 그리기 — 핸들 4개 + 마스크 4 영역 + 박스 외곽
+function _htpDrawCropOverlay() {
+  var canvas = document.getElementById('htCropCanvas');
+  var stage = document.getElementById('htCropStage');
+  if (!canvas || !stage) return;
+  var rect = STATE._htpCropRect; if (!rect) return;
+  var stageW = stage.clientWidth, stageH = stage.clientHeight;
+  var imgW = canvas.width, imgH = canvas.height;
+  if (!stageW || !imgW) return;
+  var sx = stageW / imgW;
+  var sy = stageH / imgH;
+  // canvas는 width:100% / height:auto이므로 sx === sy 보장됨
+
+  var l = rect.left * sx, t = rect.top * sy;
+  var r = rect.right * sx, b = rect.bottom * sy;
+  var w = r - l, h = b - t;
+
+  // 박스
+  var box = document.getElementById('htCropBox');
+  if (box) {
+    box.style.left = l + 'px';
+    box.style.top  = t + 'px';
+    box.style.width  = w + 'px';
+    box.style.height = h + 'px';
+  }
+  // 마스크 4 영역 (외부 어둡게)
+  var mt = document.getElementById('htCropMaskTop');
+  var mb = document.getElementById('htCropMaskBottom');
+  var ml = document.getElementById('htCropMaskLeft');
+  var mr = document.getElementById('htCropMaskRight');
+  if (mt) { mt.style.left = '0'; mt.style.top = '0'; mt.style.width = stageW + 'px'; mt.style.height = t + 'px'; }
+  if (mb) { mb.style.left = '0'; mb.style.top = b + 'px'; mb.style.width = stageW + 'px'; mb.style.height = (stageH - b) + 'px'; }
+  if (ml) { ml.style.left = '0'; ml.style.top = t + 'px'; ml.style.width = l + 'px'; ml.style.height = h + 'px'; }
+  if (mr) { mr.style.left = r + 'px'; mr.style.top = t + 'px'; mr.style.width = (stageW - r) + 'px'; mr.style.height = h + 'px'; }
+  // 핸들 4개
+  var hTL = document.getElementById('htCropHandleTL');
+  var hTR = document.getElementById('htCropHandleTR');
+  var hBL = document.getElementById('htCropHandleBL');
+  var hBR = document.getElementById('htCropHandleBR');
+  if (hTL) { hTL.style.left = l + 'px'; hTL.style.top = t + 'px'; }
+  if (hTR) { hTR.style.left = r + 'px'; hTR.style.top = t + 'px'; }
+  if (hBL) { hBL.style.left = l + 'px'; hBL.style.top = b + 'px'; }
+  if (hBR) { hBR.style.left = r + 'px'; hBR.style.top = b + 'px'; }
+}
+
+// 핸들·박스 드래그 bind (한 번만 — 모달 열 때마다 호출되어도 _htpCropDragBound 가드)
+var _htpCropDragBound = false;
+function _htpBindCropDrag() {
+  if (_htpCropDragBound) return;
+  _htpCropDragBound = true;
+  var corners = ['TL','TR','BL','BR'];
+  for (var i = 0; i < corners.length; i++) {
+    (function(c) {
+      var el = document.getElementById('htCropHandle' + c);
+      if (!el) return;
+      el.addEventListener('pointerdown', function(e) { _htpCropDragStart(e, c.toLowerCase()); });
+    })(corners[i]);
+  }
+  var box = document.getElementById('htCropBox');
+  if (box) box.addEventListener('pointerdown', function(e) { _htpCropDragStart(e, 'box'); });
+}
+
+function _htpCropDragStart(e, corner) {
+  e.preventDefault();
+  e.stopPropagation();
+  STATE._htpCropDragCorner = corner;
+  STATE._htpCropDragStart = {
+    px: e.clientX, py: e.clientY,
+    rect: { left: STATE._htpCropRect.left, top: STATE._htpCropRect.top, right: STATE._htpCropRect.right, bottom: STATE._htpCropRect.bottom }
+  };
+  try { e.target.setPointerCapture(e.pointerId); } catch(_) {}
+  e.target.addEventListener('pointermove', _htpCropDragMove);
+  e.target.addEventListener('pointerup',   _htpCropDragEnd);
+  e.target.addEventListener('pointercancel', _htpCropDragEnd);
+}
+
+function _htpCropDragMove(e) {
+  if (!STATE._htpCropDragCorner || !STATE._htpCropDragStart) return;
+  var canvas = document.getElementById('htCropCanvas');
+  var stage = document.getElementById('htCropStage');
+  if (!canvas || !stage) return;
+  var stageW = stage.clientWidth;
+  var imgW = canvas.width, imgH = canvas.height;
+  var scale = imgW / stageW;  // stage px → image px
+  var dx = (e.clientX - STATE._htpCropDragStart.px) * scale;
+  var dy = (e.clientY - STATE._htpCropDragStart.py) * scale;
+  var s = STATE._htpCropDragStart.rect;
+  var c = STATE._htpCropDragCorner;
+  var minSize = Math.max(40, imgW * 0.08);  // 최소 crop 크기 (너무 작아지지 않게)
+  var nl = s.left, nt = s.top, nr = s.right, nb = s.bottom;
+  if (c === 'tl') { nl = s.left + dx; nt = s.top + dy; }
+  else if (c === 'tr') { nr = s.right + dx; nt = s.top + dy; }
+  else if (c === 'bl') { nl = s.left + dx; nb = s.bottom + dy; }
+  else if (c === 'br') { nr = s.right + dx; nb = s.bottom + dy; }
+  else if (c === 'box') {
+    nl = s.left + dx; nr = s.right + dx;
+    nt = s.top + dy;  nb = s.bottom + dy;
+    // 경계 보정
+    if (nl < 0) { nr -= nl; nl = 0; }
+    if (nt < 0) { nb -= nt; nt = 0; }
+    if (nr > imgW) { nl -= (nr - imgW); nr = imgW; }
+    if (nb > imgH) { nt -= (nb - imgH); nb = imgH; }
+  }
+  // 모서리 드래그 — 경계·최소 크기 가드
+  if (c !== 'box') {
+    nl = Math.max(0, Math.min(nl, nr - minSize));
+    nt = Math.max(0, Math.min(nt, nb - minSize));
+    nr = Math.min(imgW, Math.max(nr, nl + minSize));
+    nb = Math.min(imgH, Math.max(nb, nt + minSize));
+  }
+  STATE._htpCropRect = { left: nl, top: nt, right: nr, bottom: nb };
+  _htpDrawCropOverlay();
+}
+
+function _htpCropDragEnd(e) {
+  STATE._htpCropDragCorner = null;
+  STATE._htpCropDragStart = null;
+  try { e.target.releasePointerCapture(e.pointerId); } catch(_) {}
+  e.target.removeEventListener('pointermove', _htpCropDragMove);
+  e.target.removeEventListener('pointerup',   _htpCropDragEnd);
+  e.target.removeEventListener('pointercancel', _htpCropDragEnd);
+}
+
+// 자동 외곽선 다시 검출 (사용자가 핸들 옮겼다가 자동으로 돌리고 싶을 때)
+function _htpCropAutoDetect() {
+  var canvas = document.getElementById('htCropCanvas');
+  if (!canvas) return;
+  STATE._htpCropRect = _htpAutoDetectCropRect(canvas);
+  _htpDrawCropOverlay();
+}
+
+// 원본 그대로 — crop rect를 전체로
+function _htpCropResetOriginal() {
+  var canvas = document.getElementById('htCropCanvas');
+  if (!canvas) return;
+  STATE._htpCropRect = { left: 0, top: 0, right: canvas.width, bottom: canvas.height };
+  _htpDrawCropOverlay();
+}
+
+// 확정 — crop 영역만 잘라 새 base64 생성 → 기록 모달 미리보기 갱신
+function _htpCropConfirm() {
+  var canvas = document.getElementById('htCropCanvas');
+  if (!canvas || !STATE._htpCropRect) return;
+  var r = STATE._htpCropRect;
+  var w = Math.round(r.right - r.left);
+  var h = Math.round(r.bottom - r.top);
+  if (w < 20 || h < 20) { toast('자르기 영역이 너무 작아요'); return; }
+
+  var out = document.createElement('canvas');
+  out.width = w; out.height = h;
+  var octx = out.getContext('2d');
+  octx.drawImage(canvas, r.left, r.top, w, h, 0, 0, w, h);
+
+  var b64;
+  try { b64 = out.toDataURL('image/jpeg', 0.85); }
+  catch(e) { console.error('[HT CROP CONFIRM]', e); toast('자르기에 실패했어요'); return; }
+
+  _htpApplyCroppedPhoto(b64);
+  closeModal('modal-heart-tale-crop');
+}
+
+// 실제 삭제 — GAS save_book_page (delete 플래그)
+async function _htpDeleteRecord(week_no) {
+  if (!STATE.user || !STATE.user.student_uid) return;
+  showLoading('지우는 중이에요 🗑');
+  try {
+    var res = await api('save_book_page', {
+      student_uid: STATE.user.student_uid,
+      week_no: week_no,
+      delete: 'Y'
+    });
+    if (!res || res.status !== 'ok') throw new Error((res && res.message) || '삭제 실패');
+
+    // 캐시에서 row recorded_at 비우기 (행 보존)
+    if (STATE._htpPages && STATE._htpPages[week_no]) {
+      var prev = STATE._htpPages[week_no];
+      STATE._htpPages[week_no] = {
+        page_uid: prev.page_uid, week_no: week_no, word: prev.word,
+        photo_url: '', thumb_url: '', student_text: '', bot_line: '',
+        recorded_at: null, recorded_by_nfc_uid: prev.recorded_by_nfc_uid
+      };
+    }
+    _renderHeartTalePage(week_no);
+    toast('마음 페이지를 지웠어요');
+  } catch(e) {
+    console.error('[HT DELETE]', e && e.message ? e.message : e);
+    toast('지우기가 안 됐어요. 다시 시도해 주세요');
+  } finally {
+    hideLoading();
+  }
 }
 
 // 자물쇠 풀림 → 표지 진입
@@ -15683,21 +16828,42 @@ function _unlockHeartTale() {
 }
 
 // 우측 누적 컬럼 (책 옆면)
+//   80차: 36주 모두 반투명 placeholder + 기록된 주차는 색 진해짐 (변쌤 명시 그대로)
+//   82차 Phase 3: 미리보기는 80차 그대로 / 실 모드는 STATE._htpPages 사용 (recorded_at 유무로 sealed 판정)
 function _renderHeartTaleSpine() {
-  var key = STATE._htpStudentUid || 'me';
-  var pages = STATE._previewHeartTale && STATE._previewHeartTale[key];
-  if (!pages) return;
   var spine = document.getElementById('htp-spine');
   if (!spine) return;
   var current = STATE._htpCurrentWeek || 1;
   var html = '';
-  for (var w = 1; w <= HEART_TALE_TOTAL_WEEKS; w++) {
-    var p = pages[w - 1];
-    var cls = 'heart-tale-spine-row';
-    if (!p.sealed) cls += ' placeholder';
-    if (w === current) cls += ' current';
-    html += '<div class="' + cls + '" data-week="' + w + '" onclick="_navHeartTalePage(0,' + w + ')" title="' + w + '주차">';
-    html += _buildWeekRainbow(p.rainbow, p.sealed, 'mini');
+
+  // 미리보기 모드 — 80차 그대로
+  if (STATE.isPreview || !STATE.user) {
+    var key = STATE._htpStudentUid || 'me';
+    var pvPages = STATE._previewHeartTale && STATE._previewHeartTale[key];
+    if (!pvPages) return;
+    for (var w = 1; w <= HEART_TALE_TOTAL_WEEKS; w++) {
+      var p = pvPages[w - 1];
+      var cls = 'heart-tale-spine-row';
+      if (!p.sealed) cls += ' placeholder';
+      if (w === current) cls += ' current';
+      html += '<div class="' + cls + '" data-week="' + w + '" onclick="_navHeartTalePage(0,' + w + ')" title="' + w + '주차">';
+      html += _buildWeekRainbow(p.rainbow, p.sealed, 'mini');
+      html += '</div>';
+    }
+    spine.innerHTML = html;
+    return;
+  }
+
+  // 실 모드 — STATE._htpPages 사용. 36주 모두 반투명 placeholder, 기록된 주차만 무지개 진하게
+  var realPages = STATE._htpPages || {};
+  for (var w2 = 1; w2 <= HEART_TALE_TOTAL_WEEKS; w2++) {
+    var row = realPages[w2];
+    var sealed = !!(row && row.recorded_at);
+    var cls2 = 'heart-tale-spine-row';
+    if (!sealed) cls2 += ' placeholder';
+    if (w2 === current) cls2 += ' current';
+    html += '<div class="' + cls2 + '" data-week="' + w2 + '" onclick="_navHeartTalePage(0,' + w2 + ')" title="' + w2 + '주차">';
+    html += _buildWeekRainbow([1,2,3,4,5,6,7], sealed, 'mini');
     html += '</div>';
   }
   spine.innerHTML = html;
@@ -15742,8 +16908,12 @@ function _navHeartTalePage(dir, jumpTo) {
   }, 1000);
 }
 
-// 진입점 — 자물쇠 게이트(NFC 인증)부터 시작. 키보드+스와이프 bind
+// 진입점 — 역할별 분기 (82차)
+//   학생: 자물쇠 게이트 (NFC=기록 모드 / "기록 없이 열람할게요" 링크=열람 모드)
+//   교사·학부모: 자물쇠 X, 진입 즉시 표지 (열람 모드 default)
+//   미리보기: 80차 그대로 (자물쇠 게이트 + 시뮬 버튼)
 function openHeartTalePage(student_uid, week_no) {
+  // 미리보기 모드 (역할 무관) — 80차 그대로
   if (STATE.isPreview || !STATE.user) {
     var name = '나';
     if (student_uid && STATE._previewStudents) {
@@ -15757,16 +16927,65 @@ function openHeartTalePage(student_uid, week_no) {
     }
     STATE._htpStudentUid = student_uid || 'me';
     STATE._htpStudentName = name;
+    STATE._htpRoleView = (STATE.role || 'student');  // 미리보기 역할
     _ensurePreviewHeartTale(student_uid || 'me', name);
-  } else {
-    toast('📖 마음동화는 미리보기 모드에서 시연 가능해요');
-    return;
   }
-  // 자물쇠 게이트부터 시작 — 인증 통과 후 표지(0) 자동 진입
-  _renderHeartTaleLockGate();
+  // 실제 모드 — 역할별 분기
+  else {
+    var role = STATE.role;
+    var target_uid = '';
+    var target_name = '';
+
+    if (role === 'student') {
+      // 학생: 본인만. student_uid 인자 무시 (안전)
+      target_uid = STATE.user.student_uid;
+      target_name = STATE.user.name || '나';
+    } else if (role === 'teacher') {
+      // 교사: 학생별 진입. student_uid 필수
+      if (!student_uid) { toast('학생을 선택해 주세요'); return; }
+      target_uid = student_uid;
+      var stus = STATE.students || [];
+      for (var i = 0; i < stus.length; i++) {
+        if (stus[i].student_uid === student_uid) { target_name = stus[i].name; break; }
+      }
+      if (!target_name) target_name = '학생';
+    } else if (role === 'parent') {
+      // 학부모: 자녀 student_uid 자동 (인자 무시)
+      target_uid = STATE.user.student_uid;
+      target_name = STATE.user.student_name || '자녀';
+    } else {
+      // 관리자 등 — 진입 차단
+      toast('마음동화는 학생·교사·학부모 화면에서 볼 수 있어요');
+      return;
+    }
+
+    STATE._htpStudentUid  = target_uid;
+    STATE._htpStudentName = target_name;
+    STATE._htpRoleView    = role;
+
+    // 82차 Phase 3: 실 모드 진입 시 페이지 데이터 일괄 fetch (백그라운드 — 자물쇠 게이트 동안)
+    //   학생: book_count는 _handleHeartTaleNfc 매칭 시 fetch (record 모드만 필요)
+    //   교사·학부모: book_count 의미 없음 (열람 모드만 가능)
+    try { _htpFetchPages(target_uid); } catch(e) {}
+  }
+
+  // 자물쇠 게이트 vs 즉시 표지 분기
+  //   학생(미리보기 포함): 자물쇠 게이트 → NFC 또는 "기록 없이 열람할게요" 선택
+  //   교사·학부모: 자물쇠 X, 즉시 열람 모드로 표지(0) 진입
+  var roleForGate = STATE._htpRoleView || STATE.role || 'student';
   document.getElementById('modal-heart-tale-page').classList.remove('hidden');
   _bindHeartTaleKeyHandlers();
   _bindHeartTaleSwipeHandlers();
+
+  if (roleForGate === 'student') {
+    _renderHeartTaleLockGate();
+  } else {
+    // 교사·학부모: 열람 모드 자동 진입 (자물쇠 게이트 우회)
+    STATE._htpMode = 'view';
+    STATE._htpRecordSeq = null;
+    STATE._htpLocked = false;
+    _renderHeartTalePage(0);
+  }
 }
 
 // 모달 닫기 — 키보드+스와이프 unbind, 다음 진입 시 자물쇠부터 다시
@@ -17263,26 +18482,42 @@ function openGiftReceivedModal(notif) {
 function _albumSubTabsHTML() {
   // 78차 디자인 fix: 위치 반대 — [💗 감정앨범 / 📷 일상앨범]
   // 78차 정책: 교육 목적 — 진입 시 감정앨범이 default active (변쌤 명시)
+  // 82차: 교사만 「📖 마음동화」 세 번째 탭 (학생은 첫 화면 카드, 학부모는 첫 화면 카드, 관리자는 진입점 X)
+  var taleTab = (STATE.role === 'teacher')
+    ? '<button class="album-subtab" data-sub="tale" onclick="switchAlbumSubTab(\'tale\')">📖 마음동화</button>'
+    : '';
   return '<div class="album-subtabs">' +
     '<button class="album-subtab active" data-sub="emotion" onclick="switchAlbumSubTab(\'emotion\')">💗 감정앨범</button>' +
     '<button class="album-subtab"        data-sub="daily"   onclick="switchAlbumSubTab(\'daily\')">📷 일상앨범</button>' +
+    taleTab +
   '</div>';
 }
 // 78차: 두 탭 토글 — 일상 회귀 0건 (display 토글만, 일상 함수 0줄 변경)
 // 81차d: 미리보기에서도 sub 탭 전환 동작 — fetch 함수들 isPreview 가드로 더미 보호됨
+// 82차: 교사 「📖 마음동화」 세 번째 탭 추가
 function switchAlbumSubTab(sub) {
   STATE._albumSubTab = sub;
   var dailySec   = document.getElementById('albumDailySection');
   var emotionSec = document.getElementById('albumEmotionSection');
+  var taleSec    = document.getElementById('albumTaleSection');  // 82차: 교사일 때만 존재
   if (!dailySec || !emotionSec) return;
   var btns = document.querySelectorAll('.album-subtab');
   for (var b=0; b<btns.length; b++) btns[b].classList.toggle('active', btns[b].dataset.sub === sub);
   if (sub === 'emotion') {
     dailySec.style.display   = 'none';
+    if (taleSec) taleSec.style.display = 'none';
     emotionSec.style.display = '';
     renderEmotionAlbum();  // 진입 시 매번 호출 — 내부에서 강제 fresh fetch + 폴링 시작
+  } else if (sub === 'tale') {
+    // 82차: 교사 마음동화 탭 — 학생별 책 썸네일 그리드
+    dailySec.style.display   = 'none';
+    emotionSec.style.display = 'none';
+    if (taleSec) taleSec.style.display = '';
+    try { _stopEmotionAlbumPoll(); } catch(e) {}
+    if (typeof renderTeacherTaleAlbum === 'function') renderTeacherTaleAlbum();
   } else {
     emotionSec.style.display = 'none';
+    if (taleSec) taleSec.style.display = 'none';
     dailySec.style.display   = '';
     // 일상 탭으로 전환 시 감정 폴링 정지 (자원 절약)
     try { _stopEmotionAlbumPoll(); } catch(e) {}
@@ -17321,6 +18556,10 @@ async function switchAdminAlbumSubTab(sub) {
 }
 function albumHTML() {
   // 78차: 교육 목적 — 감정앨범 default 표시 (일상 section 숨김)
+  // 82차: 교사일 때만 마음동화 section 추가 (학생/학부모는 첫 화면 카드 진입, 관리자는 X)
+  var taleSec = (STATE.role === 'teacher')
+    ? '<div id="albumTaleSection" style="display:none"></div>'
+    : '';
   return _albumSubTabsHTML() +
     '<div id="albumDailySection" style="display:none">' +
       '<div id="albumUploadSection" style="margin-bottom:14px">' +
@@ -17330,7 +18569,8 @@ function albumHTML() {
       '<div id="albumGrid" class="album-grid"></div>' +
       '<div id="albumEmpty" class="album-empty" style="display:none">아직 사진이 없어요 📷</div>' +
     '</div>' +
-    '<div id="albumEmotionSection"></div>';
+    '<div id="albumEmotionSection"></div>' +
+    taleSec;
 }
 
 // ════════════════════════════════════════
@@ -17402,6 +18642,73 @@ async function _loadEmotionAlbumCache() {
     _emotionAlbumLoaded = true;
   }
   return _emotionAlbumCache;
+}
+
+// ════════════════════════════════════════
+// 82차: 교사 마음앨범 「📖 마음동화」 탭 — 학생별 책 썸네일 그리드
+//   - 학급 학생을 책 표지 형태로 나열, 클릭 시 그 학생 마음동화 모달 진입
+//   - 교사는 자물쇠 게이트 우회 → 즉시 표지 (열람 모드)
+//   - 미리보기는 STATE._previewStudents 사용
+// ════════════════════════════════════════
+async function renderTeacherTaleAlbum() {
+  var sec = document.getElementById('albumTaleSection');
+  if (!sec) return;
+  // 미리보기 모드 — 학생 28명 더미
+  if (STATE.isPreview) {
+    var previewStus = STATE._previewStudents || [];
+    sec.innerHTML = _buildTeacherTaleGridHTML(previewStus);
+    return;
+  }
+  // 실제 — 본인 학급 학생 (STATE.students에 이미 로드돼 있음)
+  var stus = STATE.students || [];
+  if (!stus.length) {
+    sec.innerHTML = '<div style="color:var(--gray);text-align:center;padding:30px;font-size:13px">학급 학생 정보 불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div>';
+    try {
+      if (typeof loadStudents === 'function') await loadStudents();
+      stus = STATE.students || [];
+    } catch(e) { console.error('[TEACHER TALE LOAD STUS]', e && e.message ? e.message : e); }
+  }
+  sec.innerHTML = _buildTeacherTaleGridHTML(stus);
+}
+
+function _buildTeacherTaleGridHTML(stus) {
+  if (!stus || !stus.length) {
+    return '<div style="color:var(--gray);text-align:center;padding:30px;font-size:13px">학급 학생이 없어요</div>';
+  }
+  // active만 + 번호순
+  var actives = stus.filter(function(s){ return s && s.active !== 'N' && s.active !== false; });
+  actives.sort(function(a,b){
+    var na = parseInt(a.num,10) || 0, nb = parseInt(b.num,10) || 0;
+    return na - nb;
+  });
+  if (!actives.length) {
+    return '<div style="color:var(--gray);text-align:center;padding:30px;font-size:13px">활성 학생이 없어요</div>';
+  }
+  var html = '<div style="font-size:12px;color:var(--gray);text-align:center;margin:4px 0 12px;letter-spacing:-0.2px">학생 책을 눌러 마음동화를 열람할 수 있어요</div>';
+  html += '<div class="tale-book-grid">';
+  for (var i = 0; i < actives.length; i++) {
+    var s = actives[i];
+    var safeName = _escHtml(s.name || '');
+    var num = _escHtml(String(s.num || ''));
+    var safeUid = _escHtml(s.student_uid || '');
+    html += '<div class="tale-book-item" onclick="openHeartTalePage(\'' + safeUid + '\')">' +
+      '<div class="tale-book-cover">' +
+        '<div class="tale-book-num">' + num + '번</div>' +
+        '<div class="tale-book-name">' + safeName + '</div>' +
+        '<div class="tale-book-rainbow">' +
+          '<span style="background:#D9455F"></span>' +
+          '<span style="background:#E67E22"></span>' +
+          '<span style="background:#C9A227"></span>' +
+          '<span style="background:#2E8B57"></span>' +
+          '<span style="background:#1E6FB8"></span>' +
+          '<span style="background:#1A237E"></span>' +
+          '<span style="background:#6A3DB5"></span>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+  html += '</div>';
+  return html;
 }
 
 // 78차: 감정앨범 진입점 (switchAlbumSubTab('emotion')에서 호출)
