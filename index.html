@@ -7844,12 +7844,14 @@ function previewTeacher() {
   };
 
   // 출석부 더미 데이터도 동기 준비 (탭 전환 즉시 대응)
+  // 81차d: 6/25까지로 제한 (변쌤 명시 — 학년도 진행 시점). 향후 10/17(전국 자료전 발표날) 확장 시:
+  //   _mo 상한을 9로, 10월 분기에 _dim = 17 추가
   _attendanceMap = {};
   CAL.data = {};
   var _yr = 2026;
   var _holidays = new Set(['2026-03-01','2026-05-05','2026-05-24','2026-06-06']);
-  for (var _mo = 2; _mo <= 7; _mo++) {
-    var _dim = (_mo === 7) ? 10 : new Date(_yr, _mo+1, 0).getDate(); // 8월은 10일까지
+  for (var _mo = 2; _mo <= 5; _mo++) {  // 3월(2)~6월(5)
+    var _dim = (_mo === 5) ? 25 : new Date(_yr, _mo+1, 0).getDate(); // 6월은 25일까지
     for (var _dy = 1; _dy <= _dim; _dy++) {
       var _dt = new Date(_yr, _mo, _dy), _dow = _dt.getDay();
       if (_dow === 0 || _dow === 6) continue;
@@ -7913,28 +7915,73 @@ function previewTeacher() {
       updated_at:ts, album_type:'emotion', is_deleted:false };
   }
   _emotionAlbumCache = [
-    // 기쁜 — 5건 (cover: s01)
+    // 기쁜 — 7건 (cover: s01)
     _pvAlbum('s01','김민준','기쁜', _pvSvgYellow, '운동장에서 햇살 가득', 0, true),
     _pvAlbum('s06','한지수','기쁜', _pvSvgYellow, '친구랑 같이 웃었어요', 1),
     _pvAlbum('s11','신도윤','기쁜', _pvSvgYellow, '오늘 잘 풀린 하루', 2),
     _pvAlbum('s20','서하늘','기쁜', _pvSvgYellow, '엄마가 칭찬해줬어요', 1),
     _pvAlbum('s24','최수빈','기쁜', _pvSvgYellow, '체육 시간이 즐거웠어요', 0),
-    // 설레는 — 3건
+    _pvAlbum('s02','이서연','기쁜', _pvSvgYellow, '미술 시간 작품 완성', 3),
+    _pvAlbum('s27','오시온','기쁜', _pvSvgYellow, '수학 문제 해냈어요', 2),
+    // 설레는 — 5건
     _pvAlbum('s04','최유나','설레는', _pvSvgPink, '내일 소풍 기대', 0),
     _pvAlbum('s09','강민재','설레는', _pvSvgPink, '새 친구가 생겼어요', 2),
     _pvAlbum('s14','류다인','설레는', _pvSvgPink, '발표가 기대돼요', 1),
-    // 그냥그래 — 2건
+    _pvAlbum('s21','김서준','설레는', _pvSvgPink, '체험학습이 기다려요', 3),
+    _pvAlbum('s28','윤채영','설레는', _pvSvgPink, '주말 캠핑 기대', 0),
+    // 그냥그래 — 4건
     _pvAlbum('s05','정태양','그냥그래', _pvSvgGreen, '평범한 하루', 0),
     _pvAlbum('s23','이도현','그냥그래', _pvSvgGreen, '특별한 일 없는 날', 1),
-    // 걱정돼 — 2건
+    _pvAlbum('s10','임채원','그냥그래', _pvSvgGreen, '평범한 점심', 2),
+    _pvAlbum('s19','전민찬','그냥그래', _pvSvgGreen, '늘 똑같은 하루', 3),
+    // 걱정돼 — 4건
     _pvAlbum('s07','오준혁','걱정돼', _pvSvgBlue, '시험이 다가와요', 0),
     _pvAlbum('s12','백서아','걱정돼', _pvSvgBlue, '발표가 떨려요', 1),
-    // 속상한 — 1건
+    _pvAlbum('s15','문성훈','걱정돼', _pvSvgBlue, '친구랑 잘 지낼 수 있을까', 2),
+    _pvAlbum('s26','한예린','걱정돼', _pvSvgBlue, '가족이 아프대요', 1),
+    // 속상한 — 3건
     _pvAlbum('s17','조현우','속상한', _pvSvgPurple, '친구랑 다퉜어요', 0),
-    // 멍한 — 1건
+    _pvAlbum('s08','윤하은','속상한', _pvSvgPurple, '약속이 어긋났어요', 2),
+    _pvAlbum('s18','장소율','속상한', _pvSvgPurple, '오해가 풀리지 않았어요', 1),
+    // 멍한 — 3건
     _pvAlbum('s13','남준호','멍한', _pvSvgGray, '머리가 안 돌아요', 2),
+    _pvAlbum('s22','박지은','멍한', _pvSvgGray, '뭘 해야 할지 모르겠어요', 1),
+    _pvAlbum('s25','정우진','멍한', _pvSvgGray, '시간이 너무 천천히 가요', 3),
+    // 신나는 — 2건
+    _pvAlbum('s03','박지호','신나는', _pvSvgYellow, '체육대회 1등!', 0),
+    _pvAlbum('s16','권아린','신나는', _pvSvgYellow, '좋아하는 노래 들었어요', 2),
   ];
   _emotionAlbumLoaded = true;
+
+  // 81차d: 교사 일상앨범 더미 — _teacherAlbumAll 캐시 (renderAlbumStudentPicker가 _teacherAlbumLoaded 체크)
+  //   학급 학생들이 올린 일상 사진. 학생별 1~2건씩 분배 (28명 중 약 절반)
+  function _pvDaily(uid, sname, img, cap, daysAgo, hashtags) {
+    var ts = new Date(Date.now() - daysAgo*86400000).toISOString().slice(0,19);
+    return { album_uid:'pa-d-'+uid+'-'+daysAgo, timestamp:ts,
+      student_uid:uid, student_name:sname, teacher_uid:'PREVIEW_TEACHER',
+      image_url:img, thumb_url:img, caption:cap,
+      date:ts.slice(0,10), updated_at:ts, hashtags:hashtags || '',
+      album_type:'daily', is_deleted:false };
+  }
+  _teacherAlbumAll = [
+    _pvDaily('s01','김민준', _pvSvgYellow, '급식 디저트 맛있었어요 🍮', 0, '#급식'),
+    _pvDaily('s02','이서연', _pvSvgPink,   '미술 작품 완성', 1, '#미술 #작품'),
+    _pvDaily('s03','박지호', _pvSvgGreen,  '체육대회 1등 🏆', 0, '#체육 #1등'),
+    _pvDaily('s04','최유나', _pvSvgYellow, '오늘 도서관에서', 2, '#책 #독서'),
+    _pvDaily('s06','한지수', _pvSvgPink,   '가족 외식 갔어요', 3, '#가족'),
+    _pvDaily('s07','오준혁', _pvSvgBlue,   '비 오는 등굣길', 1, '#비 #등교'),
+    _pvDaily('s09','강민재', _pvSvgGreen,  '학교 화단 새싹', 2, '#봄 #화단'),
+    _pvDaily('s11','신도윤', _pvSvgYellow, '쉬는 시간 친구들과', 0, '#친구'),
+    _pvDaily('s14','류다인', _pvSvgPink,   '오늘 만든 종이접기', 1, '#종이접기'),
+    _pvDaily('s17','조현우', _pvSvgPurple, '집에서 그린 그림', 4, '#그림'),
+    _pvDaily('s20','서하늘', _pvSvgYellow, '햇살 좋은 운동장', 0, '#운동장'),
+    _pvDaily('s21','김서준', _pvSvgGreen,  '엄마랑 만든 쿠키', 2, '#베이킹'),
+    _pvDaily('s24','최수빈', _pvSvgYellow, '체육복 입은 날', 1, '#체육'),
+    _pvDaily('s25','정우진', _pvSvgGray,   '교실 창밖 풍경', 3, '#창밖'),
+    _pvDaily('s27','오시온', _pvSvgYellow, '수학 시간 필기', 0, '#수학 #공부'),
+    _pvDaily('s28','윤채영', _pvSvgPink,   '동생이랑 셀카', 2, '#가족 #동생'),
+  ];
+  _teacherAlbumLoaded = true;
 
   document.getElementById('headerUser').textContent = '미리보기 선생님 (교사 미리보기)';
   document.getElementById('btnBackAdmin').classList.remove('hidden');
@@ -8293,43 +8340,103 @@ function previewStudent() {
   //   placeholder: 작은 SVG data URI (외부 의존 없음, 변쌤 메모리 100KB+ embed 금지 준수)
   var _pvSvgYellow = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g1' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23ffd54f'/><stop offset='1' stop-color='%23ffb300'/></linearGradient></defs><rect width='100' height='100' fill='url(%23g1)'/><circle cx='50' cy='42' r='14' fill='%23fff8e1'/><path d='M30 70 Q50 90 70 70' stroke='%23fff8e1' stroke-width='4' fill='none'/></svg>";
   var _pvSvgBlue = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g2' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%2381d4fa'/><stop offset='1' stop-color='%234a90d9'/></linearGradient></defs><rect width='100' height='100' fill='url(%23g2)'/><path d='M20 60 Q50 30 80 60' stroke='%23fff' stroke-width='3' fill='none'/><circle cx='35' cy='45' r='3' fill='%23fff'/><circle cx='65' cy='45' r='3' fill='%23fff'/></svg>";
+  // 81차d: 학생 본인 감정앨범 5건 (다양한 감정으로 시연 풍성)
+  var _pvSvgGreenS = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='gs1' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23a5d6a7'/><stop offset='1' stop-color='%2343a047'/></linearGradient></defs><rect width='100' height='100' fill='url(%23gs1)'/><circle cx='50' cy='50' r='20' fill='%23fff' opacity='0.7'/></svg>";
+  var _pvSvgPinkS = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='gs2' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23f8bbd0'/><stop offset='1' stop-color='%23ec407a'/></linearGradient></defs><rect width='100' height='100' fill='url(%23gs2)'/><path d='M50 75 L30 50 Q30 35 45 35 Q50 35 50 45 Q50 35 55 35 Q70 35 70 50 Z' fill='%23fff'/></svg>";
+  var _pvSvgPurpleS = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='gs3' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23ce93d8'/><stop offset='1' stop-color='%237b1fa2'/></linearGradient></defs><rect width='100' height='100' fill='url(%23gs3)'/><path d='M30 70 Q50 50 70 70' stroke='%23fff' stroke-width='4' fill='none'/></svg>";
   _emotionAlbumCache = [
     { album_uid:'pa1', timestamp:'2026-04-27T08:30:00',
-      student_uid:'PREVIEW_STUDENT', student_name:'김민준',
-      teacher_uid:'PREVIEW_TEACHER',
+      student_uid:'PREVIEW_STUDENT', student_name:'김민준', teacher_uid:'PREVIEW_TEACHER',
       image_url:_pvSvgYellow, thumb_url:_pvSvgYellow,
       caption:'운동장에서 본 따뜻한 햇살', emotion_id:'기쁜', date:'2026-04-27',
       is_class_cover:false, is_teacher_upload:false,
       updated_at:'2026-04-27T08:30:00', album_type:'emotion', is_deleted:false },
     { album_uid:'pa2', timestamp:'2026-04-26T15:00:00',
-      student_uid:'PREVIEW_STUDENT', student_name:'김민준',
-      teacher_uid:'PREVIEW_TEACHER',
+      student_uid:'PREVIEW_STUDENT', student_name:'김민준', teacher_uid:'PREVIEW_TEACHER',
       image_url:_pvSvgBlue, thumb_url:_pvSvgBlue,
       caption:'시험 앞두고 떨리는 마음', emotion_id:'걱정돼', date:'2026-04-26',
       is_class_cover:false, is_teacher_upload:false,
       updated_at:'2026-04-26T15:00:00', album_type:'emotion', is_deleted:false },
+    { album_uid:'pa3', timestamp:'2026-04-25T10:00:00',
+      student_uid:'PREVIEW_STUDENT', student_name:'김민준', teacher_uid:'PREVIEW_TEACHER',
+      image_url:_pvSvgPinkS, thumb_url:_pvSvgPinkS,
+      caption:'엄마가 만든 김치찌개 최고', emotion_id:'행복한', date:'2026-04-25',
+      is_class_cover:false, is_teacher_upload:false,
+      updated_at:'2026-04-25T10:00:00', album_type:'emotion', is_deleted:false },
+    { album_uid:'pa4', timestamp:'2026-04-24T14:00:00',
+      student_uid:'PREVIEW_STUDENT', student_name:'김민준', teacher_uid:'PREVIEW_TEACHER',
+      image_url:_pvSvgGreenS, thumb_url:_pvSvgGreenS,
+      caption:'쉬는 시간 책 읽기', emotion_id:'그냥그래', date:'2026-04-24',
+      is_class_cover:false, is_teacher_upload:false,
+      updated_at:'2026-04-24T14:00:00', album_type:'emotion', is_deleted:false },
+    { album_uid:'pa5', timestamp:'2026-04-23T16:00:00',
+      student_uid:'PREVIEW_STUDENT', student_name:'김민준', teacher_uid:'PREVIEW_TEACHER',
+      image_url:_pvSvgPurpleS, thumb_url:_pvSvgPurpleS,
+      caption:'친구랑 사소하게 다툰 날', emotion_id:'속상한', date:'2026-04-23',
+      is_class_cover:false, is_teacher_upload:false,
+      updated_at:'2026-04-23T16:00:00', album_type:'emotion', is_deleted:false },
   ];
   _emotionAlbumLoaded = true;
 
-  // 81차d: 마음출석부 더미 — 최근 14일 KST 기준 _stuAtt.map 채움
-  //   _loadStuAttMap이 isPreview 가드라 fetch 안 함. renderStudentAttendance 호출 시 그대로 사용.
+  // 81차d: 학생 본인 일상앨범 더미 6건 (_preloadedStudentAlbum — loadAlbum 캐시 자동 사용)
+  _preloadedStudentAlbum = [
+    { album_uid:'da1', timestamp:'2026-04-27T13:20:00', student_uid:'PREVIEW_STUDENT', student_name:'김민준',
+      teacher_uid:'PREVIEW_TEACHER', image_url:_pvSvgYellow, thumb_url:_pvSvgYellow,
+      caption:'급식 디저트 맛있었어요 🍮', date:'2026-04-27', updated_at:'2026-04-27T13:20:00',
+      hashtags:'#급식 #달콤', album_type:'daily', is_deleted:false },
+    { album_uid:'da2', timestamp:'2026-04-26T17:00:00', student_uid:'PREVIEW_STUDENT', student_name:'김민준',
+      teacher_uid:'PREVIEW_TEACHER', image_url:_pvSvgGreenS, thumb_url:_pvSvgGreenS,
+      caption:'학교 화단의 새싹', date:'2026-04-26', updated_at:'2026-04-26T17:00:00',
+      hashtags:'#봄 #화단', album_type:'daily', is_deleted:false },
+    { album_uid:'da3', timestamp:'2026-04-25T19:00:00', student_uid:'PREVIEW_STUDENT', student_name:'김민준',
+      teacher_uid:'PREVIEW_TEACHER', image_url:_pvSvgBlue, thumb_url:_pvSvgBlue,
+      caption:'우리 가족 캠핑 갔어요', date:'2026-04-25', updated_at:'2026-04-25T19:00:00',
+      hashtags:'#주말 #캠핑', album_type:'daily', is_deleted:false },
+    { album_uid:'da4', timestamp:'2026-04-23T12:00:00', student_uid:'PREVIEW_STUDENT', student_name:'김민준',
+      teacher_uid:'PREVIEW_TEACHER', image_url:_pvSvgPinkS, thumb_url:_pvSvgPinkS,
+      caption:'미술 시간에 그린 그림', date:'2026-04-23', updated_at:'2026-04-23T12:00:00',
+      hashtags:'#미술 #그림', album_type:'daily', is_deleted:false },
+    { album_uid:'da5', timestamp:'2026-04-22T18:30:00', student_uid:'PREVIEW_STUDENT', student_name:'김민준',
+      teacher_uid:'PREVIEW_TEACHER', image_url:_pvSvgPurpleS, thumb_url:_pvSvgPurpleS,
+      caption:'동생이랑 보드게임 한판', date:'2026-04-22', updated_at:'2026-04-22T18:30:00',
+      hashtags:'#가족 #놀이', album_type:'daily', is_deleted:false },
+    { album_uid:'da6', timestamp:'2026-04-21T08:00:00', student_uid:'PREVIEW_STUDENT', student_name:'김민준',
+      teacher_uid:'PREVIEW_TEACHER', image_url:_pvSvgYellow, thumb_url:_pvSvgYellow,
+      caption:'아침 등굣길 햇살', date:'2026-04-21', updated_at:'2026-04-21T08:00:00',
+      hashtags:'#등교 #햇살', album_type:'daily', is_deleted:false },
+  ];
+
+  // 81차d: 마음출석부 더미 — 2026 학년도 1학기(3/3 개학 ~ 6/25) 모든 평일 다양한 감정 (변쌤 명시)
+  //   향후 10/17 전국 자료전 발표날까지 확장 시: _pvAttEnd 날짜를 Date.UTC(2026, 9, 17)로 변경
+  //   _loadStuAttMap이 isPreview 가드라 fetch 안 함. renderStudentAttendance 호출 시 _stuAtt.map 그대로 사용.
   var _pvKstNow = new Date(Date.now() + 9*3600000);
   _stuAtt.year = _pvKstNow.getUTCFullYear();
   _stuAtt.month = _pvKstNow.getUTCMonth();
   _stuAtt.map = {};
+  var _pvHolidays = { '2026-03-01':1, '2026-05-05':1, '2026-05-24':1, '2026-06-06':1 };
   var _pvEmoPool = [
     {macro:'positive', micro:'기쁜'},     {macro:'positive', micro:'설레는'},
-    {macro:'positive', micro:'기대되는'}, {macro:'neutral',  micro:'그냥그래'},
-    {macro:'neutral',  micro:'멍한'},     {macro:'negative', micro:'걱정돼'},
-    {macro:'negative', micro:'속상한'},   {macro:'negative', micro:'심심한'},
+    {macro:'positive', micro:'기대되는'}, {macro:'positive', micro:'행복한'},
+    {macro:'positive', micro:'뿌듯한'},   {macro:'neutral',  micro:'그냥그래'},
+    {macro:'neutral',  micro:'멍한'},     {macro:'neutral',  micro:'심심한'},
+    {macro:'negative', micro:'걱정돼'},   {macro:'negative', micro:'속상한'},
+    {macro:'negative', micro:'외로운'},   {macro:'negative', micro:'피곤해'},
   ];
   var _pvPad = function(n){ return n<10 ? '0'+n : ''+n; };
-  for (var _pvi = 1; _pvi <= 14; _pvi++) {
-    var _pvD = new Date(_pvKstNow.getTime() - _pvi*86400000);
+  var _pvAttStart = Date.UTC(2026, 2, 3);   // 3월 3일 (개학)
+  var _pvAttEnd   = Date.UTC(2026, 5, 25);  // 6월 25일 (변쌤 요청 — 향후 10/17까지 확장 가능)
+  for (var _pvT = _pvAttStart; _pvT <= _pvAttEnd; _pvT += 86400000) {
+    var _pvD = new Date(_pvT);
+    var _pvDow = _pvD.getUTCDay();
+    if (_pvDow === 0 || _pvDow === 6) continue; // 주말
     var _pvKey = _pvD.getUTCFullYear() + '-' + _pvPad(_pvD.getUTCMonth()+1) + '-' + _pvPad(_pvD.getUTCDate());
-    var _pvE = _pvEmoPool[_pvi % _pvEmoPool.length];
+    if (_pvHolidays[_pvKey]) continue; // 공휴일
+    // 결정적 hash로 약 10% 미제출 (병결·휴식 자연스럽게)
+    var _pvHash = (_pvD.getUTCMonth()*31 + _pvD.getUTCDate()*7) % 23;
+    if (_pvHash === 0 || _pvHash === 7) continue;
+    var _pvE = _pvEmoPool[_pvHash % _pvEmoPool.length];
     _stuAtt.map[_pvKey] = { macro:_pvE.macro, micro:_pvE.micro,
-      is_custom:false, custom_text:'', is_modified:(_pvi%5===0), modified_at:'' };
+      is_custom:false, custom_text:'', is_modified:(_pvHash%5===0), modified_at:'' };
   }
 
   buildStudentUI();
@@ -9542,26 +9649,28 @@ async function openNationalMapModal() {
   var svgEl = document.getElementById('national-map-svg');
   var legEl = document.getElementById('national-map-legend');
 
-  // 미리보기 모드: 더미 데이터 (16개 시도, 전국 평균 45°, 부산 최고)
+  // 미리보기 모드: 더미 데이터 (17개 시도, 인구 비례 인원 — 변쌤 명시 81차d 최소 80명+)
+  //   전국 평균 ~45°, 부산 최고 60°. 합계 ~5500명 → 진짜 데이터 같은 규모감
   if (STATE.isPreview) {
     var dummySchools = [
-      { region:'부산', positive:15, neutral:4,  negative:1,  temp:60, submitted:20 },
-      { region:'서울', positive:14, neutral:5,  negative:1,  temp:56, submitted:21 },
-      { region:'광주', positive:13, neutral:5,  negative:2,  temp:52, submitted:20 },
-      { region:'인천', positive:12, neutral:6,  negative:2,  temp:50, submitted:20 },
-      { region:'경기', positive:11, neutral:7,  negative:2,  temp:48, submitted:20 },
-      { region:'제주', positive:11, neutral:7,  negative:2,  temp:47, submitted:20 },
-      { region:'대전', positive:10, neutral:8,  negative:2,  temp:46, submitted:20 },
-      { region:'강원', positive:10, neutral:7,  negative:3,  temp:45, submitted:20 },
-      { region:'대구', positive:9,  neutral:7,  negative:4,  temp:44, submitted:20 },
-      { region:'울산', positive:9,  neutral:7,  negative:4,  temp:43, submitted:20 },
-      { region:'충북', positive:8,  neutral:7,  negative:5,  temp:42, submitted:20 },
-      { region:'경북', positive:7,  neutral:7,  negative:6,  temp:40, submitted:20 },
-      { region:'충남', positive:7,  neutral:8,  negative:5,  temp:39, submitted:20 },
-      { region:'전남', positive:6,  neutral:8,  negative:6,  temp:38, submitted:20 },
-      { region:'전북', positive:6,  neutral:7,  negative:7,  temp:37, submitted:20 },
-      { region:'경남', positive:5,  neutral:6,  negative:9,  temp:33, submitted:20 },
-    ]; // 전국 평균: 720/16 = 45°
+      { region:'경기', positive:920, neutral:430, negative:150, temp:48, submitted:1500 },
+      { region:'서울', positive:680, neutral:310, negative:110, temp:56, submitted:1100 },
+      { region:'부산', positive:230, neutral:90,  negative:30,  temp:60, submitted:350  },
+      { region:'경남', positive:150, neutral:120, negative:50,  temp:33, submitted:320  },
+      { region:'인천', positive:170, neutral:80,  negative:30,  temp:50, submitted:280  },
+      { region:'경북', positive:140, neutral:90,  negative:50,  temp:40, submitted:280  },
+      { region:'대구', positive:130, neutral:70,  negative:30,  temp:44, submitted:230  },
+      { region:'충남', positive:120, neutral:70,  negative:30,  temp:39, submitted:220  },
+      { region:'전북', positive:90,  neutral:60,  negative:30,  temp:37, submitted:180  },
+      { region:'전남', positive:80,  neutral:60,  negative:40,  temp:38, submitted:180  },
+      { region:'광주', positive:120, neutral:45,  negative:15,  temp:52, submitted:180  },
+      { region:'대전', positive:100, neutral:65,  negative:15,  temp:46, submitted:180  },
+      { region:'충북', positive:70,  neutral:50,  negative:20,  temp:42, submitted:140  },
+      { region:'강원', positive:60,  neutral:50,  negative:20,  temp:45, submitted:130  },
+      { region:'울산', positive:55,  neutral:35,  negative:20,  temp:43, submitted:110  },
+      { region:'제주', positive:42,  neutral:25,  negative:13,  temp:47, submitted:80   },
+      { region:'세종', positive:40,  neutral:28,  negative:12,  temp:45, submitted:80   },
+    ]; // 합계 5540명, 전국 평균: ~45°
     _nationalMapCache = dummySchools; // 시도별 현황 탭에서도 사용
     renderNationalMap(svgEl, legEl, dummySchools);
     return;
@@ -17160,8 +17269,8 @@ function _albumSubTabsHTML() {
   '</div>';
 }
 // 78차: 두 탭 토글 — 일상 회귀 0건 (display 토글만, 일상 함수 0줄 변경)
+// 81차d: 미리보기에서도 sub 탭 전환 동작 — fetch 함수들 isPreview 가드로 더미 보호됨
 function switchAlbumSubTab(sub) {
-  if (STATE.isPreview) return;
   STATE._albumSubTab = sub;
   var dailySec   = document.getElementById('albumDailySection');
   var emotionSec = document.getElementById('albumEmotionSection');
@@ -17694,7 +17803,7 @@ async function refreshEmotionAlbum() {
 //     - 빈 구슬 클릭 + 오늘 아무것도 안 담음 → 입력 모달
 //   교사: openClassEmotionCarousel
 function onEmotionBeadClick(emotion_id) {
-  if (STATE.isPreview) return;
+  // 81차d: 미리보기에서도 동작 — 학생은 더미 _emotionAlbumCache 기반 분기, 교사·관리자는 carousel 진입 시연
   var em = (_emotionsMaster || []).find(function(e){ return e.emotion_id === emotion_id; });
   if (!em) return;
   var role = STATE.role;
@@ -18289,7 +18398,7 @@ function _cfApplyAdminSort(rows) {
 // 78차: 교사 carousel 진입점 — onEmotionBeadClick에서 호출
 // 81차c: 관리자도 허용 (admin 모드 — 전국 풀, 열람만, 정렬 토글)
 async function openClassEmotionCarousel(emotion_id, word) {
-  if (STATE.isPreview) return;
+  // 81차d: 미리보기에서도 carousel 진입 — _loadEmotionAlbumCache가 isPreview 가드로 더미 보호
   if (STATE.role !== 'teacher' && STATE.role !== 'admin') return;
   _cfState.emotion_id = emotion_id;
   _cfState.word       = word;
