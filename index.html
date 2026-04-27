@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>마음이음</title>
+<link rel="icon" type="image/png" href="./favicon.png">
+<link rel="apple-touch-icon" href="./favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Serif+KR:wght@600;700&family=Gamja+Flower&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -7948,8 +7950,10 @@ var PREVIEW_PRESETS = {
     ]
   },
   rainbow: {
-    // 81차c: 무지개 = 부정을 거쳐 긍정 회복 흐름 (변쌤 명시 — 긍정 60%+) — 13/4/3 = 20 (28명 중 8명 미제출)
-    pos:13, neu:4, neg:3, weather:'rainbow',
+    // 81차c: 무지개 = 부정을 거쳐 긍정 회복 흐름 (변쌤 명시 — 긍정 60%+, 부정도 명확히 보이게)
+    //   pos:12(60%) neu:3(15%) neg:5(25%) = 20 (28명 중 8명 미제출)
+    //   neg 5명 모두 '우울했지만' (microPool 분기) → 워드클라우드 가운데 카운트 5로 회복 서사 어필
+    pos:12, neu:3, neg:5, weather:'rainbow',
     label:'🌈 무지개',
     // 워드클라우드는 _applyPreviewEmotionsByPreset이 학생 분배 micro로 동적 생성 (이 words 배열은 더 이상 사용 X — 호환 위해 보존)
     words: [
@@ -8063,6 +8067,11 @@ function _applyPreviewEmotionsByPreset(key, p) {
     neutral : ['그냥그래','멍한','심심한','피곤해','보통이야','조용한'],
     negative: ['걱정돼','속상한','외로운','힘들어','슬퍼요','짜증나','지쳐']
   };
+  // 81차c: 무지개 한정 — 부정 학생 모두 '우울했지만'로 통일 (회복 서사 강조 — 변쌤 명시 "수동 글자 입력")
+  //   결과: 워드클라우드 카운트 5(neg 학생 수)가 max → POS[0]=[50,50] 가운데 차지 + 감정바코드 hover도 '우울했지만'
+  if (key === 'rainbow') {
+    microPool.negative = ['우울했지만'];
+  }
   var scoreMap = { positive: 8, neutral: 5, negative: 2 };
 
   // STATE.studentEmotions 새로 채움 (미배정 학생은 미제출 — 키 없음)
