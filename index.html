@@ -5048,6 +5048,7 @@ async function confirmPurgeSignup(ruid, name) {
     { danger:true, okLabel:'🗑 파기', cancelLabel:'취소' }
   );
   if (!ok) return;
+  showLoading('파기하는 중이에요 🗑');
   try {
     var res = await api('purge_signup_request', { request_uid: ruid });
     if (res && res.status === 'ok') {
@@ -5060,6 +5061,8 @@ async function confirmPurgeSignup(ruid, name) {
   } catch(e) {
     console.error('[PURGE SIGNUP]', e && e.message || e);
     toast('파기 중 오류가 발생했어요');
+  } finally {
+    hideLoading();
   }
 }
 
@@ -5558,6 +5561,7 @@ async function confirmPurgeScr(ruid, name) {
     { danger:true, okLabel:'🗑 파기', cancelLabel:'취소' }
   );
   if (!ok) return;
+  showLoading('파기하는 중이에요 🗑');
   try {
     var res = await api('purge_school_change_request', { request_uid: ruid });
     if (res && res.status === 'ok') {
@@ -5569,6 +5573,8 @@ async function confirmPurgeScr(ruid, name) {
   } catch(e) {
     console.error('[SCR PURGE]', e && e.message || e);
     toast('파기 중 오류가 발생했어요');
+  } finally {
+    hideLoading();
   }
 }
 
@@ -17072,6 +17078,8 @@ async function _loadEmotionAlbumCache() {
   } else if (role === 'teacher') {
     if (!STATE.user || !STATE.user.teacher_uid) { _emotionAlbumCache = []; _emotionAlbumLoaded = true; return []; }
     filters['teacher_uid'] = 'eq.' + STATE.user.teacher_uid;
+  } else if (role === 'admin') {
+    // 변쌤 명시: 관리자는 전국 모든 감정 구슬 합산. teacher_uid 필터 없이 전부 fetch.
   } else {
     _emotionAlbumCache = []; _emotionAlbumLoaded = true; return [];
   }
@@ -17093,8 +17101,17 @@ async function _loadEmotionAlbumCache() {
 // 78차: 감정앨범 진입점 (switchAlbumSubTab('emotion')에서 호출)
 //   78차 fix: 매 진입 시 캐시 무효화 (realtime 누락 안전망 — 학생 INSERT 즉시 반영, 변쌤 명시 늘 핵심)
 async function renderEmotionAlbum() {
-  var sec = document.getElementById('albumEmotionSection');
+  // 관리자는 #adminAlbumList 자리에 4x5 구슬 그리드 (변쌤 명시 — 교사 구조 차용)
+  var sec = (STATE.role === 'admin')
+    ? document.getElementById('adminAlbumList')
+    : document.getElementById('albumEmotionSection');
   if (!sec) return;
+  // 관리자는 학교명 매핑 위해 _teacherAll 사전 보장
+  if (STATE.role === 'admin') {
+    if (!_teacherAll || !_teacherAll.length) {
+      try { _teacherAll = await _sbGetTeachersAll(); } catch(e) { _teacherAll = []; }
+    }
+  }
   // 79차 fix v3: 골격(.emo-album-shell) 있으면 스켈레톤 표시 X (in-place 유지)
   //   증상: 새로고침 시 sec.innerHTML 통째 교체 → 골격 사라짐 → _renderEmotionGrid가 모든 구슬 새로 생성
   //   해결: 골격 있을 땐 그대로 두고 fetch 후 _renderEmotionGrid가 in-place로만 갱신
@@ -17134,11 +17151,15 @@ function _startEmotionAlbumPoll() {
       _cfState.cards = (_emotionAlbumCache || []).filter(function(r){
         return r.emotion_id === _cfState.emotion_id && !r.is_deleted;
       });
-      _cfState.cards.sort(function(a,b){
-        if (!!a.is_class_cover !== !!b.is_class_cover) return a.is_class_cover ? -1 : 1;
-        if (!!a.is_teacher_upload !== !!b.is_teacher_upload) return a.is_teacher_upload ? 1 : -1;
-        return String(a.student_name||'').localeCompare(String(b.student_name||''), 'ko');
-      });
+      if (STATE.role === 'admin') {
+        _cfState.cards = _cfApplyAdminSort(_cfState.cards);
+      } else {
+        _cfState.cards.sort(function(a,b){
+          if (!!a.is_class_cover !== !!b.is_class_cover) return a.is_class_cover ? -1 : 1;
+          if (!!a.is_teacher_upload !== !!b.is_teacher_upload) return a.is_teacher_upload ? 1 : -1;
+          return String(a.student_name||'').localeCompare(String(b.student_name||''), 'ko');
+        });
+      }
       if (_cfState.idx >= _cfState.cards.length) _cfState.idx = Math.max(0, _cfState.cards.length-1);
       _renderCfCarousel(true);
     }
@@ -17205,9 +17226,9 @@ function _patchEmotionBeadInPlace(beadEl, em, rows, role) {
     setTimeout(function(){ try { img.remove(); } catch(e){} }, 260);
   }
 
-  // ④ count (교사만)
+  // ④ count (교사·관리자 모두 표시 — 관리자는 전국 카운트)
   var countEl = beadEl.querySelector('.emo-bead-count');
-  if (role === 'teacher' && count > 0) {
+  if ((role === 'teacher' || role === 'admin') && count > 0) {
     if (!countEl) {
       countEl = document.createElement('div');
       countEl.className = 'emo-bead-count';
@@ -17246,9 +17267,11 @@ var _emoGridGen = 0;
 var _emoGridLastPage = -1;
 var _emoGridLastFilter = '';
 function _renderEmotionGrid() {
-  var sec = document.getElementById('albumEmotionSection');
-  if (!sec) return;
   var role = STATE.role;
+  var sec = (role === 'admin')
+    ? document.getElementById('adminAlbumList')
+    : document.getElementById('albumEmotionSection');
+  if (!sec) return;
   var emos = _emotionsMaster || [];
   if (_emotionAlbumFilter !== 'all') {
     emos = emos.filter(function(e){ return e.category === _emotionAlbumFilter; });
@@ -17403,6 +17426,9 @@ function _emotionBeadHTML(em, rows, role) {
   if (role === 'teacher' && count > 0) {
     inner += '<div class="emo-bead-count">'+count+'</div>';
     if (hasCover) inner += '<div class="emo-bead-cover-mark">⭐</div>';
+  } else if (role === 'admin' && count > 0) {
+    // 관리자도 전국 카운트 표시 (cover 표시는 X — 학급 단위 개념)
+    inner += '<div class="emo-bead-count">'+count+'</div>';
   }
   inner += '<div class="emo-bead-name">'+name+'</div>';
 
@@ -17453,9 +17479,15 @@ async function refreshEmotionAlbum() {
   var now = Date.now();
   if (now - _emoRefreshThrottle < 1000) return;
   _emoRefreshThrottle = now;
+  var btn = document.querySelector('.emo-album-refresh');
+  if (btn) { btn.disabled = true; btn.classList.add('spinning'); }
   _emotionAlbumLoaded = false;
   _emotionAlbumCache  = null;
-  await renderEmotionAlbum();
+  try {
+    await renderEmotionAlbum();
+  } finally {
+    if (btn) { btn.disabled = false; btn.classList.remove('spinning'); }
+  }
 }
 
 // 78차: 구슬 클릭 — 학생/교사 분기
@@ -17480,11 +17512,12 @@ function onEmotionBeadClick(emotion_id) {
       return;
     }
     openEmotionInputModal(emotion_id, em.word, em.category);
-  } else if (role === 'teacher') {
+  } else if (role === 'teacher' || role === 'admin') {
+    // 81차c: 관리자도 같은 carousel 진입 (admin 모드 — 열람만 + 학교/학급 표시 + 정렬 토글)
     if (typeof openClassEmotionCarousel === 'function') {
       openClassEmotionCarousel(emotion_id, em.word);
     } else {
-      toast('교사 carousel은 다음 단계에 열려요');
+      toast('carousel은 다음 단계에 열려요');
     }
   }
 }
@@ -17778,13 +17811,47 @@ var _cfState = {
   idx: 0,             // 현재 중앙 카드 idx
   open: false,
   dragStartX: 0,
-  dragging: false
+  dragging: false,
+  sortMode: 'recent'  // 81차c admin 전용 — 'recent'(최신 업로드 순 디폴트) | 'school'(학교명 가나다)
 };
 
+// 81차c: teacher_uid → {school, grade, classNo, name} 매핑 (관리자 carousel 라벨용)
+function _adminTeacherMeta(teacher_uid) {
+  if (!teacher_uid || !_teacherAll || !_teacherAll.length) return null;
+  for (var i=0; i<_teacherAll.length; i++) {
+    if (_teacherAll[i].teacher_uid === teacher_uid) return _teacherAll[i];
+  }
+  return null;
+}
+
+// 81차c: admin carousel용 정렬 — sortMode에 따라 cards 재정렬
+function _cfApplyAdminSort(rows) {
+  var mode = _cfState.sortMode || 'recent';
+  if (mode === 'school') {
+    rows.sort(function(a,b){
+      var ma = _adminTeacherMeta(a.teacher_uid);
+      var mb = _adminTeacherMeta(b.teacher_uid);
+      var sa = (ma && ma.school_name) || 'ㅎㅎ';
+      var sb = (mb && mb.school_name) || 'ㅎㅎ';
+      var c = sa.localeCompare(sb, 'ko');
+      if (c !== 0) return c;
+      // 같은 학교면 timestamp desc
+      return String(b.timestamp||b.updated_at||'').localeCompare(String(a.timestamp||a.updated_at||''));
+    });
+  } else {
+    // 디폴트: 최신 업로드 순 (timestamp desc, fallback updated_at)
+    rows.sort(function(a,b){
+      return String(b.timestamp||b.updated_at||'').localeCompare(String(a.timestamp||a.updated_at||''));
+    });
+  }
+  return rows;
+}
+
 // 78차: 교사 carousel 진입점 — onEmotionBeadClick에서 호출
+// 81차c: 관리자도 허용 (admin 모드 — 전국 풀, 열람만, 정렬 토글)
 async function openClassEmotionCarousel(emotion_id, word) {
   if (STATE.isPreview) return;
-  if (STATE.role !== 'teacher') return;
+  if (STATE.role !== 'teacher' && STATE.role !== 'admin') return;
   _cfState.emotion_id = emotion_id;
   _cfState.word       = word;
   _cfState._retried   = false;  // 빈 carousel 자동 재시도 1회 플래그 리셋
@@ -17797,21 +17864,28 @@ async function openClassEmotionCarousel(emotion_id, word) {
   var rows = (_emotionAlbumCache || []).filter(function(r){
     return r.emotion_id === emotion_id && !r.is_deleted;
   });
-  // 정렬: cover 우선 → 학생 사진(가나다) → 교사 직접 마지막
-  rows.sort(function(a,b){
-    if (!!a.is_class_cover !== !!b.is_class_cover) return a.is_class_cover ? -1 : 1;
-    if (!!a.is_teacher_upload !== !!b.is_teacher_upload) return a.is_teacher_upload ? 1 : -1;
-    var an = String(a.student_name||''); var bn = String(b.student_name||'');
-    return an.localeCompare(bn, 'ko');
-  });
-  _cfState.cards = rows;
-  // 시작 위치 — cover 카드 idx (없으면 가운데)
-  var startIdx = 0;
-  for (var i=0; i<rows.length; i++) {
-    if (rows[i].is_class_cover) { startIdx = i; break; }
+  if (STATE.role === 'admin') {
+    // 81차c: 관리자 — sortMode에 따라 정렬 (디폴트 최신 순)
+    rows = _cfApplyAdminSort(rows);
+  } else {
+    // 교사: cover 우선 → 학생 사진(가나다) → 교사 직접 마지막
+    rows.sort(function(a,b){
+      if (!!a.is_class_cover !== !!b.is_class_cover) return a.is_class_cover ? -1 : 1;
+      if (!!a.is_teacher_upload !== !!b.is_teacher_upload) return a.is_teacher_upload ? 1 : -1;
+      var an = String(a.student_name||''); var bn = String(b.student_name||'');
+      return an.localeCompare(bn, 'ko');
+    });
   }
-  if (!rows.length) startIdx = 0;
-  else if (startIdx === 0 && !rows[0].is_class_cover) startIdx = Math.floor(rows.length/2);
+  _cfState.cards = rows;
+  // 시작 위치 — admin은 0(최신), 교사는 cover 카드 idx (없으면 가운데)
+  var startIdx = 0;
+  if (STATE.role !== 'admin') {
+    for (var i=0; i<rows.length; i++) {
+      if (rows[i].is_class_cover) { startIdx = i; break; }
+    }
+    if (!rows.length) startIdx = 0;
+    else if (startIdx === 0 && !rows[0].is_class_cover) startIdx = Math.floor(rows.length/2);
+  }
   _cfState.idx = startIdx;
 
   _ensureClassEmotionCarouselModal();
@@ -17876,10 +17950,14 @@ function _renderCfCarousel(forceRebuild) {
         '<div class="cf-empty-msg">아직 <b>'+_escHtml(_cfState.word)+'</b> 감정 사진이 없어요</div>' +
         '<div class="cf-empty-sub">학생이 올리거나, 선생님이 직접 첫 사진을 올려볼까요?</div>' +
       '</div>';
-    metaEl.textContent = '0명 · 사진 없음';
+    metaEl.textContent = (STATE.role === 'admin' ? '전국 0명 · 사진 없음' : '0명 · 사진 없음');
     indEl.innerHTML = '';
-    actionsEl.innerHTML =
-      '<button class="cf-action cf-action-primary" onclick="_cfTriggerTeacherUpload()">📤 직접 업로드</button>';
+    if (STATE.role === 'admin') {
+      // 81차c: 관리자는 업로드 권한 X — 정렬 토글만 표시 (선택은 무의미하지만 일관성 유지)
+      actionsEl.innerHTML = '<div style="color:var(--gray);font-size:12px;text-align:center;width:100%;padding:8px">아직 어떤 학교에서도 이 감정 사진을 올리지 않았어요</div>';
+    } else {
+      actionsEl.innerHTML = '<button class="cf-action cf-action-primary" onclick="_cfTriggerTeacherUpload()">📤 직접 업로드</button>';
+    }
     var prevBtnEmpty = document.getElementById('cfPrev');
     var nextBtnEmpty = document.getElementById('cfNext');
     if (prevBtnEmpty) prevBtnEmpty.disabled = true;
@@ -17896,15 +17974,20 @@ function _renderCfCarousel(forceRebuild) {
         _cfState.cards = (_emotionAlbumCache || []).filter(function(r){
           return r.emotion_id === _cfState.emotion_id && !r.is_deleted;
         });
-        _cfState.cards.sort(function(a,b){
-          if (!!a.is_class_cover !== !!b.is_class_cover) return a.is_class_cover ? -1 : 1;
-          if (!!a.is_teacher_upload !== !!b.is_teacher_upload) return a.is_teacher_upload ? 1 : -1;
-          return String(a.student_name||'').localeCompare(String(b.student_name||''), 'ko');
-        });
-        if (_cfState.cards.length) {
+        if (STATE.role === 'admin') {
+          _cfState.cards = _cfApplyAdminSort(_cfState.cards);
           _cfState.idx = 0;
-          for (var i=0; i<_cfState.cards.length; i++) {
-            if (_cfState.cards[i].is_class_cover) { _cfState.idx = i; break; }
+        } else {
+          _cfState.cards.sort(function(a,b){
+            if (!!a.is_class_cover !== !!b.is_class_cover) return a.is_class_cover ? -1 : 1;
+            if (!!a.is_teacher_upload !== !!b.is_teacher_upload) return a.is_teacher_upload ? 1 : -1;
+            return String(a.student_name||'').localeCompare(String(b.student_name||''), 'ko');
+          });
+          if (_cfState.cards.length) {
+            _cfState.idx = 0;
+            for (var i=0; i<_cfState.cards.length; i++) {
+              if (_cfState.cards[i].is_class_cover) { _cfState.idx = i; break; }
+            }
           }
         }
         _renderCfCarousel(true);
@@ -17913,8 +17996,8 @@ function _renderCfCarousel(forceRebuild) {
     return;
   }
 
-  // 풀 빌드/재사용 분기
-  var wantFor = _cfState.emotion_id + ':' + _cfState.cards.length;
+  // 풀 빌드/재사용 분기 — admin은 sortMode도 signature에 포함 (정렬 토글 시 강제 재빌드)
+  var wantFor = _cfState.emotion_id + ':' + _cfState.cards.length + ':' + (_cfState.sortMode || '');
   if (forceRebuild || stage.dataset.builtFor !== wantFor) {
     stage.innerHTML = '';
     _cfState.cards.forEach(function(item, i){
@@ -17943,6 +18026,7 @@ function _renderCfCarousel(forceRebuild) {
 }
 
 // 78차 디자인: 카드 = 원형 구슬(.cf-card-marble) + 아래 라벨(.cf-card-label)
+// 81차c: 관리자는 라벨에 학교명을 함께 표시 (학급 번호까지는 X — 변쌤 명시)
 function _cfCardInnerHTML(item) {
   var img = item.thumb_url || item.image_url || '';
   var who = item.is_teacher_upload ? '선생님' : (item.student_name || '');
@@ -17950,12 +18034,19 @@ function _cfCardInnerHTML(item) {
   var marbleInner = '';
   if (img) marbleInner += '<img class="cf-photo" src="'+img+'" alt="'+_escHtml(who)+'" loading="lazy">';
   if (item.is_teacher_upload) marbleInner += '<div class="cf-tch-mark">선생님</div>';
-  marbleInner += '<div class="cf-star'+(item.is_class_cover?' active':'')+'">⭐</div>';
+  // 관리자 모드는 ⭐ 별 숨김 (학급 단위 개념이라 의미 없음)
+  if (STATE.role !== 'admin') {
+    marbleInner += '<div class="cf-star'+(item.is_class_cover?' active':'')+'">⭐</div>';
+  }
+  var labelHtml = '<div class="cf-who">'+_escHtml(who)+'</div>';
+  if (STATE.role === 'admin') {
+    var meta = _adminTeacherMeta(item.teacher_uid);
+    var school = (meta && meta.school_name) ? meta.school_name : '미배정';
+    labelHtml += '<div class="cf-school" style="font-size:11px;color:var(--gray);margin-top:2px">🏫 '+_escHtml(school)+'</div>';
+  }
+  if (cap) labelHtml += '<div class="cf-cap">'+_escHtml(cap)+'</div>';
   return '<div class="cf-card-marble">'+marbleInner+'</div>' +
-         '<div class="cf-card-label">' +
-           '<div class="cf-who">'+_escHtml(who)+'</div>' +
-           (cap ? '<div class="cf-cap">'+_escHtml(cap)+'</div>' : '') +
-         '</div>';
+         '<div class="cf-card-label">' + labelHtml + '</div>';
 }
 
 // 78차: 위치 클래스 swap (DOM 재생성 X — transition 보존)
@@ -17991,7 +18082,11 @@ function _renderCfHeaderActions() {
   // 헤더 메타 — "{N}명 · 이 감정 {pos}/{total}번째"
   // is_teacher_upload는 "명"에서 제외 (선생님은 학생 수에 안 들어감)
   var stuCount = _cfState.cards.filter(function(r){ return !r.is_teacher_upload; }).length;
-  metaEl.textContent = stuCount + '명 · 이 감정 ' + (_cfState.idx+1) + '/' + n + '번째';
+  if (STATE.role === 'admin') {
+    metaEl.textContent = '전국 ' + stuCount + '명 · ' + (_cfState.idx+1) + '/' + n + '번째';
+  } else {
+    metaEl.textContent = stuCount + '명 · 이 감정 ' + (_cfState.idx+1) + '/' + n + '번째';
+  }
 
   // 인디케이터
   var dots = '';
@@ -18000,13 +18095,38 @@ function _renderCfHeaderActions() {
   if (prevBtn) prevBtn.disabled = (_cfState.idx === 0);
   if (nextBtn) nextBtn.disabled = (_cfState.idx === n-1);
 
-  // 액션 버튼 — 현재 카드 기준
-  var isCover     = !!cur.is_class_cover;
-  var coverLabel  = isCover ? '⭐ 대표 해제' : '⭐ 대표 지정';
-  var actionsHtml = '<button class="cf-action cf-action-primary" onclick="_cfToggleCover()">'+coverLabel+'</button>' +
-                    '<button class="cf-action" onclick="_cfTriggerTeacherUpload()">📤 직접 업로드</button>' +
-                    '<button class="cf-action cf-action-danger" onclick="_cfDeleteCurrent()">🗑 사진 삭제</button>';
-  actionsEl.innerHTML = actionsHtml;
+  // 액션 버튼 — 관리자는 정렬 토글만, 교사는 ⭐/📤/🗑
+  if (STATE.role === 'admin') {
+    var modeRecent = (_cfState.sortMode || 'recent') === 'recent';
+    actionsEl.innerHTML =
+      '<button class="cf-action'+(modeRecent?' cf-action-primary':'')+'" onclick="_cfSetSortMode(\'recent\')">🕒 최신 순</button>' +
+      '<button class="cf-action'+(!modeRecent?' cf-action-primary':'')+'" onclick="_cfSetSortMode(\'school\')">🏫 학교 순</button>';
+  } else {
+    var isCover     = !!cur.is_class_cover;
+    var coverLabel  = isCover ? '⭐ 대표 해제' : '⭐ 대표 지정';
+    actionsEl.innerHTML =
+      '<button class="cf-action cf-action-primary" onclick="_cfToggleCover()">'+coverLabel+'</button>' +
+      '<button class="cf-action" onclick="_cfTriggerTeacherUpload()">📤 직접 업로드</button>' +
+      '<button class="cf-action cf-action-danger" onclick="_cfDeleteCurrent()">🗑 사진 삭제</button>';
+  }
+}
+
+// 81차c: admin 정렬 토글 — 풀 재정렬 후 carousel 재빌드
+function _cfSetSortMode(mode) {
+  if (STATE.role !== 'admin') return;
+  if (_cfState.sortMode === mode) return;
+  _cfState.sortMode = mode;
+  // 현재 카드의 album_uid 기억해서 재정렬 후 같은 카드를 중앙으로
+  var curUid = (_cfState.cards[_cfState.idx] || {}).album_uid;
+  _cfState.cards = _cfApplyAdminSort(_cfState.cards.slice());
+  var newIdx = 0;
+  if (curUid) {
+    for (var i=0; i<_cfState.cards.length; i++) {
+      if (_cfState.cards[i].album_uid === curUid) { newIdx = i; break; }
+    }
+  }
+  _cfState.idx = newIdx;
+  _renderCfCarousel(true);
 }
 
 // 78차: 좌우 이동
@@ -18252,9 +18372,13 @@ var _albumFilterRendering = false;
 async function renderAdminAlbum() {
   var el = document.getElementById('adminAlbumList');
   if (!el) return;
-  // 78차 P4: emotion 모드면 emotions_master 캐시 사전 로드 (감정 이름 라벨 매핑용)
+  // 81차c: 관리자 감정앨범 = 교사 4x5 구슬 그리드 차용 (변쌤 명시 — 감정 구슬·전국 carousel)
+  //   감정 모드면 renderEmotionAlbum()이 #adminAlbumList 자리에 직접 그림 (학교별 그리드 X)
   if (STATE && STATE._adminAlbumSubTab === 'emotion') {
     try { await _loadEmotionsMaster(); } catch(e) {}
+    _emotionAlbumLoaded = false;  // 진입 시 fresh fetch (학생 INSERT 즉시 반영)
+    await renderEmotionAlbum();
+    return;
   }
 
   // 캐시 있으면 즉시 렌더 후 백그라운드에서 bulk 재조회 (68차)
