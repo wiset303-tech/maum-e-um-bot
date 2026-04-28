@@ -563,6 +563,10 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   word-break:keep-all;padding:0 12px;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
 }
+/* 83차: 캡션 클릭 가능 — 잘렸을 때 풀 텍스트 모달 진입 (변쌤 명시) */
+.cf-card-label .cf-cap.cf-cap-clickable{cursor:pointer;transition:color .15s,background .15s;border-radius:6px;padding:1px 12px}
+.cf-card-label .cf-cap.cf-cap-clickable:hover{color:var(--mint-dark);background:rgba(42,171,144,0.06)}
+.cf-card-label .cf-cap-more{display:inline-block;margin-left:3px;color:var(--mint-dark);font-weight:700}
 /* 78차 디자인 — 룰렛 호: 좌우로 갈수록 아래로 처지고(translateY+), 기울어지고, 작아지고 흐려진다.
    사용자는 가운데(pos-0) 정점 카드 하나를 편안히 본다. */
 .cf-card.pos-0       {transform:translate(0,        0)      rotateY(0deg)   scale(1);   opacity:1;   filter:blur(0)}
@@ -4226,6 +4230,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
         <button id="popupAlbumDelete" class="btn btn-sm" style="background:var(--rose2);color:#a03030;display:none"
           onclick="deleteAlbumItem()">🗑 삭제</button>
       </div>
+      <!-- 83차: 감정앨범과 연결된 사진이면 라벨 표시 (변쌤 명시) -->
+      <div id="popupAlbumEmoLink" style="display:none;font-size:13px;color:#c0392b;background:linear-gradient(90deg,#fff5f5,#fff);border:1px solid #ffd0d0;border-radius:10px;padding:8px 12px;margin-bottom:8px;font-weight:700"></div>
       <div id="popupAlbumCaption" style="font-size:15px;font-weight:600;color:var(--navy);margin-bottom:8px;min-height:20px"></div>
       <div id="popupAlbumHashtags" style="margin-bottom:4px"></div>
     </div>
@@ -12050,6 +12056,9 @@ async function submitProfilePw() {
 }
 
 async function uploadProfileImage() {
+  // 83차: 사진 업로드 동의 게이트 — 통과 못 하면 파일 선택창 안 열림
+  var consented = await _confirmPhotoUploadConsent();
+  if (!consented) return;
   var input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
@@ -16681,9 +16690,13 @@ function _htpOpenRecordModal(week_no) {
 }
 
 // 사진 고르기 — 갤러리 (Phase 4에서 카메라 자동 crop 추가 예정)
+//   83차: 동의 게이트 통과 후에만 파일 선택창 열기
 function _htpPickPhoto() {
-  var input = document.getElementById('htRecPhotoInput');
-  if (input) input.click();
+  _confirmPhotoUploadConsent().then(function(ok){
+    if (!ok) return;
+    var input = document.getElementById('htRecPhotoInput');
+    if (input) input.click();
+  });
 }
 
 // 사진 선택됨 — 1440px 리사이즈 후 자동 crop 모달 진입 (Phase 4)
@@ -19503,6 +19516,58 @@ function openEmotionInputModal(emotion_id, word, category) {
   modal.classList.remove('hidden');
 }
 
+// 83차: 사진 업로드 동의 게이트 — 모든 이미지/카메라 업로드 진입점에서 호출
+//   변쌤 명시: 폭력적·민감정보·타인 공개 안 될 사진 차단 안내 + 불쾌한 게시물 예고없이 삭제 안내
+//   적용 5곳: 마음동화 페이지(_htpPickPhoto)·프로필(uploadProfileImage)·감정앨범 학생(emoInputMarble)·교사 carousel(_cfTriggerTeacherUpload)·일상앨범(uploadAlbum)
+function _confirmPhotoUploadConsent() {
+  return new Promise(function(resolve){
+    _ensurePhotoConsentModal();
+    var modal = document.getElementById('modal-photo-consent');
+    var okBtn = document.getElementById('photoConsentOk');
+    var noBtn = document.getElementById('photoConsentCancel');
+    var done = function(yes){
+      modal.classList.add('hidden');
+      okBtn.onclick = null;
+      noBtn.onclick = null;
+      resolve(yes);
+    };
+    okBtn.onclick = function(){ done(true); };
+    noBtn.onclick = function(){ done(false); };
+    modal.classList.remove('hidden');
+  });
+}
+function _ensurePhotoConsentModal() {
+  if (document.getElementById('modal-photo-consent')) return;
+  var html =
+    '<div class="modal-overlay hidden" id="modal-photo-consent" style="z-index:3500" onclick="if(event.target===this)_closePhotoConsentModal()">' +
+      '<div class="modal-box" style="max-width:380px;position:relative">' +
+        '<div style="text-align:center;font-size:38px;margin-bottom:4px">📷</div>' +
+        '<h3 style="text-align:center;margin:0 0 14px;color:var(--navy);font-size:18px;font-weight:800">사진을 올리기 전에</h3>' +
+        '<div style="background:#fff8f1;border:1.5px solid #ffd9b3;border-radius:14px;padding:14px 16px;font-size:13px;line-height:1.7;color:#7a4a1f;margin-bottom:14px;word-break:keep-all">' +
+          '<div style="font-weight:700;margin-bottom:8px;color:#c0392b">⚠️ 함께 지켜요</div>' +
+          '<div>• 폭력적이거나 무서운 사진은 올리지 않아요</div>' +
+          '<div>• 다른 사람의 얼굴·이름·전화번호 같은 <b>개인 정보</b>가 보이는 사진은 올리지 않아요</div>' +
+          '<div>• 친구나 다른 사람을 놀리거나 부끄럽게 만드는 사진은 올리지 않아요</div>' +
+          '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #ffd9b3;color:#9c5d2a;font-size:12px;line-height:1.6">불쾌하거나 부적절한 사진은 <b>예고 없이 삭제</b>될 수 있어요.</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px">' +
+          '<button class="btn" id="photoConsentCancel" style="flex:1">취소</button>' +
+          '<button class="btn btn-primary" id="photoConsentOk" style="flex:2">동의하고 사진 고르기 ✓</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function _closePhotoConsentModal() {
+  // 바깥 클릭·X 버튼 — 취소(false)로 resolve. noBtn.onclick은 _confirmPhotoUploadConsent가 설정해 둠.
+  var noBtn = document.getElementById('photoConsentCancel');
+  if (noBtn && typeof noBtn.onclick === 'function') noBtn.onclick();
+  else {
+    var modal = document.getElementById('modal-photo-consent');
+    if (modal) modal.classList.add('hidden');
+  }
+}
+
 // 78차 디자인: 학생 감정 입력 모달 — 큰 원형 구슬 + X 버튼 + 메모 + 담기
 //   변쌤 명시: 학생은 한 감정 1장이라 좌우 화살표는 의미 없고 헷갈림 → 제거. 교사 carousel만 좌우 이동.
 function _ensureEmotionInputModal() {
@@ -19516,7 +19581,7 @@ function _ensureEmotionInputModal() {
           '<span class="emo-cat" id="emoInputCat"></span>' +
         '</div>' +
         '<div class="emo-input-marble-wrap" style="display:flex;justify-content:center;margin:6px 0 4px">' +
-          '<div class="emo-input-marble empty" id="emoInputMarble" onclick="document.getElementById(\'emoInputFile\').click()">' +
+          '<div class="emo-input-marble empty" id="emoInputMarble" onclick="_emoInputPickPhoto()">' +
             '<img class="emo-input-photo" id="emoInputPhoto" alt="" style="display:none">' +
             '<div class="emo-input-overlay">' +
               '<div class="emo-input-overlay-icon">📷</div>' +
@@ -19525,7 +19590,11 @@ function _ensureEmotionInputModal() {
           '</div>' +
         '</div>' +
         '<input type="file" id="emoInputFile" accept="image/*" style="display:none" onchange="_onEmotionInputFileChange(event)">' +
-        '<input class="inp" id="emoInputCaption" type="text" placeholder="이 감정에 대한 한 줄 메모 (선택)" maxlength="60" style="margin:16px 0 12px">' +
+        // 83차: placeholder에 글자 수 안내 + 우측 0/60 실시간 카운터 (변쌤 명시 "흐린 글자로 안내")
+        '<div style="position:relative;margin:16px 0 12px">' +
+          '<input class="inp" id="emoInputCaption" type="text" placeholder="이 감정을 고른 이유 (선택, 60자 이내)" maxlength="60" oninput="_emoCaptionUpdateCount(this)" style="margin:0;padding-right:54px">' +
+          '<span id="emoInputCaptionCount" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--gray);pointer-events:none;font-variant-numeric:tabular-nums">0/60</span>' +
+        '</div>' +
         '<button class="btn btn-primary" id="emoInputSubmitBtn" onclick="submitEmotionAlbum()" style="width:100%">담기</button>' +
       '</div>' +
     '</div>';
@@ -19563,7 +19632,18 @@ function _populateEmotionInputModal() {
     overlayText.textContent = st.word + ' 감정에 어울리는 사진을 골라볼까요?';
   }
   captionInp.value = (hasExisting && st.existing.caption) ? st.existing.caption : '';
+  // 83차: prefill 후 글자 수 카운터 즉시 동기화
+  if (typeof _emoCaptionUpdateCount === 'function') _emoCaptionUpdateCount(captionInp);
   // 78차 정정: 학생 모달 좌우 화살표 제거 (한 감정 1장이라 의미 없음)
+}
+
+// 83차: 감정앨범 입력 모달 — 한 줄 메모 글자 수 카운터 (50자 이상이면 주황 강조)
+function _emoCaptionUpdateCount(input) {
+  var el = document.getElementById('emoInputCaptionCount');
+  if (!el) return;
+  var n = (input && input.value || '').length;
+  el.textContent = n + '/60';
+  el.style.color = (n >= 50) ? '#e67e22' : 'var(--gray)';
 }
 
 function closeEmotionInputModal() {
@@ -20048,6 +20128,10 @@ function _cfApplyAdminSort(rows) {
 
 // 78차: 교사 carousel 진입점 — onEmotionBeadClick에서 호출
 // 81차c: 관리자도 허용 (admin 모드 — 전국 풀, 열람만, 정렬 토글)
+// 83차 속도 개선 (변쌤 명시 "팝업창 뜨는 반응 살짝 느려서 더 빨랐으면"):
+//   ① 캐시 있으면 즉시 모달 표시 (await 제거) — realtime + 폴링 안전망 있어 stale 위험 낮음
+//   ② 백그라운드에서 silent refresh → 변경 있으면 in-place 재빌드
+//   ③ 캐시 없을 때만 await
 async function openClassEmotionCarousel(emotion_id, word) {
   // 81차d: 미리보기에서도 carousel 진입 — _loadEmotionAlbumCache가 isPreview 가드로 더미 보호
   if (STATE.role !== 'teacher' && STATE.role !== 'admin') return;
@@ -20055,19 +20139,38 @@ async function openClassEmotionCarousel(emotion_id, word) {
   _cfState.word       = word;
   _cfState._retried   = false;  // 빈 carousel 자동 재시도 1회 플래그 리셋
 
-  // 78차 fix: 진입 시 항상 캐시 무효화 + 신선한 fetch (학생 새 INSERT 즉시 반영, realtime 누락 안전망)
-  _emotionAlbumLoaded = false;
-  try { await _loadEmotionAlbumCache(); } catch(e) { console.error('[CF FRESH FETCH]', e); }
+  // 83차: 캐시 사전 보유 여부 — Array면 즉시, 아니면 await
+  var hasCache = Array.isArray(_emotionAlbumCache);
+  if (!hasCache) {
+    try { await _loadEmotionAlbumCache(); } catch(e) { console.error('[CF FIRST FETCH]', e); }
+  }
 
-  // 현재 감정의 행만 추리기 (학생 + 교사 직접 업로드 모두 같은 풀)
+  _cfApplyRowsAndOpen(emotion_id);
+
+  // 83차: 캐시가 있던 경우 백그라운드 silent refresh — realtime 누락 안전망
+  if (hasCache) {
+    setTimeout(async function(){
+      var prevSig = (_emotionAlbumCache || [])
+        .map(function(r){ return r.album_uid + ':' + (r.updated_at || ''); }).join('|');
+      _emotionAlbumLoaded = false;
+      try { await _loadEmotionAlbumCache(); } catch(e) { return; }
+      var newSig = (_emotionAlbumCache || [])
+        .map(function(r){ return r.album_uid + ':' + (r.updated_at || ''); }).join('|');
+      if (newSig !== prevSig && _cfState.open && _cfState.emotion_id === emotion_id) {
+        _cfApplyRowsAndOpen(emotion_id, true);
+      }
+    }, 30);
+  }
+}
+
+// 83차: 진입·refresh 공용 — 현재 감정 카드 분리·정렬·표시 (정렬 로직 단일화)
+function _cfApplyRowsAndOpen(emotion_id, refreshOnly) {
   var rows = (_emotionAlbumCache || []).filter(function(r){
     return r.emotion_id === emotion_id && !r.is_deleted;
   });
   if (STATE.role === 'admin') {
-    // 81차c: 관리자 — sortMode에 따라 정렬 (디폴트 최신 순)
     rows = _cfApplyAdminSort(rows);
   } else {
-    // 교사: cover 우선 → 학생 사진(가나다) → 교사 직접 마지막
     rows.sort(function(a,b){
       if (!!a.is_class_cover !== !!b.is_class_cover) return a.is_class_cover ? -1 : 1;
       if (!!a.is_teacher_upload !== !!b.is_teacher_upload) return a.is_teacher_upload ? 1 : -1;
@@ -20076,21 +20179,25 @@ async function openClassEmotionCarousel(emotion_id, word) {
     });
   }
   _cfState.cards = rows;
-  // 시작 위치 — admin은 0(최신), 교사는 cover 카드 idx (없으면 가운데)
-  var startIdx = 0;
-  if (STATE.role !== 'admin') {
-    for (var i=0; i<rows.length; i++) {
-      if (rows[i].is_class_cover) { startIdx = i; break; }
+  if (!refreshOnly) {
+    var startIdx = 0;
+    if (STATE.role !== 'admin') {
+      for (var i=0; i<rows.length; i++) {
+        if (rows[i].is_class_cover) { startIdx = i; break; }
+      }
+      if (!rows.length) startIdx = 0;
+      else if (startIdx === 0 && !rows[0].is_class_cover) startIdx = Math.floor(rows.length/2);
     }
-    if (!rows.length) startIdx = 0;
-    else if (startIdx === 0 && !rows[0].is_class_cover) startIdx = Math.floor(rows.length/2);
+    _cfState.idx = startIdx;
+    _ensureClassEmotionCarouselModal();
+    _renderCfCarousel(true);
+    document.getElementById('modal-class-emotion-carousel').classList.remove('hidden');
+    _cfState.open = true;
+  } else {
+    // 백그라운드 갱신 — idx 보정 + in-place 재빌드
+    if (_cfState.idx >= rows.length) _cfState.idx = Math.max(0, rows.length-1);
+    _renderCfCarousel(true);
   }
-  _cfState.idx = startIdx;
-
-  _ensureClassEmotionCarouselModal();
-  _renderCfCarousel(true);  // 첫 빌드 — 풀 신규
-  document.getElementById('modal-class-emotion-carousel').classList.remove('hidden');
-  _cfState.open = true;
 }
 
 // 78차: carousel 모달 DOM 동적 생성 (한 번만)
@@ -20162,36 +20269,8 @@ function _renderCfCarousel(forceRebuild) {
     if (prevBtnEmpty) prevBtnEmpty.disabled = true;
     if (nextBtnEmpty) nextBtnEmpty.disabled = true;
     stage.dataset.builtFor = '';
-    // 78차 fix: 학생이 방금 채웠을 가능성 — 토스트 + 1.5초 후 자동 재시도(한 번만, realtime 지연 안전망)
-    if (!_cfState._retried) {
-      _cfState._retried = true;
-      toast('마음을 채우는 중이에요 💗\n잠시만 기다려 주세요');
-      setTimeout(async function(){
-        if (!_cfState.open) return;
-        _emotionAlbumLoaded = false;
-        try { await _loadEmotionAlbumCache(); } catch(e) {}
-        _cfState.cards = (_emotionAlbumCache || []).filter(function(r){
-          return r.emotion_id === _cfState.emotion_id && !r.is_deleted;
-        });
-        if (STATE.role === 'admin') {
-          _cfState.cards = _cfApplyAdminSort(_cfState.cards);
-          _cfState.idx = 0;
-        } else {
-          _cfState.cards.sort(function(a,b){
-            if (!!a.is_class_cover !== !!b.is_class_cover) return a.is_class_cover ? -1 : 1;
-            if (!!a.is_teacher_upload !== !!b.is_teacher_upload) return a.is_teacher_upload ? 1 : -1;
-            return String(a.student_name||'').localeCompare(String(b.student_name||''), 'ko');
-          });
-          if (_cfState.cards.length) {
-            _cfState.idx = 0;
-            for (var i=0; i<_cfState.cards.length; i++) {
-              if (_cfState.cards[i].is_class_cover) { _cfState.idx = i; break; }
-            }
-          }
-        }
-        _renderCfCarousel(true);
-      }, 1500);
-    }
+    // 83차 정정: 78차 자동 토스트 + 1.5초 재fetch 안전망 제거 (변쌤 신고 "이유없이 바로 뜸").
+    // 빈 화면 안내(.cf-empty)만 노출. 학생이 방금 채웠으면 realtime/⟳ 새로고침 버튼이 자동 처리.
     return;
   }
 
@@ -20244,9 +20323,60 @@ function _cfCardInnerHTML(item) {
     var school = (meta && meta.school_name) ? meta.school_name : '미배정';
     labelHtml += '<div class="cf-school" style="font-size:11px;color:var(--gray);margin-top:2px">🏫 '+_escHtml(school)+'</div>';
   }
-  if (cap) labelHtml += '<div class="cf-cap">'+_escHtml(cap)+'</div>';
+  if (cap) {
+    // 83차: 캡션 클릭 시 풀 텍스트 모달 — 잘려도 끝까지 볼 수 있게
+    var capData =
+      ' data-cap="' + _escHtml(cap) + '"' +
+      ' data-who="' + _escHtml(who) + '"' +
+      ' data-img="' + _escHtml(img) + '"';
+    labelHtml +=
+      '<div class="cf-cap cf-cap-clickable" onclick="event.stopPropagation();_cfOpenCaptionModalFromEl(this)"' + capData + '>' +
+        _escHtml(cap) +
+      '</div>';
+  }
   return '<div class="cf-card-marble">'+marbleInner+'</div>' +
          '<div class="cf-card-label">' + labelHtml + '</div>';
+}
+
+// 83차: carousel 캡션 풀 텍스트 모달 — 변쌤 명시 "클릭 시 자연스럽게 터치로 문구 다 보이는 모달"
+function _cfOpenCaptionModalFromEl(el) {
+  if (!el) return;
+  _cfOpenCaptionModal({
+    who: el.getAttribute('data-who') || '',
+    cap: el.getAttribute('data-cap') || '',
+    img: el.getAttribute('data-img') || ''
+  });
+}
+function _cfOpenCaptionModal(item) {
+  _ensureCfCaptionModal();
+  var modal = document.getElementById('modal-cf-caption');
+  var imgEl = document.getElementById('cfCapModalImg');
+  var whoEl = document.getElementById('cfCapModalWho');
+  var capEl = document.getElementById('cfCapModalCap');
+  if (item.img) { imgEl.src = item.img; imgEl.style.display = ''; }
+  else { imgEl.removeAttribute('src'); imgEl.style.display = 'none'; }
+  whoEl.textContent = item.who || '';
+  capEl.textContent = item.cap || '';
+  modal.classList.remove('hidden');
+}
+function _ensureCfCaptionModal() {
+  if (document.getElementById('modal-cf-caption')) return;
+  var html =
+    '<div class="modal-overlay hidden" id="modal-cf-caption" style="z-index:3500" onclick="if(event.target===this)_closeCfCaptionModal()">' +
+      '<div class="modal-box" style="max-width:360px;text-align:center;position:relative">' +
+        '<button class="emo-input-close" onclick="_closeCfCaptionModal()" aria-label="닫기">×</button>' +
+        '<div style="display:flex;justify-content:center;margin:6px 0 14px">' +
+          '<img id="cfCapModalImg" alt="" style="width:200px;height:200px;border-radius:50%;border:3px solid var(--mint);object-fit:cover;background:#f5f5f5;display:none">' +
+        '</div>' +
+        '<div id="cfCapModalWho" style="font-size:16px;font-weight:800;color:var(--navy);margin-bottom:10px"></div>' +
+        '<div id="cfCapModalCap" style="font-size:14px;line-height:1.7;color:var(--navy);word-break:keep-all;white-space:pre-wrap;text-align:left;background:#f8fafc;border-radius:14px;padding:14px 16px;max-height:40vh;overflow-y:auto"></div>' +
+      '</div>' +
+    '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function _closeCfCaptionModal() {
+  var modal = document.getElementById('modal-cf-caption');
+  if (modal) modal.classList.add('hidden');
 }
 
 // 78차: 위치 클래스 swap (DOM 재생성 X — transition 보존)
@@ -20422,9 +20552,21 @@ async function _cfToggleCover() {
 }
 
 // 78차: 📤 교사 직접 업로드 — 파일 선택 → 압축 → saveAlbum (album_type=emotion, is_teacher_upload=true)
+//   83차: 사진 업로드 동의 게이트 적용
 function _cfTriggerTeacherUpload() {
   if (STATE.isPreview) return;
-  document.getElementById('cfTeacherFile').click();
+  _confirmPhotoUploadConsent().then(function(ok){
+    if (!ok) return;
+    document.getElementById('cfTeacherFile').click();
+  });
+}
+// 83차: 학생 감정앨범 입력 모달 안 구슬 클릭 핸들러 — 동의 게이트 통과 후 파일 선택창
+function _emoInputPickPhoto() {
+  if (STATE.isPreview) return;
+  _confirmPhotoUploadConsent().then(function(ok){
+    if (!ok) return;
+    document.getElementById('emoInputFile').click();
+  });
 }
 function _cfOnTeacherFile(ev) {
   var f = ev.target.files && ev.target.files[0];
@@ -20493,6 +20635,30 @@ async function _cfSubmitTeacherUpload(image_b64, thumb_b64) {
   } catch(e) { console.error('[CF TCH UPLOAD]', e); toast('저장 중 오류가 났어요'); }
 }
 
+// 83차: 양방향 캐시 동기 — 한 album_uid를 모든 클라이언트 캐시에서 일괄 제거
+//   변쌤 명시: 감정앨범↔일상앨범 같은 row이므로 한쪽 삭제 시 다른 쪽 캐시도 즉시 비워야 화면 정합
+function _albumRemoveAcrossCaches(album_uid) {
+  if (!album_uid) return;
+  try {
+    if (Array.isArray(_albumCache)) {
+      _albumCache = _albumCache.filter(function(c){ return !(c && c.data && c.data.album_uid === album_uid); });
+    }
+    if (_preloadedStudentAlbum && Array.isArray(_preloadedStudentAlbum)) {
+      _preloadedStudentAlbum = _preloadedStudentAlbum.filter(function(a){ return !(a && a.album_uid === album_uid); });
+    }
+    if (typeof _teacherAlbumAll !== 'undefined' && Array.isArray(_teacherAlbumAll)) {
+      _teacherAlbumAll = _teacherAlbumAll.filter(function(a){ return !(a && a.album_uid === album_uid); });
+    }
+    if (Array.isArray(_emotionAlbumCache)) {
+      _emotionAlbumCache = _emotionAlbumCache.filter(function(r){ return !(r && r.album_uid === album_uid); });
+    }
+    if (typeof _cfState === 'object' && _cfState && Array.isArray(_cfState.cards)) {
+      _cfState.cards = _cfState.cards.filter(function(c){ return !(c && c.album_uid === album_uid); });
+      if (_cfState.idx >= _cfState.cards.length) _cfState.idx = Math.max(0, _cfState.cards.length-1);
+    }
+  } catch(e) { console.error('[ALB SYNC RM]', e); }
+}
+
 // 78차: 🗑 사진 삭제 (아동 보호) — Supabase 직접 RPC + 낙관적 UI + 백그라운드 GAS sync
 async function _cfDeleteCurrent() {
   if (STATE.isPreview) return;
@@ -20503,15 +20669,15 @@ async function _cfDeleteCurrent() {
   var who = cur.is_teacher_upload ? '학급 표지 사진' : (_adminMask(cur.student_name) + ' 학생의 사진');
   if (!confirm(who + '을(를) 삭제할까요?\n삭제된 사진은 복구할 수 없어요.')) return;
 
-  // 낙관적 UI — 현재 카드 풀에서 제거 + 인덱스 보정
+  // 낙관적 UI — 모든 캐시 일괄 정리 (83차 양방향 동기)
   var album_uid = cur.album_uid;
-  _cfState.cards = _cfState.cards.filter(function(c){ return c.album_uid !== album_uid; });
-  if (_cfState.idx >= _cfState.cards.length) _cfState.idx = Math.max(0, _cfState.cards.length-1);
-  if (_emotionAlbumCache) {
-    _emotionAlbumCache = _emotionAlbumCache.filter(function(r){ return r.album_uid !== album_uid; });
-  }
+  _albumRemoveAcrossCaches(album_uid);
   if (STATE._albumSubTab !== 'daily') _renderEmotionGrid();
   _renderCfCarousel(true);
+  // 83차: 일상앨범 그리드도 즉시 갱신 (감정 사진은 일상앨범에도 표출되므로)
+  try {
+    if (typeof _renderTeacherAlbumGrid === 'function' && document.getElementById('albumTeacherGrid')) _renderTeacherAlbumGrid();
+  } catch(e) {}
 
   // Supabase RPC 직접 호출 (권한 검증 + soft delete + cover 자동 false)
   try {
@@ -21634,6 +21800,23 @@ async function openAlbumPopup(idx) {
   document.getElementById('popupAlbumCaption').textContent = albumData.caption || '';
   var tags = albumData.hashtags ? parseHashtags(albumData.hashtags) : [];
   document.getElementById('popupAlbumHashtags').innerHTML = renderHashtagChips(tags);
+  // 83차: 감정앨범과 연결된 사진이면 라벨 표시 (album_type='emotion' 또는 emotion_id 보유)
+  var emoLinkEl = document.getElementById('popupAlbumEmoLink');
+  if (emoLinkEl) {
+    var isEmotion = (albumData.album_type === 'emotion') || !!albumData.emotion_id;
+    if (isEmotion) {
+      var word = '';
+      if (albumData.emotion_id && Array.isArray(_emotionsMaster)) {
+        var em = _emotionsMaster.find(function(e){ return e.emotion_id === albumData.emotion_id; });
+        if (em) word = em.word || '';
+      }
+      emoLinkEl.innerHTML = '💗 ' + (word ? '<b>'+_escHtml(word)+'</b>' : '') + ' 감정앨범과 연결된 사진이에요';
+      emoLinkEl.style.display = '';
+    } else {
+      emoLinkEl.style.display = 'none';
+      emoLinkEl.textContent = '';
+    }
+  }
   var delBtn = document.getElementById('popupAlbumDelete');
   if (delBtn) delBtn.style.display = canDelete ? 'block' : 'none';
 
@@ -21696,10 +21879,21 @@ async function deleteAlbumItem() {
   if (!(await appConfirm('사진 삭제', '이 사진을 삭제할까요?', { danger:true, okLabel:'삭제' }))) return;
   closeModal('modal-album-popup');
   showLoading('삭제 중이에요 🗑');
-  var res = await api('delete_album', { album_uid: _popupAlbumUid });
+  var deletedUid = _popupAlbumUid;
+  var res = await api('delete_album', { album_uid: deletedUid });
   hideLoading();
   if (res.status === 'ok') {
     toast('삭제됐어요');
+    // 83차: 양방향 캐시 동기 — 감정앨범 carousel·캐시까지 즉시 정리 (변쌤 명시)
+    _albumRemoveAcrossCaches(deletedUid);
+    // carousel 열려 있으면 즉시 재렌더
+    try {
+      if (_cfState && _cfState.open && typeof _renderCfCarousel === 'function') _renderCfCarousel(true);
+    } catch(e) {}
+    // 감정앨범 구슬 그리드 카운트도 즉시 재집계
+    try {
+      if (STATE._albumSubTab !== 'daily' && typeof _renderEmotionGrid === 'function') _renderEmotionGrid();
+    } catch(e) {}
     if (STATE.role === 'teacher') {
       _teacherAlbumLoaded = false; // 캐시 무효화 → 재로드
       renderAlbumStudentPicker();
@@ -21771,6 +21965,9 @@ async function uploadAlbum() {
       } catch(e) {}
     }
   }
+  // 83차: 사진 업로드 동의 게이트 — 한도 정책 동의 후, 파일 선택창 직전
+  var consented = await _confirmPhotoUploadConsent();
+  if (!consented) return;
   var input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
