@@ -16120,48 +16120,38 @@ async function loadChatHistoryList() {
     list.innerHTML = '<div class="chat-hist-empty">불러오는 중...</div>';
   }
 
-  // 83차: 백그라운드 fresh fetch도 Supabase 직접 (변쌤 명시 — GAS cold start 제거)
-  //   _sbGetStudentChatHistory는 이미 _sbFetch('chat_log', ...) 직접 호출 헬퍼
+  // 83차 회귀 fix: 백그라운드 fresh fetch는 GAS api('list_chats') (시트 직접 읽기 = 가장 정확)
+  //   변쌤 신고 — Supabase로 변경 시 _sbSync 누락된 새 대화 row가 안 보였음.
+  //   preload는 Supabase 직접 (즉시 표시) / fresh는 GAS (정확) — 두 경로 조합으로 즉시성·정확성 둘 다 확보.
   var u = STATE.user || {};
   if (!u.student_uid) return;
   try {
-    var rows = await _sbGetStudentChatHistory(u.student_uid);
-    var chats = (rows || []).map(function(r){
-      return {
-        log_uid          : r.log_uid,
-        date             : String(r.date || '').slice(0, 10),
-        dominant_keywords: r.dominant_keywords || '',
-        _messages_json   : r.messages_json || ''
-      };
+    var res = await api('list_chats', {
+      caller_uid : u.student_uid,
+      caller_role: 'student',
+      limit      : 30
     });
-    // 다음 진입을 위한 캐시 갱신
-    STATE._preloadedChatHistory = (rows || []).map(function(r){ return {
-      log_uid: r.log_uid, date: r.date, dominant_keywords: r.dominant_keywords,
-      messages_json: r.messages_json || ''
-    };});
-    _chatHistCache = chats;
-    // 모달 여전히 열려있으면 재렌더 (새 대화 반영)
-    if (document.getElementById('modal-chat-history') &&
-        !document.getElementById('modal-chat-history').classList.contains('hidden')) {
-      _renderChatHistRows(chats, list);
+    if (res && res.status === 'ok') {
+      var chats = (res.data && res.data.chats) || [];
+      // 다음 진입을 위한 캐시 갱신 (Supabase 형식과 정합되게 messages_json 포함)
+      STATE._preloadedChatHistory = chats.map(function(r){ return {
+        log_uid: r.log_uid,
+        date: r.date,
+        dominant_keywords: r.dominant_keywords,
+        messages_json: r._messages_json || r.messages_json || ''
+      };});
+      _chatHistCache = chats;
+      // 모달 여전히 열려있으면 재렌더 (새 대화 반영)
+      if (document.getElementById('modal-chat-history') &&
+          !document.getElementById('modal-chat-history').classList.contains('hidden')) {
+        _renderChatHistRows(chats, list);
+      }
+    } else if (!hasCache) {
+      list.innerHTML = '<div class="chat-hist-empty">불러오지 못했어요</div>';
     }
   } catch(e) {
-    console.error('[CHAT HIST SB FETCH]', e && e.message ? e.message : e);
-    // GAS fallback 안전망
-    if (!hasCache) {
-      try {
-        var res = await api('list_chats', { caller_uid: u.student_uid, caller_role: 'student', limit: 30 });
-        if (res && res.status === 'ok') {
-          var fbChats = (res.data && res.data.chats) || [];
-          _chatHistCache = fbChats;
-          _renderChatHistRows(fbChats, list);
-        } else {
-          list.innerHTML = '<div class="chat-hist-empty">불러오지 못했어요</div>';
-        }
-      } catch(e2) {
-        list.innerHTML = '<div class="chat-hist-empty">불러오지 못했어요</div>';
-      }
-    }
+    console.error('[CHAT HIST GAS FETCH]', e && e.message ? e.message : e);
+    if (!hasCache) list.innerHTML = '<div class="chat-hist-empty">불러오지 못했어요</div>';
   }
 }
 
