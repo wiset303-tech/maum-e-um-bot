@@ -16120,38 +16120,49 @@ async function loadChatHistoryList() {
     list.innerHTML = '<div class="chat-hist-empty">불러오는 중...</div>';
   }
 
-  // 83차 회귀 fix: 백그라운드 fresh fetch는 GAS api('list_chats') (시트 직접 읽기 = 가장 정확)
-  //   변쌤 신고 — Supabase로 변경 시 _sbSync 누락된 새 대화 row가 안 보였음.
-  //   preload는 Supabase 직접 (즉시 표시) / fresh는 GAS (정확) — 두 경로 조합으로 즉시성·정확성 둘 다 확보.
+  // 83차 진정한 fix: 백그라운드 fresh도 Supabase 직접 (변쌤 명시 — 모든 역할 Supabase 우선 정책)
+  //   근본 원인이었던 saveChatLog의 Supabase 동기화 누락은 code.gs에서 fix됨 (_sbInsert/_sbSync 추가).
+  //   이제 Supabase chat_log에 새 대화도 즉시 들어가므로 fetch에서 정상 노출.
   var u = STATE.user || {};
   if (!u.student_uid) return;
   try {
-    var res = await api('list_chats', {
-      caller_uid : u.student_uid,
-      caller_role: 'student',
-      limit      : 30
+    var rows = await _sbGetStudentChatHistory(u.student_uid);
+    var chats = (rows || []).map(function(r){
+      return {
+        log_uid          : r.log_uid,
+        date             : String(r.date || '').slice(0, 10),
+        dominant_keywords: r.dominant_keywords || '',
+        _messages_json   : r.messages_json || ''
+      };
     });
-    if (res && res.status === 'ok') {
-      var chats = (res.data && res.data.chats) || [];
-      // 다음 진입을 위한 캐시 갱신 (Supabase 형식과 정합되게 messages_json 포함)
-      STATE._preloadedChatHistory = chats.map(function(r){ return {
-        log_uid: r.log_uid,
-        date: r.date,
-        dominant_keywords: r.dominant_keywords,
-        messages_json: r._messages_json || r.messages_json || ''
-      };});
-      _chatHistCache = chats;
-      // 모달 여전히 열려있으면 재렌더 (새 대화 반영)
-      if (document.getElementById('modal-chat-history') &&
-          !document.getElementById('modal-chat-history').classList.contains('hidden')) {
-        _renderChatHistRows(chats, list);
-      }
-    } else if (!hasCache) {
-      list.innerHTML = '<div class="chat-hist-empty">불러오지 못했어요</div>';
+    // 다음 진입을 위한 캐시 갱신
+    STATE._preloadedChatHistory = (rows || []).map(function(r){ return {
+      log_uid: r.log_uid, date: r.date, dominant_keywords: r.dominant_keywords,
+      messages_json: r.messages_json || ''
+    };});
+    _chatHistCache = chats;
+    // 모달 여전히 열려있으면 재렌더 (새 대화 반영)
+    if (document.getElementById('modal-chat-history') &&
+        !document.getElementById('modal-chat-history').classList.contains('hidden')) {
+      _renderChatHistRows(chats, list);
     }
   } catch(e) {
-    console.error('[CHAT HIST GAS FETCH]', e && e.message ? e.message : e);
-    if (!hasCache) list.innerHTML = '<div class="chat-hist-empty">불러오지 못했어요</div>';
+    console.error('[CHAT HIST SB FETCH]', e && e.message ? e.message : e);
+    // GAS fallback 안전망 (Supabase 차단·네트워크 오류 시)
+    if (!hasCache) {
+      try {
+        var res = await api('list_chats', { caller_uid: u.student_uid, caller_role: 'student', limit: 30 });
+        if (res && res.status === 'ok') {
+          var fbChats = (res.data && res.data.chats) || [];
+          _chatHistCache = fbChats;
+          _renderChatHistRows(fbChats, list);
+        } else {
+          list.innerHTML = '<div class="chat-hist-empty">불러오지 못했어요</div>';
+        }
+      } catch(e2) {
+        list.innerHTML = '<div class="chat-hist-empty">불러오지 못했어요</div>';
+      }
+    }
   }
 }
 
@@ -16187,21 +16198,25 @@ async function openChatMessagesFromList(idx) {
   var body    = document.getElementById('chatMsgsBody');
   if (titleEl) titleEl.textContent = '📖 ' + (c.date || '대화');
 
-  // 66차: 프리로드된 messages_json이 있으면 GAS 왕복 없이 즉시 렌더
-  if (c._messages_json !== undefined) {
-    var raw = c._messages_json;
-    var msgs = null;
+  // 83차 전수조사 fix: 두 단계 흐름 통합 (변쌤 신고 "키워드만 → 몇 초 뒤 대화 전체").
+  //   옛 흐름: messages_json !== undefined면 첫 분기 즉시 처리. 빈 string ''도 분기 진입 → JSON.parse 실패 → legacy 안내(키워드만) → return.
+  //   새 흐름: 캐시에 정상 messages만 즉시 렌더. 빈/실패 시 자동 GAS fetch (한 단계). 진짜 레거시는 GAS도 빈 응답일 때만.
+  var cachedMsgs = null;
+  var raw = c._messages_json;
+  if (raw !== undefined && raw !== null && raw !== '') {
     if (Array.isArray(raw)) {
-      msgs = raw;
+      cachedMsgs = raw;
     } else if (typeof raw === 'string' && raw.length >= 2) {
-      try { var parsed = JSON.parse(raw); if (Array.isArray(parsed)) msgs = parsed; } catch(e) {}
+      try { var parsed = JSON.parse(raw); if (Array.isArray(parsed) && parsed.length) cachedMsgs = parsed; } catch(e) {}
     }
-    var isLegacy = !msgs;
-    _renderChatMessagesBody(body, msgs || [], isLegacy, c);
+  }
+  if (cachedMsgs && cachedMsgs.length) {
+    _renderChatMessagesBody(body, cachedMsgs, false, c);
     return;
   }
 
-  if (body) body.innerHTML = '<div class="chat-hist-empty">불러오는 중...</div>';
+  // 캐시에 정상 messages 없음 → GAS get_chat_messages fetch (한 단계 로딩)
+  if (body) body.innerHTML = '<div class="chat-hist-empty">대화 불러오는 중...</div>';
   var u = STATE.user || {};
   var res = await api('get_chat_messages', {
     caller_uid : u.student_uid,
@@ -16214,6 +16229,10 @@ async function openChatMessagesFromList(idx) {
   }
   var data = res.data || {};
   var msgs = data.messages || [];
+  // 캐시 갱신 — 같은 행 재클릭 시 즉시 표시 + Supabase 동기화 누락 row 자동 보충
+  if (msgs.length) {
+    try { c._messages_json = JSON.stringify(msgs); } catch(_je) {}
+  }
   // 레거시: 원문이 없는 예전 대화 — 안내 + 키워드만
   if (data.legacy || !msgs.length) {
     var kwRaw  = c.dominant_keywords ? String(c.dominant_keywords) : '';
