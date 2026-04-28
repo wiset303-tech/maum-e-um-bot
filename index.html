@@ -11832,6 +11832,26 @@ function _onNewNotification(row) {
       renderTeacherTaleAlbum();
     }
   }
+  // 83차: 관리자 대시보드 위기 신호 카드 즉시 +1 + 시각 강조 (변쌤 명시 — 마음봇 위기 키워드 즉시 신호)
+  //   정확한 union 카운트(chat_log+emotions)는 카드 클릭 시 openAdminCrisisDetail이 다시 fetch하므로 +1은 즉시 신호용
+  if (n.type === 'crisis_chat' && STATE.role === 'admin') {
+    try {
+      var crisisEl = document.getElementById('adm-crisis');
+      if (crisisEl) {
+        var cur = parseInt(crisisEl.textContent, 10);
+        var next = (isNaN(cur) ? 0 : cur) + 1;
+        crisisEl.textContent = String(next);
+        // 펄스 시각 효과 (1.5초)
+        crisisEl.style.transition = 'transform .4s ease, text-shadow .4s ease';
+        crisisEl.style.transform = 'scale(1.15)';
+        crisisEl.style.textShadow = '0 0 14px rgba(231,76,60,.7)';
+        setTimeout(function(){
+          crisisEl.style.transform = '';
+          crisisEl.style.textShadow = '';
+        }, 1500);
+      }
+    } catch(_ce) { console.error('[ADM CRISIS BUMP]', _ce); }
+  }
   toast(n.title);  // 예: "🏫 등교 완료" — 알림 제목이 자체로 친근하게 구성돼 있음
 }
 
