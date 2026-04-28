@@ -9353,16 +9353,17 @@ function studentMgmtHTML() {
       '<div id="adminTeacherList"><div style="color:var(--gray);font-size:13px;text-align:center;padding:20px">불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div></div>' +
     '</div>';
   }
-  // 74차: 3개 버튼을 한 줄로 (모바일 수용), 필터는 아래 줄
-  return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:7px;flex-wrap:wrap">' +
-    '<button class="btn btn-primary" style="width:auto;flex:1 1 0;min-width:0;font-size:11px;padding:6px 8px;white-space:nowrap" onclick="openNfcRegister()">🪪 마음카드 등록</button>' +
-    '<button class="btn btn-lav" style="width:auto;flex:1 1 0;min-width:0;font-size:11px;padding:6px 8px;white-space:nowrap" onclick="openTeacherGiftAll()">🎁 학급 전체 선물</button>' +
-    '<button class="btn btn-lav" style="width:auto;flex:1 1 0;min-width:0;font-size:11px;padding:6px 8px;white-space:nowrap" onclick="openTeacherGiftMulti()">👥 여러 명 선물</button>' +
-  '</div>' +
-  '<div style="display:flex;gap:5px;margin-bottom:12px;justify-content:flex-end;flex-wrap:nowrap">' +
+  // 83차: 위·아래 줄 swap — 가운데 비는 어색함 해소 (변쌤 신고)
+  //   위: 정렬·새로고침 (우측 정렬 자연) / 아래: 3개 액션 균등 분포 (가운데 채워짐)
+  return '<div style="display:flex;gap:5px;margin-bottom:7px;justify-content:flex-end;flex-wrap:nowrap">' +
     '<button id="stu-refresh-btn" class="btn-refresh-mini" onclick="reloadStudentsTab()" title="학생 정보 새로고침"><span class="refresh-icon">⟳</span></button>' +
     '<button id="stu-sort-num"  class="btn btn-sm btn-secondary adm-sort-btn active-sort" onclick="stuSortBy(\'num\')" style="width:auto;flex:0 0 auto;font-size:11px;padding:5px 10px;white-space:nowrap">번호순</button>' +
     '<button id="stu-sort-name" class="btn btn-sm btn-secondary adm-sort-btn" onclick="stuSortBy(\'name\')" style="width:auto;flex:0 0 auto;font-size:11px;padding:5px 10px;white-space:nowrap">이름순</button>' +
+  '</div>' +
+  '<div style="display:flex;align-items:center;gap:5px;margin-bottom:12px;flex-wrap:wrap">' +
+    '<button class="btn btn-primary" style="width:auto;flex:1 1 0;min-width:0;font-size:11px;padding:6px 8px;white-space:nowrap" onclick="openNfcRegister()">🪪 마음카드 등록</button>' +
+    '<button class="btn btn-lav" style="width:auto;flex:1 1 0;min-width:0;font-size:11px;padding:6px 8px;white-space:nowrap" onclick="openTeacherGiftAll()">🎁 학급 전체 선물</button>' +
+    '<button class="btn btn-lav" style="width:auto;flex:1 1 0;min-width:0;font-size:11px;padding:6px 8px;white-space:nowrap" onclick="openTeacherGiftMulti()">👥 여러 명 선물</button>' +
   '</div>' +
   '<div id="studentList"></div>';
 }
