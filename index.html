@@ -4611,12 +4611,24 @@ async function _sbGetTeachersAll() {
 // 66차: 학생 지난 대화 30건 Supabase 직접 조회 (목록 + 원문 동시 프리로드용)
 // messages_json까지 select해서 openChatMessagesFromList도 GAS 왕복 없이 즉시 열기
 async function _sbGetStudentChatHistory(student_uid) {
+  // 83차 fix: messages_json은 list에 불필요(행 클릭 시점에만 필요) — select에서 제거해 fetch 가볍게.
+  //   변쌤 신고 "학생 로그인 급격히 느려짐" — 30 rows × 메시지 본문 수십~수백 KB가 Promise.all 대기 원인이었음.
   return await _sbFetch('chat_log', {
     student_uid: 'eq.' + student_uid,
     order: 'date.desc',
     limit: '30',
-    select: 'log_uid,date,dominant_keywords,messages_json'
+    select: 'log_uid,date,dominant_keywords'
   });
+}
+
+// 83차: 단일 chat_log row의 messages_json 별도 fetch (행 클릭 시점, Supabase 우선 + GAS fallback)
+async function _sbGetChatMessages(log_uid) {
+  var rows = await _sbFetch('chat_log', {
+    log_uid: 'eq.' + log_uid,
+    select: 'messages_json',
+    limit: '1'
+  });
+  return (rows && rows[0] && rows[0].messages_json) || '';
 }
 
 // 66차: 학부모 대시보드 Supabase 직접 집계 (GAS getParentDashboard 대체)
@@ -16120,34 +16132,45 @@ async function loadChatHistoryList() {
     list.innerHTML = '<div class="chat-hist-empty">불러오는 중...</div>';
   }
 
-  // 83차 진정한 fix: 백그라운드 fresh도 Supabase 직접 (변쌤 명시 — 모든 역할 Supabase 우선 정책)
-  //   근본 원인이었던 saveChatLog의 Supabase 동기화 누락은 code.gs에서 fix됨 (_sbInsert/_sbSync 추가).
-  //   이제 Supabase chat_log에 새 대화도 즉시 들어가므로 fetch에서 정상 노출.
+  // 83차 진정한 fix: Supabase 메타 fetch (가벼움) + GAS api union (옛 시트 row 누락 보충)
+  //   변쌤 신고 "04-29 안 보임" — Supabase chat_log에 옛 시트 row가 미동기화됨.
+  //   해법: Supabase 즉시 표시(빠름) + 백그라운드 GAS api로 옛 누락 row union(완전성).
+  //   진짜 정합은 _migrateChatLogToSupabase 일회성 마이그레이션 후 자연 해소.
   var u = STATE.user || {};
   if (!u.student_uid) return;
   try {
-    var rows = await _sbGetStudentChatHistory(u.student_uid);
-    var chats = (rows || []).map(function(r){
-      return {
-        log_uid          : r.log_uid,
-        date             : String(r.date || '').slice(0, 10),
-        dominant_keywords: r.dominant_keywords || '',
-        _messages_json   : r.messages_json || ''
-      };
-    });
-    // 다음 진입을 위한 캐시 갱신
-    STATE._preloadedChatHistory = (rows || []).map(function(r){ return {
-      log_uid: r.log_uid, date: r.date, dominant_keywords: r.dominant_keywords,
-      messages_json: r.messages_json || ''
+    // Supabase + GAS 병렬 fetch (Supabase 빠른 즉시 + GAS는 옛 누락 보충)
+    var pair = await Promise.all([
+      _sbGetStudentChatHistory(u.student_uid).catch(function(){ return []; }),
+      api('list_chats', { caller_uid: u.student_uid, caller_role: 'student', limit: 30 }).catch(function(){ return null; })
+    ]);
+    var sbRows = pair[0] || [];
+    var gasRes = pair[1];
+    var gasChats = (gasRes && gasRes.status === 'ok' && gasRes.data && gasRes.data.chats) || [];
+    // log_uid 기준 union (Supabase 우선, GAS는 누락분 보충 — messages_json 포함됨 → 캐시 보충 효과)
+    var seen = {};
+    var merged = [];
+    sbRows.forEach(function(r){ if (r.log_uid && !seen[r.log_uid]) { seen[r.log_uid] = true; merged.push({
+      log_uid:r.log_uid, date:String(r.date||'').slice(0,10),
+      dominant_keywords:r.dominant_keywords||'', _messages_json:''
+    }); }});
+    gasChats.forEach(function(r){ if (r.log_uid && !seen[r.log_uid]) { seen[r.log_uid] = true; merged.push({
+      log_uid:r.log_uid, date:String(r.date||'').slice(0,10),
+      dominant_keywords:r.dominant_keywords||'', _messages_json:r._messages_json || r.messages_json || ''
+    }); }});
+    // date desc 재정렬
+    merged.sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); });
+    STATE._preloadedChatHistory = merged.map(function(r){ return {
+      log_uid:r.log_uid, date:r.date, dominant_keywords:r.dominant_keywords,
+      messages_json:r._messages_json
     };});
-    _chatHistCache = chats;
-    // 모달 여전히 열려있으면 재렌더 (새 대화 반영)
+    _chatHistCache = merged;
     if (document.getElementById('modal-chat-history') &&
         !document.getElementById('modal-chat-history').classList.contains('hidden')) {
-      _renderChatHistRows(chats, list);
+      _renderChatHistRows(merged, list);
     }
   } catch(e) {
-    console.error('[CHAT HIST SB FETCH]', e && e.message ? e.message : e);
+    console.error('[CHAT HIST FETCH]', e && e.message ? e.message : e);
     // GAS fallback 안전망 (Supabase 차단·네트워크 오류 시)
     if (!hasCache) {
       try {
@@ -16198,9 +16221,8 @@ async function openChatMessagesFromList(idx) {
   var body    = document.getElementById('chatMsgsBody');
   if (titleEl) titleEl.textContent = '📖 ' + (c.date || '대화');
 
-  // 83차 전수조사 fix: 두 단계 흐름 통합 (변쌤 신고 "키워드만 → 몇 초 뒤 대화 전체").
-  //   옛 흐름: messages_json !== undefined면 첫 분기 즉시 처리. 빈 string ''도 분기 진입 → JSON.parse 실패 → legacy 안내(키워드만) → return.
-  //   새 흐름: 캐시에 정상 messages만 즉시 렌더. 빈/실패 시 자동 GAS fetch (한 단계). 진짜 레거시는 GAS도 빈 응답일 때만.
+  // 83차 진단 fix: list preload에서 messages_json 제거 → 행 클릭 시점에만 fetch (가볍고 빠름)
+  //   1순위: 캐시 (이미 fetch한 row 재클릭) / 2순위: Supabase 단일 row fetch / 3순위: GAS fallback (옛 누락 row)
   var cachedMsgs = null;
   var raw = c._messages_json;
   if (raw !== undefined && raw !== null && raw !== '') {
@@ -16215,8 +16237,22 @@ async function openChatMessagesFromList(idx) {
     return;
   }
 
-  // 캐시에 정상 messages 없음 → GAS get_chat_messages fetch (한 단계 로딩)
+  // 2순위: Supabase 단일 row messages_json fetch (가벼움)
   if (body) body.innerHTML = '<div class="chat-hist-empty">대화 불러오는 중...</div>';
+  try {
+    var sbRaw = await _sbGetChatMessages(c.log_uid);
+    if (sbRaw) {
+      var sbParsed = null;
+      try { sbParsed = JSON.parse(sbRaw); } catch(_pe) {}
+      if (Array.isArray(sbParsed) && sbParsed.length) {
+        _renderChatMessagesBody(body, sbParsed, false, c);
+        c._messages_json = sbRaw;  // 캐시 보충 — 다음 클릭 즉시
+        return;
+      }
+    }
+  } catch(_sbe) { console.warn('[CHAT MSG SB FETCH]', _sbe && _sbe.message ? _sbe.message : _sbe); }
+
+  // 3순위: GAS fallback (옛 시트 row가 Supabase에 미동기화된 경우 — 진정한 SOT는 시트)
   var u = STATE.user || {};
   var res = await api('get_chat_messages', {
     caller_uid : u.student_uid,
@@ -16229,7 +16265,7 @@ async function openChatMessagesFromList(idx) {
   }
   var data = res.data || {};
   var msgs = data.messages || [];
-  // 캐시 갱신 — 같은 행 재클릭 시 즉시 표시 + Supabase 동기화 누락 row 자동 보충
+  // 캐시 갱신 — 같은 행 재클릭 시 즉시
   if (msgs.length) {
     try { c._messages_json = JSON.stringify(msgs); } catch(_je) {}
   }
