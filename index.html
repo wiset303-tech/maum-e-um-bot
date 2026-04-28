@@ -1190,6 +1190,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   padding:11px 16px;text-align:left;font-size:13px;
   font-family:'Noto Sans KR',sans-serif;color:var(--navy);
   display:flex;align-items:center;gap:8px;
+  /* 83차: 한국어 어절 단위 줄바꿈 — '커' 외톨이 글자 차단 (메모리 feedback_korean_orphan.md) */
+  word-break:keep-all;line-height:1.35;
 }
 .stu-dropdown button:hover{background:var(--lgray)}
 .stu-dropdown button.danger{color:#c0392b}
@@ -17947,7 +17949,7 @@ async function _handleBookNfcTagged(uid) {
     _showBookNfcStep('list');
     _uiConfirm(
       '이미 등록된 마음동화 스티커가 있어요',
-      '마지막 4자리: ' + existShort + '\n새 스티커로 교체할까요?',
+      '마지막 4자리: ' + existShort + '\n새 스티커로 교체할까요?\n\n💡 이 카드에 기록한 마음동화 페이지는 새 스티커로 자동 이어져요.',
       function() { _startBookNfcTag(ctx.seq, true); },
       { okLabel:'교체', cancelLabel:'취소' }
     );
