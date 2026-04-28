@@ -7579,10 +7579,11 @@ async function loadSettings() {
   if (ci)  ci.checked  = !!s.alarm_checkin;
   if (cr)  cr.checked  = !!s.alarm_crisis;
   if (bgm) {
-    bgm.checked = !!s.bgm;
-    AUDIO.enabled.bgm = !!s.bgm;
-    AUDIO.saveLocalBgmPref(); // 68차: localStorage 동기화
-    if (!s.bgm) AUDIO.stopBgm(); // 68차: enabled=false면 실제 재생도 즉시 중지 (불일치 방어)
+    // 83차 fix: 옛 OFF 요청 잔존이 매 교사 로그인 시 BGM 강제 OFF되는 회귀 풀기.
+    //   기존 흐름이 시트값으로 enabled.bgm·localStorage·재생상태를 3중 강제 덮어쓰기 → 사용자 토글이 영구 무력화됐음.
+    //   AUDIO.init이 이미 localStorage 기반으로 enabled.bgm 결정 — 여기서는 UI 체크박스만 동기화.
+    //   사용자가 토글 시 toggleBgm + saveSettingField('bgm', ...) 흐름이 시트·localStorage 모두 자동 갱신.
+    bgm.checked = !!AUDIO.enabled.bgm;
   }
   updatePersonaModeStatus(s.persona_mode_enabled, s.persona_mode_until);
   renderTeacherInfo();
