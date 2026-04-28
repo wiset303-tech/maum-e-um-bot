@@ -15752,25 +15752,59 @@ function openChatKeywords(student_uid, student_name) {
     return;
   }
 
-  // 역할별 caller 파라미터 세팅
-  var caller_uid;
-  if (role === 'teacher')      caller_uid = u.teacher_uid;
-  else if (role === 'admin')   caller_uid = 'admin';
-  else if (role === 'parent')  caller_uid = u.parent_uid;
-
-  api('list_chats', {
-    caller_uid  : caller_uid,
-    caller_role : role,
-    student_uid : student_uid,
-    limit       : 60
-  }).then(function(res) {
-    if (res.status !== 'ok') {
-      if (body) body.innerHTML = '<div class="chat-hist-empty">' + _escHtml(res.message || '불러오기 실패') + '</div>';
+  // 83차: GAS api('list_chats') → Supabase 직접 (cold start 제거, 변쌤 명시 "supabase로 빠르게")
+  //   권한: student_uid 매칭. teacher는 본인 학급 학생만(클라이언트 STATE.students로 사전 검증), parent는 자녀 uid 일치.
+  //   select에 crisis_keyword/crisis_severity 포함 (위기 chip 빨간 톤 + 우선순위 prepend)
+  if (role === 'parent' && student_uid !== (u && u.student_uid)) {
+    if (body) body.innerHTML = '<div class="chat-hist-empty">권한이 없어요</div>';
+    return;
+  }
+  if (role === 'teacher' && Array.isArray(STATE.students) && STATE.students.length) {
+    var ownsStudent = STATE.students.some(function(s){ return s.student_uid === student_uid; });
+    if (!ownsStudent) {
+      if (body) body.innerHTML = '<div class="chat-hist-empty">우리 반 학생이 아니에요</div>';
       return;
     }
-    _renderChatKeywords(res.data.chats || []);
+  }
+
+  _sbFetch('chat_log', {
+    student_uid: 'eq.' + student_uid,
+    order: 'date.desc',
+    limit: '60',
+    select: 'log_uid,date,student_uid,student_name,teacher_uid,turn_count,macro_emotion,micro_emotion,dominant_keywords,crisis_flag,crisis_keyword,crisis_severity,crisis_reason'
+  }).then(function(rows) {
+    var chats = (rows || []).map(function(r) {
+      return {
+        log_uid          : r.log_uid,
+        date             : String(r.date || '').slice(0, 10),
+        student_uid      : r.student_uid,
+        student_name     : r.student_name || '',
+        teacher_uid      : r.teacher_uid || '',
+        turn_count       : r.turn_count,
+        macro_emotion    : r.macro_emotion || '',
+        micro_emotion    : r.micro_emotion || '',
+        dominant_keywords: r.dominant_keywords || '',
+        crisis_flag      : String(r.crisis_flag || ''),
+        crisis_keyword   : String(r.crisis_keyword || ''),
+        crisis_severity  : String(r.crisis_severity || ''),
+        crisis_reason    : String(r.crisis_reason || '')
+      };
+    });
+    _renderChatKeywords(chats);
   }).catch(function(e) {
-    if (body) body.innerHTML = '<div class="chat-hist-empty">불러오기 실패</div>';
+    console.error('[CHAT KW SB FETCH]', e && e.message ? e.message : e);
+    // GAS fallback (Supabase 차단 등 안전망)
+    api('list_chats', {
+      caller_uid  : (role === 'teacher') ? u.teacher_uid : (role === 'admin' ? 'admin' : u.parent_uid),
+      caller_role : role,
+      student_uid : student_uid,
+      limit       : 60
+    }).then(function(res) {
+      if (res && res.status === 'ok') _renderChatKeywords(res.data.chats || []);
+      else if (body) body.innerHTML = '<div class="chat-hist-empty">불러오기 실패</div>';
+    }).catch(function() {
+      if (body) body.innerHTML = '<div class="chat-hist-empty">불러오기 실패</div>';
+    });
   });
 }
 
@@ -16086,33 +16120,48 @@ async function loadChatHistoryList() {
     list.innerHTML = '<div class="chat-hist-empty">불러오는 중...</div>';
   }
 
-  // 백그라운드 fresh fetch — 새 대화 반영 (캐시 stale 안전망)
+  // 83차: 백그라운드 fresh fetch도 Supabase 직접 (변쌤 명시 — GAS cold start 제거)
+  //   _sbGetStudentChatHistory는 이미 _sbFetch('chat_log', ...) 직접 호출 헬퍼
   var u = STATE.user || {};
   if (!u.student_uid) return;
   try {
-    var res = await api('list_chats', {
-      caller_uid : u.student_uid,
-      caller_role: 'student',
-      limit      : 30
+    var rows = await _sbGetStudentChatHistory(u.student_uid);
+    var chats = (rows || []).map(function(r){
+      return {
+        log_uid          : r.log_uid,
+        date             : String(r.date || '').slice(0, 10),
+        dominant_keywords: r.dominant_keywords || '',
+        _messages_json   : r.messages_json || ''
+      };
     });
-    if (res && res.status === 'ok') {
-      var chats = (res.data && res.data.chats) || [];
-      // 새 데이터로 캐시 갱신 (다음 진입 시 즉시)
-      STATE._preloadedChatHistory = chats.map(function(r){ return {
-        log_uid: r.log_uid, date: r.date, dominant_keywords: r.dominant_keywords,
-        messages_json: r._messages_json || r.messages_json || ''
-      };});
-      _chatHistCache = chats;
-      // 모달 여전히 열려있으면 재렌더 (diff 있을 때만)
-      if (document.getElementById('modal-chat-history') &&
-          !document.getElementById('modal-chat-history').classList.contains('hidden')) {
-        _renderChatHistRows(chats, list);
-      }
-    } else if (!hasCache) {
-      list.innerHTML = '<div class="chat-hist-empty">불러오지 못했어요</div>';
+    // 다음 진입을 위한 캐시 갱신
+    STATE._preloadedChatHistory = (rows || []).map(function(r){ return {
+      log_uid: r.log_uid, date: r.date, dominant_keywords: r.dominant_keywords,
+      messages_json: r.messages_json || ''
+    };});
+    _chatHistCache = chats;
+    // 모달 여전히 열려있으면 재렌더 (새 대화 반영)
+    if (document.getElementById('modal-chat-history') &&
+        !document.getElementById('modal-chat-history').classList.contains('hidden')) {
+      _renderChatHistRows(chats, list);
     }
   } catch(e) {
-    if (!hasCache) list.innerHTML = '<div class="chat-hist-empty">불러오지 못했어요</div>';
+    console.error('[CHAT HIST SB FETCH]', e && e.message ? e.message : e);
+    // GAS fallback 안전망
+    if (!hasCache) {
+      try {
+        var res = await api('list_chats', { caller_uid: u.student_uid, caller_role: 'student', limit: 30 });
+        if (res && res.status === 'ok') {
+          var fbChats = (res.data && res.data.chats) || [];
+          _chatHistCache = fbChats;
+          _renderChatHistRows(fbChats, list);
+        } else {
+          list.innerHTML = '<div class="chat-hist-empty">불러오지 못했어요</div>';
+        }
+      } catch(e2) {
+        list.innerHTML = '<div class="chat-hist-empty">불러오지 못했어요</div>';
+      }
+    }
   }
 }
 
