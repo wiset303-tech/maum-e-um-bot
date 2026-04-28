@@ -1233,6 +1233,20 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 }
 .loading-dot:nth-child(2){ animation-delay:.2s; }
 .loading-dot:nth-child(3){ animation-delay:.4s; }
+/* 83차: 마음봇 typing indicator — 메신저 스타일 점 차오름 (CSS만, GPU 친화 opacity+transform) */
+.bot-typing{display:inline-flex;gap:4px;align-items:center;padding:2px 0}
+.bot-typing .dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--mint2);
+  animation:botTypingPulse 1.3s ease-in-out infinite;
+  will-change:opacity,transform;
+}
+.bot-typing .dot:nth-child(2){animation-delay:.18s}
+.bot-typing .dot:nth-child(3){animation-delay:.36s}
+@keyframes botTypingPulse{
+  0%,80%,100%{opacity:.25;transform:scale(.78)}
+  40%{opacity:1;transform:scale(1.05)}
+}
 @keyframes ckwHeartFill{
   0%{ clip-path:inset(100% 0 0 0); }
   50%{ clip-path:inset(0% 0 0 0); }
@@ -11296,6 +11310,31 @@ async function markNotifRead(uid, el) {
     try { document.getElementById('notifDropdown').style.display = 'none'; } catch(e) {}
     return;
   }
+  // 83차: 마음봇 위기 키워드 알림 클릭 → 마음대화열기 모달 (교사·학부모) 또는 관리자 위기 상세 (admin)
+  //   변쌤 명시 "알림만 사라지는 게 아니라 연결돼야". related_uid = student_uid.
+  if (notif && notif.type === 'crisis_chat') {
+    try { document.getElementById('notifDropdown').style.display = 'none'; } catch(e) {}
+    var stuUid = notif.related_uid || '';
+    if (STATE.role === 'admin') {
+      // 관리자: 위기 신호 상세 모달 (학교·학급·담임 표시)
+      if (typeof openAdminCrisisDetail === 'function') openAdminCrisisDetail();
+    } else if (STATE.role === 'parent') {
+      // 학부모: 자녀 마음대화 (자녀는 STATE.user.student_uid/name)
+      var pSuid = stuUid || (STATE.user && STATE.user.student_uid) || '';
+      var pSname = (STATE.user && STATE.user.student_name) || '';
+      if (pSuid && typeof openChatKeywords === 'function') openChatKeywords(pSuid, pSname);
+    } else if (STATE.role === 'teacher' && stuUid) {
+      // 교사: 학생 마음대화열기 — STATE.students에서 이름 매핑
+      var sName = '';
+      if (STATE.students && STATE.students.length) {
+        for (var si = 0; si < STATE.students.length; si++) {
+          if (STATE.students[si].student_uid === stuUid) { sName = STATE.students[si].name || ''; break; }
+        }
+      }
+      if (typeof openChatKeywords === 'function') openChatKeywords(stuUid, sName);
+    }
+    return;
+  }
   // 71차: 가입 신청 알림 클릭 → 관리자 계정관리 탭으로 점프 + 신청 카드 하이라이트
   if (notif && notif.type === 'signup_request' && STATE.role === 'admin') {
     try { document.getElementById('notifDropdown').style.display = 'none'; } catch(e) {}
@@ -15110,7 +15149,7 @@ async function startBotGreeting() {
   var wrap = document.getElementById('chatMessages');
   var tmpId = 'greet-tmp-' + Date.now();
   if (wrap) {
-    wrap.innerHTML += '<div class="chat-msg bot" id="'+tmpId+'"><div class="chat-avatar">🤖</div><div class="chat-bubble" style="opacity:.6">마음봇 응답 중 💛</div></div>';
+    wrap.innerHTML += '<div class="chat-msg bot" id="'+tmpId+'"><div class="chat-avatar">🤖</div><div class="chat-bubble"><span class="bot-typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div></div>';
     wrap.scrollTop = wrap.scrollHeight;
   }
 
@@ -15152,7 +15191,7 @@ async function sendChat() {
   var wrap = document.getElementById('chatMessages');
   var typingId = 'typing-' + Date.now();
   if(wrap) {
-    wrap.innerHTML += '<div class="chat-msg bot" id="'+typingId+'"><div class="chat-avatar">🤖</div><div class="chat-bubble" style="opacity:.6">마음봇 응답 중 💛</div></div>';
+    wrap.innerHTML += '<div class="chat-msg bot" id="'+typingId+'"><div class="chat-avatar">🤖</div><div class="chat-bubble"><span class="bot-typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div></div>';
     wrap.scrollTop = wrap.scrollHeight;
   }
 
