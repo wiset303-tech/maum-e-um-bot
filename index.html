@@ -7562,7 +7562,7 @@ function settingsHTML() {
     '<div class="card-label">알림 설정</div>' +
     '<div class="settings-item"><div><div class="settings-label">🔔 등교 태깅 알림</div><div class="settings-sub">학생이 NFC 태깅할 때 알림</div></div>' +
       '<label class="toggle"><input type="checkbox" id="set-alarm-checkin" '+alarmCI+' onchange="saveSettingField(&apos;alarm_checkin&apos;,this.checked)"><span class="toggle-slider"></span></label></div>' +
-    '<div class="settings-item"><div><div class="settings-label">⚠️ 위기 학생 알림</div><div class="settings-sub">부정 감정 연속 3회 이상</div></div>' +
+    '<div class="settings-item"><div><div class="settings-label">⚠️ 위기 학생 알림</div><div class="settings-sub">부정 감정 3회 연속 + 마음봇 위기 키워드 감지</div></div>' +
       '<label class="toggle"><input type="checkbox" id="set-alarm-crisis" '+alarmCR+' onchange="saveSettingField(&apos;alarm_crisis&apos;,this.checked)"><span class="toggle-slider"></span></label></div>' +
     '<div class="settings-item"><div><div class="settings-label">🎵 배경음악</div></div>' +
       '<label class="toggle"><input type="checkbox" id="set-bgm" '+bgmChecked+' onchange="AUDIO.toggleBgm(this.checked);saveSettingField(&apos;bgm&apos;,this.checked)"><span class="toggle-slider"></span></label></div>' +
