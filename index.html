@@ -3834,7 +3834,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   <div class="modal-box" style="position:relative">
     <button class="modal-close" onclick="closeModal('modal-chat-keywords')">✕</button>
     <div class="modal-title" id="chatKwTitle">📖 마음대화열기</div>
-    <div style="font-size:11.5px;color:var(--gray);text-align:center;margin-bottom:10px;line-height:1.5">마음봇과 나눈 이야기의 키워드를 보여드려요<br>대화 원문은 학생 본인만 볼 수 있어요<br><span style="color:#c0392b;font-weight:600">⚠️ 위기 신호로 판단된 대화는 보호 목적상 원문 일부가 공개될 수 있어요</span></div>
+    <div style="font-size:11.5px;color:var(--gray);text-align:center;margin-bottom:10px;line-height:1.5">마음봇과 나눈 이야기의 키워드를 보여드려요<br>대화 원문은 학생 본인만 볼 수 있어요<br><br><span style="color:#c0392b;font-weight:600">⚠️ 위기 신호로 판단된 대화는<br>보호 목적상 원문 일부가 공개될 수 있어요</span></div>
     <div id="chatKwBody" style="max-height:58vh;overflow-y:auto;padding:4px 2px">
       <div class="chat-hist-empty">불러오는 중...</div>
     </div>
@@ -15799,21 +15799,45 @@ function _renderChatKeywords(chats) {
     var dateLabel = dateStr.length >= 10 ? dateStr.slice(5).replace('-', '월 ') + '일' : dateStr;
 
     var rowsHtml = rows.map(function(c) {
+      // 83차: 위기 행은 crisis_keyword(서버 1차 hit)를 첫 chip으로 우선 + 빨간 톤. 변쌤 신고
+      //   "위기 신호인데 부정 단어 0개" — dominant_keywords가 일반 빈도 추출이라 위기 hit 키워드를 별도로 prepend.
+      var isCrisis = (String(c.crisis_flag || '') === 'Y');
+      var crisisKw = isCrisis ? String(c.crisis_keyword || '').trim() : '';
       var kwStr = String(c.dominant_keywords || '').trim();
       var kws = kwStr
         ? kwStr.split(',').map(function(s){ return s.trim(); }).filter(Boolean)
         : [];
+      // crisis_keyword를 맨 앞에 prepend (중복 제거)
+      if (crisisKw && kws.indexOf(crisisKw) === -1) {
+        kws.unshift(crisisKw);
+      } else if (crisisKw) {
+        // 이미 있으면 맨 앞으로 이동
+        kws = [crisisKw].concat(kws.filter(function(k){ return k !== crisisKw; }));
+      }
 
       var chipsHtml;
       if (!kws.length) {
         chipsHtml = '<span style="font-size:11px;color:var(--gray);font-style:italic">키워드 없음</span>';
       } else {
-        // 52차: 모든 칩 렌더, MAX_CHIPS 초과는 display:none + +N 칩 클릭으로 펼치기
+        // 위기 행: chip 톤을 빨간 계열로. 첫 chip(crisisKw) 더 진한 강조.
+        // 일반 행: 기존 라벤더 톤 그대로.
         chipsHtml = kws.map(function(k, idx) {
           var isExtra = (idx >= MAX_CHIPS);
           var extraStyle = isExtra ? ';display:none' : '';
           var extraClass = isExtra ? ' kw-chip-extra' : '';
-          return '<span class="kw-chip' + extraClass + '" style="display:inline-block;background:var(--lav2);color:var(--navy);border-radius:14px;padding:3px 10px;font-size:11.5px;font-weight:700;margin:2px 3px 2px 0' + extraStyle + '">'
+          var bg, color, border;
+          if (isCrisis) {
+            if (k === crisisKw) {
+              // 위기 hit 키워드 — 가장 진한 빨강
+              bg = '#c0392b'; color = '#fff'; border = '1px solid #a93226';
+            } else {
+              // 위기 행의 다른 키워드 — 연빨강 톤
+              bg = '#ffe1e1'; color = '#c0392b'; border = '1px solid #f5b7b1';
+            }
+          } else {
+            bg = 'var(--lav2)'; color = 'var(--navy)'; border = 'none';
+          }
+          return '<span class="kw-chip' + extraClass + '" style="display:inline-block;background:' + bg + ';color:' + color + ';border:' + border + ';border-radius:14px;padding:3px 10px;font-size:11.5px;font-weight:700;margin:2px 3px 2px 0' + extraStyle + '">'
             + _escHtml(k) + '</span>';
         }).join('');
         var remain = kws.length - MAX_CHIPS;
@@ -15826,8 +15850,7 @@ function _renderChatKeywords(chats) {
         ? '<span style="font-size:10.5px;color:var(--gray);font-weight:600;flex-shrink:0;margin-left:6px">' + c.turn_count + '턴</span>'
         : '';
 
-      // 51차: 위기 행 강조 + 클릭 배선
-      var isCrisis = (String(c.crisis_flag || '') === 'Y');
+      // 51차: 위기 행 강조 + 클릭 배선 (isCrisis는 이미 위에서 결정됨)
       var sev = String(c.crisis_severity || 'med');
       var rowBg, rowBorder, headIcon, headColor, clickAttr;
       if (isCrisis) {
@@ -16047,33 +16070,50 @@ async function loadChatHistoryList() {
   if (!list) return;
 
   // 66차: 로그인 스피너에서 프리로드된 캐시가 있으면 즉시 렌더 (GAS 왕복 0회)
-  if (Array.isArray(STATE._preloadedChatHistory)) {
+  // 83차 fix: 캐시 즉시 표시 + 백그라운드 fresh fetch (변쌤 신고 — 새 대화가 안 쌓임. 캐시 stale 방어)
+  var hasCache = Array.isArray(STATE._preloadedChatHistory);
+  if (hasCache) {
     _chatHistCache = STATE._preloadedChatHistory.map(function(r){
       return {
         log_uid          : r.log_uid,
         date             : String(r.date || '').slice(0, 10),
         dominant_keywords: r.dominant_keywords || '',
-        _messages_json   : r.messages_json  // 원문은 여기 박아두고 openChatMessagesFromList에서 쓰기
+        _messages_json   : r.messages_json
       };
     });
     _renderChatHistRows(_chatHistCache, list);
-    return;
+  } else {
+    list.innerHTML = '<div class="chat-hist-empty">불러오는 중...</div>';
   }
 
-  list.innerHTML = '<div class="chat-hist-empty">불러오는 중...</div>';
+  // 백그라운드 fresh fetch — 새 대화 반영 (캐시 stale 안전망)
   var u = STATE.user || {};
-  var res = await api('list_chats', {
-    caller_uid : u.student_uid,
-    caller_role: 'student',
-    limit      : 30
-  });
-  if (!res || res.status !== 'ok') {
-    list.innerHTML = '<div class="chat-hist-empty">불러오지 못했어요</div>';
-    return;
+  if (!u.student_uid) return;
+  try {
+    var res = await api('list_chats', {
+      caller_uid : u.student_uid,
+      caller_role: 'student',
+      limit      : 30
+    });
+    if (res && res.status === 'ok') {
+      var chats = (res.data && res.data.chats) || [];
+      // 새 데이터로 캐시 갱신 (다음 진입 시 즉시)
+      STATE._preloadedChatHistory = chats.map(function(r){ return {
+        log_uid: r.log_uid, date: r.date, dominant_keywords: r.dominant_keywords,
+        messages_json: r._messages_json || r.messages_json || ''
+      };});
+      _chatHistCache = chats;
+      // 모달 여전히 열려있으면 재렌더 (diff 있을 때만)
+      if (document.getElementById('modal-chat-history') &&
+          !document.getElementById('modal-chat-history').classList.contains('hidden')) {
+        _renderChatHistRows(chats, list);
+      }
+    } else if (!hasCache) {
+      list.innerHTML = '<div class="chat-hist-empty">불러오지 못했어요</div>';
+    }
+  } catch(e) {
+    if (!hasCache) list.innerHTML = '<div class="chat-hist-empty">불러오지 못했어요</div>';
   }
-  var chats = (res.data && res.data.chats) || [];
-  _chatHistCache = chats;
-  _renderChatHistRows(chats, list);
 }
 
 function _renderChatMessagesBody(body, msgs, isLegacy, c) {
