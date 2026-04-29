@@ -7435,8 +7435,12 @@ function logout() {
 }
 
 // 관리자 미리보기 → 관리자 화면 복귀
+// 83차a: GAS api('get_students') 제거 → Supabase 직접 fetch + 낙관적 UI
+//   기존: 학교 전체 학생 GAS 호출 응답 끝나야 hideLoading → 5~10초 체감
+//   정답: showLoading 제거(loadDashboard·realtime은 자체 spinner), 학생 목록은 백그라운드 fire-and-forget
+//   관리자 계정관리 화면(renderAdminAccountMgmt)은 65차 B에서 _teacherAll + _studentsByTeacher 자체 캐시
+//   사용 → STATE.students 즉시 안 채워져도 화면 정상. 학생 목록은 1~2초 내 자동 도착
 function exitPreview() {
-  showLoading('전국 마음을 불러오는 중이에요 💗'); // 66차 D: 관리자 복귀 · 캐시 재로딩
   stopDashboardPoll();
   stopPersonaPoll(); // 미리보기 학생 폴링 정지
   STATE.isPreview = false;
@@ -7452,11 +7456,18 @@ function exitPreview() {
   document.getElementById('btnBackAdmin').classList.add('hidden');
   document.getElementById('headerUser').textContent = (STATE.user?.name || '관리자') + ' (관리자)';
   buildAdminUI();
-  loadDashboard();
-  api('get_students', { teacher_uid: '' }).then(function(res) {
-    if (res.status === 'ok') { STATE.students = res.data.students; renderStudentList(); }
-    hideLoading();
-  }).catch(function(){ hideLoading(); });
+  loadDashboard(); // 내부 await Supabase 직접 — 자체 spinner
+  // 83차a: 학생 목록 백그라운드 Supabase 직접 fetch (fire-and-forget)
+  _sbFetch('students', {}).then(function(rows) {
+    STATE.students = rows || [];
+    if (typeof renderStudentList === 'function') renderStudentList();
+  }).catch(function(e){
+    console.error('[EXIT PREVIEW sb students]', e && e.message ? e.message : e);
+    // GAS fallback (Supabase 차단 시 안전망)
+    api('get_students', { teacher_uid: '' }).then(function(res) {
+      if (res && res.status === 'ok') { STATE.students = res.data.students; renderStudentList(); }
+    }).catch(function(){});
+  });
   stopEmotionSignalPoll(); // 미리보기 중 신호 폴링 정지
   startDashboardPoll();    // 관리자 60초 폴링 재개
   startEmotionSignalPoll(); // 66차: 관리자 전국 감정 Realtime 재개
