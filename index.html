@@ -10170,19 +10170,38 @@ function _renderGiftHistoryPage(page) {
 }
 var _admSchools = [];       // 전체 학교 데이터 (get_admin_dashboard 응답)
 var _nationalMapCache = null; // 교사용 전국 지도 캐시
+var _nationalMapCacheTemp = null; // 83차a: 마지막 fetch nation_temp 보존 — 캐시 hit일 때 DOM race 대비 setText 재호출용
 
 // ── 백그라운드 전국 온도 선로드 (교사 대시보드 최초 로드 후 자동 호출) ──
-async function _preloadNationalTemp() {
-  if (_nationalMapCache) return;
+// 83차a: 자주 "—°"로 표시되던 회귀 fix
+//   ① 캐시 hit일 때도 setText 재호출 (DOM race·자정 경계·탭 재렌더로 DOM 초기화돼도 갱신)
+//   ② fail-silent 깨고 console.error 로깅 (다음 회귀 시 변쌤 콘솔 캡처로 1초 확정)
+//   ③ 실패 시 3초 후 1회 자동 재시도 (Supabase cold start 일시 실패 자가 회복)
+async function _preloadNationalTemp(retryLeft) {
+  if (typeof retryLeft === 'undefined') retryLeft = 1;
+  // 캐시 hit — 마지막 값으로 DOM 즉시 갱신 (DOM이 비어있을 수 있음)
+  if (_nationalMapCache && typeof _nationalMapCacheTemp === 'number') {
+    setText('nationalTempValue', _nationalMapCacheTemp);
+    var fillC = document.getElementById('nationalTempFill');
+    if (fillC) setTimeout(function(){ fillC.style.width = _nationalMapCacheTemp + '%'; }, 100);
+    return;
+  }
   try {
     var res = await _sbGetAdminDashboard();
-    if (res.status !== 'ok') return;
+    if (!res || res.status !== 'ok') {
+      console.error('[NATION TEMP fetch]', res && res.status, res && res.data && res.data.error);
+      if (retryLeft > 0) setTimeout(function(){ _preloadNationalTemp(retryLeft - 1); }, 3000);
+      return;
+    }
     _nationalMapCache = res.data.schools || [];
-    var avgTemp = res.data.nation_temp || 0;
-    setText('nationalTempValue', avgTemp);
+    _nationalMapCacheTemp = res.data.nation_temp || 0;
+    setText('nationalTempValue', _nationalMapCacheTemp);
     var fill = document.getElementById('nationalTempFill');
-    if (fill) setTimeout(function(){ fill.style.width = avgTemp + '%'; }, 100);
-  } catch(e) {}
+    if (fill) setTimeout(function(){ fill.style.width = _nationalMapCacheTemp + '%'; }, 100);
+  } catch(e) {
+    console.error('[NATION TEMP exception]', e && e.message ? e.message : e);
+    if (retryLeft > 0) setTimeout(function(){ _preloadNationalTemp(retryLeft - 1); }, 3000);
+  }
 }
 
 // ── 탭 전환 (지도 ↔ 시도별 현황) ──
@@ -14743,9 +14762,12 @@ function _onDayBoundaryCrossed(prev, curr) {
     STATE.selectedMacro         = null;
     STATE.selectedMicro         = null;
     // 대화 세션 마감 — 어제 로그 finalize 후 새 uid 준비
+    // 83차a fix: 정의 안 된 saveChatLog 호출(dead code) + 잘못된 STATE.messages 변수 정정
+    //   → saveChatLogIfNeeded({force,allowSingleTurn})로 교체. 자정 넘긴 옛 대화도 finalize 보장
     try {
-      if (STATE.messages && STATE.messages.length && typeof saveChatLog === 'function') {
-        saveChatLog(); // fire-and-forget
+      if (STATE.chatHistory && STATE.chatHistory.length && typeof saveChatLogIfNeeded === 'function') {
+        saveChatLogIfNeeded({ force:true, allowSingleTurn:true })
+          .catch(function(e){ console.error('[DAY BOUNDARY chat finalize]', e && e.message ? e.message : e); });
       }
     } catch(e) {}
     STATE.chatLogUid   = '';
@@ -15014,6 +15036,16 @@ function addUserMsg(text) {
   wrap.scrollTop = wrap.scrollHeight;
   STATE.chatHistory.push({ role:'user', text });
   STATE.chatLogSaved = false;  // 새 메시지가 추가되면 저장 플래그 초기화
+  // 83차a: 위기 1차 키워드 매치 시 즉시 저장 (학생이 폰 그대로 닫아도 보존)
+  //   feedback_real_usage_first.md 답습 — 학생이 어떻게 종료해도 대화 보존이 정답
+  //   fire-and-forget 낙관적 UI — 봇 응답 본 흐름은 그대로 진행, 저장은 백그라운드
+  //   GAS saveChatLog가 _detectCrisisKeywords 거쳐 위기 알림 4종(교사·관리자·학부모·학생) 자동 발송
+  if (_checkFrontCrisis(text)) {
+    try {
+      saveChatLogIfNeeded({ force:true, allowSingleTurn:true })
+        .catch(function(e){ console.error('[CRISIS SAVE]', e && e.message ? e.message : e); });
+    } catch(e) { console.error('[CRISIS SAVE sync]', e && e.message ? e.message : e); }
+  }
 }
 
 // 페르소나 모드 전역 상태
@@ -15269,13 +15301,39 @@ function analyzeChatStyle(history) {
            comm_pattern:commPattern, raw_sample:sample };
 }
 
-async function saveChatLogIfNeeded() {
+// 83차a: 위기 1차 키워드 매트릭스 (code.gs CRISIS_KEYWORDS 동기화)
+//   학생 발화 직후 즉시 chat_log 저장 → 학생이 폰 그대로 닫아도 보존 + 위기 알림 4종 자동 발송
+//   ⚠️ code.gs CRISIS_KEYWORDS 갱신 시 이 배열도 동시 갱신 필수 (단순 string 배열, 동기화 부담 적음)
+var _FRONT_CRISIS_KEYWORDS = [
+  '죽고 싶','죽을래','죽어버','사라지고 싶','없어지고 싶','내가 없어졌으면','나 없어졌으면',
+  '태어나지 말','살기 싫','살고 싶지 않','긋고 싶','자해','아프게 하고 싶',
+  '아빠가 때리','엄마가 때리','집에 가기 싫','집이 무서'
+];
+
+function _checkFrontCrisis(text) {
+  if (!text) return false;
+  var s = String(text);
+  for (var i = 0; i < _FRONT_CRISIS_KEYWORDS.length; i++) {
+    if (s.indexOf(_FRONT_CRISIS_KEYWORDS[i]) >= 0) return true;
+  }
+  return false;
+}
+
+// 83차a: opts 인자 추가
+//   {force:true} → chatLogSaved 가드 무시 (위기 매치 후 추가 발화도 저장)
+//   {allowSingleTurn:true} → userTurns<2 가드 무시 (위기 첫 발화도 보존)
+//   옛 호출처(파라미터 없음)는 동작 그대로 — 탭 전환·로그아웃 트리거 영향 없음
+async function saveChatLogIfNeeded(opts) {
+  opts = opts || {};
+  var force = !!opts.force;
+  var allowSingleTurn = !!opts.allowSingleTurn;
   var u = STATE.user;
   if (!u || !u.student_uid) return;
-  if (STATE.chatLogSaved) return;          // 이미 저장했으면 스킵 (중복 방지)
+  if (!force && STATE.chatLogSaved) return;          // 이미 저장했으면 스킵 (중복 방지) — force면 무시
   var history   = STATE.chatHistory || [];
   var userTurns = history.filter(function(h){ return h.role==='user'; });
-  if (userTurns.length < 2) return;
+  var minTurns = allowSingleTurn ? 1 : 2;
+  if (userTurns.length < minTurns) return;
   var analysis = analyzeChatStyle(history);
   if (!analysis) return;
 
