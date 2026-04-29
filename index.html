@@ -6787,7 +6787,10 @@ function _isNonNfcModalOpen() {
   for (var i = 0; i < mods.length; i++) {
     if (mods[i].classList.contains('hidden')) continue;
     var id = mods[i].id;
-    if (id === 'modal-nfc-register' || id === 'modal-attend-mode') continue;
+    // 83차a: modal-book-nfc-register(마음스티커 등록 마법사) 화이트리스트 추가
+    //   누락 시 tagging 단계에서 NFC 키보드 입력이 nfc-input에 못 들어가 handleNfcUid 호출 안 됨
+    //   증상 — 리더기는 진동(인식)하지만 앱 무반응
+    if (id === 'modal-nfc-register' || id === 'modal-attend-mode' || id === 'modal-book-nfc-register') continue;
     return true;
   }
   return false;
@@ -18308,6 +18311,8 @@ function _startBookNfcTag(seq, isReplace) {
     confirm_replace: !!isReplace
   };
   _showBookNfcStep('tagging');
+  // 83차a: 사용자가 모달 안 클릭 안 하고 바로 카드 대는 흐름 안전망 — nfc-input 포커스 보장
+  setTimeout(function(){ if (typeof focusNfcInput === 'function') focusNfcInput(); }, 50);
 }
 
 // 태깅 취소 → 2단계 복귀
