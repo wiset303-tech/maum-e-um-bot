@@ -22748,14 +22748,21 @@ async function initWebNFC() {
       nfcLog('🎉 카드를 읽었어요! (' + uid + ')');
       if (!uid) return;
       // 47차 D: 등록/연속등교/NFC로그인 모든 경로에서 즉시 시각 피드백
+      // 83차a: 마음스티커 등록(81차) + 마음동화 자물쇠/view 모드(82차) 게이트 추가
+      //   누락 시 모바일 Web NFC 경로에서 handleNfcUid 호출 자체 안 돼 앱 무반응
       var isRegister  = !document.getElementById('modal-nfc-register').classList.contains('hidden');
       var isAttend    = !document.getElementById('modal-attend-mode').classList.contains('hidden');
       var isNfcScreen = !document.getElementById('screen-nfc').classList.contains('hidden');
-      if (isRegister || isAttend || isNfcScreen) {
+      var _bookEl     = document.getElementById('modal-book-nfc-register');
+      var isBookNfc   = _bookEl && !_bookEl.classList.contains('hidden') && STATE._bookNfcAwait;
+      var _htpEl      = document.getElementById('modal-heart-tale-page');
+      var isHeartTale = _htpEl && !_htpEl.classList.contains('hidden') && STATE.role === 'student'
+                        && (STATE._htpLocked || STATE._htpMode === 'view');
+      if (isRegister || isAttend || isNfcScreen || isBookNfc || isHeartTale) {
         showLoading('카드를 읽는 중이에요 🪪');
         if (navigator.vibrate) navigator.vibrate(40);
         if (!isRegister) AUDIO.sfx('nfc');  // 등록은 handleRegisterNfc 내부에서 재생
-        handleNfcUid(uid);  // 내부에서 등록/연속등교/로그인 분기 통합 처리
+        handleNfcUid(uid);  // 내부에서 등록/연속등교/로그인/마음스티커/마음동화 분기 통합 처리
       }
     };
   } catch(err) {
