@@ -7607,16 +7607,9 @@ function settingsHTML() {
     '<div class="settings-item"><div><div class="settings-label">🎵 배경음악</div></div>' +
       '<label class="toggle"><input type="checkbox" id="set-bgm" '+bgmChecked+' onchange="AUDIO.toggleBgm(this.checked);saveSettingField(&apos;bgm&apos;,this.checked)"><span class="toggle-slider"></span></label></div>' +
     '</div>' +
-    '<div class="card card-lav" style="margin-top:8px">' +
-      '<div class="card-label">🤝 페르소나 대화 허용</div>' +
-      '<div style="font-size:12px;color:var(--gray);margin-bottom:10px">학생들이 서로의 AI 페르소나와 대화할 수 있어요</div>' +
-      '<div id="personaModeStatus" style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--gray)">현재: OFF</div>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
-        '<button class="btn btn-lav" onclick="setPersonaMode(10)">⏱ 10분 허용</button>' +
-        '<button class="btn btn-lav" onclick="setPersonaMode(30)">⏱ 30분 허용</button>' +
-      '</div>' +
-      '<button class="btn btn-secondary" style="margin-top:8px;width:100%" onclick="setPersonaMode(0)">🚫 즉시 종료</button>' +
-    '</div>' +
+    // 85차: 「페르소나 대화 허용」 토글 카드 폐지. 학생이 마음봇 누적 5턴 채우면 그 학생 한정 자동 활성.
+    // 옛 GAS 라우트 set_persona_mode/check_persona_mode는 다음 차수 정리 예정 (이번엔 호출만 중단).
+
     // 83차: 전담 교사 v1 — 담임이 같은 학교 교사에게 본인 학급 마음앨범 열람만 허용
     '<div class="card card-mint" style="margin-top:8px">' +
       '<div class="card-label">🤝 내 학급 열람 허용 교사</div>' +
@@ -7858,39 +7851,8 @@ async function saveSettingField(field, value) {
   await api('save_settings', payload);
 }
 
-async function setPersonaMode(minutes) {
-  var u = STATE.user;
-  if (!u || !u.teacher_uid) return;
-  var enabled = minutes > 0;
-  showLoading(enabled ? '페르소나 대화를 ' + minutes + '분간 허용합니다 🤝' : '페르소나 대화를 종료합니다');
-  var res = await api('set_persona_mode', {
-    teacher_uid: u.teacher_uid,
-    enabled: enabled,
-    minutes: minutes,
-  });
-  hideLoading();
-  if (res.status === 'ok') {
-    STATE.settings.persona_mode_enabled = res.data.enabled;
-    STATE.settings.persona_mode_until   = res.data.until;
-    updatePersonaModeStatus(res.data.enabled, res.data.until);
-    toast(enabled ? minutes + '분간 페르소나 대화가 열렸어요 🤝' : '페르소나 대화가 종료됐어요');
-  }
-}
-
-function updatePersonaModeStatus(enabled, until) {
-  var el = document.getElementById('personaModeStatus');
-  if (!el) return;
-  if (!enabled) { el.textContent = '현재: OFF'; el.style.color = 'var(--gray)'; return; }
-  var msg = '현재: ON';
-  if (until) {
-    var untilDate = new Date(until);
-    var hh = ('0'+untilDate.getHours()).slice(-2);
-    var mm = ('0'+untilDate.getMinutes()).slice(-2);
-    msg += ' (' + hh + ':' + mm + ' 까지)';
-  }
-  el.textContent = msg;
-  el.style.color = 'var(--lav)';
-}
+// 85차: 교사 토글 폐지 — setPersonaMode/updatePersonaModeStatus 함수 제거.
+// 학생 마음봇 누적 5턴 채우면 그 학생 한정 자동 활성 (saveChatLog 트리거 + checkPersonaModeForStudent 자동 체크).
 
 function renderTeacherInfo() {
   var u   = STATE.user;
@@ -12227,48 +12189,10 @@ function sparkleWeatherIcon() {
 var _personaPollTimer = null;
 var _lastPersonaEnabled = null; // null = 아직 모름
 
-function startPersonaPoll() {
-  stopPersonaPoll();
-  _lastPersonaEnabled = null;
-  _personaPollTimer = setInterval(async function() {
-    if (!STATE.user?.teacher_uid || STATE.role !== 'student') return;
-    try {
-      var res = await api('check_persona_mode', { teacher_uid: STATE.user.teacher_uid });
-      if (res.status !== 'ok') return;
-      var enabled = !!res.data.enabled;
-      if (_lastPersonaEnabled === enabled) return; // 변화 없으면 스킵
-
-      var isFirstCheck = (_lastPersonaEnabled === null); // 첫 응답 여부
-      _lastPersonaEnabled = enabled;
-
-      // 버튼 표시/숨김 (첫 체크 포함 — 초기 상태 반영)
-      var bf = document.getElementById('btnPersonaFriend');
-      var bs = document.getElementById('btnPersonaSelf');
-      if (bf) bf.style.display = enabled ? 'block' : 'none';
-      if (bs) bs.style.display = enabled ? 'block' : 'none';
-
-      // 첫 응답은 토스트 없이 조용히 초기화
-      if (isFirstCheck) return;
-
-      // 이후부터는 실제 변화 → 알림
-      if (enabled) {
-        toast('선생님이 페르소나 대화를 열었어요 💜');
-      } else {
-        if (PERSONA_MODE.active) {
-          exitPersonaMode();
-          toast('페르소나 대화가 종료됐어요');
-        } else {
-          toast('페르소나 대화가 닫혔어요');
-        }
-      }
-    } catch(e) {}
-  }, 60000);
-}
-
-function stopPersonaPoll() {
-  if (_personaPollTimer) { clearInterval(_personaPollTimer); _personaPollTimer = null; }
-  _lastPersonaEnabled = null;
-}
+// 85차: 교사 토글 폐지 → 60초 폴링 불필요. 호출처(7330·7408·7445)와 호환 위해 빈 함수만 유지.
+//   학생 페르소나 진입 분기는 마음봇 탭 진입 시 checkPersonaModeForStudent가 Supabase 직접 조회로 처리.
+function startPersonaPoll() { /* no-op (85차 폐지) */ }
+function stopPersonaPoll()  { /* no-op (85차 폐지) */ }
 
 // ════════════════════════════════════════
 // 프로필 이미지
@@ -14938,7 +14862,7 @@ function chatHTML() {
     '<div class="chat-messages" id="chatMessages"></div>' +
     '<div style="display:flex;gap:6px;padding-top:6px;flex-shrink:0">' +
       '<button class="btn btn-lav" style="font-size:12px;padding:8px 12px;flex:1;display:none" id="btnPersonaFriend" onclick="openPersonaSelect(false)">🤝 친구랑 대화</button>' +
-      '<button class="btn btn-lav" style="font-size:12px;padding:8px 12px;flex:1;display:none" id="btnPersonaSelf" onclick="openPersonaSelect(true)">🪞 나랑 대화</button>' +
+      '<button class="btn btn-lav" style="font-size:12px;padding:8px 12px;flex:1;display:none" id="btnPersonaSelf" onclick="openPersonaSelect(true)">🌱 진정한 나</button>' +
     '</div>' +
     '<div class="chat-input-row">' +
       '<input class="chat-input" id="chatInput" placeholder="마음이음봇에게 말해봐요..." onfocus="_chatInputFocus()" onblur="_chatInputBlur()" onkeydown="if(event.key===&quot;Enter&quot;)sendChat()">' +
@@ -15057,17 +14981,34 @@ var PERSONA_MODE = {
   history   : [],
 };
 
-// 마음봇 탭 진입 시 페르소나 모드 가능 여부 확인
+// 85차: 학생 본인·같은 학급 친구의 페르소나 데이터(persona_summary) 채워졌는지 Supabase 직접 조회로 자동 활성
+//   - 본인 채워짐 → 「🌱 진정한 나」 버튼 표시
+//   - 친구 1명 이상 채워짐 → 「🤝 친구랑 대화」 버튼 표시 (친구 명단은 _personaReadyPeers 캐시)
+//   메모리 feedback_supabase_first.md 답습 (Supabase 직접 · GAS-first 잔재 의심 즉시 변환)
+var _personaReadyPeers = []; // [ student_uid ]
 async function checkPersonaModeForStudent() {
   var u = STATE.user;
-  if (!u || !u.teacher_uid) return;
-  var res = await api('check_persona_mode', { teacher_uid: u.teacher_uid });
-  if (res.status !== 'ok') return;
-  var enabled = res.data.enabled;
+  if (!u || !u.student_uid) return;
+  var selfReady = false;
+  var peerUids  = [];
+  try {
+    var rows = await _sbFetch('student_persona', {
+      teacher_uid: 'eq.' + (u.teacher_uid || ''),
+      select     : 'student_uid,persona_summary',
+    });
+    if (rows && rows.length) {
+      for (var i = 0; i < rows.length; i++) {
+        if (!rows[i].persona_summary) continue;
+        if (rows[i].student_uid === u.student_uid) selfReady = true;
+        else peerUids.push(rows[i].student_uid);
+      }
+    }
+  } catch(e) { console.error('[PERSONA READY CHECK]', e); }
+  _personaReadyPeers = peerUids;
   var bf = document.getElementById('btnPersonaFriend');
   var bs = document.getElementById('btnPersonaSelf');
-  if (bf) bf.style.display = enabled ? 'block' : 'none';
-  if (bs) bs.style.display = enabled ? 'block' : 'none';
+  if (bf) bf.style.display = (peerUids.length > 0) ? 'block' : 'none';
+  if (bs) bs.style.display = selfReady ? 'block' : 'none';
 }
 
 // 친구 또는 나 자신 선택
@@ -15076,11 +15017,13 @@ async function openPersonaSelect(isSelf) {
     startPersonaChat(STATE.user.student_uid, STATE.user.name, true);
     return;
   }
-  // 친구 선택 — 모달
+  // 85차: 페르소나 데이터 채워진 친구만 명단에 노출 (_personaReadyPeers는 마음봇 탭 진입 시 채워짐)
   var peers = STATE.students.filter(function(s){
-    return s.student_uid !== STATE.user.student_uid && s.active === 'Y';
+    return s.student_uid !== STATE.user.student_uid &&
+           s.active === 'Y' &&
+           _personaReadyPeers.indexOf(s.student_uid) >= 0;
   });
-  if (!peers.length) { toast('대화할 수 있는 친구가 없어요'); return; }
+  if (!peers.length) { toast('아직 대화할 수 있는 친구가 없어요. 친구들이 마음봇과 더 친해지면 만날 수 있어요 🌱'); return; }
 
   var list = document.getElementById('personaFriendList');
   list.innerHTML = peers.map(function(f) {
@@ -15111,18 +15054,18 @@ function startPersonaChat(targetUid, targetName, isSelf) {
   var _tFn2 = _firstName(targetName);
   var _possess = _hasJongseong(_tFn2) ? _tFn2 + '이의' : _tFn2 + '의';
   if (lbl) lbl.textContent = isSelf
-    ? '🪞 과거의 나와 대화 중'
+    ? '🌱 진정한 나와의 대화'
     : '🤝 ' + _possess + ' 페르소나와 대화 중';
 
   // 입력창 placeholder 변경
   var inp = document.getElementById('chatInput');
-  if (inp) inp.placeholder = (isSelf ? '과거의 나에게' : _tFn2 + '에게') + ' 말해봐요...';
+  if (inp) inp.placeholder = (isSelf ? '진정한 나에게' : _tFn2 + '에게') + ' 말해봐요...';
 
-  // 첫 인사
+  // 첫 인사 — 85차: 다시봄 컨셉(1년의 감정 여정 통과 후 만나는 진정한 나)
   var _tFn = _firstName(targetName);
   var _copula = _hasJongseong(_tFn) ? _tFn + '이야' : _tFn + '야';
   var greeting = isSelf
-    ? '안녕, 나야. 오늘 어떤 이야기 하고 싶어?'
+    ? '안녕, 너야. 그동안 정말 많은 마음들을 통과해 왔지 🌱 오늘은 어떤 이야기 나누고 싶어?'
     : _copula + '. 안녕! 무슨 얘기 하고 싶어?';
   addPersonaBotMsg(greeting, targetName, isSelf);
 }
