@@ -77,6 +77,25 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 @keyframes popIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
 @keyframes popupIn{from{opacity:0;transform:scale(.85) translateY(4px)}to{opacity:1;transform:scale(1) translateY(0)}}
 @keyframes popupOut{from{opacity:1;transform:scale(1) translateY(0)}to{opacity:0;transform:scale(.88) translateY(4px)}}
+/* 85차: 페르소나 친구 카드(학급 친구 전체 노출 + 자격 배지) + 비활성 카드/버튼/popover */
+.persona-peer-card{display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border:1.5px solid var(--lgray);border-radius:12px;background:#fff;cursor:pointer;text-align:left;font-family:inherit;font-size:14px;transition:transform .15s, border-color .15s, box-shadow .15s}
+.persona-peer-card:hover{transform:translateY(-1px)}
+.persona-peer-ready{border-color:#4ecdb4}
+.persona-peer-ready:hover{box-shadow:0 4px 12px rgba(78,205,180,.25)}
+.persona-peer-locked{background:#f5f7fa;opacity:.85}
+.persona-peer-locked .persona-peer-name{color:var(--gray)}
+.persona-peer-locked .persona-peer-emoji{filter:grayscale(.5);opacity:.7}
+.persona-peer-emoji{font-size:22px;flex-shrink:0}
+.persona-peer-name{flex:1;font-weight:600;word-break:keep-all}
+.persona-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;flex-shrink:0;word-break:keep-all}
+.persona-badge-ready{background:linear-gradient(135deg,#4ecdb4 0%,#43a89b 100%);color:#fff}
+.persona-badge-locked{background:#e0e4ea;color:#8a96a8}
+/* 마음봇 탭 두 버튼: 자격 없을 때 회색 비활성 (어제까지 display:none 분기 → 항상 표시) */
+.persona-locked{opacity:.5;filter:grayscale(.6)}
+/* popover 말풍선 (전국 마음온도 패턴 답습) */
+#persona-popover{position:fixed;pointer-events:none;z-index:3700;display:none}
+.persona-popover-bubble{position:relative;background:#2D2D2D;color:#fff;border-radius:10px;padding:9px 13px;font-size:12px;font-weight:500;line-height:1.55;word-break:keep-all;max-width:240px;white-space:normal;box-shadow:0 4px 16px rgba(0,0,0,.25);text-align:center;animation:popupIn .18s cubic-bezier(.34,1.56,.64,1)}
+.persona-popover-bubble::before{content:'';position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:6px solid #2D2D2D}
 @keyframes attendModalIn{from{opacity:0;transform:translateY(28px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes overlayFadeIn{from{opacity:0}to{opacity:1}}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -7834,7 +7853,7 @@ async function loadSettings() {
     //   사용자가 토글 시 toggleBgm + saveSettingField('bgm', ...) 흐름이 시트·localStorage 모두 자동 갱신.
     bgm.checked = !!AUDIO.enabled.bgm;
   }
-  updatePersonaModeStatus(s.persona_mode_enabled, s.persona_mode_until);
+  // 85차: updatePersonaModeStatus 호출 제거 — 교사 토글 폐지 + 함수 정의 삭제로 인한 ReferenceError 차단
   renderTeacherInfo();
   // 74차: loadSettings 응답 시점에 앨범 탭이 이미 열려 있으면 limit 토글 즉시 재paint
   // (buildTeacherUI 직후 교사가 빠르게 앨범 탭 누르면 응답 전 기본 1장으로 paint되는 문제 해결)
@@ -14982,13 +15001,36 @@ var PERSONA_MODE = {
 };
 
 // 85차: 학생 본인·같은 학급 친구의 페르소나 데이터(persona_summary) 채워졌는지 Supabase 직접 조회로 자동 활성
-//   - 본인 채워짐 → 「🌱 진정한 나」 버튼 표시
-//   - 친구 1명 이상 채워짐 → 「🤝 친구랑 대화」 버튼 표시 (친구 명단은 _personaReadyPeers 캐시)
+//   - 본인 채워짐 → 「🌱 진정한 나」 활성 / 미채워짐 → 회색 비활성 + 클릭 시 popover 안내
+//   - 친구 1명 이상 채워짐 → 「🤝 친구랑 대화」 활성 / 0명 → 회색 비활성 + popover
+//   - 모달 진입 후엔 학급 친구 전체 카드 노출 + 활성/비활성 배지 (변쌤 명시 — 비활성 친구도 시각화)
 //   메모리 feedback_supabase_first.md 답습 (Supabase 직접 · GAS-first 잔재 의심 즉시 변환)
-var _personaReadyPeers = []; // [ student_uid ]
+var _personaReadyPeers = []; // [ student_uid ] — 페르소나 채워진 같은 학급 친구
+var _personaSelfReady  = false; // 본인 페르소나 채워졌는지
+
+// 85차: 페르소나 정식 도입 시점 게이트 — 마음여름(7월) phase 이후만 활성
+//   변쌤 철학: 페르소나는 학습활동 X, 마음이 느껴지는 대화. 1학기 초중반(3~6월 마음봄·마음꽃) 비활성
+//   미리보기 환경은 무시 (변쌤 검증용 — 5월에도 체험 가능)
+function _isPersonaSeasonOpenFront() {
+  if (STATE.isPreview) return true;
+  var nowKst = new Date(Date.now() + 9*3600000);
+  var month  = nowKst.getUTCMonth() + 1; // 1~12
+  return (month >= 7 || month <= 2);
+}
+
 async function checkPersonaModeForStudent() {
   var u = STATE.user;
   if (!u || !u.student_uid) return;
+  // 시즌 게이트 — 시즌 미도래 시 데이터 있어도 두 버튼 회색 비활성
+  if (!_isPersonaSeasonOpenFront()) {
+    _personaSelfReady  = false;
+    _personaReadyPeers = [];
+    var bf0 = document.getElementById('btnPersonaFriend');
+    var bs0 = document.getElementById('btnPersonaSelf');
+    if (bf0) { bf0.style.display = 'block'; bf0.classList.add('persona-locked'); }
+    if (bs0) { bs0.style.display = 'block'; bs0.classList.add('persona-locked'); }
+    return;
+  }
   var selfReady = false;
   var peerUids  = [];
   try {
@@ -15004,36 +15046,114 @@ async function checkPersonaModeForStudent() {
       }
     }
   } catch(e) { console.error('[PERSONA READY CHECK]', e); }
+  _personaSelfReady  = selfReady;
   _personaReadyPeers = peerUids;
+  // 두 버튼 — 항상 표시. 자격 없으면 회색 비활성(persona-locked) + 클릭 시 popover 안내
   var bf = document.getElementById('btnPersonaFriend');
   var bs = document.getElementById('btnPersonaSelf');
-  if (bf) bf.style.display = (peerUids.length > 0) ? 'block' : 'none';
-  if (bs) bs.style.display = selfReady ? 'block' : 'none';
+  if (bf) { bf.style.display = 'block'; bf.classList.toggle('persona-locked', peerUids.length === 0); }
+  if (bs) { bs.style.display = 'block'; bs.classList.toggle('persona-locked', !selfReady); }
 }
 
-// 친구 또는 나 자신 선택
+// 85차: 친구 또는 진정한 나 선택 — 자격 분기 + 비자격 시 popover 안내
 async function openPersonaSelect(isSelf) {
   if (isSelf) {
+    if (!_personaSelfReady) {
+      var bs = document.getElementById('btnPersonaSelf');
+      // 변쌤 철학: 페르소나는 학습활동 X, 마음이 느껴지는 대화. 횟수("5번") 강조 톤 회피.
+      // 정식 도입 = 마음여름(7월) phase부터. 시즌 미도래 + 5턴 미충족 둘 다 통합 안내.
+      if (bs) _showPersonaPopover(bs, '마음봇과 마음 이야기를 충분히 나누면<br>마음여름부터 진정한 나와 만날 수 있어요 🌱');
+      return;
+    }
     startPersonaChat(STATE.user.student_uid, STATE.user.name, true);
     return;
   }
-  // 85차: 페르소나 데이터 채워진 친구만 명단에 노출 (_personaReadyPeers는 마음봇 탭 진입 시 채워짐)
+  // 친구 — 자격 친구 0명이면 모달 진입 X, popover만
+  if (!_personaReadyPeers.length) {
+    var bf = document.getElementById('btnPersonaFriend');
+    if (bf) _showPersonaPopover(bf, '친구들이 마음봇과 마음 이야기를 충분히 나누면<br>마음여름부터 함께 대화할 수 있어요 🌱');
+    return;
+  }
+  // 학급 친구 전체 노출 — 활성/비활성 배지로 시각화
   var peers = STATE.students.filter(function(s){
-    return s.student_uid !== STATE.user.student_uid &&
-           s.active === 'Y' &&
-           _personaReadyPeers.indexOf(s.student_uid) >= 0;
+    return s.student_uid !== STATE.user.student_uid && s.active === 'Y';
   });
-  if (!peers.length) { toast('아직 대화할 수 있는 친구가 없어요. 친구들이 마음봇과 더 친해지면 만날 수 있어요 🌱'); return; }
+  if (!peers.length) { toast('우리 반에 친구가 없어요'); return; }
 
   var list = document.getElementById('personaFriendList');
   list.innerHTML = peers.map(function(f) {
-    return '<button class="btn btn-secondary" style="justify-content:flex-start;gap:10px;padding:12px 16px" ' +
-      'onclick="startPersonaChat(\'' + f.student_uid + '\',\'' + f.name + '\',false);closeModal(\'modal-persona-select\')">' +
-      '<span style="font-size:18px">' + (f.gender === 'F' ? '👧' : '👦') + '</span>' +
-      '<span style="font-weight:600">' + f.num + '번 ' + f.name + '</span>' +
+    var ready    = _personaReadyPeers.indexOf(f.student_uid) >= 0;
+    var nameAttr = String(f.name || '').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+    var nameDisp = String(f.num || '') + '번 ' + (f.name || '');
+    var emoji    = (f.gender === 'F' ? '👧' : '👦');
+    if (ready) {
+      return '<button class="persona-peer-card persona-peer-ready" ' +
+        "onclick=\"_personaPeerActiveClick('" + f.student_uid + "','" + nameAttr + "')\">" +
+        '<span class="persona-peer-emoji">' + emoji + '</span>' +
+        '<span class="persona-peer-name">' + nameDisp + '</span>' +
+        '<span class="persona-badge persona-badge-ready">🌱 가능</span>' +
+      '</button>';
+    }
+    return '<button class="persona-peer-card persona-peer-locked" ' +
+      "onclick=\"_personaPeerLockedClick(event,'" + nameAttr + "')\">" +
+      '<span class="persona-peer-emoji">' + emoji + '</span>' +
+      '<span class="persona-peer-name">' + nameDisp + '</span>' +
+      '<span class="persona-badge persona-badge-locked">💤</span>' +
     '</button>';
   }).join('');
   openModal('modal-persona-select');
+}
+
+// 활성 친구 카드 클릭 → 페르소나 대화 시작
+function _personaPeerActiveClick(uid, name) {
+  startPersonaChat(uid, name, false);
+  closeModal('modal-persona-select');
+}
+
+// 비활성 친구 카드 클릭 → 카드 아래 popover 안내
+//   변쌤 철학: 페르소나는 학습활동 X, 마음이 느껴지는 대화. 횟수 강조 톤 회피.
+//   정식 도입 = 마음여름(7월) phase부터.
+function _personaPeerLockedClick(e, name) {
+  e.stopPropagation();
+  var card = e.currentTarget;
+  var fn      = _firstName(name);
+  var subject = _hasJongseong(fn) ? fn + '이가' : fn + '가';
+  _showPersonaPopover(card, subject + ' 마음봇과 마음 이야기를 충분히 나누면<br>마음여름부터 함께 대화할 수 있어요 🌱');
+}
+
+// popover 등장 — 전국 마음온도 natMapRegionClick 패턴 답습
+function _showPersonaPopover(anchorEl, htmlText) {
+  if (!anchorEl) return;
+  var popup = document.getElementById('persona-popover');
+  if (!popup) {
+    popup = document.createElement('div');
+    popup.id = 'persona-popover';
+    document.body.appendChild(popup);
+  }
+  popup.innerHTML = '<div class="persona-popover-bubble">' + htmlText + '</div>';
+  var rect = anchorEl.getBoundingClientRect();
+  popup.style.top  = (rect.bottom + 6) + 'px';
+  popup.style.left = (rect.left + rect.width / 2) + 'px';
+  popup.style.transform = 'translateX(-50%)';
+  popup.style.display = 'block';
+  // 다음 클릭(다른 곳·다른 카드 포함) 시 닫기 — 전국 마음온도 natMapBgClick 패턴 답습
+  setTimeout(function() {
+    document.addEventListener('click', _personaPopoverBgClick, { once: true, capture: true });
+  }, 0);
+}
+
+function _personaPopoverBgClick() { _hidePersonaPopover(); }
+
+function _hidePersonaPopover() {
+  var popup = document.getElementById('persona-popover');
+  if (!popup || popup.style.display === 'none') return;
+  var inner = popup.querySelector('.persona-popover-bubble');
+  if (inner) {
+    inner.style.animation = 'popupOut .18s cubic-bezier(.25,.8,.25,1) forwards';
+    setTimeout(function(){ popup.style.display = 'none'; }, 170);
+  } else {
+    popup.style.display = 'none';
+  }
 }
 
 function startPersonaChat(targetUid, targetName, isSelf) {
