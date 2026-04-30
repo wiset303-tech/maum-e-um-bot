@@ -4249,7 +4249,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   <div class="modal-box" style="position:relative;padding:0;overflow:hidden;max-height:92vh">
     <button class="modal-close" onclick="closeModal('modal-album-popup')"
       style="position:absolute;top:10px;right:12px;z-index:10;background:rgba(0,0,0,.35);color:#fff;border-radius:50%;width:28px;height:28px;font-size:16px">✕</button>
-    <img id="popupAlbumImg" src="" alt="마음앨범" style="width:100%;display:block;max-height:65vh;object-fit:cover">
+    <img id="popupAlbumImg" src="" alt="마음앨범" style="width:100%;display:block;max-height:80vh;object-fit:contain;background:#000">
     <div style="padding:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div id="popupAlbumDate" style="font-size:12px;color:var(--gray)"></div>
@@ -22502,14 +22502,15 @@ async function uploadAlbum() {
         { size:300, q:0.45 },
         { size:300, q:0.32 },
       ];
-      // 원본(뷰어용): Drive에 저장됨. 70차 화질 개선 — 1280px q82 기준, 복잡한 사진은 단계적 축소
+      // 원본(뷰어용): Drive에 저장됨. 85차 화질 향상 — 1600px q88 기준 (70차 1280·q82 대비 픽셀 1.5배 + 화질 0.06 상향)
       var imgConfigs = [
+        { size:1600, q:0.88 },
+        { size:1600, q:0.80 },
         { size:1280, q:0.82 },
         { size:1280, q:0.72 },
         { size:1080, q:0.78 },
         { size:960,  q:0.75 },
         { size:800,  q:0.72 },
-        { size:720,  q:0.70 },
       ];
       compressToLimit(rawData, LIMIT, thumbConfigs, function(thumbUrl) {
         hideLoading();
@@ -22517,8 +22518,8 @@ async function uploadAlbum() {
           toast('사진을 올릴 수 없어요. 더 작은 사진을 선택해주세요 📷');
           return;
         }
-        compressToLimit(rawData, 2000000, imgConfigs, function(imageUrl) {
-          // imageUrl은 Drive에 저장됨 (이전엔 Sheets 셀). GAS 1.4MB 가드 안쪽 여유값.
+        compressToLimit(rawData, 3000000, imgConfigs, function(imageUrl) {
+          // imageUrl은 Drive에 저장됨 (이전엔 Sheets 셀). 85차 화질 향상으로 한도 2MB→3MB.
           _albumUploadData.imageUrl = imageUrl || thumbUrl; // fallback
           _albumUploadData.thumbUrl = thumbUrl;
           _albumUploadData.isUpdate = false;
