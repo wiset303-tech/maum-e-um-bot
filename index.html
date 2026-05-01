@@ -2051,6 +2051,22 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .adm-tale-class-stats{ font-size:11px; color:#2a7d68; margin-top:6px; line-height:1.55; word-break:keep-all }
 .adm-tale-class-stats .warn{ color:#a37200 }
 
+/* 85차: 교사 학생관리 카드 페르소나 자격 chip — 변쌤 명시 "교사 미리보기에 페르소나 확인 가능하게" */
+.persona-class-chip{
+  display:inline-flex; align-items:center;
+  padding:2px 6px; border-radius:20px;
+  font-size:10.5px; font-weight:700;
+  white-space:nowrap; flex-shrink:0;
+  cursor:pointer; user-select:none;
+}
+.persona-class-ready{
+  background:linear-gradient(135deg,#4ecdb4,#43a89b);
+  color:#fff;
+}
+.persona-class-locked{
+  background:#e0e4ea; color:#8a96a8;
+}
+
 /* 페이지 카드 (왼쪽) — padding 0 (inner에 padding) */
 .heart-tale-card{
   flex:1; min-width:0;
@@ -8628,6 +8644,11 @@ function previewTeacher() {
     's28':{ temp:10, current_balance:2, can_save_double:false },
   };
 
+  // 85차: 교사 미리보기 페르소나 자격 시드 (변쌤 명시 — "교사 미리보기에 페르소나 확인 가능하게")
+  //   학생관리 카드 chip 「🌱 가능」/「💤」 + 비활성 클릭 시 popover 안내
+  //   짝수 idx만 활성 → 절반은 「🌱 가능」, 절반은 「💤」 분포
+  _seedPreviewClassPersona(STATE.students);
+
   // 출석부 더미 데이터도 동기 준비 (탭 전환 즉시 대응)
   // 81차d: 6/25까지로 제한 (변쌤 명시 — 학년도 진행 시점). 향후 10/17(전국 자료전 발표날) 확장 시:
   //   _mo 상한을 9로, 10월 분기에 _dim = 17 추가
@@ -9072,6 +9093,14 @@ function previewStudent() {
 
   // 토큰 더미 (일반 3개 + 선물 2개)
   STATE.tokenBalance = { current_balance: 5, total_earned: 12, total_saved: 7, can_save_double: true, gift_balance: 2 };
+
+  // 85차: 학생 미리보기 페르소나 자격 시드 — 본인 활성 + 학급 친구 절반 활성
+  //   변쌤 명시: 「🌱 진정한 나」·「🤝 친구랑 대화」 두 버튼 자동 노출 + 친구 모달 활성/비활성 배지 체험
+  //   _isPersonaSeasonOpenFront는 STATE.isPreview 분기로 시즌 무시 (어제 작업)
+  _personaSelfReady  = true;
+  _personaReadyPeers = (STATE.students || [])
+    .filter(function(s, idx) { return s.student_uid !== STATE.user.student_uid && idx % 2 === 0; })
+    .map(function(s) { return s.student_uid; });
 
   // 감정: 미제출 상태로 시작 (체크인 경험 체험용)
   STATE.todayEmotionSubmitted = false;
@@ -12549,6 +12578,14 @@ function renderStudentList() {
   var el = document.getElementById('studentList');
   if (!el) return;
 
+  // 85차: 페르소나 자격 fetch (실 모드만, 한 번만, 백그라운드)
+  if (!STATE.isPreview && STATE.role === 'teacher' && STATE.user && STATE.user.teacher_uid && !_classPersonaReadyLoaded) {
+    _classPersonaReadyLoaded = true;
+    _loadClassPersonaReady(STATE.user.teacher_uid).then(function() {
+      try { renderStudentList(); } catch(e) {} // chip 자동 갱신 (재진입은 플래그 true라 무한루프 X)
+    });
+  }
+
   if (!STATE.students.length) {
     el.innerHTML = '<div style="text-align:center;color:var(--gray);padding:20px" class="gaegu">등록된 학생이 없어요</div>';
     return;
@@ -12591,6 +12628,14 @@ function renderStudentList() {
             + (s.nfc_uid ? '\uD83D\uDCB3 NFC' : '\uD83D\uDD32 NFC')
         + '</span>'
         + (s.active==='Y' ? '<span onclick="openChatKeywords(\''+uid2+'\',\''+nm2+'\')" style="display:inline-flex;align-items:center;background:#f3eefa;color:#6c3fb5;border-radius:20px;padding:2px 6px;font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">📖 마음대화열기</span>' : '')
+        // 85차: 페르소나 자격 chip — 활성(🌱 가능) / 비활성(💤). 비활성 클릭 시 popover 안내
+        + (s.active==='Y' ? (function(){
+            var nameAttr = String(nm2 || '').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+            var ready = !!_classPersonaReady[uid2];
+            var cls = ready ? 'persona-class-ready' : 'persona-class-locked';
+            var label = ready ? '🌱 가능' : '💤';
+            return '<span class="persona-class-chip ' + cls + '" data-uid="' + uid2 + '" data-name="' + nameAttr + '" onclick="event.stopPropagation();_personaTeacherChipClick(this)" title="페르소나 자격">' + label + '</span>';
+          })() : '')
       + '</div>';
     var actions = s.active==='Y'
       ? '<div class="stu-menu-wrap">'
@@ -15088,6 +15133,32 @@ var PERSONA_MODE = {
   history   : [],
 };
 
+// 85차: 미리보기 더미 페르소나 — 변쌤 명시 "진정한 나 실제 gemini로"
+//   GAS personaChat이 preview_persona를 받으면 시트 조회 skip + 이 데이터로 systemPrompt 구성 → 실 Gemini 호출
+//   본인용(self) + 친구용(friend) 2종. DB 변경 0건, 응답만 생성
+var _PV_DUMMY_PERSONA_SELF = {
+  summary          : '친구를 따뜻하게 챙기는 마음이 큰 학생이에요. 운동을 좋아하고, 자기 감정을 솔직하게 표현하려고 노력해요. 가끔 외로움을 느끼지만 이내 친구를 떠올리며 마음을 가다듬어요.',
+  dominant_emotions: '기쁨, 뿌듯함, 가끔 외로움',
+  emotion_keywords : '친구, 운동장, 가족',
+  speech_length    : '보통',
+  speech_ending    : '~야 ~어',
+  speech_emoji     : '보통',
+  speech_punct     : '안씀',
+  speech_pattern   : '공감형',
+  speech_sample    : '오늘 친구랑 같이 놀아서 기분 좋았어!',
+};
+var _PV_DUMMY_PERSONA_FRIEND = {
+  summary          : '글쓰기와 그림을 좋아하고, 친구의 마음을 잘 알아채는 친구예요. 조용하지만 깊이 있는 대화를 좋아하고, 비 오는 날을 차분하게 즐겨요.',
+  dominant_emotions: '뿌듯함, 차분함, 가끔 슬픔',
+  emotion_keywords : '책, 그림, 비',
+  speech_length    : '길음',
+  speech_ending    : '~요',
+  speech_emoji     : '없음',
+  speech_punct     : '씀',
+  speech_pattern   : '공감형',
+  speech_sample    : '오늘 그림 그리는데 너무 집중돼서 시간 가는 줄 몰랐어요.',
+};
+
 // 85차: 학생 본인·같은 학급 친구의 페르소나 데이터(persona_summary) 채워졌는지 Supabase 직접 조회로 자동 활성
 //   - 본인 채워짐 → 「🌱 진정한 나」 활성 / 미채워짐 → 회색 비활성 + 클릭 시 popover 안내
 //   - 친구 1명 이상 채워짐 → 「🤝 친구랑 대화」 활성 / 0명 → 회색 비활성 + popover
@@ -15318,14 +15389,19 @@ async function sendPersonaChat(msg) {
     wrap.scrollTop = wrap.scrollHeight;
   }
 
+  // 85차: 미리보기에선 더미 페르소나 동봉 → GAS가 시트 조회 skip + 그걸로 실 Gemini 호출
+  var previewPersona = STATE.isPreview
+    ? (PERSONA_MODE.isSelf ? _PV_DUMMY_PERSONA_SELF : _PV_DUMMY_PERSONA_FRIEND)
+    : null;
   var res = await api('persona_chat', {
-    message     : msg,
-    my_name     : u.name,
-    target_uid  : PERSONA_MODE.targetUid,
-    target_name : PERSONA_MODE.targetName,
-    teacher_uid : u.teacher_uid,
-    history     : PERSONA_MODE.history.slice(-8),
-    is_self     : PERSONA_MODE.isSelf,
+    message         : msg,
+    my_name         : u.name,
+    target_uid      : PERSONA_MODE.targetUid,
+    target_name     : PERSONA_MODE.targetName,
+    teacher_uid     : u.teacher_uid,
+    history         : PERSONA_MODE.history.slice(-8),
+    is_self         : PERSONA_MODE.isSelf,
+    preview_persona : previewPersona,
   });
 
   _chatInFlight = false;
@@ -19783,6 +19859,56 @@ async function renderTeacherTaleAlbum() {
     await _loadTeacherTaleProgress(STATE.user.teacher_uid);
   }
   sec.innerHTML = _renderTaleAlbumHeader(stus) + _buildTeacherTaleGridHTML(stus);
+}
+
+// ════════════════════════════════════════
+// 85차: 교사 화면용 학급 페르소나 자격 — 학생관리 카드 chip 시각화
+//   변쌤 명시 "교사 미리보기에 페르소나 확인 가능하게"
+//   학생 화면 패턴(_personaReadyPeers) 답습
+// ════════════════════════════════════════
+var _classPersonaReady = {}; // { student_uid: true } — 페르소나 자격 학생만
+var _classPersonaReadyLoaded = false; // 한 번만 fetch 플래그
+
+async function _loadClassPersonaReady(teacher_uid) {
+  if (!teacher_uid) { _classPersonaReady = {}; return; }
+  try {
+    var rows = await _sbFetch('student_persona', {
+      teacher_uid: 'eq.' + teacher_uid,
+      select     : 'student_uid,persona_summary',
+    });
+    var by = {};
+    (rows || []).forEach(function(r) {
+      if (r && r.student_uid && r.persona_summary) by[r.student_uid] = true;
+    });
+    _classPersonaReady = by;
+  } catch(e) {
+    console.error('[CLASS PERSONA READY]', e && e.message ? e.message : e);
+    _classPersonaReady = {};
+  }
+}
+
+// 미리보기 시드 — 학급 학생 일부에게 페르소나 자격 부여 (절반 활성·절반 비활성)
+function _seedPreviewClassPersona(stus) {
+  var by = {};
+  (stus || []).forEach(function(s, idx) {
+    if (!s || !s.student_uid) return;
+    // 짝수 idx만 활성 (절반)
+    if (idx % 2 === 0) by[s.student_uid] = true;
+  });
+  _classPersonaReady = by;
+}
+
+// 교사 학생관리 카드 페르소나 chip 클릭 — 활성은 무동작, 비활성만 popover 안내
+function _personaTeacherChipClick(el) {
+  if (!el) return;
+  var ready = el.classList.contains('persona-class-ready');
+  if (ready) return; // 활성은 시각만, 안내 X
+  var name = el.getAttribute('data-name') || '';
+  var fn = (typeof _firstName === 'function') ? _firstName(name) : name;
+  var subject = (typeof _hasJongseong === 'function' && _hasJongseong(fn)) ? fn + '이가' : fn + '가';
+  if (typeof _showPersonaPopover === 'function') {
+    _showPersonaPopover(el, subject + ' 마음봇과 마음 이야기를 충분히 나누면<br>마음여름부터 페르소나 대화를 할 수 있어요 🌱');
+  }
 }
 
 // ════════════════════════════════════════
