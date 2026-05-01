@@ -1969,6 +1969,87 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   border-radius:1px;
   opacity:0.85;
 }
+/* 85차: 무지개 스트립 진척 반영 — 미기록 주차는 흐리게 */
+.tale-book-rainbow span.tale-rainbow-empty{ opacity:0.18; filter:saturate(0.3) }
+/* 미기록 학생 카드 — 투명도 65% (변쌤 메모리 feedback_silent_protection 답습 — 라벨 없이 시각만) */
+.tale-book-item.tale-empty{ opacity:0.65 }
+.tale-book-item.tale-empty .tale-book-cover{
+  background:linear-gradient(135deg, #f7f3eb 0%, #ede4d2 100%);
+}
+
+/* 85차: 교사 마음동화 헤더 — 학급 통계 chip + 정렬 + 미기록 토글 */
+.tale-stats-bar{
+  display:flex; flex-wrap:wrap; gap:6px;
+  margin:8px 0 10px;
+  align-items:center;
+}
+.tale-stat-chip{
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 10px;
+  background:#f0fbf6;
+  border:1px solid #b3e5d5;
+  border-radius:999px;
+  font-size:11.5px; font-weight:700;
+  color:#2a7d68;
+  word-break:keep-all;
+}
+.tale-stat-chip.warn{ background:#fff7eb; border-color:#ffd9a3; color:#a37200 }
+.tale-stat-chip.muted{ background:#f3f5f8; border-color:#dde2ea; color:#6b7585 }
+
+.tale-control-row{
+  display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+  margin-bottom:6px;
+}
+.tale-sort-select{
+  padding:6px 10px;
+  border:1px solid #e6e1d6;
+  border-radius:8px;
+  background:#fff;
+  font-size:12px;
+  color:var(--navy);
+  font-family:inherit;
+  cursor:pointer;
+}
+.tale-filter-toggle{
+  display:inline-flex; align-items:center; gap:5px;
+  padding:6px 12px;
+  border:1px solid #e6e1d6;
+  border-radius:999px;
+  background:#fff;
+  font-size:11.5px; font-weight:600;
+  color:var(--gray);
+  cursor:pointer;
+  transition:background .15s, color .15s, border-color .15s;
+}
+.tale-filter-toggle.active{
+  background:#fff7eb; color:#a37200; border-color:#ffd9a3;
+}
+
+/* 85차: 관리자 학교별 마음동화 현황 — chip + 학급 카드 + 드릴 다운 모달 */
+.adm-tale-school-row{ display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 10px }
+.adm-tale-school-chip{
+  padding:6px 12px; border-radius:999px;
+  border:1px solid #e6e1d6; background:#fff;
+  font-size:12px; font-weight:600; color:var(--gray);
+  cursor:pointer; transition:.15s;
+}
+.adm-tale-school-chip.active{
+  background:linear-gradient(135deg,#4ecdb4,#43a89b); color:#fff; border-color:transparent;
+}
+.adm-tale-class-grid{
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));
+  gap:10px; margin-top:8px;
+}
+.adm-tale-class-card{
+  border:1px solid #e6e1d6; border-radius:12px;
+  padding:11px 12px; background:#fff;
+  cursor:pointer; transition:transform .15s, box-shadow .15s;
+}
+.adm-tale-class-card:hover{ transform:translateY(-1px); box-shadow:0 4px 10px rgba(60,40,20,.08) }
+.adm-tale-class-name{ font-size:13.5px; font-weight:700; color:var(--navy); word-break:keep-all }
+.adm-tale-class-teacher{ font-size:11px; color:var(--gray); margin-top:2px }
+.adm-tale-class-stats{ font-size:11px; color:#2a7d68; margin-top:6px; line-height:1.55; word-break:keep-all }
+.adm-tale-class-stats .warn{ color:#a37200 }
 
 /* 페이지 카드 (왼쪽) — padding 0 (inner에 padding) */
 .heart-tale-card{
@@ -7601,6 +7682,7 @@ function switchTab(idx) {
       _refreshBroadcastCooldownUI(); // 73차: 탭 진입 시 새로고침 버튼 쿨다운 갱신
       renderInactiveStudentsCard();  // 75차: 비활성 학생 카운트·버튼 상태 갱신
       _paintPrivacyNoticeCard();     // 75차: 처리방침 변경 안내 카드 상태·하이라이트 갱신
+      try { renderAdminTaleSection(); } catch(e) { console.error('[ADM TALE]', e && e.message ? e.message : e); } // 85차: 학교별 마음동화 현황
     }
   }
   // 66차: 학부모 설정 탭 진입 시 BGM 토글 상태 동기화
@@ -7950,6 +8032,12 @@ function adminHTML() {
       '<button class="btn btn-peach" onclick="previewTeacher()">👩‍🏫 교사 화면</button>' +
       '<button class="btn btn-lav" onclick="previewStudent()">👧 학생 화면</button>' +
     '</div>' +
+  '</div>' +
+  // 85차: 학교별 마음동화 현황 — 변쌤 명시 "학교별 관리". 학교 chip + 학급 카드 그리드 + 드릴 다운 모달
+  '<div class="card" style="margin-bottom:10px">' +
+    '<div class="card-label gaegu">📖 학교별 마음동화 현황</div>' +
+    '<div style="font-size:12px;color:var(--gray);margin-bottom:8px;line-height:1.5">학교를 선택하면 학급별 평균 진척·오늘 기록·미기록 학생 수를 볼 수 있어요. 학급 카드 클릭 시 학생별 책 그리드가 열려요. (학생명은 마스킹)</div>' +
+    '<div id="adminTaleSection" style="min-height:60px"><div style="color:var(--gray);font-size:12px;text-align:center;padding:12px">불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div></div>' +
   '</div>' +
   // 73차: 전체 새로고침 안내 — 75차 재배치: 위험도 낮은 것부터
   '<div class="card card-lav" style="margin-bottom:10px">' +
@@ -17155,7 +17243,7 @@ async function _endHeartTaleClass() {
 }
 
 // 차시 버튼 헤더 빌더 — 활성 상태에 따라 분기
-function _renderTaleAlbumHeader() {
+function _renderTaleAlbumHeader(stus) {
   var active = STATE._heartTaleClassActive;
   var html = '<div class="ht-class-bar">';
   if (active) {
@@ -17169,6 +17257,40 @@ function _renderTaleAlbumHeader() {
     html += '</div>';
     html += '<div class="ht-class-sub">수업이 시작되면 학생들에게 알림이 가요.<br>그동안은 🌈 스티커 없이도 자유롭게 채울 수 있어요.</div>';
   }
+  html += '</div>';
+
+  // 85차: 학급 통계 chip 3개 + 정렬·필터 (변쌤 결정 — 36주 단위, chip만, 미기록 토글 1개)
+  var actives = (stus || []).filter(function(s){ return s && s.active !== 'N' && s.active !== false; });
+  var totalN  = actives.length;
+  var totalPages = 0;
+  var todayN  = 0;
+  var unrecN  = 0;
+  var todayKst = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+  for (var i = 0; i < actives.length; i++) {
+    var p = _teacherTaleProgress[actives[i].student_uid];
+    var c = p ? p.count : 0;
+    totalPages += c;
+    if (c === 0) unrecN++;
+    if (p && String(p.lastDate || '').slice(0,10) === todayKst) todayN++;
+  }
+  var avg = totalN > 0 ? Math.round(totalPages / totalN) : 0;
+
+  html += '<div class="tale-stats-bar">';
+  html += '<span class="tale-stat-chip">📖 평균 ' + avg + '주차 / ' + HEART_TALE_TOTAL_WEEKS + '주</span>';
+  html += '<span class="tale-stat-chip">✨ 오늘 기록 ' + todayN + '/' + totalN + '명</span>';
+  html += '<span class="tale-stat-chip ' + (unrecN > 0 ? 'warn' : 'muted') + '">💤 미기록 ' + unrecN + '명</span>';
+  html += '</div>';
+
+  var sortVal = STATE._teacherTaleSort || 'num';
+  var unrecOn = !!STATE._teacherTaleFilterUnrec;
+  html += '<div class="tale-control-row">';
+  html += '<select class="tale-sort-select" onchange="_onTeacherTaleSortChange(this.value)">';
+  html +=   '<option value="num"' + (sortVal==='num' ? ' selected' : '') + '>번호순</option>';
+  html +=   '<option value="recent"' + (sortVal==='recent' ? ' selected' : '') + '>최근 활동순</option>';
+  html +=   '<option value="most"' + (sortVal==='most' ? ' selected' : '') + '>진척 많은 순</option>';
+  html +=   '<option value="least"' + (sortVal==='least' ? ' selected' : '') + '>미기록 우선</option>';
+  html += '</select>';
+  html += '<button class="tale-filter-toggle' + (unrecOn ? ' active' : '') + '" onclick="_toggleTeacherTaleUnrec()">💤 미기록만</button>';
   html += '</div>';
   return html;
 }
@@ -19577,13 +19699,68 @@ async function _loadEmotionAlbumCache() {
 //   - 교사는 자물쇠 게이트 우회 → 즉시 표지 (열람 모드)
 //   - 미리보기는 STATE._previewStudents 사용
 // ════════════════════════════════════════
+// 85차: 학급 진척 캐시 + 정렬·필터 STATE
+//   _teacherTaleProgress: { [student_uid]: { count, lastDate } }
+//   _teacherTaleSort: 'num' | 'recent' | 'most' | 'least'
+//   _teacherTaleFilterUnrec: false (미기록만 토글)
+var _teacherTaleProgress = {};
+async function _loadTeacherTaleProgress(teacher_uid) {
+  if (!teacher_uid) { _teacherTaleProgress = {}; return; }
+  try {
+    var rows = await _sbFetch('weekly_book', {
+      teacher_uid: 'eq.' + teacher_uid,
+      select     : 'student_uid,week_no,recorded_at',
+    });
+    var by = {};
+    for (var i = 0; i < (rows || []).length; i++) {
+      var r = rows[i];
+      var uid = r.student_uid;
+      if (!uid) continue;
+      if (!by[uid]) by[uid] = { count: 0, lastDate: '', weeks: {} };
+      var w = parseInt(r.week_no, 10);
+      if (w >= 1 && w <= HEART_TALE_TOTAL_WEEKS && !by[uid].weeks[w]) {
+        by[uid].weeks[w] = true;
+        by[uid].count++;
+      }
+      var rec = String(r.recorded_at || '');
+      if (rec && rec > by[uid].lastDate) by[uid].lastDate = rec;
+    }
+    _teacherTaleProgress = by;
+  } catch(e) {
+    console.error('[TALE PROGRESS]', e && e.message ? e.message : e);
+    _teacherTaleProgress = {};
+  }
+}
+
+// 미리보기용 더미 진척 — 학생 일부에게 다양한 페이지 수 분포
+function _seedPreviewTaleProgress(stus) {
+  var by = {};
+  var todayKst = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+  for (var i = 0; i < (stus || []).length; i++) {
+    var s = stus[i];
+    if (!s || !s.student_uid) continue;
+    // 균등하지 않게: 일부 학생은 많이, 일부는 적게, 일부는 0
+    var pattern = i % 5;
+    var n = pattern === 0 ? 0
+          : pattern === 1 ? 3
+          : pattern === 2 ? 8
+          : pattern === 3 ? 16
+          : 22;
+    var weeks = {};
+    for (var w = 1; w <= n; w++) weeks[w] = true;
+    by[s.student_uid] = { count: n, lastDate: n > 0 ? todayKst : '', weeks: weeks };
+  }
+  return by;
+}
+
 async function renderTeacherTaleAlbum() {
   var sec = document.getElementById('albumTaleSection');
   if (!sec) return;
-  // 미리보기 모드 — 학생 28명 더미
+  // 미리보기 모드 — 학생 28명 더미 + 진척 시드
   if (STATE.isPreview) {
     var previewStus = STATE._previewStudents || [];
-    sec.innerHTML = _renderTaleAlbumHeader() + _buildTeacherTaleGridHTML(previewStus);
+    _teacherTaleProgress = _seedPreviewTaleProgress(previewStus);
+    sec.innerHTML = _renderTaleAlbumHeader(previewStus) + _buildTeacherTaleGridHTML(previewStus);
     return;
   }
   // 82차 Phase 6: 활성 차시 fetch (헤더 버튼 분기에 사용)
@@ -19594,49 +19771,331 @@ async function renderTeacherTaleAlbum() {
   // 실제 — 본인 학급 학생 (STATE.students에 이미 로드돼 있음)
   var stus = STATE.students || [];
   if (!stus.length) {
-    sec.innerHTML = _renderTaleAlbumHeader() +
+    sec.innerHTML = _renderTaleAlbumHeader(stus) +
       '<div style="color:var(--gray);text-align:center;padding:30px;font-size:13px">학급 학생 정보 불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div>';
     try {
       if (typeof loadStudents === 'function') await loadStudents();
       stus = STATE.students || [];
     } catch(e) { console.error('[TEACHER TALE LOAD STUS]', e && e.message ? e.message : e); }
   }
-  sec.innerHTML = _renderTaleAlbumHeader() + _buildTeacherTaleGridHTML(stus);
+  // 학급 진척 fetch (Supabase 직접) — 메모리 feedback_supabase_first.md 답습
+  if (STATE.user && STATE.user.teacher_uid) {
+    await _loadTeacherTaleProgress(STATE.user.teacher_uid);
+  }
+  sec.innerHTML = _renderTaleAlbumHeader(stus) + _buildTeacherTaleGridHTML(stus);
+}
+
+// ════════════════════════════════════════
+// 85차: 관리자 학교별 마음동화 현황
+//   - 학교 chip + 학급 카드 + 드릴 다운 모달 (학생명 마스킹)
+//   - Supabase 직접 fetch (메모리 feedback_supabase_first.md 답습)
+//   - 학생명 마스킹은 드릴 다운 모달 안에서만 (메모리 feedback_admin_pii_masking.md 답습)
+// ════════════════════════════════════════
+var _adminTaleData           = null; // { schools:[...], byStudent:{student_uid:{count,lastDate,weeks}} }
+var _adminTaleSelectedSchool = null;
+
+async function _loadAdminTaleData() {
+  try {
+    if (!_teacherAll || !_teacherAll.length) {
+      _teacherAll = await _sbGetTeachersAll();
+    }
+    if (!_studentsByTeacherLoaded) {
+      var allStu = await _sbFetch('students', {});
+      _studentsByTeacher = {};
+      (allStu || []).forEach(function(s) {
+        if (!s.teacher_uid) return;
+        if (!_studentsByTeacher[s.teacher_uid]) _studentsByTeacher[s.teacher_uid] = [];
+        _studentsByTeacher[s.teacher_uid].push(s);
+      });
+      _studentsByTeacherLoaded = true;
+    }
+    var rows = await _sbFetch('weekly_book', { select:'student_uid,teacher_uid,week_no,recorded_at' });
+    var byStudent = {};
+    for (var i = 0; i < (rows || []).length; i++) {
+      var r = rows[i];
+      var suid = r.student_uid;
+      if (!suid) continue;
+      if (!byStudent[suid]) byStudent[suid] = { count:0, lastDate:'', weeks:{} };
+      var w = parseInt(r.week_no, 10);
+      if (w >= 1 && w <= HEART_TALE_TOTAL_WEEKS && !byStudent[suid].weeks[w]) {
+        byStudent[suid].weeks[w] = true;
+        byStudent[suid].count++;
+      }
+      var rec = String(r.recorded_at || '');
+      if (rec && rec > byStudent[suid].lastDate) byStudent[suid].lastDate = rec;
+    }
+    var schoolSet = {};
+    (_teacherAll || []).forEach(function(t) { if (t && t.school_name) schoolSet[t.school_name] = true; });
+    _adminTaleData = { schools: Object.keys(schoolSet).sort(), byStudent: byStudent };
+    return _adminTaleData;
+  } catch(e) {
+    console.error('[ADM TALE LOAD]', e && e.message ? e.message : e);
+    _adminTaleData = { schools:[], byStudent:{} };
+    return _adminTaleData;
+  }
+}
+
+async function renderAdminTaleSection() {
+  var sec = document.getElementById('adminTaleSection');
+  if (!sec) return;
+  if (!_adminTaleData) await _loadAdminTaleData();
+  var data = _adminTaleData || { schools:[], byStudent:{} };
+  var schools = data.schools || [];
+  if (!schools.length) {
+    sec.innerHTML = '<div style="color:var(--gray);font-size:12px;text-align:center;padding:18px">아직 학교 데이터가 없어요</div>';
+    return;
+  }
+  if (!_adminTaleSelectedSchool || schools.indexOf(_adminTaleSelectedSchool) < 0) {
+    _adminTaleSelectedSchool = schools[0];
+  }
+  var html = '';
+  // 학교 1개일 땐 chip 자동 hide (변쌤 결정)
+  if (schools.length > 1) {
+    html += '<div class="adm-tale-school-row">';
+    schools.forEach(function(sn) {
+      var safeSn = _escHtml(sn).replace(/'/g,'&#39;');
+      html += '<button class="adm-tale-school-chip' + (sn === _adminTaleSelectedSchool ? ' active' : '') +
+        '" onclick="_onAdminTaleSchoolChange(\'' + safeSn + '\')">' + _escHtml(sn) + '</button>';
+    });
+    html += '</div>';
+  }
+  var teachers = (_teacherAll || []).filter(function(t){
+    return t && t.school_name === _adminTaleSelectedSchool && (t.active === 'Y' || t.active === true);
+  });
+  if (!teachers.length) {
+    sec.innerHTML = html + '<div style="color:var(--gray);font-size:12px;text-align:center;padding:18px">이 학교에는 활성 학급이 없어요</div>';
+    return;
+  }
+  var totalClasses = teachers.length;
+  var totalActiveStus = 0, totalPages = 0, todayN = 0, unrecN = 0;
+  var todayKst = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+  teachers.forEach(function(t) {
+    var stus = (_studentsByTeacher[t.teacher_uid] || []).filter(function(s){ return s && s.active !== 'N' && s.active !== false; });
+    stus.forEach(function(s) {
+      totalActiveStus++;
+      var p = data.byStudent[s.student_uid];
+      var c = p ? p.count : 0;
+      totalPages += c;
+      if (c === 0) unrecN++;
+      if (p && String(p.lastDate || '').slice(0,10) === todayKst) todayN++;
+    });
+  });
+  var avg = totalActiveStus > 0 ? Math.round(totalPages / totalActiveStus) : 0;
+  html += '<div class="tale-stats-bar">';
+  html += '<span class="tale-stat-chip">🏫 학급 ' + totalClasses + '개</span>';
+  html += '<span class="tale-stat-chip">📖 평균 ' + avg + '주차 / ' + HEART_TALE_TOTAL_WEEKS + '주</span>';
+  html += '<span class="tale-stat-chip">✨ 오늘 기록 ' + todayN + '/' + totalActiveStus + '명</span>';
+  html += '<span class="tale-stat-chip ' + (unrecN > 0 ? 'warn' : 'muted') + '">💤 미기록 ' + unrecN + '명</span>';
+  html += '</div>';
+  // 학급 카드 그리드 — 학년·반 오름차순
+  teachers.sort(function(a,b) {
+    var ag = parseInt(a.grade||0,10), bg = parseInt(b.grade||0,10);
+    if (ag !== bg) return ag - bg;
+    return (parseInt(a.class||0,10)) - (parseInt(b.class||0,10));
+  });
+  html += '<div class="adm-tale-class-grid">';
+  teachers.forEach(function(t) {
+    var stus = (_studentsByTeacher[t.teacher_uid] || []).filter(function(s){ return s && s.active !== 'N' && s.active !== false; });
+    var cN = stus.length, cPages = 0, cToday = 0, cUnrec = 0;
+    stus.forEach(function(s) {
+      var p = data.byStudent[s.student_uid];
+      var c = p ? p.count : 0;
+      cPages += c;
+      if (c === 0) cUnrec++;
+      if (p && String(p.lastDate || '').slice(0,10) === todayKst) cToday++;
+    });
+    var cAvg = cN > 0 ? Math.round(cPages / cN) : 0;
+    var className = (t.grade || '') + '학년 ' + (t.class || '') + '반';
+    html += '<div class="adm-tale-class-card" onclick="openAdminTaleClassDrill(\'' + t.teacher_uid + '\')">' +
+      '<div class="adm-tale-class-name">' + _escHtml(className) + '</div>' +
+      '<div class="adm-tale-class-teacher">' + _escHtml(t.name || '') + ' 선생님 · ' + cN + '명</div>' +
+      '<div class="adm-tale-class-stats">' +
+        '📖 평균 ' + cAvg + '주차 · ✨ 오늘 ' + cToday + '명' +
+        (cUnrec > 0 ? '<br><span class="warn">💤 미기록 ' + cUnrec + '명</span>' : '') +
+      '</div>' +
+    '</div>';
+  });
+  html += '</div>';
+  sec.innerHTML = html;
+}
+
+async function _onAdminTaleSchoolChange(school) {
+  _adminTaleSelectedSchool = school;
+  await renderAdminTaleSection();
+}
+
+// 학급 드릴 다운 — 학생별 책 그리드 (학생명 마스킹)
+function openAdminTaleClassDrill(teacher_uid) {
+  if (!teacher_uid) return;
+  var data = _adminTaleData || { byStudent:{} };
+  var teacher = (_teacherAll || []).find(function(t){ return t && t.teacher_uid === teacher_uid; });
+  if (!teacher) { toast('학급 정보를 찾을 수 없어요'); return; }
+  var stus = (_studentsByTeacher[teacher_uid] || []).filter(function(s){ return s && s.active !== 'N' && s.active !== false; });
+  stus.sort(function(a,b){ return (parseInt(a.num,10)||0) - (parseInt(b.num,10)||0); });
+
+  var modal = document.getElementById('modal-admin-tale-class');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-admin-tale-class';
+    modal.className = 'modal-overlay hidden';
+    modal.style.zIndex = '3300';
+    modal.onclick = function(e) { if (e.target === modal) closeAdminTaleClassDrill(); };
+    modal.innerHTML =
+      '<div class="modal-box" style="max-width:520px;max-height:85vh;display:flex;flex-direction:column">' +
+        '<button class="modal-close" onclick="closeAdminTaleClassDrill()">✕</button>' +
+        '<div id="admTaleClassTitle" class="modal-title" style="margin-bottom:6px"></div>' +
+        '<div id="admTaleClassSub" style="font-size:12px;color:var(--gray);margin-bottom:10px;word-break:keep-all"></div>' +
+        '<div id="admTaleClassBody" style="flex:1;overflow-y:auto"></div>' +
+      '</div>';
+    document.body.appendChild(modal);
+  }
+  var className = (teacher.grade || '') + '학년 ' + (teacher.class || '') + '반';
+  document.getElementById('admTaleClassTitle').textContent = '📖 ' + className + ' 마음동화';
+  document.getElementById('admTaleClassSub').textContent =
+    (teacher.school_name || '') + ' · ' + (teacher.name || '') + ' 선생님 · ' + stus.length + '명';
+
+  var rainbowColors = ['#D9455F','#E67E22','#C9A227','#2E8B57','#1E6FB8','#1A237E','#6A3DB5'];
+  var perColor = HEART_TALE_TOTAL_WEEKS / 7;
+  var html = '<div class="tale-book-grid">';
+  for (var i = 0; i < stus.length; i++) {
+    var s = stus[i];
+    var prog = data.byStudent[s.student_uid] || { count:0, lastDate:'', weeks:{} };
+    var isEmpty = prog.count === 0;
+    var maskedName = (typeof _adminMask === 'function') ? _adminMask(s.name || '') : (s.name || '');
+    var num = _escHtml(String(s.num || ''));
+    var rainbowHtml = '';
+    for (var c = 0; c < 7; c++) {
+      var startW = Math.floor(c * perColor) + 1;
+      var endW   = Math.floor((c + 1) * perColor);
+      var hasAny = false;
+      for (var w = startW; w <= endW; w++) {
+        if (prog.weeks && prog.weeks[w]) { hasAny = true; break; }
+      }
+      var emptyCls = hasAny ? '' : ' class="tale-rainbow-empty"';
+      rainbowHtml += '<span' + emptyCls + ' style="background:' + rainbowColors[c] + '"></span>';
+    }
+    var progressLine = isEmpty
+      ? '<div class="tale-book-progress" style="color:var(--gray)">아직 비어 있어요</div>'
+      : '<div class="tale-book-progress">📖 ' + prog.count + '주차 / ' + HEART_TALE_TOTAL_WEEKS + '주</div>';
+    html += '<div class="tale-book-item' + (isEmpty ? ' tale-empty' : '') + '" style="cursor:default">' +
+      '<div class="tale-book-cover">' +
+        '<div class="tale-book-num">' + num + '번</div>' +
+        '<div class="tale-book-name">' + _escHtml(maskedName) + '</div>' +
+        progressLine +
+        '<div class="tale-book-rainbow">' + rainbowHtml + '</div>' +
+      '</div>' +
+    '</div>';
+  }
+  html += '</div>';
+  document.getElementById('admTaleClassBody').innerHTML = html;
+  modal.classList.remove('hidden');
+}
+
+function closeAdminTaleClassDrill() {
+  var modal = document.getElementById('modal-admin-tale-class');
+  if (modal) modal.classList.add('hidden');
+}
+
+// 정렬·필터 변경 핸들러 — 캐시 그대로, HTML만 재빌드
+function _onTeacherTaleSortChange(val) {
+  STATE._teacherTaleSort = val;
+  var stus = STATE.isPreview ? (STATE._previewStudents || []) : (STATE.students || []);
+  var sec = document.getElementById('albumTaleSection');
+  if (sec) sec.innerHTML = _renderTaleAlbumHeader(stus) + _buildTeacherTaleGridHTML(stus);
+}
+function _toggleTeacherTaleUnrec() {
+  STATE._teacherTaleFilterUnrec = !STATE._teacherTaleFilterUnrec;
+  var stus = STATE.isPreview ? (STATE._previewStudents || []) : (STATE.students || []);
+  var sec = document.getElementById('albumTaleSection');
+  if (sec) sec.innerHTML = _renderTaleAlbumHeader(stus) + _buildTeacherTaleGridHTML(stus);
 }
 
 function _buildTeacherTaleGridHTML(stus) {
   if (!stus || !stus.length) {
     return '<div style="color:var(--gray);text-align:center;padding:30px;font-size:13px">학급 학생이 없어요</div>';
   }
-  // active만 + 번호순
   var actives = stus.filter(function(s){ return s && s.active !== 'N' && s.active !== false; });
-  actives.sort(function(a,b){
-    var na = parseInt(a.num,10) || 0, nb = parseInt(b.num,10) || 0;
-    return na - nb;
-  });
   if (!actives.length) {
     return '<div style="color:var(--gray);text-align:center;padding:30px;font-size:13px">활성 학생이 없어요</div>';
   }
+
+  // 85차: 정렬·필터 적용 (변쌤 결정 — 4가지 정렬 + 「미기록만」 토글 1개)
+  var sortVal = STATE._teacherTaleSort || 'num';
+  var unrecOn = !!STATE._teacherTaleFilterUnrec;
+  if (unrecOn) {
+    actives = actives.filter(function(s){
+      var p = _teacherTaleProgress[s.student_uid];
+      return !p || p.count === 0;
+    });
+  }
+  actives.sort(function(a, b) {
+    var pa = _teacherTaleProgress[a.student_uid] || { count:0, lastDate:'' };
+    var pb = _teacherTaleProgress[b.student_uid] || { count:0, lastDate:'' };
+    if (sortVal === 'recent') {
+      // 최근 활동 desc (lastDate 빈 학생은 뒤로)
+      if (pa.lastDate === pb.lastDate) {
+        return (parseInt(a.num,10)||0) - (parseInt(b.num,10)||0);
+      }
+      if (!pa.lastDate) return 1;
+      if (!pb.lastDate) return -1;
+      return pb.lastDate.localeCompare(pa.lastDate);
+    }
+    if (sortVal === 'most') {
+      if (pa.count === pb.count) return (parseInt(a.num,10)||0) - (parseInt(b.num,10)||0);
+      return pb.count - pa.count;
+    }
+    if (sortVal === 'least') {
+      // 미기록 우선 — 0이 먼저, 그 다음 적은 순
+      if (pa.count === pb.count) return (parseInt(a.num,10)||0) - (parseInt(b.num,10)||0);
+      return pa.count - pb.count;
+    }
+    // 기본: 번호순
+    return (parseInt(a.num,10)||0) - (parseInt(b.num,10)||0);
+  });
+
+  if (!actives.length) {
+    return '<div style="color:var(--gray);text-align:center;padding:30px;font-size:13px">미기록 학생이 없어요 ✨</div>';
+  }
+
   var html = '<div style="font-size:12px;color:var(--gray);text-align:center;margin:4px 0 12px;letter-spacing:-0.2px">학생 책을 눌러 마음동화를 열람할 수 있어요</div>';
   html += '<div class="tale-book-grid">';
+
+  // 무지개 7색 (학생 spine 패턴 답습) — 7주씩 묶음으로 매핑
+  var rainbowColors = ['#D9455F','#E67E22','#C9A227','#2E8B57','#1E6FB8','#1A237E','#6A3DB5'];
+  // 36주를 7색으로 분할: 색별 주차 범위 결정 (각 색 ~5주)
+  var perColor = HEART_TALE_TOTAL_WEEKS / 7;
+
   for (var i = 0; i < actives.length; i++) {
     var s = actives[i];
     var safeName = _escHtml(s.name || '');
     var num = _escHtml(String(s.num || ''));
     var safeUid = _escHtml(s.student_uid || '');
-    html += '<div class="tale-book-item" onclick="openHeartTalePage(\'' + safeUid + '\')">' +
+    var prog = _teacherTaleProgress[s.student_uid] || { count:0, lastDate:'', weeks:{} };
+    var isEmpty = prog.count === 0;
+
+    // 무지개 7색 — 색별 그 묶음에 채워진 주차가 1주라도 있으면 진하게, 없으면 흐리게
+    var rainbowHtml = '';
+    for (var c = 0; c < 7; c++) {
+      var startW = Math.floor(c * perColor) + 1;
+      var endW   = Math.floor((c + 1) * perColor);
+      var hasAny = false;
+      for (var w = startW; w <= endW; w++) {
+        if (prog.weeks && prog.weeks[w]) { hasAny = true; break; }
+      }
+      var emptyCls = hasAny ? '' : ' class="tale-rainbow-empty"';
+      rainbowHtml += '<span' + emptyCls + ' style="background:' + rainbowColors[c] + '"></span>';
+    }
+
+    var progressLine = isEmpty
+      ? '<div class="tale-book-progress" style="color:var(--gray)">아직 비어 있어요</div>'
+      : '<div class="tale-book-progress">📖 ' + prog.count + '주차 / ' + HEART_TALE_TOTAL_WEEKS + '주</div>';
+
+    html += '<div class="tale-book-item' + (isEmpty ? ' tale-empty' : '') + '" onclick="openHeartTalePage(\'' + safeUid + '\')">' +
       '<div class="tale-book-cover">' +
         '<div class="tale-book-num">' + num + '번</div>' +
         '<div class="tale-book-name">' + safeName + '</div>' +
-        '<div class="tale-book-rainbow">' +
-          '<span style="background:#D9455F"></span>' +
-          '<span style="background:#E67E22"></span>' +
-          '<span style="background:#C9A227"></span>' +
-          '<span style="background:#2E8B57"></span>' +
-          '<span style="background:#1E6FB8"></span>' +
-          '<span style="background:#1A237E"></span>' +
-          '<span style="background:#6A3DB5"></span>' +
-        '</div>' +
+        progressLine +
+        '<div class="tale-book-rainbow">' + rainbowHtml + '</div>' +
       '</div>' +
     '</div>';
   }
