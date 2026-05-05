@@ -23000,16 +23000,29 @@ async function openAlbumPopup(idx) {
   var imgEl = document.getElementById('popupAlbumImg');
   var imageRef = albumData.image_url || '';
 
-  // Case 1: 레거시 base64 — 즉시 세팅 (30차 이전 9건)
+  // 86차: Supabase Storage URL 즉시 표시 — GAS 우회·cold start 0초·CDN 캐시
+  //   변쌤 명시 정책: GAS 회귀 차단 + 글자 길이 함정 차단 + 표출 화질 향상
+  if (typeof imageRef === 'string' && imageRef.indexOf('http') === 0) {
+    imgEl.src = imageRef;
+    openModal('modal-album-popup');
+    return;
+  }
+
+  // Case 1: 레거시 base64 — 즉시 세팅 (30차 이전 9건, 86차 마이그 후엔 거의 없음)
   if (typeof imageRef === 'string' && imageRef.indexOf('data:image/') === 0) {
     imgEl.src = imageRef;
     openModal('modal-album-popup');
     return;
   }
 
-  // Case 2: 신규 Drive file_id — 썸네일 먼저 보여주고 모달 열기, 백그라운드에서 Drive 원본 fetch
-  var preThumb = (albumData.thumb_url && typeof albumData.thumb_url === 'string'
-                  && albumData.thumb_url.indexOf('data:image/') === 0) ? albumData.thumb_url : '';
+  // Case 2: 옛 Drive file_id — 86차 마이그 안 한 잔재. GAS API fallback (cold start 5~10초)
+  //   썸네일도 URL이면 즉시 / base64여도 즉시
+  var preThumb = '';
+  if (typeof albumData.thumb_url === 'string') {
+    if (albumData.thumb_url.indexOf('http') === 0 || albumData.thumb_url.indexOf('data:image/') === 0) {
+      preThumb = albumData.thumb_url;
+    }
+  }
   imgEl.src = preThumb;
   openModal('modal-album-popup');
 
