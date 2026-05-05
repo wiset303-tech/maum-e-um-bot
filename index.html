@@ -19724,6 +19724,30 @@ var _emotionAlbumFilter    = 'all';  // 필터 — 'all' | 'positive' | 'neutral
 var _emotionAlbumPage      = 0;      // 현재 페이지 (0-based)
 var EMOTION_ALBUM_PAGE_SIZE = 20;    // 4x5 = 20개씩
 
+// 86차: 썸네일 URL prefetch — Storage 마이그 후 첫 진입·페이지 넘김 시 빈 구슬 회귀 차단
+//   변쌤 신고 fix: 옛 base64는 album select 응답에 인라인이라 즉시 표시였지만, 마이그 후 URL이라
+//   각 썸네일이 별도 HTTP 요청 → 페이지 좌우 넘길 때 빈 구슬 보임
+//   해결: row fetch 직후 모든 thumb_url을 background Image() 로 미리 다운로드 → 브라우저 캐시 박힘
+//   페이지 넘겨도 캐시에서 즉시 표시. 일상앨범 그리드도 같은 패턴 답습.
+function _prefetchAlbumThumbs(rows) {
+  if (!rows || !rows.length) return;
+  for (var i = 0; i < rows.length; i++) {
+    var u = rows[i] && rows[i].thumb_url;
+    if (typeof u === 'string' && u.indexOf('http') === 0) {
+      var img = new Image();
+      img.src = u;  // 호출만으로 background fetch + 브라우저 캐시 박힘
+    }
+    // 본 사진 URL도 prefetch — 모달 진입 즉시 표시 (단, 1MB×N이라 첫 N개만)
+    if (i < 6) {
+      var v = rows[i] && rows[i].image_url;
+      if (typeof v === 'string' && v.indexOf('http') === 0) {
+        var img2 = new Image();
+        img2.src = v;
+      }
+    }
+  }
+}
+
 // 78차: emotions_master Supabase 1회 fetch + 캐시 (cold start 회피, GAS 우회)
 async function _loadEmotionsMaster() {
   if (_emotionsMaster && _emotionsMaster.length) return _emotionsMaster;
@@ -19772,6 +19796,8 @@ async function _loadEmotionAlbumCache() {
     var rows = await _sbFetch('album', filters);
     _emotionAlbumCache  = rows || [];
     _emotionAlbumLoaded = true;
+    // 86차: 모든 페이지 썸네일 background prefetch — 좌우 넘김 시 빈 구슬 차단
+    _prefetchAlbumThumbs(_emotionAlbumCache);
   } catch(e) {
     console.error('[EMO ALBUM FETCH]', e && e.message ? e.message : e);
     _emotionAlbumCache  = [];
@@ -22663,10 +22689,12 @@ async function loadAlbum(loadAll) {
     try {
       var rows = await _sbFetch('album', {
         student_uid:'eq.'+STATE.user.student_uid, order:'timestamp.desc',
-        select:'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url'
+        select:'album_uid,timestamp,student_uid,student_name,teacher_uid,image_url,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url'
       });
       allItems = (rows||[]).filter(function(a){ return !_isAlbumDeleted(a.is_deleted); });
       _preloadedStudentAlbum = allItems; // 더보기 재사용 캐시
+      // 86차: 일상앨범도 썸네일 prefetch — 더보기 누를 때 빈 카드 차단
+      _prefetchAlbumThumbs(allItems);
     } catch(e) {}
   }
 
