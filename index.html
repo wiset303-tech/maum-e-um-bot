@@ -7339,9 +7339,9 @@ async function onLoginSuccess(data) {
         _sbFetch('emotions', { teacher_uid:'eq.'+teacherUid, limit:'10000' })
           .then(_applyEmotions)
           .catch(function(){ return api('get_emotions',{teacher_uid:teacherUid}).then(function(r){ if(r.status==='ok') _applyEmotions(r.data.emotions); }); }),
-        // 57차: 마음앨범 프리로드 (Supabase, image_url 제외 — 경량)
+        // 57차: 마음앨범 프리로드. 86차: image_url 추가 — Storage URL이라 경량 (100B 이하), 모달 즉시 표시 위해 필요
         _sbFetch('album', { teacher_uid:'eq.'+teacherUid, order:'timestamp.desc',
-          select:'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url' })
+          select:'album_uid,timestamp,student_uid,student_name,teacher_uid,image_url,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url' })
           .then(function(rows){
             var filtered = (rows||[]).filter(function(a){ return !_isAlbumDeleted(a.is_deleted); });
             _teacherAlbumAll = filtered; _teacherAlbumLoaded = true;
@@ -7431,9 +7431,9 @@ async function onLoginSuccess(data) {
             }
           });
         }),
-      // 57차: 마음앨범 프리로드 (Supabase, image_url 제외 — 경량)
+      // 57차: 마음앨범 프리로드. 86차: image_url 추가 — Storage URL이라 경량, 모달 즉시 표시 위해 필요
       _sbFetch('album', { student_uid:'eq.'+data.student_uid, order:'timestamp.desc',
-        select:'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url' })
+        select:'album_uid,timestamp,student_uid,student_name,teacher_uid,image_url,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url' })
         .then(function(rows){
           var filtered = (rows||[]).filter(function(a){ return !_isAlbumDeleted(a.is_deleted); });
           _preloadedStudentAlbum = filtered;
@@ -22095,7 +22095,8 @@ async function _loadAdminAlbumAllOnce() {
       teacher_uid: 'in.(' + uidList + ')',
       album_type:  'eq.' + subMode,  // 78차: emotion 모드만 감정앨범, daily 모드는 기존 일상만
       order: 'timestamp.desc',
-      select: 'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url,album_type,is_class_cover,is_teacher_upload'
+      // 86차: image_url 추가 — 관리자 학교별 모달 진입 시 즉시 표시 (Storage URL 경량)
+      select: 'album_uid,timestamp,student_uid,student_name,teacher_uid,image_url,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url,album_type,is_class_cover,is_teacher_upload'
     });
     all = (rows || []).filter(function(a){ return !_isAlbumDeleted(a.is_deleted); });
   } catch(e) {
@@ -22422,7 +22423,8 @@ async function _loadAdminAlbumSchool(schoolName, teacherUids) {
     var rows = await _sbFetch('album', {
       teacher_uid: 'in.(' + uidList + ')',
       order: 'timestamp.desc',
-      select: 'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url'
+      // 86차: image_url 추가 — 관리자 단일 학교 carousel·모달 진입 시 즉시 표시
+      select: 'album_uid,timestamp,student_uid,student_name,teacher_uid,image_url,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url'
     });
     // 64차: _isAlbumDeleted 헬퍼로 통일 (어떤 형태든 잡음)
     all = (rows || []).filter(function(a){ return !_isAlbumDeleted(a.is_deleted); });
