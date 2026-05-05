@@ -20343,11 +20343,12 @@ async function renderEmotionAlbum() {
   // 79차 fix v3: 골격(.emo-album-shell) 있으면 스켈레톤 표시 X (in-place 유지)
   //   증상: 새로고침 시 sec.innerHTML 통째 교체 → 골격 사라짐 → _renderEmotionGrid가 모든 구슬 새로 생성
   //   해결: 골격 있을 땐 그대로 두고 fetch 후 _renderEmotionGrid가 in-place로만 갱신
-  // 86차 정정: 첫 진입 로딩 메시지 → 회색 그라디언트 + min-height (변쌤 신고 — "드득거림" layout 변동 차단)
-  //   기존 "불러오는 중…" 짧은 텍스트 → 그리드 그려질 때 height 급변. 그라디언트 placeholder로 자연스럽게
+  // 86차 정정 2: placeholder 자체 제거 — min-height:60vh가 실제 그리드 height와 어긋나 layout 변동 유발
+  //   변쌤 신고 — "드득거림 여전". placeholder 빼고 그리드 자연 height만 사용 → 변동 0
+  //   _emotionsMaster 캐시되어 있으면 즉시 그리드. 캐시 miss는 짧은 빈 영역 (수백 ms)
   var hasShell = !!sec.querySelector('.emo-album-shell');
   if (!hasShell && (!_emotionsMaster || !_emotionAlbumLoaded)) {
-    sec.innerHTML = '<div style="min-height:60vh;background:linear-gradient(135deg,#f5f6f8 0%,#e8eaed 50%,#f5f6f8 100%);border-radius:12px"></div>';
+    sec.innerHTML = '';  // 빈 영역으로 시작 → 그리드 그려질 때 자연 height
   }
   _emotionAlbumLoaded = false;
   await Promise.all([_loadEmotionsMaster(), _loadEmotionAlbumCache()]);
@@ -21512,6 +21513,18 @@ function _renderCfCarousel(forceRebuild) {
   var indEl     = document.getElementById('cfIndicator');
   var actionsEl = document.getElementById('cfActions');
   if (!stage) return;
+  // 86차: carousel 진입 시 그 감정의 모든 cards image_url background prefetch (변쌤 신고 — 카드 클릭 후 다운로드 느림)
+  //   사용자가 carousel 본 후 카드 클릭이 자연 흐름 → 미리 받아두면 caption 모달 즉시 표시
+  //   비효율 X — carousel 진입은 명확한 의도. 학급 평균 25장 = 25MB (학교 와이파이 가정)
+  if (_cfState.cards && _cfState.cards.length) {
+    for (var _pi = 0; _pi < _cfState.cards.length; _pi++) {
+      var _pv = _cfState.cards[_pi] && _cfState.cards[_pi].image_url;
+      if (typeof _pv === 'string' && _pv.indexOf('http') === 0) {
+        var _img = new Image();
+        _img.src = _pv;
+      }
+    }
+  }
 
   titleEl.textContent = '💗 ' + _cfState.word;
   if (!_cfState.cards.length) {
