@@ -21585,9 +21585,11 @@ function _renderCfCarousel(forceRebuild) {
 // 78차 디자인: 카드 = 원형 구슬(.cf-card-marble) + 아래 라벨(.cf-card-label)
 // 81차c: 관리자는 라벨에 학교명을 함께 표시 (학급 번호까지는 X — 변쌤 명시)
 function _cfCardInnerHTML(item) {
-  // 86차: 감정앨범 carousel 카드 화질 향상 — image_url(1600px Storage URL) 우선 (변쌤 신고)
-  //   thumb(500px·q0.72)은 carousel 카드 영역에 늘어져 흐릿. _prefetchAlbumThumbs가 첫 12개 image 미리 받음 → 캐시 hit
+  // 86차: carousel 큰 카드 = image_url(1600px) 우선. caption 모달은 200×200 원형이라 thumb 충분 — 별도 분리 (변쌤 명시 — 클릭 후 다운로드 느림 차단)
+  //   carousel 카드: 큰 영역이라 thumb 늘어져 흐릿 → image_url 우선 (prefetch로 캐시 hit)
+  //   caption 모달: 작은 원형이라 thumb 즉시 표시가 자연스러움 — image_url 다운로드 기다림 X
   var img = item.image_url || item.thumb_url || '';
+  var capImgSrc = item.thumb_url || item.image_url || '';
   // 81차d: 관리자 화면은 학생명 마스킹 (교사 화면은 실명 — 자기 학급)
   var who = item.is_teacher_upload ? '선생님' : _adminMask(item.student_name || '');
   var cap = item.caption || '';
@@ -21606,10 +21608,11 @@ function _cfCardInnerHTML(item) {
   }
   if (cap) {
     // 83차: 캡션 클릭 시 풀 텍스트 모달 — 잘려도 끝까지 볼 수 있게
+    // 86차: caption 모달은 200×200 원형이라 thumb_url 사용 — 즉시 표시 (image_url 다운로드 대기 X)
     var capData =
       ' data-cap="' + _escHtml(cap) + '"' +
       ' data-who="' + _escHtml(who) + '"' +
-      ' data-img="' + _escHtml(img) + '"';
+      ' data-img="' + _escHtml(capImgSrc) + '"';
     labelHtml +=
       '<div class="cf-cap cf-cap-clickable" onclick="event.stopPropagation();_cfOpenCaptionModalFromEl(this)"' + capData + '>' +
         _escHtml(cap) +
