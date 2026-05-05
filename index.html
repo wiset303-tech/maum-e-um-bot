@@ -2439,15 +2439,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   gap:14px;
   width:max-content;
   padding:8px 4px;
-  /* 87차: 자동 가로 흐름 애니메이션 (변쌤 명시 "마지막 표지처럼 옆으로 움직임") — 사용자 hover 시 정지·스크롤 가능 */
-  animation:hpAutoFlow 80s linear infinite;
-}
-.hp-scroll:hover .hp-track,
-.hp-scroll:active .hp-track{ animation-play-state:paused; }
-@keyframes hpAutoFlow{
-  0%   { transform:translateX(0); }
-  50%  { transform:translateX(calc(-100% + 100vw)); }
-  100% { transform:translateX(0); }
+  /* 87차 정정 (변쌤 명시 "스크롤 의미 없는 느낌"): transform 자동 애니메이션 제거.
+     자동 좌→우 흐름은 JS scrollLeft 방식(_hpStartAutoScroll)으로 → 사용자 스크롤 우선 보장 */
 }
 .hp-section{
   flex-shrink:0;
@@ -2527,23 +2520,47 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .hp-snake-header{
   text-align:center;
   flex-shrink:0;
-  padding-bottom:10px;
+  padding:6px 0 8px;
   border-bottom:1.5px solid rgba(167,139,250,.18);
-  margin-bottom:14px;
+  margin-bottom:12px;
 }
 .hp-snake-h-meta{
-  font-size:13px; color:#a89580;
+  font-size:14px; color:#a89580;
   letter-spacing:.6px;
-  margin-bottom:2px;
+  margin-bottom:0;
   font-weight:500;
 }
+/* 87차 정정 (변쌤 명시): 큰 귀여운 글씨로 — 단색 (html2canvas는 background-clip:text 미지원) */
 .hp-snake-h-title{
-  font-size:30px; font-weight:800;
-  background:linear-gradient(135deg,#ec4899 0%,#a78bfa 50%,#60a5fa 100%);
-  background-clip:text; -webkit-background-clip:text;
-  color:transparent;
-  letter-spacing:.4px;
-  line-height:1.1;
+  font-family:'Gamja Flower', cursive, sans-serif;
+  font-size:54px; font-weight:700;
+  color:#a78bfa;            /* 마음이음 보라 단색 — 캡처 안전 */
+  letter-spacing:1px;
+  line-height:1;
+  text-shadow:2px 2px 0 rgba(167,139,250,.18);  /* 살짝 입체감 */
+}
+/* 87차: 우측 하단 signature card — OOO의 마음 파노라마🌈 (변쌤 명시) */
+.hp-snake-signature{
+  background:linear-gradient(135deg, #fdf4ff 0%, #ede9fe 50%, #dbeafe 100%) !important;
+  border:1.5px dashed rgba(167,139,250,.35) !important;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:3px;
+  padding:8px 6px !important;
+}
+.hp-snake-signature .hp-sig-name{
+  font-family:'Gamja Flower', cursive, sans-serif;
+  font-size:22px; font-weight:700;
+  color:#7c3aed;
+  letter-spacing:.5px;
+  line-height:1;
+}
+.hp-snake-signature .hp-sig-title{
+  font-family:'Gamja Flower', cursive, sans-serif;
+  font-size:17px; font-weight:700;
+  color:#a78bfa;
+  letter-spacing:.3px;
+  line-height:1;
 }
 .hp-snake-grid{
   flex:1;
@@ -17667,9 +17684,10 @@ function openHeartPanorama() {
     modal.onclick = function(e){ closeModalOutside(e, 'modal-heart-panorama'); };
     document.body.appendChild(modal);
   }
+  modal.onclick = function(e){ if (e.target === modal) { _hpStopAutoScroll(); closeModal('modal-heart-panorama'); } };
   modal.innerHTML = ''
     + '<div class="hp-modal-box" onclick="event.stopPropagation()">'
-    +   '<button class="modal-close" onclick="closeModal(\'modal-heart-panorama\')" aria-label="닫기">✕</button>'
+    +   '<button class="modal-close" onclick="_hpStopAutoScroll();closeModal(\'modal-heart-panorama\')" aria-label="닫기">✕</button>'
     +   '<div class="hp-header">'
     +     '<div class="hp-name-meta">' + _escHtml(name) + '의 한 해 마음</div>'
     +     '<div class="hp-title">✨ 마음 파노라마</div>'
@@ -17684,6 +17702,35 @@ function openHeartPanorama() {
     +   '</div>'
     + '</div>';
   modal.classList.remove('hidden');
+  // 87차 정정 (변쌤 명시): 자동 좌→우 흐름 — JS scrollLeft 방식 (사용자 스크롤 우선 보장)
+  setTimeout(_hpStartAutoScroll, 200);
+}
+
+// 87차: 자동 좌→우 부드러운 스크롤 — 사용자 hover/touch 시 일시정지 (스크롤 우선)
+function _hpStartAutoScroll() {
+  _hpStopAutoScroll();
+  var scroll = document.querySelector('#modal-heart-panorama .hp-scroll');
+  if (!scroll) return;
+  STATE._hpAutoPaused = false;
+  STATE._hpAutoTimer = setInterval(function() {
+    if (STATE._hpAutoPaused) return;
+    var max = scroll.scrollWidth - scroll.clientWidth;
+    if (max <= 0) return;
+    if (scroll.scrollLeft >= max - 1) scroll.scrollLeft = 0;       // 끝 도달 → 처음으로 자연 회귀
+    else                              scroll.scrollLeft += 1;       // 1px/30ms ≈ 33px/s 부드러움
+  }, 30);
+  // 사용자 인터랙션 — hover·touch·스크롤 시작 시 자동 흐름 일시정지
+  var pause   = function(){ STATE._hpAutoPaused = true; };
+  var resume  = function(){ setTimeout(function(){ STATE._hpAutoPaused = false; }, 1500); };
+  scroll.addEventListener('mouseenter', pause);
+  scroll.addEventListener('mouseleave', resume);
+  scroll.addEventListener('touchstart', pause, { passive:true });
+  scroll.addEventListener('touchend',   resume);
+  scroll.addEventListener('wheel',      pause, { passive:true });
+}
+function _hpStopAutoScroll() {
+  if (STATE._hpAutoTimer) { clearInterval(STATE._hpAutoTimer); STATE._hpAutoTimer = null; }
+  STATE._hpAutoPaused = false;
 }
 
 // 87차: 마음 파노라마 'ㄹ' snake 출력본 → JPG 저장 (변쌤 명시 본격 구현)
@@ -17741,49 +17788,69 @@ function _hpBuildSnakeStage() {
   var name = STATE._htpStudentName || (STATE.user && STATE.user.name) || '학생';
   var pages = STATE._htpPages || {};
 
-  // ── 카드 데이터 50장 ──
-  // [0] 표지 / [1~45] 주차 / [46] 마지막 표지 / [47] SEL 1차 / [48] SEL 2차 / [49] 일상·감정 통합
+  // ── 카드 데이터 (변쌤 명시 순서 정정): SEL 1차(시작) → 표지 → 영역별 주차 + 일상/감정앨범 사이사이 → 마지막 표지 → SEL 2차 ──
   var cards = [];
-  // 표지
+  // 0. SEL 1차 (학년 시작 — 가장 앞)
+  cards.push({ kind:'sel', title:'1차 검사', sub:'학년 시작', emoji:'📋', bg:'linear-gradient(135deg,#fef9c3,#fde68a)' });
+  // 1. 표지(학생)
   cards.push({ kind:'cover', title:name + '의', sub:'마음동화', emoji:'🌱', bg:'linear-gradient(135deg,#fef3c7,#fed7aa)' });
-  // 45주차 — 무지개 매트릭스에서
-  for (var w = 1; w <= HEART_TALE_TOTAL_WEEKS; w++) {
+
+  // 영역별 주차 + 학기 끝마다 일상·감정앨범 자연스럽게 끼움 (변쌤 명시)
+  var areaBgMap = {
+    '마음봄':   'linear-gradient(135deg,#fef2f2,#fecaca)',
+    '마음꽃':   'linear-gradient(135deg,#fff7ed,#fed7aa)',
+    '마음여름': 'linear-gradient(135deg,#fefce8,#fde047)',
+    '마음열매': 'linear-gradient(135deg,#f0fdf4,#bbf7d0)',
+    '마음성장': 'linear-gradient(135deg,#eff6ff,#bfdbfe)',
+    '다시봄':   'linear-gradient(135deg,#f5f3ff,#ddd6fe)'
+  };
+  function _hpAddWeekCard(w) {
     var theme = _getHeartTaleTheme(w);
     var pv = (STATE._previewHeartTale && STATE._previewHeartTale[STATE._htpStudentUid || 'me']) || [];
     var pvPage = pv[w - 1] || {};
     var realPage = pages[w] || {};
-    // 87차 더미: 미리보기 학생이면 _previewHeartTale 시드 사용 / 실 모드는 weekly_book row
     var hasRecord = !!realPage.recorded_at;
     var hasPreview = STATE.isPreview && pvPage.sealed;
     var emoji = pvPage.drawing ? pvPage.drawing.emoji : (hasRecord ? '📷' : '');
-    var areaBg = ({
-      '마음봄':   'linear-gradient(135deg,#fef2f2,#fecaca)',
-      '마음꽃':   'linear-gradient(135deg,#fff7ed,#fed7aa)',
-      '마음여름': 'linear-gradient(135deg,#fefce8,#fde047)',
-      '마음열매': 'linear-gradient(135deg,#f0fdf4,#bbf7d0)',
-      '마음성장': 'linear-gradient(135deg,#eff6ff,#bfdbfe)',
-      '다시봄':   'linear-gradient(135deg,#f5f3ff,#ddd6fe)'
-    })[theme.area] || 'linear-gradient(135deg,#fafafa,#e5e7eb)';
     cards.push({
       kind:'week',
       week: w,
       title: realPage.title || theme.title,
       sub: theme.area,
       emoji: emoji || (hasRecord ? '✏️' : (hasPreview ? '✨' : '')),
-      bg: areaBg,
+      bg: areaBgMap[theme.area] || 'linear-gradient(135deg,#fafafa,#e5e7eb)',
       filled: hasRecord || hasPreview
     });
   }
+  // 마음봄 1~9주 + 일상앨범 #1
+  for (var w1 = 1; w1 <= 9; w1++) _hpAddWeekCard(w1);
+  cards.push({ kind:'album', title:'일상앨범', sub:'마음봄 한 컷', emoji:'📷', bg:'linear-gradient(135deg,#ede9fe,#ddd6fe)' });
+  // 마음꽃 10~15주 + 감정앨범 #1
+  for (var w2 = 10; w2 <= 15; w2++) _hpAddWeekCard(w2);
+  cards.push({ kind:'album', title:'감정앨범', sub:'마음꽃 한 컷', emoji:'💗', bg:'linear-gradient(135deg,#fdf4ff,#fce7f3)' });
+  // 마음여름 16~23주 + 일상앨범 #2
+  for (var w3 = 16; w3 <= 23; w3++) _hpAddWeekCard(w3);
+  cards.push({ kind:'album', title:'일상앨범', sub:'마음여름 한 컷', emoji:'📷', bg:'linear-gradient(135deg,#ede9fe,#ddd6fe)' });
+  // 마음열매 24~30주 + 감정앨범 #2
+  for (var w4 = 24; w4 <= 30; w4++) _hpAddWeekCard(w4);
+  cards.push({ kind:'album', title:'감정앨범', sub:'마음열매 한 컷', emoji:'💗', bg:'linear-gradient(135deg,#fdf4ff,#fce7f3)' });
+  // 마음성장 31~37주 + 일상앨범 #3
+  for (var w5 = 31; w5 <= 37; w5++) _hpAddWeekCard(w5);
+  cards.push({ kind:'album', title:'일상앨범', sub:'마음성장 한 컷', emoji:'📷', bg:'linear-gradient(135deg,#ede9fe,#ddd6fe)' });
+  // 다시봄 38~44주 + 감정앨범 #3
+  for (var w6 = 38; w6 <= 44; w6++) _hpAddWeekCard(w6);
+  cards.push({ kind:'album', title:'감정앨범', sub:'다시봄 한 컷', emoji:'💗', bg:'linear-gradient(135deg,#fdf4ff,#fce7f3)' });
+  // 45주
+  _hpAddWeekCard(45);
   // 마지막 표지(파노라마)
   cards.push({ kind:'final', title:'마음', sub:'파노라마', emoji:'✨', bg:'linear-gradient(135deg,#fdf4ff,#e9d5ff)' });
-  // SEL 1차·2차
-  cards.push({ kind:'sel', title:'1차 검사', sub:'사회정서', emoji:'📋', bg:'linear-gradient(135deg,#fef9c3,#fde68a)' });
-  cards.push({ kind:'sel', title:'2차 검사', sub:'사회정서', emoji:'📊', bg:'linear-gradient(135deg,#fff1f2,#fecdd3)' });
-  // 일상·감정앨범
-  cards.push({ kind:'album', title:'일상앨범', sub:'올해의 일상', emoji:'📷', bg:'linear-gradient(135deg,#ede9fe,#ddd6fe)' });
-  cards.push({ kind:'album', title:'감정앨범', sub:'올해의 감정', emoji:'💗', bg:'linear-gradient(135deg,#fdf4ff,#fce7f3)' });
-  // 50장 → 8행 × 7열 = 56자리에 fit
-  var COLS = 7, ROWS = 8;
+  // SEL 2차 (학년 마침 — 가장 끝)
+  cards.push({ kind:'sel', title:'2차 검사', sub:'학년 마침', emoji:'📊', bg:'linear-gradient(135deg,#fff1f2,#fecdd3)' });
+  // 87차 (변쌤 명시): 우측 하단 빈 자리에 OOO의 마음 파노라마🌈 signature card
+  cards.push({ kind:'signature', name: name });
+
+  // 총 56장 → 8열 × 7행 = 56자리 가득 (signature가 마지막 자리 = 우측 하단)
+  var COLS = 8, ROWS = 7;
 
   // ── snake 순서 재배치 (행마다 방향 반전) ──
   var snakeCards = [];
@@ -17802,6 +17869,14 @@ function _hpBuildSnakeStage() {
     var c = snakeCards[i];
     if (!c) {
       cardsHtml += '<div class="hp-snake-card empty"></div>';
+      continue;
+    }
+    // 87차: signature card — OOO의 마음 파노라마🌈 (변쌤 명시 우측 하단 빈 자리)
+    if (c.kind === 'signature') {
+      cardsHtml += '<div class="hp-snake-card hp-snake-signature">';
+      cardsHtml += '<div class="hp-sig-name">' + _escHtml(c.name) + '의</div>';
+      cardsHtml += '<div class="hp-sig-title">마음 파노라마🌈</div>';
+      cardsHtml += '</div>';
       continue;
     }
     cardsHtml += '<div class="hp-snake-card" style="background:' + c.bg + '">';
