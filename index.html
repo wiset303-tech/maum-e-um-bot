@@ -4367,7 +4367,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       style="position:absolute;top:10px;right:12px;z-index:10;background:rgba(0,0,0,.35);color:#fff;border-radius:50%;width:28px;height:28px;font-size:16px">✕</button>
     <!-- 86차: 좌상단 업로드한 학생명 뱃지 (교사·관리자·학부모 뷰. 학생 본인 뷰에선 hide) -->
     <div id="popupAlbumStudentBadge" style="position:absolute;top:10px;left:12px;z-index:10;background:rgba(0,0,0,.55);color:#fff;padding:6px 12px;border-radius:14px;font-size:13px;font-weight:700;display:none;max-width:60%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
-    <img id="popupAlbumImg" src="" alt="마음앨범" style="width:100%;display:block;max-height:80vh;object-fit:contain;background:#000">
+    <!-- 86차: 빈 흰 화면 회귀 차단 — 부드러운 회색 그라디언트 placeholder + min-height + fade-in transition (변쌤 신고) -->
+    <img id="popupAlbumImg" src="" alt="마음앨범" style="width:100%;display:block;max-height:80vh;min-height:280px;object-fit:contain;background:linear-gradient(135deg,#e8eaed 0%,#f5f6f8 50%,#e8eaed 100%);transition:opacity .25s ease">
     <div style="padding:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div id="popupAlbumDate" style="font-size:12px;color:var(--gray)"></div>
@@ -7691,6 +7692,11 @@ function switchTab(idx) {
       // 78차 정책: 교사도 교육 목적 — 진입 시 감정앨범 default 즉시 표시
       if (STATE._albumSubTab !== 'daily') {
         try { renderEmotionAlbum(); } catch(e) { console.error('[EMO ENTER teacher]', e); }
+      }
+      // 86차: 마음동화 sub 탭 데이터 background prefetch (변쌤 명시 — 하위 탭 누르면 즉시 표시)
+      //   _loadTeacherTaleProgress 결과는 _teacherTaleProgress 글로벌에 캐시 → 마음동화 sub 진입 시 즉시 그리드
+      if (STATE.user && STATE.user.teacher_uid) {
+        try { _loadTeacherTaleProgress(STATE.user.teacher_uid); } catch(e) { console.error('[TALE PREFETCH]', e); }
       }
     }
     if (idx === 1 && STATE.role === 'admin') renderAdminAccountMgmt();      // 관리자 계정관리
@@ -19766,8 +19772,10 @@ function _prefetchAlbumThumbs(rows) {
       var img = new Image();
       img.src = u;  // 호출만으로 background fetch + 브라우저 캐시 박힘
     }
-    // 본 사진 URL도 prefetch — 모달 진입 즉시 표시 (단, 1MB×N이라 첫 N개만)
-    if (i < 6) {
+    // 86차: 본 사진 URL도 prefetch — 모달 진입 즉시 표시. 6 → 12로 확장 (그리드 첫 화면 카드들 + 약간 더)
+    //   변쌤 신고 — 모달 진입 시 빈 화면 짧게 보임. prefetch 캐시 hit이면 즉시 1600px 표시
+    //   12개 × 평균 1MB = 12MB. 모바일 부담 적정 (학교 와이파이 환경 가정)
+    if (i < 12) {
       var v = rows[i] && rows[i].image_url;
       if (typeof v === 'string' && v.indexOf('http') === 0) {
         var img2 = new Image();
@@ -23103,11 +23111,30 @@ async function openAlbumPopup(idx) {
   var imgEl = document.getElementById('popupAlbumImg');
   var imageRef = albumData.image_url || '';
 
-  // 86차: Supabase Storage URL 즉시 표시 — GAS 우회·cold start 0초·CDN 캐시
+  // 86차: Supabase Storage URL — thumb 먼저 즉시 표시 → image_url 도착 후 in-place 교체 (변쌤 신고 — 빈 화면 X)
   //   변쌤 명시 정책: GAS 회귀 차단 + 글자 길이 함정 차단 + 표출 화질 향상
   if (typeof imageRef === 'string' && imageRef.indexOf('http') === 0) {
-    imgEl.src = imageRef;
+    // 1단계: thumb 먼저 (URL 또는 base64 모두 — 거의 즉시 표시. prefetch 캐시 hit이면 0ms)
+    var preThumbHttp = '';
+    if (typeof albumData.thumb_url === 'string') {
+      if (albumData.thumb_url.indexOf('http') === 0 || albumData.thumb_url.indexOf('data:image/') === 0) {
+        preThumbHttp = albumData.thumb_url;
+      }
+    }
+    imgEl.src = preThumbHttp || imageRef;
     openModal('modal-album-popup');
+    // 2단계: image_url(1600px) 다운로드 완료 시 src 교체. 같은 사진이면 skip
+    if (preThumbHttp && imageRef !== preThumbHttp) {
+      var preloadImg = new Image();
+      preloadImg.onload = function() {
+        // 모달 닫힌 사이 다른 사진 열렸으면 갱신 안 함 (album_uid 비교)
+        if (_popupAlbumUid === albumData.album_uid && imgEl) imgEl.src = imageRef;
+      };
+      preloadImg.onerror = function() {
+        console.warn('[ALBUM POPUP image_url load fail]', albumData.album_uid);
+      };
+      preloadImg.src = imageRef;
+    }
     return;
   }
 
