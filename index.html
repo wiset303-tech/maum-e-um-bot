@@ -23022,6 +23022,8 @@ function albumItemHTML(a, canDelete) {
 // SNS 팝업 열기
 var _popupAlbumUid = '';
 async function openAlbumPopup(idx) {
+  // 86차 진단: 한 클릭에 2번 호출 회귀 추적용 — 변쌤 콘솔에 진입 로그 가시화
+  console.log('[ALBUM POPUP enter]', idx);
   var entry = _albumCache[idx];
   if (!entry) return;
   var albumData = entry.data;
@@ -23159,12 +23161,13 @@ async function openAlbumPopup(idx) {
         // 86차 fix: GAS fallback 실패 시 토스트 조용히 (썸네일 표시 상태 유지)
         //   변쌤 신고 — 마이그 안 된 옛 row 클릭 시 "사진을 불러올 수 없어요" 토스트가 헷갈림
         //   썸네일이라도 보여서 사용자는 사진 자체는 볼 수 있음 → 토스트로 혼란 X
-        console.error('[ALBUM POPUP GAS]', res.message);
+        // 86차 정정: console.error → console.warn (덜 심각해 보이게) + album_uid·image_url 박아 진단 즉시 가시화
+        console.warn('[ALBUM POPUP fallback]', res.message, { album_uid: albumData.album_uid, image_url: albumData.image_url });
       }
     }
   } catch(e) {
     // 86차 fix: 네트워크 오류도 콘솔에만 (썸네일 표시 상태 유지 — 사용자 경험 보호)
-    console.error('[ALBUM POPUP ERR]', e && e.message ? e.message : e);
+    console.warn('[ALBUM POPUP exception]', e && e.message ? e.message : e, { album_uid: albumData.album_uid });
   }
 }
 
