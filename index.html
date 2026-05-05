@@ -12066,6 +12066,21 @@ function stopAlbumPoll() {
   // 78차: 감정앨범 폴링 fallback도 함께 정리
   try { _stopEmotionAlbumPoll(); } catch(e) {}
 }
+// 86차: 마음동화 새로고침 — 일상앨범 패턴 그대로 답습 (변쌤 명시 — 동일 애니메이션)
+//   ⟳ spinning 800ms + 1초 throttle + 캐시 무효화 후 재렌더
+var _teacherTaleRefreshThrottle = 0;
+function refreshTeacherTaleAlbum() {
+  var now = Date.now();
+  if (now - _teacherTaleRefreshThrottle < 1000) return;
+  _teacherTaleRefreshThrottle = now;
+  var rb = document.getElementById('tale-refresh-btn');
+  if (rb) {
+    rb.classList.add('spinning');
+    setTimeout(function(){ rb.classList.remove('spinning'); }, 800);
+  }
+  if (typeof renderTeacherTaleAlbum === 'function') renderTeacherTaleAlbum();
+}
+
 // 79차 fix: 학생 분기 누락 회복 + 1초 throttle + 진단 로그
 //   증상: 변쌤 보고 — 학생 일상앨범 새로고침 눌러도 콘솔에 아무것도 안 찍힘 = 함수 분기 자체에 학생 없음
 //   해결: 학생이면 캐시 무효화 후 loadAlbum() 직접 호출. 연타 방지 throttle 1초
@@ -17257,7 +17272,8 @@ async function _fetchHeartTaleClassActive(teacher_uid) {
 async function _startHeartTaleClass(session_no) {
   if (!STATE.user || !STATE.user.teacher_uid) { toast('교사 정보가 없어요'); return; }
   if (STATE._heartTaleClassActive) { toast('이미 진행 중인 수업이 있어요'); return; }
-  if (session_no !== 1 && session_no !== 2) return;
+  // 86차: NFC 없는 자유 수업이라 N차시 의미 X. session_no는 DB 호환 위해 1 고정 (변쌤 명시 — N 명시 부적절)
+  session_no = 1;
 
   showLoading('수업 시작 알림 보내는 중이에요 📣');
   try {
@@ -17273,7 +17289,7 @@ async function _startHeartTaleClass(session_no) {
       return _sbInsert('notifications', {
         notification_uid: _htNewUuid(), created_at: ts,
         recipient_uid: uid, type: 'heart_tale_class_start',
-        title: '📣 ' + session_no + '차시 마음동화 수업이 시작됐어요',
+        title: '📣 마음동화 수업이 시작됐어요',
         body: String(session_no),
         sender_name: '', is_read: false, related_uid: teacher_uid
       });
@@ -17283,7 +17299,7 @@ async function _startHeartTaleClass(session_no) {
     STATE._heartTaleClassActive = { session_no: session_no, started_at: ts };
     renderTeacherTaleAlbum();  // 헤더 갱신
     try { AUDIO.sfx('save'); } catch(e) {}
-    toast(session_no + '차시 마음동화 수업이 시작됐어요 📣');
+    toast('마음동화 수업이 시작됐어요 📣');
   } catch(e) {
     console.error('[HT CLASS START]', e && e.message ? e.message : e);
     toast('수업 시작이 안 됐어요. 다시 시도해 주세요');
@@ -17313,7 +17329,7 @@ async function _endHeartTaleClass() {
       return _sbInsert('notifications', {
         notification_uid: _htNewUuid(), created_at: ts,
         recipient_uid: uid, type: 'heart_tale_class_end',
-        title: '⏹ ' + session_no + '차시 마음동화 수업이 끝났어요',
+        title: '⏹ 마음동화 수업이 끝났어요',
         body: String(session_no),
         sender_name: '', is_read: false, related_uid: teacher_uid
       });
@@ -17322,7 +17338,7 @@ async function _endHeartTaleClass() {
 
     STATE._heartTaleClassActive = null;
     renderTeacherTaleAlbum();
-    toast(session_no + '차시 마음동화 수업을 종료했어요 ⏹');
+    toast('마음동화 수업을 종료했어요 ⏹');
   } catch(e) {
     console.error('[HT CLASS END]', e && e.message ? e.message : e);
     toast('수업 종료가 안 됐어요. 다시 시도해 주세요');
@@ -17336,14 +17352,12 @@ function _renderTaleAlbumHeader(stus) {
   var active = STATE._heartTaleClassActive;
   var html = '<div class="ht-class-bar">';
   if (active) {
-    var sn = active.session_no;
-    html += '<button class="ht-class-btn ht-class-end" onclick="_endHeartTaleClass()">⏹ ' + sn + '차시 마음동화 수업 종료</button>';
-    html += '<div class="ht-class-info">' + sn + '차시 진행 중 — 학생들이 🌈 스티커 없이 책을 채울 수 있어요</div>';
+    // 86차: NFC 없는 자유 수업이라 N차시 의미 X (변쌤 명시)
+    html += '<button class="ht-class-btn ht-class-end" onclick="_endHeartTaleClass()">⏹ 마음동화 수업 종료</button>';
+    html += '<div class="ht-class-info">수업 진행 중 — 학생들이 🌈 스티커 없이 책을 채울 수 있어요</div>';
   } else {
-    html += '<div class="ht-class-row">';
-    html += '<button class="ht-class-btn ht-class-start" onclick="_startHeartTaleClass(1)">📣 1차시 시작</button>';
-    html += '<button class="ht-class-btn ht-class-start" onclick="_startHeartTaleClass(2)">📣 2차시 시작</button>';
-    html += '</div>';
+    // 86차: 1·2차시 두 버튼 폐기 → 한 버튼으로 통합. NFC 없는 자유 수업이라 N차시 강제 선택 부담 (변쌤 명시)
+    html += '<button class="ht-class-btn ht-class-start" onclick="_startHeartTaleClass()" style="width:100%">📣 마음동화 수업 시작</button>';
     html += '<div class="ht-class-sub">수업이 시작되면 학생들에게 알림이 가요.<br>그동안은 🌈 스티커 없이도 자유롭게 채울 수 있어요.</div>';
   }
   html += '</div>';
@@ -17364,10 +17378,12 @@ function _renderTaleAlbumHeader(stus) {
   }
   var avg = totalN > 0 ? Math.round(totalPages / totalN) : 0;
 
-  html += '<div class="tale-stats-bar">';
+  html += '<div class="tale-stats-bar" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
   html += '<span class="tale-stat-chip">📖 평균 ' + avg + '주차 / ' + HEART_TALE_TOTAL_WEEKS + '주</span>';
   html += '<span class="tale-stat-chip">✨ 오늘 기록 ' + todayN + '/' + totalN + '명</span>';
   html += '<span class="tale-stat-chip ' + (unrecN > 0 ? 'warn' : 'muted') + '">💤 미기록 ' + unrecN + '명</span>';
+  // 86차: 일상앨범·감정앨범 패턴 답습 — 동일 ⟳ spinning 애니메이션 (변쌤 명시)
+  html += '<button class="btn-refresh-mini" id="tale-refresh-btn" onclick="refreshTeacherTaleAlbum()" style="margin-left:auto" title="새로고침"><span class="refresh-icon">⟳</span></button>';
   html += '</div>';
 
   var sortVal = STATE._teacherTaleSort || 'num';
@@ -17390,7 +17406,7 @@ function _onHeartTaleClassStartReceived(session_no) {
   STATE._htpMode = 'class';
   STATE._htpRecordSeq = null;  // 수업 모드는 묶음 제한 없음
   STATE._htpLocked = false;
-  toast('📣 ' + session_no + '차시 마음동화 수업이 시작됐어요');
+  toast('📣 마음동화 수업이 시작됐어요');
 
   var modal = document.getElementById('modal-heart-tale-page');
   if (modal && !modal.classList.contains('hidden')) {
@@ -17427,7 +17443,7 @@ async function _onHeartTaleClassEndReceived(session_no) {
     if (w !== undefined && w !== null) _renderHeartTalePage(w);
     toast('⏹ 마음동화 수업이 끝났어요. 더 수정하려면 🌈 마음동화 스티커를 태그해 주세요');
   } else {
-    toast('⏹ ' + session_no + '차시 마음동화 수업이 끝났어요');
+    toast('⏹ 마음동화 수업이 끝났어요');
   }
 }
 
@@ -19832,9 +19848,14 @@ async function _loadEmotionAlbumCache() {
 var _teacherTaleProgress = {};
 async function _loadTeacherTaleProgress(teacher_uid) {
   if (!teacher_uid) { _teacherTaleProgress = {}; return; }
+  // 86차 fix: weekly_book 테이블에 teacher_uid 컬럼 없음 → PostgREST 400 회귀 차단
+  //   변쌤 환경 콘솔에서 GET /weekly_book?teacher_uid=eq... 400 Bad Request 확인
+  //   해결: 본인 학급 student_uid 리스트로 in.() filter — schema 변경 없이 즉시 동작
+  var stuUids = (STATE.students || []).map(function(s){ return s && s.student_uid; }).filter(Boolean);
+  if (!stuUids.length) { _teacherTaleProgress = {}; return; }
   try {
     var rows = await _sbFetch('weekly_book', {
-      teacher_uid: 'eq.' + teacher_uid,
+      student_uid: 'in.(' + stuUids.join(',') + ')',
       select     : 'student_uid,week_no,recorded_at',
     });
     var by = {};
@@ -19998,7 +20019,8 @@ async function _loadAdminTaleData() {
       });
       _studentsByTeacherLoaded = true;
     }
-    var rows = await _sbFetch('weekly_book', { select:'student_uid,teacher_uid,week_no,recorded_at' });
+    // 86차 fix: weekly_book에 teacher_uid 컬럼 없음 — select에서 제거. 학생→교사 매핑은 _studentsByTeacher 사용
+    var rows = await _sbFetch('weekly_book', { select:'student_uid,week_no,recorded_at' });
     var byStudent = {};
     for (var i = 0; i < (rows || []).length; i++) {
       var r = rows[i];
@@ -23132,11 +23154,17 @@ async function openAlbumPopup(idx) {
         _teacherAlbumAll = _teacherAlbumAll.filter(function(a){ return a.album_uid !== albumData.album_uid; });
         _albumLoaded = false; _teacherAlbumLoaded = false;
         loadAlbumIfNeeded();
+        toast(res.message);
+      } else {
+        // 86차 fix: GAS fallback 실패 시 토스트 조용히 (썸네일 표시 상태 유지)
+        //   변쌤 신고 — 마이그 안 된 옛 row 클릭 시 "사진을 불러올 수 없어요" 토스트가 헷갈림
+        //   썸네일이라도 보여서 사용자는 사진 자체는 볼 수 있음 → 토스트로 혼란 X
+        console.error('[ALBUM POPUP GAS]', res.message);
       }
-      toast(res.message);
     }
   } catch(e) {
-    toast('사진을 불러오는 중 오류가 났어요 📷');
+    // 86차 fix: 네트워크 오류도 콘솔에만 (썸네일 표시 상태 유지 — 사용자 경험 보호)
+    console.error('[ALBUM POPUP ERR]', e && e.message ? e.message : e);
   }
 }
 
