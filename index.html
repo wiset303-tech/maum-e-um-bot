@@ -16889,7 +16889,8 @@ function _buildHeartTalePageRealHTML(week_no) {
 
   if (hasRecord) {
     // 기록된 주차 — 사진 + 글 + 마음봇 한 줄
-    var photoUrl = row.thumb_url || row.photo_url || '';
+    // 86차: photo_url(1600px Storage URL) 우선 — 페이지 영역에 thumb 늘어져 흐릿한 회귀 차단 (감정앨범 carousel 패턴 답습)
+    var photoUrl = row.photo_url || row.thumb_url || '';
     var photoSrc = _htpResolvePhotoSrc(photoUrl);
     html += '<div class="heart-tale-photo-wrap" style="background:#fff">';
     if (photoSrc) {
@@ -21571,7 +21572,9 @@ function _renderCfCarousel(forceRebuild) {
 // 78차 디자인: 카드 = 원형 구슬(.cf-card-marble) + 아래 라벨(.cf-card-label)
 // 81차c: 관리자는 라벨에 학교명을 함께 표시 (학급 번호까지는 X — 변쌤 명시)
 function _cfCardInnerHTML(item) {
-  var img = item.thumb_url || item.image_url || '';
+  // 86차: 감정앨범 carousel 카드 화질 향상 — image_url(1600px Storage URL) 우선 (변쌤 신고)
+  //   thumb(500px·q0.72)은 carousel 카드 영역에 늘어져 흐릿. _prefetchAlbumThumbs가 첫 12개 image 미리 받음 → 캐시 hit
+  var img = item.image_url || item.thumb_url || '';
   // 81차d: 관리자 화면은 학생명 마스킹 (교사 화면은 실명 — 자기 학급)
   var who = item.is_teacher_upload ? '선생님' : _adminMask(item.student_name || '');
   var cap = item.caption || '';
