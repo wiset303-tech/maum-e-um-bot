@@ -19648,6 +19648,17 @@ function switchAlbumSubTab(sub) {
     renderEmotionAlbum();  // 진입 시 매번 호출 — 내부에서 강제 fresh fetch + 폴링 시작
   } else if (sub === 'tale') {
     // 82차: 교사 마음동화 탭 — 학생별 책 썸네일 그리드
+    // 86차 안전망: albumHTML 호출 시점 STATE.role race로 albumTaleSection 안 만들어진 환경 대응
+    //   변쌤 콘솔 진단 결과: exists:false (element 자체 부재). 한 번 안 만들어지면 자동 복구 X였음.
+    //   → emotionSec 다음에 동적 insert. 이미 있으면 재사용.
+    if (!taleSec && emotionSec && emotionSec.parentNode) {
+      console.log('[ALBUM TALE] albumTaleSection 부재 — 동적 생성 안전망 발동');
+      var newTaleSec = document.createElement('div');
+      newTaleSec.id = 'albumTaleSection';
+      newTaleSec.style.display = 'none';
+      emotionSec.parentNode.insertBefore(newTaleSec, emotionSec.nextSibling);
+      taleSec = newTaleSec;
+    }
     dailySec.style.display   = 'none';
     emotionSec.style.display = 'none';
     if (taleSec) taleSec.style.display = '';
@@ -19869,35 +19880,48 @@ function _seedPreviewTaleProgress(stus) {
 }
 
 async function renderTeacherTaleAlbum() {
+  // 86차 진단: 빈 화면 회귀 추적용 명시 로그 (변쌤 콘솔에 어디까지 진입했는지 가시화)
+  console.log('[TEACHER TALE enter]', { role: STATE.role, isPreview: STATE.isPreview, students: (STATE.students||[]).length });
   var sec = document.getElementById('albumTaleSection');
-  if (!sec) return;
-  // 미리보기 모드 — 학생 28명 더미 + 진척 시드
-  if (STATE.isPreview) {
-    var previewStus = STATE._previewStudents || [];
-    _teacherTaleProgress = _seedPreviewTaleProgress(previewStus);
-    sec.innerHTML = _renderTaleAlbumHeader(previewStus) + _buildTeacherTaleGridHTML(previewStus);
+  if (!sec) {
+    console.error('[TEACHER TALE] albumTaleSection element 없음 — albumHTML 시점에 STATE.role이 teacher 아니었을 가능성');
     return;
   }
-  // 82차 Phase 6: 활성 차시 fetch (헤더 버튼 분기에 사용)
-  if (STATE.user && STATE.user.teacher_uid) {
-    try { STATE._heartTaleClassActive = await _fetchHeartTaleClassActive(STATE.user.teacher_uid); }
-    catch(e) { STATE._heartTaleClassActive = null; }
+  try {
+    // 미리보기 모드 — 학생 28명 더미 + 진척 시드
+    if (STATE.isPreview) {
+      var previewStus = STATE._previewStudents || [];
+      _teacherTaleProgress = _seedPreviewTaleProgress(previewStus);
+      sec.innerHTML = _renderTaleAlbumHeader(previewStus) + _buildTeacherTaleGridHTML(previewStus);
+      console.log('[TEACHER TALE preview painted]', { stusN: previewStus.length });
+      return;
+    }
+    // 82차 Phase 6: 활성 차시 fetch (헤더 버튼 분기에 사용)
+    if (STATE.user && STATE.user.teacher_uid) {
+      try { STATE._heartTaleClassActive = await _fetchHeartTaleClassActive(STATE.user.teacher_uid); }
+      catch(e) { STATE._heartTaleClassActive = null; }
+    }
+    // 실제 — 본인 학급 학생 (STATE.students에 이미 로드돼 있음)
+    var stus = STATE.students || [];
+    if (!stus.length) {
+      sec.innerHTML = _renderTaleAlbumHeader(stus) +
+        '<div style="color:var(--gray);text-align:center;padding:30px;font-size:13px">학급 학생 정보 불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div>';
+      try {
+        if (typeof loadStudents === 'function') await loadStudents();
+        stus = STATE.students || [];
+      } catch(e) { console.error('[TEACHER TALE LOAD STUS]', e && e.message ? e.message : e); }
+    }
+    // 학급 진척 fetch (Supabase 직접) — 메모리 feedback_supabase_first.md 답습
+    if (STATE.user && STATE.user.teacher_uid) {
+      await _loadTeacherTaleProgress(STATE.user.teacher_uid);
+    }
+    sec.innerHTML = _renderTaleAlbumHeader(stus) + _buildTeacherTaleGridHTML(stus);
+    console.log('[TEACHER TALE painted]', { stusN: stus.length, progN: Object.keys(_teacherTaleProgress||{}).length });
+  } catch(eFatal) {
+    // 86차 안전망: 어떤 이유로든 throw가 빠져나오면 변쌤이 빈 화면 보지 않게 fallback 메시지
+    console.error('[TEACHER TALE FATAL]', eFatal && eFatal.message ? eFatal.message : eFatal);
+    sec.innerHTML = '<div style="color:var(--gray);text-align:center;padding:30px;font-size:13px">마음동화 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요</div>';
   }
-  // 실제 — 본인 학급 학생 (STATE.students에 이미 로드돼 있음)
-  var stus = STATE.students || [];
-  if (!stus.length) {
-    sec.innerHTML = _renderTaleAlbumHeader(stus) +
-      '<div style="color:var(--gray);text-align:center;padding:30px;font-size:13px">학급 학생 정보 불러오는 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span></div>';
-    try {
-      if (typeof loadStudents === 'function') await loadStudents();
-      stus = STATE.students || [];
-    } catch(e) { console.error('[TEACHER TALE LOAD STUS]', e && e.message ? e.message : e); }
-  }
-  // 학급 진척 fetch (Supabase 직접) — 메모리 feedback_supabase_first.md 답습
-  if (STATE.user && STATE.user.teacher_uid) {
-    await _loadTeacherTaleProgress(STATE.user.teacher_uid);
-  }
-  sec.innerHTML = _renderTaleAlbumHeader(stus) + _buildTeacherTaleGridHTML(stus);
 }
 
 // ════════════════════════════════════════
