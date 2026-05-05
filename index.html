@@ -20342,9 +20342,11 @@ async function renderEmotionAlbum() {
   // 79차 fix v3: 골격(.emo-album-shell) 있으면 스켈레톤 표시 X (in-place 유지)
   //   증상: 새로고침 시 sec.innerHTML 통째 교체 → 골격 사라짐 → _renderEmotionGrid가 모든 구슬 새로 생성
   //   해결: 골격 있을 땐 그대로 두고 fetch 후 _renderEmotionGrid가 in-place로만 갱신
+  // 86차 정정: 첫 진입 로딩 메시지 → 회색 그라디언트 + min-height (변쌤 신고 — "드득거림" layout 변동 차단)
+  //   기존 "불러오는 중…" 짧은 텍스트 → 그리드 그려질 때 height 급변. 그라디언트 placeholder로 자연스럽게
   var hasShell = !!sec.querySelector('.emo-album-shell');
   if (!hasShell && (!_emotionsMaster || !_emotionAlbumLoaded)) {
-    sec.innerHTML = '<div style="text-align:center;padding:30px;color:var(--gray);font-size:13px">감정앨범 불러오는 중…</div>';
+    sec.innerHTML = '<div style="min-height:60vh;background:linear-gradient(135deg,#f5f6f8 0%,#e8eaed 50%,#f5f6f8 100%);border-radius:12px"></div>';
   }
   _emotionAlbumLoaded = false;
   await Promise.all([_loadEmotionsMaster(), _loadEmotionAlbumCache()]);
@@ -20702,21 +20704,20 @@ function changeEmotionAlbumPage(delta) {
 // 78차: 새로고침 버튼 — 캐시 무효화 후 재fetch
 // 79차 fix: 1초 throttle — 변쌤 보고 13회+ 연타 fetch 차단
 var _emoRefreshThrottle = 0;
-async function refreshEmotionAlbum() {
+function refreshEmotionAlbum() {
   var now = Date.now();
   if (now - _emoRefreshThrottle < 1000) return;
   _emoRefreshThrottle = now;
-  // 86차: 일상앨범 새로고침 패턴 답습 — disabled 금지 커서 제거, spinning 애니메이션만 표시
-  //   변쌤 명시: 금지 버튼 안 나오는 게 자연스럽다. 1초 throttle만으로 연타 방어 충분
+  // 86차 정정: 일상앨범 패턴 동일 답습 — setTimeout 800ms 강제 한 바퀴 회전 (await 패턴은 fetch 빨리 끝나면 끊김)
+  //   변쌤 신고: "일상앨범은 한 바퀴 잘 도는데 감정앨범은 돌다 말다 끊김"
   var btn = document.querySelector('.emo-album-refresh');
-  if (btn) btn.classList.add('spinning');
+  if (btn) {
+    btn.classList.add('spinning');
+    setTimeout(function(){ btn.classList.remove('spinning'); }, 800);
+  }
   _emotionAlbumLoaded = false;
   _emotionAlbumCache  = null;
-  try {
-    await renderEmotionAlbum();
-  } finally {
-    if (btn) btn.classList.remove('spinning');
-  }
+  renderEmotionAlbum();  // fire-and-forget — 일상앨범 refreshAlbum 패턴 답습
 }
 
 // 78차: 구슬 클릭 — 학생/교사 분기
