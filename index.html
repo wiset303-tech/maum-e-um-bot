@@ -4365,6 +4365,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   <div class="modal-box" style="position:relative;padding:0;overflow:hidden;max-height:92vh">
     <button class="modal-close" onclick="closeModal('modal-album-popup')"
       style="position:absolute;top:10px;right:12px;z-index:10;background:rgba(0,0,0,.35);color:#fff;border-radius:50%;width:28px;height:28px;font-size:16px">✕</button>
+    <!-- 86차: 좌상단 업로드한 학생명 뱃지 (교사·관리자·학부모 뷰. 학생 본인 뷰에선 hide) -->
+    <div id="popupAlbumStudentBadge" style="position:absolute;top:10px;left:12px;z-index:10;background:rgba(0,0,0,.55);color:#fff;padding:6px 12px;border-radius:14px;font-size:13px;font-weight:700;display:none;max-width:60%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     <img id="popupAlbumImg" src="" alt="마음앨범" style="width:100%;display:block;max-height:80vh;object-fit:contain;background:#000">
     <div style="padding:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -20647,14 +20649,16 @@ async function refreshEmotionAlbum() {
   var now = Date.now();
   if (now - _emoRefreshThrottle < 1000) return;
   _emoRefreshThrottle = now;
+  // 86차: 일상앨범 새로고침 패턴 답습 — disabled 금지 커서 제거, spinning 애니메이션만 표시
+  //   변쌤 명시: 금지 버튼 안 나오는 게 자연스럽다. 1초 throttle만으로 연타 방어 충분
   var btn = document.querySelector('.emo-album-refresh');
-  if (btn) { btn.disabled = true; btn.classList.add('spinning'); }
+  if (btn) btn.classList.add('spinning');
   _emotionAlbumLoaded = false;
   _emotionAlbumCache  = null;
   try {
     await renderEmotionAlbum();
   } finally {
-    if (btn) { btn.disabled = false; btn.classList.remove('spinning'); }
+    if (btn) btn.classList.remove('spinning');
   }
 }
 
@@ -22863,9 +22867,11 @@ async function _loadTeacherClassAlbum() {
   try {
     var rows = await _sbFetch('album', {
       teacher_uid:'eq.'+STATE.user.teacher_uid, order:'timestamp.desc',
-      select:'album_uid,timestamp,student_uid,student_name,teacher_uid,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url'
+      select:'album_uid,timestamp,student_uid,student_name,teacher_uid,image_url,caption,emotion_id,date,is_deleted,updated_at,hashtags,thumb_url'
     });
     albumList = (rows||[]).filter(function(a){ return !_isAlbumDeleted(a.is_deleted); });
+    // 86차: 교사 단말도 썸네일 prefetch — 페이지 넘김 시 빈 카드 차단
+    _prefetchAlbumThumbs(albumList);
   } catch(e) {}
   if (!albumList) {
     var res = await api('get_album', { teacher_uid: STATE.user.teacher_uid });
@@ -23010,6 +23016,18 @@ async function openAlbumPopup(idx) {
   // 메타 정보는 즉시 세팅
   document.getElementById('popupAlbumDate').textContent = String(albumData.date).slice(0, 10);
   document.getElementById('popupAlbumCaption').textContent = albumData.caption || '';
+  // 86차: 좌상단 업로드한 학생명 뱃지 (학생 본인 뷰는 hide. 81차d _adminMask로 관리자만 마스킹)
+  var studentBadgeEl = document.getElementById('popupAlbumStudentBadge');
+  if (studentBadgeEl) {
+    var showStudentName = (STATE.role !== 'student') && albumData.student_name;
+    if (showStudentName) {
+      studentBadgeEl.textContent = _adminMask(albumData.student_name);
+      studentBadgeEl.style.display = '';
+    } else {
+      studentBadgeEl.style.display = 'none';
+      studentBadgeEl.textContent = '';
+    }
+  }
   var tags = albumData.hashtags ? parseHashtags(albumData.hashtags) : [];
   document.getElementById('popupAlbumHashtags').innerHTML = renderHashtagChips(tags);
   // 83차: 감정앨범과 연결된 사진이면 라벨 표시 (album_type='emotion' 또는 emotion_id 보유)
