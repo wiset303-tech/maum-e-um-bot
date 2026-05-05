@@ -22934,8 +22934,15 @@ var _useWebP = (function() {
 function _isAlbumDeleted(v) { return v === true || (typeof v === 'string' && v.toLowerCase() === 'true'); }
 
 function resolveAlbumThumb(a) {
-  if (a && a.thumb_url && typeof a.thumb_url === 'string' && a.thumb_url.indexOf('data:image/') === 0) return a.thumb_url;
-  if (a && a.image_url && typeof a.image_url === 'string' && a.image_url.indexOf('data:image/') === 0) return a.image_url;
+  // 86차: Storage URL(http) + 옛 base64(data:image/) 둘 다 처리. URL 누락 시 src=""→onerror→카드 hide 회귀 차단
+  if (a && a.thumb_url && typeof a.thumb_url === 'string') {
+    if (a.thumb_url.indexOf('http') === 0) return a.thumb_url;
+    if (a.thumb_url.indexOf('data:image/') === 0) return a.thumb_url;
+  }
+  if (a && a.image_url && typeof a.image_url === 'string') {
+    if (a.image_url.indexOf('http') === 0) return a.image_url;
+    if (a.image_url.indexOf('data:image/') === 0) return a.image_url;
+  }
   return '';
 }
 
