@@ -2296,16 +2296,21 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   box-shadow:0 4px 14px rgba(0,0,0,.10), inset 0 -10px 0 rgba(255,255,255,.55);
   display:flex; flex-direction:column;
   align-items:center; justify-content:center;
-  font-size:38px;
+  gap:4px;                       /* 87차 보정 (변쌤 명시): 이모지 + 라벨을 가깝게 — gap만 4px */
+  padding:14px 8px 16px;         /* 좌우·하단 여유 — 글자 잘림 차단 */
+  font-size:36px;
   position:relative;
   overflow:hidden;
+  box-sizing:border-box;
 }
-.ht-final-album-card .ht-card-emoji{ line-height:1; margin-top:-4px; }
+.ht-final-album-card .ht-card-emoji{ line-height:1; }
 .ht-final-album-card .ht-card-lbl{
-  position:absolute;
-  bottom:7px; left:0; right:0;
-  font-size:9.5px; color:#7a7268;
-  letter-spacing:.2px; font-weight:600;
+  /* 87차: absolute 제거 → flex 자연 배치로 변경 (글자가 카드 끝 간당간당 안 붙도록 — 변쌤 명시) */
+  font-size:10px; color:#6a6258;
+  letter-spacing:0; font-weight:600;
+  text-align:center; line-height:1.2;
+  max-width:100%;
+  white-space:nowrap;
 }
 /* 주변 — 떠다니는 이모지 (절대위치 · opacity 부드럽게) */
 .ht-final-floating{
@@ -2368,6 +2373,119 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   .ht-final-title{ font-size:22px; }
   .ht-final-album-mask{ height:124px; }
   .ht-final-album-card{ width:88px; height:100px; font-size:32px; }
+}
+
+/* ═══════ 87차: 마음 파노라마 모달 (시연 본격 구현) ═══════ */
+.hp-modal-box{
+  position:relative;
+  width:92vw; max-width:980px;
+  max-height:88vh;
+  background:linear-gradient(135deg, #fffaf5 0%, #fef0f8 50%, #f0f5ff 100%);
+  border-radius:22px;
+  box-shadow:0 30px 80px rgba(60,40,90,.25), 0 0 0 1px rgba(167,139,250,.08);
+  display:flex; flex-direction:column;
+  overflow:hidden;
+  animation:popIn .35s cubic-bezier(.34,1.56,.64,1);
+}
+.hp-header{
+  text-align:center;
+  padding:24px 20px 14px;
+  border-bottom:1px solid rgba(167,139,250,.12);
+}
+.hp-name-meta{
+  font-size:12px; color:#a89580;
+  letter-spacing:.5px;
+  margin-bottom:4px;
+}
+.hp-title{
+  font-size:28px; font-weight:800;
+  background:linear-gradient(135deg,#ec4899 0%,#a78bfa 50%,#60a5fa 100%);
+  background-clip:text; -webkit-background-clip:text;
+  color:transparent;
+  margin:2px 0 6px; letter-spacing:.4px;
+}
+.hp-sub{
+  font-size:12px; color:#8a7e6c;
+  line-height:1.5;
+  word-break:keep-all;
+}
+.hp-scroll{
+  flex:1;
+  overflow-x:auto; overflow-y:hidden;
+  padding:24px 20px;
+  scrollbar-width:thin;
+}
+.hp-scroll::-webkit-scrollbar{ height:8px; }
+.hp-scroll::-webkit-scrollbar-thumb{ background:#ddd6fe; border-radius:4px; }
+.hp-scroll::-webkit-scrollbar-track{ background:transparent; }
+.hp-track{
+  display:flex; align-items:center;
+  gap:14px;
+  width:max-content;
+  padding:8px 4px;
+}
+.hp-section{
+  flex-shrink:0;
+  width:160px; height:200px;
+  border-radius:18px;
+  box-shadow:0 6px 20px rgba(0,0,0,.10), inset 0 -14px 0 rgba(255,255,255,.5);
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:10px;
+  padding:18px 14px;
+  position:relative;
+  box-sizing:border-box;
+}
+.hp-section-emoji{
+  font-size:54px;
+  line-height:1;
+  filter:drop-shadow(0 3px 6px rgba(0,0,0,.10));
+}
+.hp-section-title{
+  font-size:16px; font-weight:800;
+  color:#3a2818;
+  letter-spacing:-.3px;
+}
+.hp-section-sub{
+  font-size:11.5px; color:#7a6a58;
+  letter-spacing:.2px;
+}
+.hp-arrow{
+  flex-shrink:0;
+  font-size:18px;
+  color:#c4b5fd;
+  font-weight:700;
+  user-select:none;
+}
+.hp-footer{
+  padding:14px 20px 20px;
+  border-top:1px solid rgba(167,139,250,.12);
+  text-align:center;
+}
+.hp-save-btn{
+  padding:11px 26px;
+  font-size:14px; font-weight:700;
+  color:#fff;
+  background:linear-gradient(135deg,#a78bfa,#60a5fa);
+  border:none; border-radius:14px;
+  cursor:pointer;
+  box-shadow:0 4px 14px rgba(96,165,250,.35);
+  letter-spacing:.3px;
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.hp-save-btn:hover{ transform:translateY(-1px); box-shadow:0 6px 18px rgba(96,165,250,.45); }
+.hp-save-hint{
+  font-size:11px; color:#a89580;
+  margin-top:8px;
+  letter-spacing:.2px;
+}
+@media (max-width:600px){
+  .hp-modal-box{ max-height:92vh; }
+  .hp-title{ font-size:23px; }
+  .hp-section{ width:128px; height:166px; padding:14px 10px; }
+  .hp-section-emoji{ font-size:42px; }
+  .hp-section-title{ font-size:14px; }
+  .hp-section-sub{ font-size:10.5px; }
 }
 .heart-tale-bot-avatar::before{
   /* 봇 안테나 (상단 작은 노란 점) */
@@ -17224,6 +17342,12 @@ function _buildHeartTalePageRealHTML(week_no) {
   //   학생이 직접 입력한 날짜 표시는 88차+ event_date 컬럼 추가 후 본격
   // html += '<div class="heart-tale-week-range">' + week_no + '주차: ' + _heartTaleWeekRange(week_no) + '</div>';
   // 87차 정정 (변쌤 명시): 45주차 페이지 안 큰 버튼 제거 → 마지막 표지(week=46)로 의미 있게 분리
+  // 87차 추가 (변쌤 명시): 45주차 우측 하단에 「마음 파노라마로 ▶」 연한 안내 버튼 — 학생이 마지막 표지가 더 있는 걸 알도록
+  if (week_no === HEART_TALE_TOTAL_WEEKS) {
+    html += '<div style="text-align:right;margin-top:14px;padding:0 4px">';
+    html += '<button type="button" onclick="_navHeartTalePage(0,' + (HEART_TALE_TOTAL_WEEKS + 1) + ')" style="background:none;border:none;color:#a78bfa;font-size:12px;cursor:pointer;letter-spacing:.3px;font-weight:600;padding:4px 6px;opacity:.85;border-bottom:1px dashed #c4b5fd">마음 파노라마로 ▶</button>';
+    html += '</div>';
+  }
   return html;
 }
 
@@ -17234,7 +17358,8 @@ function _buildHeartTalePageRealHTML(week_no) {
 //   교사 broadcast 신호 받기 전 = 잠긴 카드 + 안내 / 신호 후 = 큰 시작 버튼
 function _buildHeartTaleFinalCoverHTML() {
   var name = STATE._htpStudentName || '나';
-  var panoramaActive = !!STATE._heartPanoramaActive;
+  // 87차 (변쌤 명시): 관리자 미리보기(교사·학생)에서는 자동 잠금 해제 — 실제 구현 시연용
+  var panoramaActive = !!STATE._heartPanoramaActive || !!STATE.isPreview;
 
   // ── 가운데 — 가로로 흐르는 카드 미리보기 ──
   // 시작 = 사회정서역량검사 1차 → 봄·여름·가을·겨울 감정앨범 → 일상앨범 차례
@@ -17370,10 +17495,70 @@ function _htpPanoramaNotYet() {
   }
 }
 
-// 87차: 마음 파노라마 모달 진입점 (88차 본격 구현 예약 — 87차에는 placeholder 안내)
+// 87차: 마음 파노라마 모달 — 시연 본격 구현 (변쌤 명시 "실제로 구현된 것이 궁금")
+//   가로 두루마리 = 1차 SEL 검사 → 마음봄·꽃·여름·열매·성장·다시봄 → 일상앨범 → 감정앨범 → 2차 SEL 검사
+//   미리보기 모드(관리자 교사·학생 미리보기) + 실 모드(교사 broadcast 후) 모두 동일 모달
+//   88차+ 본격 = 학생 실 데이터(사진·감정·SEL 점수) 통합 + PDF/JPG 저장
 function openHeartPanorama() {
+  var name = STATE._htpStudentName || (STATE.user && STATE.user.name) || '나';
+  // 두루마리에 들어갈 카드 (시연용 — 87차 placeholder, 88차+ 학생 실 데이터로 교체)
+  var sections = [
+    { kind:'sel',    bg:'linear-gradient(135deg,#fef9c3 0%,#fde68a 100%)', emo:'📋', title:'1차 검사', sub:'학년 시작' },
+    { kind:'season', bg:'linear-gradient(135deg,#fef2f2 0%,#fecaca 100%)', emo:'🌱', title:'마음봄',   sub:'1~9주차' },
+    { kind:'season', bg:'linear-gradient(135deg,#fff7ed 0%,#fed7aa 100%)', emo:'🌸', title:'마음꽃',   sub:'10~15주차' },
+    { kind:'season', bg:'linear-gradient(135deg,#fefce8 0%,#fde047 100%)', emo:'☀️', title:'마음여름', sub:'16~23주차' },
+    { kind:'season', bg:'linear-gradient(135deg,#f0fdf4 0%,#bbf7d0 100%)', emo:'🍀', title:'마음열매', sub:'24~30주차' },
+    { kind:'season', bg:'linear-gradient(135deg,#eff6ff 0%,#bfdbfe 100%)', emo:'💧', title:'마음성장', sub:'31~37주차' },
+    { kind:'season', bg:'linear-gradient(135deg,#eef2ff 0%,#c7d2fe 100%)', emo:'🌟', title:'다시봄',   sub:'38~45주차' },
+    { kind:'album',  bg:'linear-gradient(135deg,#f5f3ff 0%,#ddd6fe 100%)', emo:'📷', title:'일상앨범', sub:'올해의 일상' },
+    { kind:'album',  bg:'linear-gradient(135deg,#fdf4ff 0%,#f5d0fe 100%)', emo:'💗', title:'감정앨범', sub:'올해의 감정' },
+    { kind:'sel',    bg:'linear-gradient(135deg,#fff1f2 0%,#fecdd3 100%)', emo:'📊', title:'2차 검사', sub:'학년 마침' }
+  ];
+  var sectionsHtml = '';
+  for (var i = 0; i < sections.length; i++) {
+    var s = sections[i];
+    sectionsHtml += '<div class="hp-section" style="background:' + s.bg + '">';
+    sectionsHtml += '<div class="hp-section-emoji">' + s.emo + '</div>';
+    sectionsHtml += '<div class="hp-section-title">' + _escHtml(s.title) + '</div>';
+    sectionsHtml += '<div class="hp-section-sub">' + _escHtml(s.sub) + '</div>';
+    sectionsHtml += '</div>';
+    if (i < sections.length - 1) {
+      sectionsHtml += '<div class="hp-arrow">▶</div>';
+    }
+  }
+  // 모달 본체
+  var modal = document.getElementById('modal-heart-panorama');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-heart-panorama';
+    modal.className = 'modal-overlay hidden';
+    modal.style.zIndex = '3600';
+    modal.onclick = function(e){ closeModalOutside(e, 'modal-heart-panorama'); };
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = ''
+    + '<div class="hp-modal-box" onclick="event.stopPropagation()">'
+    +   '<button class="modal-close" onclick="closeModal(\'modal-heart-panorama\')" aria-label="닫기">✕</button>'
+    +   '<div class="hp-header">'
+    +     '<div class="hp-name-meta">' + _escHtml(name) + '의 한 해 마음</div>'
+    +     '<div class="hp-title">✨ 마음 파노라마</div>'
+    +     '<div class="hp-sub">학년 시작부터 마침까지, 마음의 흐름을 한 폭으로</div>'
+    +   '</div>'
+    +   '<div class="hp-scroll">'
+    +     '<div class="hp-track">' + sectionsHtml + '</div>'
+    +   '</div>'
+    +   '<div class="hp-footer">'
+    +     '<button type="button" class="hp-save-btn" onclick="_hpSaveAsImage()">📄 한 장의 그림으로 저장</button>'
+    +     '<div class="hp-save-hint">학생별 사이즈에 맞게 PDF 또는 JPG로 받을 수 있어요 (곧 본격 구현)</div>'
+    +   '</div>'
+    + '</div>';
+  modal.classList.remove('hidden');
+}
+
+// 87차 placeholder: 저장 버튼 클릭 — 88차+ 본격 구현
+function _hpSaveAsImage() {
   if (typeof toast === 'function') {
-    toast('마음 파노라마는 곧 펼쳐질 거예요 ✨ (88차 본격 구현)', 2800);
+    toast('학년도 종료 시 PDF·JPG 저장이 본격 시작돼요 📄 (변쌤 SEL 캡처본 받은 후)', 3000);
   }
 }
 
@@ -17885,30 +18070,32 @@ function _onHeartPanoramaEndReceived() {
   }
 }
 
-// 차시 버튼 헤더 빌더 — 활성 상태에 따라 분기 (87차: 마음 파노라마 허용 버튼 추가)
+// 차시 버튼 헤더 빌더 — 활성 상태에 따라 분기 (87차: 2열 그리드 — 수업 + 마음 파노라마 나란히)
 function _renderTaleAlbumHeader(stus) {
   var active = STATE._heartTaleClassActive;
   var panoActive = !!STATE._heartPanoramaActive;
-  var html = '<div class="ht-class-bar">';
+  // 87차: 2열 그리드 wrapper (변쌤 명시 — 두 div 분리 어색, 보기 좋게 나란히)
+  var html = '<div class="ht-header-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:stretch">';
+  // ── 좌: 마음동화 수업 ──
+  html += '<div class="ht-class-bar">';
   if (active) {
-    // 86차: NFC 없는 자유 수업이라 N차시 의미 X (변쌤 명시)
     html += '<button class="ht-class-btn ht-class-end" onclick="_endHeartTaleClass()">⏹ 마음동화 수업 종료</button>';
     html += '<div class="ht-class-info">수업 진행 중 — 학생들이 🌈 스티커 없이 책을 채울 수 있어요</div>';
   } else {
-    // 86차: 1·2차시 두 버튼 폐기 → 한 버튼으로 통합. NFC 없는 자유 수업이라 N차시 강제 선택 부담 (변쌤 명시)
     html += '<button class="ht-class-btn ht-class-start" onclick="_startHeartTaleClass()" style="width:100%">📣 마음동화 수업 시작</button>';
-    html += '<div class="ht-class-sub">수업이 시작되면 학생들에게 알림이 가요.<br>그동안은 🌈 스티커 없이도 자유롭게 채울 수 있어요.</div>';
+    html += '<div class="ht-class-sub">시작하면 학생들에게 알림이 가요.<br>그동안 🌈 스티커 없이도 자유 기록.</div>';
   }
   html += '</div>';
-  // 87차: 마음 파노라마 허용 버튼 (변쌤 명시 — 교사가 허용해야 학생이 마지막 표지 클릭 가능)
-  html += '<div class="ht-pano-bar" style="margin-top:8px;padding:10px 12px;border-radius:12px;background:linear-gradient(135deg,#faf5ff,#eff6ff);border:1.5px dashed #ddd6fe">';
+  // ── 우: 마음 파노라마 ──
+  html += '<div class="ht-pano-bar" style="padding:10px 12px;border-radius:12px;background:linear-gradient(135deg,#faf5ff,#eff6ff);border:1.5px dashed #ddd6fe;display:flex;flex-direction:column;justify-content:center">';
   if (panoActive) {
-    html += '<button class="ht-class-btn" onclick="_endHeartPanorama()" style="width:100%;background:linear-gradient(135deg,#a78bfa,#60a5fa);color:#fff;border:none;padding:11px 14px;border-radius:11px;font-weight:700;font-size:14px;cursor:pointer;letter-spacing:.3px">⏹ 마음 파노라마 시간 종료</button>';
-    html += '<div style="margin-top:6px;font-size:11.5px;color:#6d5fa5;text-align:center;line-height:1.5;word-break:keep-all">파노라마 진행 중 — 학생들이 마지막 표지에서 1년 마음을 펼쳐볼 수 있어요</div>';
+    html += '<button class="ht-class-btn" onclick="_endHeartPanorama()" style="width:100%;background:linear-gradient(135deg,#a78bfa,#60a5fa);color:#fff;border:none;padding:11px 14px;border-radius:11px;font-weight:700;font-size:14px;cursor:pointer;letter-spacing:.3px">⏹ 마음 파노라마 종료</button>';
+    html += '<div style="margin-top:6px;font-size:11px;color:#6d5fa5;text-align:center;line-height:1.5;word-break:keep-all">파노라마 진행 중 — 학생들이 마지막 표지에서 펼쳐볼 수 있어요</div>';
   } else {
-    html += '<button class="ht-class-btn" onclick="_startHeartPanorama()" style="width:100%;background:linear-gradient(135deg,#fbcfe8,#c7d2fe);color:#5b3990;border:none;padding:11px 14px;border-radius:11px;font-weight:700;font-size:14px;cursor:pointer;letter-spacing:.3px">✨ 마음 파노라마 시간 시작</button>';
-    html += '<div style="margin-top:6px;font-size:11.5px;color:#7a6da5;text-align:center;line-height:1.5;word-break:keep-all">시작하면 학생들이 마음동화 마지막 표지에서<br>1년의 마음을 펼쳐볼 수 있어요 ✨</div>';
+    html += '<button class="ht-class-btn" onclick="_startHeartPanorama()" style="width:100%;background:linear-gradient(135deg,#fbcfe8,#c7d2fe);color:#5b3990;border:none;padding:11px 14px;border-radius:11px;font-weight:700;font-size:14px;cursor:pointer;letter-spacing:.3px">✨ 마음 파노라마 시작</button>';
+    html += '<div style="margin-top:6px;font-size:11px;color:#7a6da5;text-align:center;line-height:1.5;word-break:keep-all">시작하면 학생들이 마지막 표지에서<br>1년의 마음을 펼쳐볼 수 있어요 ✨</div>';
   }
+  html += '</div>';
   html += '</div>';
 
   // 85차: 학급 통계 chip 3개 + 정렬·필터 (변쌤 결정 — 36주 단위, chip만, 미기록 토글 1개)
