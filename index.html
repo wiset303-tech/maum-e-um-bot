@@ -16699,19 +16699,78 @@ function calcBannerMessage(tokenData) {
 // ════════════════════════════════════════
 // 80차: 마음동화 펼치기 — 핵심 자산 + 9개 함수
 // ════════════════════════════════════════
-var HEART_TALE_TOTAL_WEEKS = 36;
-var HEART_TALE_YEAR_START = '2026-03-02';  // 새 학년 시작 (월요일)
+var HEART_TALE_TOTAL_WEEKS = 45;  // 87차: 36 → 45 (무지개 교육과정 44주제 + 졸업·진급 마무리 1주)
+var HEART_TALE_YEAR_START = '2026-03-02';  // 새 학년 시작 (월요일) — 87차: 날짜 표시는 "선택"이라 default 비표시 정책
 var _HEART_RAINBOW_HEX = ['#D9455F','#E67E22','#C9A227','#2E8B57','#1E6FB8','#1A237E','#6A3DB5'];
 // 80차: 7역량 영역 학생 친화 라벨 (무지개바 아래 표시 — 어떤 색이 어떤 감정인지)
 var _HEART_DOMAIN_LABELS = ['기쁨','따뜻','편안','차분','걱정','슬픔','화남'];
 
-// 36주 단어 풀 — 4학기 9주씩 (감정 인식 / 표현 / 관계 / 회복)
-var _PV_HEART_TALE_WORDS = [
-  '기쁨','슬픔','화남','두려움','놀람','부끄러움','답답함','평온함','외로움',
-  '뿌듯함','미안함','고마움','말로 표현','몸으로 표현','글로 표현','그림으로 표현','색깔로 표현','음악으로 표현',
-  '친구의 마음','가족의 마음','선생님 마음','갈등','화해','용서','감사','배려','존중',
-  '회복','용기','희망','꿈','도전','성장','내년의 나','감사 인사','마음 안녕'
+// 87차: 마음이음 무지개 교육과정 45주 default 매핑 (변쌤 명시)
+//   - project_curriculum_2022_rainbow.md (6영역×7역량×44주제 베이스) + 졸업·진급 마무리 1주
+//   - project_two_storybook_systems.md (마음동화 = 학생 친숙 톤 / 감정동화 = 무지개 주제 그대로)
+//   - project_heart_tale_design.md 87차 표 답습
+//   - feedback_placeholder_marchmul.md (placeholder 마중물 4원칙)
+// 각 항목 = { week, area, capability, label, theme, title, placeholder, emotions[], mind_skill }
+var _HEART_TALE_THEMES_V4 = [
+  { week: 1, area:'마음봄', capability:'자기인식', label:'안전·건강', theme:'내 마음의 첫 날씨', title:'새학기를 시작하며', placeholder:'새 교실에 들어선 순간 내 마음은 ...', emotions:['설레는','낯선','기대되는'], mind_skill:'' },
+  { week: 2, area:'마음봄', capability:'자기인식', label:'인성', theme:'행복을 담는 앨범', title:'오늘의 행복 한 컷', placeholder:'오늘 가장 웃었던 순간은 ...', emotions:['기쁜','뿌듯한','재미있는'], mind_skill:'' },
+  { week: 3, area:'마음봄', capability:'자기인식', label:'진로·민주시민', theme:'우리가 만드는 교실', title:'우리 반 약속', placeholder:'우리 반이 함께 정한 한 가지는 ...', emotions:['친근한','반가운','뿌듯한'], mind_skill:'' },
+  { week: 4, area:'마음봄', capability:'자기인식', label:'진로', theme:'미래를 꿈꾸는 나', title:'미래의 나에게', placeholder:'10년 뒤 나에게 한 마디 건넨다면 ...', emotions:['설레는','기대되는','자신감 있는'], mind_skill:'' },
+  { week: 5, area:'마음봄', capability:'자기인식', label:'인권', theme:'소중한 나의 인권', title:'나의 권리 빛내기', placeholder:'내가 소중하게 여기는 나의 권리는 ...', emotions:['자신감 있는','당당한','든든한'], mind_skill:'' },
+  { week: 6, area:'마음봄', capability:'자기인식', label:'정보통신윤리', theme:'스마트 마음 중독 예방', title:'스마트폰 끄고 한숨', placeholder:'스마트폰을 잠시 내려놓고 한 일은 ...', emotions:['망설여지는','후련한','차분한'], mind_skill:'' },
+  { week: 7, area:'마음봄', capability:'관계관리', label:'인성·어울림', theme:'평화로운 학급 마을', title:'평화로운 우리 반', placeholder:'우리 반이 평화로워지는 작은 한 가지는 ...', emotions:['평화로운','친근한','고마운'], mind_skill:'' },
+  { week: 8, area:'마음봄', capability:'자기인식', label:'다문화·통일', theme:'다양한 우리 문화', title:'다채로운 우리 이야기', placeholder:'우리나라 말고 처음 알게 된 문화는 ...', emotions:['흥미로운','자랑스러운','신기한'], mind_skill:'' },
+  { week: 9, area:'마음봄', capability:'자기조절', label:'보건', theme:'습관 무지개', title:'작은 습관 한 가지', placeholder:'잠들기 전 떠올릴 오늘의 좋은 순간 한 가지는 ...', emotions:['뿌듯한','다행스러운','차분한'], mind_skill:'긍정 회상' },
+  { week:10, area:'마음꽃', capability:'자기조절', label:'통일·나라사랑', theme:'평화의 통일 마음', title:'통일 마음 활짝', placeholder:'통일이 된 우리나라를 그려본다면 ...', emotions:['자랑스러운','차분한','기대되는'], mind_skill:'' },
+  { week:11, area:'마음꽃', capability:'자기조절', label:'독도', theme:'독도 사랑 지킴이', title:'우리 땅 우리가', placeholder:'독도가 우리 땅이라는 마음을 한 마디로 ...', emotions:['자랑스러운','든든한','뿌듯한'], mind_skill:'' },
+  { week:12, area:'마음꽃', capability:'자기조절', label:'경제·금융', theme:'합리적인 마음 소비', title:'똑똑한 내 지갑', placeholder:'사고 싶었지만 잠깐 멈춘 한 가지는 ...', emotions:['망설여지는','뿌듯한','자신감 있는'], mind_skill:'' },
+  { week:13, area:'마음꽃', capability:'자기조절', label:'환경·지속가능', theme:'지구를 지키는 마음', title:'지구에 핀 마음', placeholder:'지구를 위해 내가 시작한 한 가지는 ...', emotions:['걱정되는','다행스러운','뿌듯한'], mind_skill:'' },
+  { week:14, area:'마음꽃', capability:'자기조절', label:'보건', theme:'마음 건강 수칙', title:'마음 꽃 가꾸기', placeholder:'마음이 흔들릴 때 4초 들숨·8초 날숨을 해보면 ...', emotions:['안심되는','차분한','뿌듯한'], mind_skill:'호흡법 (4-8 호흡)' },
+  { week:15, area:'마음꽃', capability:'자기조절', label:'인성·어울림', theme:'존중하는 우리 반', title:'다 같이 존중하기', placeholder:'친구를 존중하는 작은 한 가지는 ...', emotions:['따뜻한','고마운','든든한'], mind_skill:'' },
+  { week:16, area:'마음여름', capability:'관계인식', label:'정보통신·디지털 시민', theme:'슬기로운 디지털', title:'디지털 여름 친구', placeholder:'디지털 친구와 어울리는 나만의 약속은 ...', emotions:['흥미로운','자신감 있는','망설여지는'], mind_skill:'' },
+  { week:17, area:'마음여름', capability:'관계인식', label:'인권·다문화', theme:'다름의 하모니', title:'서로 다른 우리', placeholder:'친구와 다른 점을 발견했을 때 내 마음은 ...', emotions:['흥미로운','낯선','따뜻한'], mind_skill:'' },
+  { week:18, area:'마음여름', capability:'관계인식', label:'진로', theme:'꿈을 잇는 마음', title:'꿈을 그려 봐', placeholder:'내가 그려보는 꿈의 한 장면은 ...', emotions:['설레는','기대되는','자신감 있는'], mind_skill:'' },
+  { week:19, area:'마음여름', capability:'관계인식', label:'인성', theme:'나의 감정 보물', title:'내 마음 보물 상자', placeholder:'내 마음 보물 상자에 담고 싶은 한 가지는 ...', emotions:['신기한','소중한','궁금한'], mind_skill:'' },
+  { week:20, area:'마음여름', capability:'관계인식', label:'보건·정신건강', theme:'침착한 마음 쉼터', title:'시원한 마음 쉼터', placeholder:'쉬어가고 싶을 때 눈 감고 셋을 세어보면 ...', emotions:['차분한','평화로운','후련한'], mind_skill:'이완 (눈 감고 셋 세기)' },
+  { week:21, area:'마음여름', capability:'관계인식', label:'인성·어울림', theme:'마음의 목소리', title:'내 마음 들여다보기', placeholder:'지금 내 마음이 진짜로 하고 싶은 말은 ...', emotions:['자신감 있는','후련한','홀가분한'], mind_skill:'' },
+  { week:22, area:'마음여름', capability:'관계관리', label:'어울림', theme:'대화의 징검다리', title:'마음 잇는 다리', placeholder:'친구와 마음을 잇는 한 마디는 ...', emotions:['친근한','고마운','후련한'], mind_skill:'' },
+  { week:23, area:'마음여름', capability:'관계관리', label:'어울림', theme:'무지개 약속', title:'우리만의 약속', placeholder:'우리만의 무지개 약속 한 가지는 ...', emotions:['뿌듯한','따뜻한','든든한'], mind_skill:'' },
+  { week:24, area:'마음열매', capability:'관계관리', label:'보건', theme:'마음 근육 튼튼', title:'마음 근육 다지기', placeholder:'오늘 감사한 일 한 줄을 적어보면 ...', emotions:['자신감 있는','뿌듯한','후련한'], mind_skill:'감사일기 (감사 한 줄)' },
+  { week:25, area:'마음열매', capability:'정신건강 관리', label:'인성', theme:'나의 감정 온도계', title:'오늘 마음 온도', placeholder:'1~100에서 오늘 나는 몇 도? ...', emotions:['차분한','궁금한','신기한'], mind_skill:'자기점검 (마음 온도)' },
+  { week:26, area:'마음열매', capability:'정신건강 관리', label:'인성·정신건강', theme:'화 다스리기', title:'화 풍선 후-', placeholder:'화가 오를 때 후- 길게 내쉬어보면 ...', emotions:['화나는','후련한','차분한'], mind_skill:'화 풍선 호흡' },
+  { week:27, area:'마음열매', capability:'정신건강 관리', label:'어울림·문예체', theme:'함께 어울리는 우리', title:'학예회 또는 운동회', placeholder:'우리 반이 함께 빛나는 순간은 ...', emotions:['떨리는','자신감 있는','뿌듯한'], mind_skill:'' },
+  { week:28, area:'마음열매', capability:'정신건강 관리', label:'생명존중', theme:'생명 존중 마음', title:'생명은 다 소중해', placeholder:'내 곁의 작은 생명을 보고 든 마음은 ...', emotions:['사랑스러운','감동적인','따뜻한'], mind_skill:'' },
+  { week:29, area:'마음열매', capability:'정신건강 관리', label:'다문화·인권', theme:'다양성 존중 하모니', title:'모두 다 다 좋아', placeholder:'우리 반에서 발견한 다채로움 한 가지는 ...', emotions:['따뜻한','반가운','신기한'], mind_skill:'' },
+  { week:30, area:'마음열매', capability:'정신건강 관리', label:'경제·금융', theme:'경제와 마음의 균형', title:'마음과 돈의 무게', placeholder:'쓰고 싶은 마음과 모으고 싶은 마음 사이에서 ...', emotions:['차분한','뿌듯한','다행스러운'], mind_skill:'' },
+  { week:31, area:'마음성장', capability:'공동체 가치 관리', label:'어울림·인성', theme:'용서와 화해', title:'미안해 그리고 괜찮아', placeholder:'미안하다는 한 마디로 풀린 한 일은 ...', emotions:['미안한','후련한','평화로운'], mind_skill:'' },
+  { week:32, area:'마음성장', capability:'공동체 가치 관리', label:'인권·다문화', theme:'다양성', title:'모두가 별', placeholder:'우리 반 친구들의 다른 빛깔 한 가지는 ...', emotions:['따뜻한','자랑스러운','반가운'], mind_skill:'' },
+  { week:33, area:'마음성장', capability:'공동체 가치 관리', label:'인성', theme:'가치 탐구', title:'내가 아끼는 것', placeholder:'나에게 가장 소중한 가치는 ...', emotions:['궁금한','차분한','뿌듯한'], mind_skill:'' },
+  { week:34, area:'마음성장', capability:'공동체 가치 관리', label:'인성', theme:'내 마음 이름표', title:'내 마음 이름표', placeholder:'지금 내 마음에 붙이고 싶은 이름표는 ...', emotions:['신기한','자랑스러운','뿌듯한'], mind_skill:'' },
+  { week:35, area:'마음성장', capability:'공동체 가치 관리', label:'정신건강', theme:'감정 소화기', title:'감정 끄는 한숨', placeholder:'어깨를 내리고 5초 쉬어보면 ...', emotions:['후련한','차분한','다행스러운'], mind_skill:'몸이완 (어깨 내리고 5초)' },
+  { week:36, area:'마음성장', capability:'공동체 가치 관리', label:'인성·어울림', theme:'공감 돋보기', title:'친구 마음 돋보기', placeholder:'친구의 작은 마음을 돋보기로 본다면 ...', emotions:['따뜻한','감동적인','고마운'], mind_skill:'' },
+  { week:37, area:'마음성장', capability:'자기주도적 실천', label:'진로·인성', theme:'나의 가치 찾기', title:'나만의 작은 빛', placeholder:'나만의 작은 빛은 ...', emotions:['자신감 있는','뿌듯한','기대되는'], mind_skill:'' },
+  { week:38, area:'다시봄', capability:'자기주도적 실천', label:'어울림', theme:'약속 무지개 피우기', title:'다시 무지개 약속', placeholder:'올해 우리가 함께 지킨 약속 한 가지는 ...', emotions:['뿌듯한','따뜻한','자신감 있는'], mind_skill:'' },
+  { week:39, area:'다시봄', capability:'자기주도적 실천', label:'정보통신윤리', theme:'디지털 마음 방패', title:'마음 지키는 방패', placeholder:'디지털 세상에서 내 마음 지키는 한 가지는 ...', emotions:['자신감 있는','안심되는','든든한'], mind_skill:'' },
+  { week:40, area:'다시봄', capability:'자기주도적 실천', label:'인권·다문화', theme:'편견 없는 마음', title:'색안경 내려놓기', placeholder:'내가 내려놓고 싶은 색안경 한 가지는 ...', emotions:['후련한','따뜻한','반가운'], mind_skill:'' },
+  { week:41, area:'다시봄', capability:'자기주도적 실천', label:'보건·정신건강', theme:'마음 건강 주치의', title:'내 마음 주치의', placeholder:'자기 전 5분 동안 내 마음에게 한 마디는 ...', emotions:['안심되는','차분한','든든한'], mind_skill:'자기대화 (5분 마음 일기)' },
+  { week:42, area:'다시봄', capability:'자기주도적 실천', label:'환경·경제', theme:'지구를 위한 합리적 선택', title:'지구를 위한 한 걸음', placeholder:'지구를 위해 다음에 시작할 한 걸음은 ...', emotions:['뿌듯한','다행스러운','자신감 있는'], mind_skill:'' },
+  { week:43, area:'다시봄', capability:'자기주도적 실천', label:'통일·인권', theme:'평화의 마음 잇기', title:'평화 손 잇기', placeholder:'평화를 향해 내가 잇고 싶은 손은 ...', emotions:['평화로운','따뜻한','자랑스러운'], mind_skill:'' },
+  { week:44, area:'다시봄', capability:'자기인식', label:'보건·여가', theme:'슬기로운 방학 생활', title:'방학 너머 마음', placeholder:'방학에도 마음을 챙기는 나만의 한 가지는 ...', emotions:['설레는','기대되는','홀가분한'], mind_skill:'' },
+  { week:45, area:'다시봄', capability:'자기주도적 실천', label:'새학년·졸업', theme:'(마음동화 마무리)', title:'안녕, 그리고 다시 봄', placeholder:'1년의 나에게·다음 봄의 나에게 한 마디는 ...', emotions:['설레는','아쉬운','홀가분한','기대되는','자신감 있는'], mind_skill:'' }
 ];
+
+// 87차 헬퍼 — week_no(1~45) → theme 객체. 범위 외는 양 끝으로 클램프
+function _getHeartTaleTheme(week_no) {
+  var w = parseInt(week_no, 10) || 1;
+  if (w < 1) w = 1;
+  if (w > _HEART_TALE_THEMES_V4.length) w = _HEART_TALE_THEMES_V4.length;
+  return _HEART_TALE_THEMES_V4[w - 1];
+}
+
+// 87차 호환 — 옛 _PV_HEART_TALE_WORDS 호출처는 자동으로 새 title 받음
+//   기존 의미: 36주 단어 풀(예: "기쁨"·"슬픔") → 새 의미: 45주 페이지 제목(예: "새학기를 시작하며"·"오늘의 행복 한 컷")
+//   saveBookPage word 인자도 동일 의미라 회귀 0건. 호출처 그레프 시 _getHeartTaleTheme(w).title 답습 권장
+var _PV_HEART_TALE_WORDS = _HEART_TALE_THEMES_V4.map(function(t) { return t.title; });
 
 // placeholder 그림 풀 — 비율 다양 (정사각·세로·가로 섞기)
 var _PV_HEART_TALE_DRAWINGS = [
@@ -16965,19 +17024,59 @@ function _htpResolvePhotoSrc(photoUrl) {
   return 'https://lh3.googleusercontent.com/d/' + s + '=w500';
 }
 
-// 표지 빌더 — 학생 프로필 원형 (있으면 image, 없으면 placeholder 이모지) + "○○의 마음동화"
+// 표지 빌더 — 학생 본인 프로필 원형 (87차 회귀 fix — 86차까지 STATE.user.profile_image_url로 교사 사진 박힌 회귀) + "○○의 마음동화"
 function _buildHeartTaleCoverHTML() {
   var name = STATE._htpStudentName || '나';
-  var profileImg = (STATE.user && STATE.user.profile_image_url) || '';
+  var profileImg = '';
+  var stuUid = STATE._htpStudentUid;
+  // 87차: 보고 있는 학생 본인의 프로필 사용
+  //   ① 학생 본인 자기 책 펼침 → STATE.user.profile_image_url
+  //   ② 교사·학부모·관리자·미리보기가 학생 책 펼침 → STATE.students에서 매칭 학생 찾기
+  if (stuUid && stuUid !== 'me') {
+    if (STATE.user && (stuUid === STATE.user.student_uid)) {
+      profileImg = STATE.user.profile_image_url || '';
+    } else if (Array.isArray(STATE.students)) {
+      for (var i = 0; i < STATE.students.length; i++) {
+        if (STATE.students[i] && STATE.students[i].student_uid === stuUid) {
+          profileImg = STATE.students[i].profile_image_url || '';
+          break;
+        }
+      }
+    }
+  } else if (STATE.user && STATE.user.role === 'student') {
+    // 학생 본인 + uid 미확정 (미리보기 등) — STATE.user fallback
+    profileImg = STATE.user.profile_image_url || '';
+  }
+  // 87차: 미리보기에서도 매칭 학생 없으면 placeholder 이모지로 (교사 사진 박히지 않게)
   var avatarInner = profileImg ? ('<img src="' + _escHtml(profileImg) + '" alt="">') : '🌱';
+  // 87차: 마음 파노라마 진입 버튼 (표지에서도 마지막으로 가는 장치 — 변쌤 명시)
+  //   교사가 broadcast 시작 신호 보냈을 때만 클릭 가능. 그 전엔 안내 문구.
+  var panoramaActive = !!STATE._heartPanoramaActive;  // _onHeartPanoramaStartReceived에서 true set
+  var panoramaBtnClass = panoramaActive ? 'heart-tale-panorama-btn active' : 'heart-tale-panorama-btn';
+  var panoramaOnClick  = panoramaActive ? 'openHeartPanorama()' : '_htpPanoramaNotYet()';
   var html = '<div class="heart-tale-cover">';
   html += '<div class="heart-tale-cover-avatar">' + avatarInner + '</div>';
   html += '<div class="heart-tale-cover-title">' + _escHtml(name) + '의 마음동화</div>';
   html += '<div class="heart-tale-cover-divider"></div>';
   html += '<div class="heart-tale-cover-subtitle">한 주에 한 페이지<br>1년의 마음 이야기</div>';
   html += '<div class="heart-tale-cover-hint">▶ 다음 페이지로 넘겨보세요</div>';
+  html += '<button type="button" class="' + panoramaBtnClass + '" onclick="' + panoramaOnClick + '">✨ 마음 파노라마 보기</button>';
   html += '</div>';
   return html;
+}
+
+// 87차: 마음 파노라마 — 교사 broadcast 신호 전 클릭 시 안내 (변쌤 명시 "안내문구")
+function _htpPanoramaNotYet() {
+  if (typeof toast === 'function') {
+    toast('선생님이 마음 파노라마 시간을 시작하면 볼 수 있어요 🌈', 2400);
+  }
+}
+
+// 87차: 마음 파노라마 모달 진입점 (88차 본격 구현 예약 — 87차에는 placeholder 안내)
+function openHeartPanorama() {
+  if (typeof toast === 'function') {
+    toast('마음 파노라마는 곧 펼쳐질 거예요 ✨ (88차 본격 구현)', 2800);
+  }
 }
 
 // 인디케이터·화살표 갱신 (표지=0 분기)
