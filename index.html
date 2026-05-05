@@ -14597,7 +14597,8 @@ function submitCustomEmotion() {
     chip.textContent = '✏️ ' + word;
     grid.insertBefore(chip, grid.firstChild);
   }
-  toast('"' + word + '" 감정으로 저장할게요');
+  // 86차 fix: "저장할게요"가 마치 제출 완료된 듯 들린다는 변쌤 신고 → 골랐다는 의미만 명확히, 제출 단계 안내
+  toast('"' + word + '" 감정으로 골랐어요. 「오늘의 감정 저장하기」 버튼을 눌러주세요');
 }
 
 function openMoreEmotions(cat) {
@@ -20930,6 +20931,9 @@ async function submitEmotionAlbum() {
         is_teacher_upload: false, timestamp: resData.timestamp || ''
       });
       _renderEmotionGrid();
+      // 86차 fix: 학생 일상앨범 캐시 무효화 — 같은 row를 일상앨범에서도 노출하므로
+      //   탭 전환 시 옛 캐시 그대로 보이는 회귀 차단 (변쌤 신고 — 감정 업로드해도 일상앨범 안 올라옴)
+      _preloadedStudentAlbum = null; _albumLoaded = false;
       // 78차 fix: 교사 단말 즉시 새로고침 신호 (76차 attendance broadcast 패턴)
       _broadcastEmotionAlbumChange(STATE.user.teacher_uid, st.emotion_id);
     } else if (st.existing && caption !== (st.existing.caption || '')) {
@@ -20951,6 +20955,8 @@ async function submitEmotionAlbum() {
         if (!resCap || resCap.status !== 'ok') {
           toast(resCap && resCap.message ? resCap.message : '메모를 저장하지 못했어요');
         } else {
+          // 86차 fix: 메모 수정도 일상앨범 캐시 무효화 (caption도 일상앨범 카드에 노출)
+          _preloadedStudentAlbum = null; _albumLoaded = false;
           // 78차 fix: 메모 수정도 broadcast — 다른 단말 즉시 반영 (publication broadcast와 이중 안전망)
           _broadcastEmotionAlbumChange(STATE.user.teacher_uid, st.emotion_id);
         }
