@@ -2413,16 +2413,41 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   flex:1;
   overflow-x:auto; overflow-y:hidden;
   padding:24px 20px;
+  /* 87차: 무지개 스크롤바 (변쌤 명시 — 마음이음 무지개 느낌, 과하지 않게) */
   scrollbar-width:thin;
+  scrollbar-color:#a78bfa transparent;
 }
-.hp-scroll::-webkit-scrollbar{ height:8px; }
-.hp-scroll::-webkit-scrollbar-thumb{ background:#ddd6fe; border-radius:4px; }
-.hp-scroll::-webkit-scrollbar-track{ background:transparent; }
+.hp-scroll::-webkit-scrollbar{ height:10px; }
+.hp-scroll::-webkit-scrollbar-track{
+  background:linear-gradient(to right, rgba(217,69,95,.05), rgba(230,126,34,.05), rgba(201,162,39,.05), rgba(46,139,87,.05), rgba(30,111,184,.05), rgba(26,35,126,.05), rgba(106,61,181,.05));
+  border-radius:5px;
+  margin:0 8px;
+}
+.hp-scroll::-webkit-scrollbar-thumb{
+  background:linear-gradient(135deg, #ec4899 0%, #a78bfa 50%, #60a5fa 100%);
+  border-radius:5px;
+  border:2px solid transparent;
+  background-clip:padding-box;
+  box-shadow:0 0 6px rgba(167,139,250,.35);
+}
+.hp-scroll::-webkit-scrollbar-thumb:hover{
+  background:linear-gradient(135deg, #db2777 0%, #8b5cf6 50%, #3b82f6 100%);
+  background-clip:padding-box;
+}
 .hp-track{
   display:flex; align-items:center;
   gap:14px;
   width:max-content;
   padding:8px 4px;
+  /* 87차: 자동 가로 흐름 애니메이션 (변쌤 명시 "마지막 표지처럼 옆으로 움직임") — 사용자 hover 시 정지·스크롤 가능 */
+  animation:hpAutoFlow 80s linear infinite;
+}
+.hp-scroll:hover .hp-track,
+.hp-scroll:active .hp-track{ animation-play-state:paused; }
+@keyframes hpAutoFlow{
+  0%   { transform:translateX(0); }
+  50%  { transform:translateX(calc(-100% + 100vw)); }
+  100% { transform:translateX(0); }
 }
 .hp-section{
   flex-shrink:0;
@@ -2486,6 +2511,106 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   .hp-section-emoji{ font-size:42px; }
   .hp-section-title{ font-size:14px; }
   .hp-section-sub{ font-size:10.5px; }
+}
+
+/* ═══════ 87차: 마음 파노라마 'ㄹ' snake 출력본 (A4 가로) ═══════ */
+/* 변쌤 명시 — 카드가 1행 → 2행(역순) → 3행으로 이어져 A4 가로에 fit, 한 장 깔끔하게 */
+.hp-snake-page{
+  width:1191px; height:842px;        /* A4 가로 @ 96dpi (297×210mm) */
+  background:linear-gradient(135deg,#fffaf5 0%,#fef0f8 50%,#f0f5ff 100%);
+  padding:24px 28px;
+  box-sizing:border-box;
+  display:flex; flex-direction:column;
+  font-family:'Noto Sans KR', system-ui, sans-serif;
+  position:relative;
+}
+.hp-snake-header{
+  text-align:center;
+  flex-shrink:0;
+  padding-bottom:10px;
+  border-bottom:1.5px solid rgba(167,139,250,.18);
+  margin-bottom:14px;
+}
+.hp-snake-h-meta{
+  font-size:13px; color:#a89580;
+  letter-spacing:.6px;
+  margin-bottom:2px;
+  font-weight:500;
+}
+.hp-snake-h-title{
+  font-size:30px; font-weight:800;
+  background:linear-gradient(135deg,#ec4899 0%,#a78bfa 50%,#60a5fa 100%);
+  background-clip:text; -webkit-background-clip:text;
+  color:transparent;
+  letter-spacing:.4px;
+  line-height:1.1;
+}
+.hp-snake-grid{
+  flex:1;
+  display:grid;
+  grid-auto-rows:1fr;
+  gap:7px;
+  align-content:stretch;
+}
+.hp-snake-card{
+  border-radius:9px;
+  padding:6px 5px 7px;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:2px;
+  box-shadow:0 1.5px 4px rgba(0,0,0,.06), inset 0 -3px 0 rgba(255,255,255,.45);
+  position:relative;
+  overflow:hidden;
+  text-align:center;
+}
+.hp-snake-card.empty{
+  background:transparent !important;
+  box-shadow:none;
+}
+.hp-snake-week-no{
+  position:absolute;
+  top:3px; left:5px;
+  font-size:8.5px; font-weight:700;
+  color:rgba(60,40,20,.5);
+  letter-spacing:.2px;
+}
+.hp-snake-emoji{
+  font-size:24px;
+  line-height:1;
+  margin-top:2px;
+}
+.hp-snake-title{
+  font-size:9.5px; font-weight:700;
+  color:#3a2818;
+  letter-spacing:-.2px;
+  line-height:1.15;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  padding:0 2px;
+}
+.hp-snake-sub{
+  font-size:8px; font-weight:500;
+  color:#7a6a58;
+  letter-spacing:.1px;
+  line-height:1.1;
+}
+.hp-snake-footer{
+  flex-shrink:0;
+  display:flex; align-items:center; justify-content:space-between;
+  padding-top:10px;
+  margin-top:10px;
+  border-top:1.5px solid rgba(167,139,250,.18);
+  font-size:11px;
+  color:#a89580;
+  letter-spacing:.3px;
+}
+.hp-snake-f-logo{
+  font-weight:700;
+  background:linear-gradient(135deg,#ec4899 0%,#a78bfa 50%,#60a5fa 100%);
+  background-clip:text; -webkit-background-clip:text;
+  color:transparent;
 }
 .heart-tale-bot-avatar::before{
   /* 봇 안테나 (상단 작은 노란 점) */
@@ -3282,6 +3407,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 <script>window.GOOGLE_CLIENT_ID = '561749692044-c6e67ab5d4158og3er35rv3cits4o149.apps.googleusercontent.com';</script>
 <!-- 71차: Google Identity Services (GIS) — Google 로그인 버튼 렌더용 -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<!-- 87차: 마음 파노라마 'ㄹ' snake 출력본 → JPG 저장 (변쌤 명시 — A4 가로 한 장 깔끔하게) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 </head>
 <body>
 
@@ -8904,6 +9031,8 @@ function previewTeacher() {
     {student_uid:'s27',student_id:'mee264127',name:'오시온',  num:27,grade:4,class:1,nfc_uid:'04:AA:BB:27',active:'Y',gender:'M'},
     {student_uid:'s28',student_id:'mee264128',name:'윤채영',  num:28,grade:4,class:1,nfc_uid:'',            active:'Y',gender:'F'},
   ];
+  // 87차 fix (변쌤 신고 "관리자 마음동화 해당 학생 없어"): 마음동화 탭이 _previewStudents 보니 같이 set
+  STATE._previewStudents = STATE.students;
   // 73차: 감정 하드코딩 제거 — applyPreviewPreset이 매번 분포대로 28명 셔플 분배
   //       (1~20번 다 제출, 21~28 미제출 같은 인위적 패턴 제거)
   STATE.studentEmotions = {};
@@ -17132,7 +17261,9 @@ function _pickPreviewHeartTale(student_uid, student_name, week_no) {
     text: _PV_HEART_TALE_TEXTS[k2],
     bot_line: _PV_HEART_TALE_BOT_LINES[k3],
     rainbow: rainbow,
-    sealed: week_no <= 7
+    // 87차 (변쌤 명시 "45주차니까 적절히 잘 더미데이터"): 학생별 다른 패턴으로 약 30주 채워짐
+    //   1~38주 중 학생별 시드로 ~6/38만 빈 채. 39~45주는 빈 채 (학년 후반은 미래 흐름)
+    sealed: (week_no <= 38) && (((seed * 7 + week_no * 3) % 7) !== 0)
   };
 }
 
@@ -17548,18 +17679,159 @@ function openHeartPanorama() {
     +     '<div class="hp-track">' + sectionsHtml + '</div>'
     +   '</div>'
     +   '<div class="hp-footer">'
-    +     '<button type="button" class="hp-save-btn" onclick="_hpSaveAsImage()">📄 한 장의 그림으로 저장</button>'
-    +     '<div class="hp-save-hint">학생별 사이즈에 맞게 PDF 또는 JPG로 받을 수 있어요 (곧 본격 구현)</div>'
+    +     '<button type="button" class="hp-save-btn" onclick="_hpExportToJpg()">📄 한 장의 그림으로 저장</button>'
+    +     '<div class="hp-save-hint">A4 가로 한 장으로 받아요 — 표지·45주 마음동화·앨범·검사 결과까지 \'ㄹ\' 흐름으로</div>'
     +   '</div>'
     + '</div>';
   modal.classList.remove('hidden');
 }
 
-// 87차 placeholder: 저장 버튼 클릭 — 88차+ 본격 구현
-function _hpSaveAsImage() {
-  if (typeof toast === 'function') {
-    toast('학년도 종료 시 PDF·JPG 저장이 본격 시작돼요 📄 (변쌤 SEL 캡처본 받은 후)', 3000);
+// 87차: 마음 파노라마 'ㄹ' snake 출력본 → JPG 저장 (변쌤 명시 본격 구현)
+//   • A4 가로 1191×842 (96dpi · 297×210mm)
+//   • 표지(학생 프로필) + 45주차 카드 + 마지막 표지(파노라마) + SEL·앨범 = 약 50장을 'ㄹ' snake 순서로 배치
+//   • 행마다 방향 반전 (1행 좌→우, 2행 우→좌, 3행 좌→우 ... 학생이 책 넘기는 자연 흐름)
+//   • html2canvas로 캡처해 JPG 다운로드 (학생별 사이즈 맞춤)
+function _hpExportToJpg() {
+  if (typeof html2canvas === 'undefined') {
+    toast('한 장 그림 변환 도구를 불러오는 중이에요. 잠시 후 다시 눌러주세요'); return;
   }
+  var stage = document.getElementById('hp-snake-export');
+  if (!stage) { _hpBuildSnakeStage(); stage = document.getElementById('hp-snake-export'); }
+  else _hpBuildSnakeStage();  // 이름/데이터 새로 갱신
+
+  // 캡처용 스테이지를 화면 밖으로 이동(시각 깜빡임 차단) + DOM에는 부착
+  stage.style.left = '-9999px'; stage.style.top = '-9999px';
+  stage.style.display = 'block';
+
+  toast('마음 파노라마를 한 장 그림으로 만드는 중이에요 📄');
+  // 다음 프레임에 캡처 — 폰트·이모지 렌더 보장
+  setTimeout(function() {
+    html2canvas(stage, {
+      scale: 2,                    // 고해상도 (A4 인쇄 품질)
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      logging: false
+    }).then(function(canvas) {
+      stage.style.display = 'none';
+      var name = (STATE._htpStudentName || '학생').replace(/[^\w가-힣]/g, '');
+      var ts = new Date().toISOString().slice(0,10);
+      var link = document.createElement('a');
+      link.download = '마음파노라마_' + name + '_' + ts + '.jpg';
+      link.href = canvas.toDataURL('image/jpeg', 0.92);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast('마음 파노라마를 저장했어요 ✨');
+    }).catch(function(e) {
+      stage.style.display = 'none';
+      console.error('[HP EXPORT]', e);
+      toast('한 장 그림 저장이 안 됐어요. 다시 시도해 주세요');
+    });
+  }, 150);
+}
+
+// snake 출력 스테이지 빌드 — A4 가로 규격 (1191×842px @ 96dpi)
+//   카드 = 표지(학생 프로필) → 45주차 → 마지막 표지(파노라마) → SEL 1차·2차 → 일상앨범·감정앨범
+//   행마다 방향 반전(boustrophedon) — 'ㄹ' 흐름
+function _hpBuildSnakeStage() {
+  // 기존 스테이지 제거 (이름·데이터 갱신용)
+  var old = document.getElementById('hp-snake-export');
+  if (old && old.parentNode) old.parentNode.removeChild(old);
+
+  var name = STATE._htpStudentName || (STATE.user && STATE.user.name) || '학생';
+  var pages = STATE._htpPages || {};
+
+  // ── 카드 데이터 50장 ──
+  // [0] 표지 / [1~45] 주차 / [46] 마지막 표지 / [47] SEL 1차 / [48] SEL 2차 / [49] 일상·감정 통합
+  var cards = [];
+  // 표지
+  cards.push({ kind:'cover', title:name + '의', sub:'마음동화', emoji:'🌱', bg:'linear-gradient(135deg,#fef3c7,#fed7aa)' });
+  // 45주차 — 무지개 매트릭스에서
+  for (var w = 1; w <= HEART_TALE_TOTAL_WEEKS; w++) {
+    var theme = _getHeartTaleTheme(w);
+    var pv = (STATE._previewHeartTale && STATE._previewHeartTale[STATE._htpStudentUid || 'me']) || [];
+    var pvPage = pv[w - 1] || {};
+    var realPage = pages[w] || {};
+    // 87차 더미: 미리보기 학생이면 _previewHeartTale 시드 사용 / 실 모드는 weekly_book row
+    var hasRecord = !!realPage.recorded_at;
+    var hasPreview = STATE.isPreview && pvPage.sealed;
+    var emoji = pvPage.drawing ? pvPage.drawing.emoji : (hasRecord ? '📷' : '');
+    var areaBg = ({
+      '마음봄':   'linear-gradient(135deg,#fef2f2,#fecaca)',
+      '마음꽃':   'linear-gradient(135deg,#fff7ed,#fed7aa)',
+      '마음여름': 'linear-gradient(135deg,#fefce8,#fde047)',
+      '마음열매': 'linear-gradient(135deg,#f0fdf4,#bbf7d0)',
+      '마음성장': 'linear-gradient(135deg,#eff6ff,#bfdbfe)',
+      '다시봄':   'linear-gradient(135deg,#f5f3ff,#ddd6fe)'
+    })[theme.area] || 'linear-gradient(135deg,#fafafa,#e5e7eb)';
+    cards.push({
+      kind:'week',
+      week: w,
+      title: realPage.title || theme.title,
+      sub: theme.area,
+      emoji: emoji || (hasRecord ? '✏️' : (hasPreview ? '✨' : '')),
+      bg: areaBg,
+      filled: hasRecord || hasPreview
+    });
+  }
+  // 마지막 표지(파노라마)
+  cards.push({ kind:'final', title:'마음', sub:'파노라마', emoji:'✨', bg:'linear-gradient(135deg,#fdf4ff,#e9d5ff)' });
+  // SEL 1차·2차
+  cards.push({ kind:'sel', title:'1차 검사', sub:'사회정서', emoji:'📋', bg:'linear-gradient(135deg,#fef9c3,#fde68a)' });
+  cards.push({ kind:'sel', title:'2차 검사', sub:'사회정서', emoji:'📊', bg:'linear-gradient(135deg,#fff1f2,#fecdd3)' });
+  // 일상·감정앨범
+  cards.push({ kind:'album', title:'일상앨범', sub:'올해의 일상', emoji:'📷', bg:'linear-gradient(135deg,#ede9fe,#ddd6fe)' });
+  cards.push({ kind:'album', title:'감정앨범', sub:'올해의 감정', emoji:'💗', bg:'linear-gradient(135deg,#fdf4ff,#fce7f3)' });
+  // 50장 → 8행 × 7열 = 56자리에 fit
+  var COLS = 7, ROWS = 8;
+
+  // ── snake 순서 재배치 (행마다 방향 반전) ──
+  var snakeCards = [];
+  for (var r = 0; r < ROWS; r++) {
+    var rowStart = r * COLS;
+    var rowEnd = Math.min(rowStart + COLS, cards.length);
+    var rowCards = cards.slice(rowStart, rowEnd);
+    if (r % 2 === 1) rowCards.reverse();  // 짝수 행(0-base 1) 우→좌
+    while (rowCards.length < COLS) rowCards.push(null);  // 빈 자리
+    snakeCards = snakeCards.concat(rowCards);
+  }
+
+  // ── 카드 HTML 빌드 ──
+  var cardsHtml = '';
+  for (var i = 0; i < snakeCards.length; i++) {
+    var c = snakeCards[i];
+    if (!c) {
+      cardsHtml += '<div class="hp-snake-card empty"></div>';
+      continue;
+    }
+    cardsHtml += '<div class="hp-snake-card" style="background:' + c.bg + '">';
+    if (c.kind === 'week') {
+      cardsHtml += '<div class="hp-snake-week-no">' + c.week + '주</div>';
+    }
+    cardsHtml += '<div class="hp-snake-emoji">' + (c.emoji || '·') + '</div>';
+    cardsHtml += '<div class="hp-snake-title">' + _escHtml(c.title || '') + '</div>';
+    if (c.sub) cardsHtml += '<div class="hp-snake-sub">' + _escHtml(c.sub) + '</div>';
+    cardsHtml += '</div>';
+  }
+
+  // ── 스테이지 DOM (A4 가로 1191×842 @ 96dpi · scale:2로 캡처해 2382×1684 고해상도) ──
+  var stage = document.createElement('div');
+  stage.id = 'hp-snake-export';
+  stage.style.cssText = 'position:fixed;left:-9999px;top:-9999px;display:none;z-index:-1;';
+  var todayKst = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+  stage.innerHTML = ''
+    + '<div class="hp-snake-page">'
+    +   '<div class="hp-snake-header">'
+    +     '<div class="hp-snake-h-meta">' + _escHtml(name) + '의 한 해 마음</div>'
+    +     '<div class="hp-snake-h-title">✨ 마음 파노라마</div>'
+    +   '</div>'
+    +   '<div class="hp-snake-grid" style="grid-template-columns:repeat(' + COLS + ',1fr)">' + cardsHtml + '</div>'
+    +   '<div class="hp-snake-footer">'
+    +     '<span class="hp-snake-f-logo">마음이음 🌈</span>'
+    +     '<span class="hp-snake-f-date">' + todayKst + '</span>'
+    +   '</div>'
+    + '</div>';
+  document.body.appendChild(stage);
 }
 
 // 인디케이터·화살표 갱신 (표지=0 / 주차 1~45 / 마지막 표지=46 분기)
