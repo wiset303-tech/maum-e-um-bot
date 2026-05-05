@@ -2235,6 +2235,140 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   33%      { transform:translateY(-2.5px) rotate(2deg);  }
   66%      { transform:translateY(-1px)   rotate(-2deg); }
 }
+
+/* ═══════ 87차: 마음동화 마지막 표지(week=46) — 마음 파노라마 진입 ═══════ */
+/* 변쌤 명시: 앨범이 가로로 옆으로 이동 + 주변에 감정 이모지가 부드럽게 떠다님(opacity 변화)
+   사회정서역량검사 1차 → 감정앨범 → 일상앨범 차례로 흐르는 미리보기
+   학생이 최종적으로 PDF/JPG로 저장 가능한 게 목표 */
+.heart-tale-final-cover{
+  position:relative;
+  display:flex; flex-direction:column;
+  align-items:center; text-align:center;
+  padding:24px 14px 28px;
+  flex:1;
+  min-height:520px;
+  overflow:hidden;
+  word-break:keep-all;
+}
+.ht-final-meta{
+  font-size:11.5px; color:#a89580;
+  letter-spacing:.5px;
+  margin-bottom:4px;
+  position:relative; z-index:3;
+}
+.ht-final-title{
+  font-size:26px; font-weight:800;
+  background:linear-gradient(135deg,#ec4899 0%,#a78bfa 50%,#60a5fa 100%);
+  background-clip:text; -webkit-background-clip:text;
+  color:transparent;
+  margin:2px 0 6px; letter-spacing:.4px;
+  position:relative; z-index:3;
+}
+.ht-final-sub{
+  font-size:12px; color:#8a7e6c;
+  line-height:1.55; margin-bottom:14px;
+  position:relative; z-index:3;
+}
+/* 가운데 — 앨범·SEL이 가로로 흐름 (양 끝 마스크로 흐림 — 가운데 강조) */
+.ht-final-album-mask{
+  position:relative;
+  width:100%; height:144px;
+  overflow:hidden;
+  margin-bottom:18px;
+  -webkit-mask-image:linear-gradient(to right, transparent 0%, black 16%, black 84%, transparent 100%);
+          mask-image:linear-gradient(to right, transparent 0%, black 16%, black 84%, transparent 100%);
+  z-index:2;
+}
+.ht-final-album-track{
+  display:flex; gap:12px;
+  width:max-content;
+  padding:14px 16px;
+  animation:htFinalAlbumScroll 28s linear infinite;
+}
+@keyframes htFinalAlbumScroll{
+  0%   { transform:translateX(0); }
+  100% { transform:translateX(-50%); }
+}
+.ht-final-album-card{
+  flex-shrink:0;
+  width:104px; height:116px;
+  border-radius:13px;
+  box-shadow:0 4px 14px rgba(0,0,0,.10), inset 0 -10px 0 rgba(255,255,255,.55);
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  font-size:38px;
+  position:relative;
+  overflow:hidden;
+}
+.ht-final-album-card .ht-card-emoji{ line-height:1; margin-top:-4px; }
+.ht-final-album-card .ht-card-lbl{
+  position:absolute;
+  bottom:7px; left:0; right:0;
+  font-size:9.5px; color:#7a7268;
+  letter-spacing:.2px; font-weight:600;
+}
+/* 주변 — 떠다니는 이모지 (절대위치 · opacity 부드럽게) */
+.ht-final-floating{
+  position:absolute;
+  font-size:22px;
+  pointer-events:none;
+  opacity:0;
+  z-index:1;
+}
+@keyframes htFinalFloat{
+  0%, 100% { opacity:0; transform:translateY(0)   scale(.95); }
+  20%      { opacity:.85; transform:translateY(-4px) scale(1); }
+  50%      { opacity:.5;  transform:translateY(-12px) scale(1.05); }
+  80%      { opacity:.25; transform:translateY(-6px) scale(.98); }
+}
+/* 큰 버튼 (활성·잠금) */
+.ht-final-btn-active{
+  padding:14px 28px;
+  font-size:15.5px; font-weight:700;
+  color:#fff;
+  background:linear-gradient(135deg,#a78bfa 0%,#60a5fa 100%);
+  border:none; border-radius:18px;
+  cursor:pointer;
+  box-shadow:0 6px 20px rgba(96,165,250,.4);
+  letter-spacing:.4px;
+  position:relative; z-index:3;
+  transition:transform .18s ease, box-shadow .18s ease;
+}
+.ht-final-btn-active:hover{ transform:translateY(-1px); box-shadow:0 8px 22px rgba(96,165,250,.48); }
+.ht-final-btn-active:active{ transform:translateY(0); }
+.ht-final-btn-locked{
+  padding:13px 24px;
+  font-size:14.5px; font-weight:600;
+  color:#9a9090;
+  background:#f3f0f7;
+  border:1.5px dashed #cdc8d4;
+  border-radius:18px;
+  cursor:not-allowed;
+  letter-spacing:.3px;
+  position:relative; z-index:3;
+}
+.ht-final-hint-active{
+  font-size:11.5px; color:#7a8c9a;
+  margin-top:9px;
+  position:relative; z-index:3;
+}
+.ht-final-hint-locked{
+  font-size:11.5px; color:#a89580;
+  margin-top:10px; line-height:1.55;
+  position:relative; z-index:3;
+}
+.ht-final-save-hint{
+  font-size:10.5px; color:#a89580;
+  margin-top:14px;
+  letter-spacing:.2px; opacity:.85;
+  position:relative; z-index:3;
+}
+@media (max-width:480px){
+  .ht-final-cover{ padding:18px 10px 22px; min-height:440px; }
+  .ht-final-title{ font-size:22px; }
+  .ht-final-album-mask{ height:124px; }
+  .ht-final-album-card{ width:88px; height:100px; font-size:32px; }
+}
 .heart-tale-bot-avatar::before{
   /* 봇 안테나 (상단 작은 노란 점) */
   content:''; position:absolute;
@@ -3607,9 +3741,9 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       </div>
       <div style="text-align:center;font-size:11.5px;color:var(--gray);margin-bottom:6px">아래에서 골라주세요</div>
       <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:10px" id="bookNfcCountChips"></div>
-      <div style="text-align:center;font-size:11.5px;color:var(--gray);margin-bottom:6px">또는 직접 입력 (4 ~ 36장)</div>
+      <div style="text-align:center;font-size:11.5px;color:var(--gray);margin-bottom:6px">또는 직접 입력 (4 ~ 45장)</div>
       <div style="display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:8px">
-        <input type="number" id="bookNfcCountInput" min="4" max="36" placeholder="예: 12" oninput="_renderBookCountHint(this.value)" style="width:88px;padding:8px 10px;border:1.5px solid var(--lgray);border-radius:10px;text-align:center;font-size:14px;font-weight:700;color:var(--navy)">
+        <input type="number" id="bookNfcCountInput" min="4" max="45" placeholder="예: 12" oninput="_renderBookCountHint(this.value)" style="width:88px;padding:8px 10px;border:1.5px solid var(--lgray);border-radius:10px;text-align:center;font-size:14px;font-weight:700;color:var(--navy)">
         <button class="btn-primary" style="width:auto;padding:9px 20px;border-radius:10px;font-size:13px;font-weight:700" onclick="_setBookCountConfirm()">확인</button>
       </div>
       <!-- 권장 NFC 수 동적 안내 (chip/input 채워지면 표시) -->
@@ -4227,7 +4361,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     </div>
     <div class="heart-tale-nav">
       <button id="htp-prev-btn" onclick="_navHeartTalePage(-1)" aria-label="이전">◀</button>
-      <span class="heart-tale-week-indicator" id="htp-week-indicator">— / 36주차</span>
+      <span class="heart-tale-week-indicator" id="htp-week-indicator">— / 45주차</span>
       <button id="htp-next-btn" onclick="_navHeartTalePage(1)" aria-label="다음">▶</button>
     </div>
   </div>
@@ -16876,9 +17010,11 @@ function _buildWeekRainbow(rainbow, sealed, mode) {
   return html;
 }
 
-// ───── 페이지 HTML 빌더 (표지 0 / 주차 1~36 분기) ─────
+// ───── 페이지 HTML 빌더 (표지 0 / 주차 1~45 / 마지막 표지 46 분기) ─────
+//   87차: 표지 0 → 주차 1~45 → 마지막 표지 46(마음 파노라마 진입)
 function _buildHeartTalePageHTML(week_no) {
   if (week_no === 0) return _buildHeartTaleCoverHTML();
+  if (week_no === HEART_TALE_TOTAL_WEEKS + 1) return _buildHeartTaleFinalCoverHTML();  // 87차: 마지막 표지
   // 82차 Phase 3: 미리보기 vs 실 모드 분기
   if (STATE.isPreview || !STATE.user) {
     return _buildHeartTalePagePreviewHTML(week_no);
@@ -16928,23 +17064,40 @@ function _buildHeartTalePagePreviewHTML(week_no) {
   return html;
 }
 
-// 82차 Phase 3: 실 모드 페이지 — STATE._htpPages 기반
+// 82차 Phase 3 + 87차 톤: 실 모드 페이지 — STATE._htpPages 기반
 //   record + 내 묶음 + 빈 주차 → 큰 「+ 마음 기록하기」 버튼
 //   record + 내 묶음 + 기록된 주차 → 사진+글 + 「✏️ 수정」 + 「🗑 지우기」
 //   record + 다른 묶음 → "다른 카드로 기록할 수 있는 마음동화예요." 안내 + 빈/기록 열람만
 //   view → 모든 페이지 열람만
+// 87차: 페이지 제목 = row.title 우선 → default _getHeartTaleTheme.title
+//       흐릿 라벨 = 무지개 주제명 + 범교과 영역 (페이지 우상단 작은 회색)
+//       마음건강 기법 흐릿 배지 (theme.mind_skill 있을 때만)
+//       감정 칩 (row.emotion_tags csv 표시)
 function _buildHeartTalePageRealHTML(week_no) {
-  var word = _PV_HEART_TALE_WORDS[(week_no - 1) % _PV_HEART_TALE_WORDS.length];
+  var theme = _getHeartTaleTheme(week_no);  // 87차: 45주 default 매핑
   var pages = STATE._htpPages || {};
   var row = pages[week_no];
   var hasRecord = !!(row && row.recorded_at);
   var canRecord = _htpIsMyRecordWeek(week_no);     // record 모드 + 내 묶음
   var isOtherSeq = (STATE._htpMode === 'record') && !canRecord;  // 다른 묶음
+  // 87차: 학생이 변경한 제목 우선 → default 페이지 제목 v4 fallback
+  var displayTitle = (row && row.title) ? row.title : (theme && theme.title ? theme.title : '');
+  // 87차: 학생이 선택한 감정 칩 csv → 배열
+  var emoTags = (row && row.emotion_tags) ? String(row.emotion_tags).split(',').map(function(s){ return s.trim(); }).filter(Boolean) : [];
 
   var html = '';
+  // 87차: 흐릿 라벨 — 무지개 주제(감정동화 권명) + 범교과 영역 (페이지 상단 작게)
+  html += '<div class="heart-tale-faint-label" style="display:flex;justify-content:space-between;align-items:center;font-size:10.5px;color:#a89580;opacity:.65;padding:0 4px;letter-spacing:.2px;">';
+  html += '<span>' + _escHtml(theme.area || '') + ' · ' + _escHtml(theme.theme || '') + '</span>';
+  html += '<span>' + _escHtml(theme.label || '') + '</span>';
+  html += '</div>';
   html += '<div class="heart-tale-meta">' + week_no + '주차</div>';
   html += '<div class="heart-tale-meta-divider"></div>';
-  html += '<h2 class="heart-tale-week-word">' + _escHtml(word) + '</h2>';
+  html += '<h2 class="heart-tale-week-word">' + _escHtml(displayTitle) + '</h2>';
+  // 87차: 마음건강 기법 흐릿 배지 (8자리에만 노출)
+  if (theme.mind_skill) {
+    html += '<div class="heart-tale-mind-skill" style="text-align:center;font-size:11px;color:#7d8d6d;background:#eef5e6;border-radius:12px;padding:3px 10px;margin:0 auto 8px;display:inline-block;letter-spacing:.2px;opacity:.85;">💚 ' + _escHtml(theme.mind_skill) + '</div>';
+  }
 
   if (hasRecord) {
     // 기록된 주차 — 사진 + 글 + 마음봇 한 줄
@@ -16965,6 +17118,14 @@ function _buildHeartTalePageRealHTML(week_no) {
       html += '<div class="heart-tale-bot-row">';
       html += '<div class="heart-tale-bot-avatar" aria-hidden="true"></div>';
       html += '<div class="heart-tale-bot-bubble">' + _escHtml(row.bot_line) + '</div>';
+      html += '</div>';
+    }
+    // 87차: 학생이 선택한 감정 칩 표시 (배지형 — 페이지 본문에는 read-only로)
+    if (emoTags.length > 0) {
+      html += '<div class="heart-tale-emo-chips" style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;padding:6px 4px 4px;">';
+      for (var ei = 0; ei < emoTags.length; ei++) {
+        html += '<span class="ht-emo-chip" style="font-size:11.5px;color:#7a5a3c;background:#fff7e6;border:1px solid #f0d9a8;border-radius:12px;padding:3px 9px;letter-spacing:.2px;">' + _escHtml(emoTags[ei]) + '</span>';
+      }
       html += '</div>';
     }
     // record 모드 + 내 묶음만 수정·삭제 버튼
@@ -17010,7 +17171,100 @@ function _buildHeartTalePageRealHTML(week_no) {
     html += '<span>' + _HEART_DOMAIN_LABELS[di] + '</span>';
   }
   html += '</div>';
-  html += '<div class="heart-tale-week-range">' + week_no + '주차: ' + _heartTaleWeekRange(week_no) + '</div>';
+  // 87차: 날짜 표시 비활성 (변쌤 명시 "어느 학교에서나 사용 가능 — 날짜는 선택")
+  //   학생이 직접 입력한 날짜 표시는 88차+ event_date 컬럼 추가 후 본격
+  // html += '<div class="heart-tale-week-range">' + week_no + '주차: ' + _heartTaleWeekRange(week_no) + '</div>';
+  // 87차 정정 (변쌤 명시): 45주차 페이지 안 큰 버튼 제거 → 마지막 표지(week=46)로 의미 있게 분리
+  return html;
+}
+
+// 87차 신설: 마지막 표지 (week=46) — 학생이 책 끝까지 넘기면 만나는 마음 파노라마 진입 표지
+//   변쌤 명시 정정: 가운데 = 사회정서역량검사 1차부터 감정앨범·일상앨범이 가로로 흐르는 미리보기
+//                   주변 = 감정 이모지가 부드럽게 떠다니며 opacity 변화 (절대위치, 각자 다른 delay)
+//                   궁극 목표 = 학생이 PDF/JPG로 학생별 사이즈에 맞게 저장 가능 (88차+ 본격)
+//   교사 broadcast 신호 받기 전 = 잠긴 카드 + 안내 / 신호 후 = 큰 시작 버튼
+function _buildHeartTaleFinalCoverHTML() {
+  var name = STATE._htpStudentName || '나';
+  var panoramaActive = !!STATE._heartPanoramaActive;
+
+  // ── 가운데 — 가로로 흐르는 카드 미리보기 ──
+  // 시작 = 사회정서역량검사 1차 → 봄·여름·가을·겨울 감정앨범 → 일상앨범 차례
+  // 무지개 7색 그라디언트 + 학기 흐름 라벨 + 대표 이모지 (87차에 placeholder 카드, 88차+ 학생 실 데이터 통합)
+  var cards = [
+    { bg:'linear-gradient(135deg,#fef9c3 0%,#fde68a 100%)', emo:'📋', lbl:'1차 검사' },
+    { bg:'linear-gradient(135deg,#fef2f2 0%,#fecaca 100%)', emo:'🌱', lbl:'마음봄' },
+    { bg:'linear-gradient(135deg,#fff7ed 0%,#fed7aa 100%)', emo:'🌸', lbl:'마음꽃' },
+    { bg:'linear-gradient(135deg,#fefce8 0%,#fde047 100%)', emo:'☀️', lbl:'마음여름' },
+    { bg:'linear-gradient(135deg,#f0fdf4 0%,#bbf7d0 100%)', emo:'🍀', lbl:'마음열매' },
+    { bg:'linear-gradient(135deg,#eff6ff 0%,#bfdbfe 100%)', emo:'💧', lbl:'마음성장' },
+    { bg:'linear-gradient(135deg,#eef2ff 0%,#c7d2fe 100%)', emo:'🌟', lbl:'다시봄' },
+    { bg:'linear-gradient(135deg,#f5f3ff 0%,#ddd6fe 100%)', emo:'📷', lbl:'일상앨범' },
+    { bg:'linear-gradient(135deg,#fdf4ff 0%,#f5d0fe 100%)', emo:'💗', lbl:'감정앨범' },
+    { bg:'linear-gradient(135deg,#fff1f2 0%,#fecdd3 100%)', emo:'📊', lbl:'2차 검사' }
+  ];
+  var trackHtml = '';
+  // 두 번 이어붙여 무한 루프 시 자연스럽게 (50% 지점에서 0% 지점으로 감김)
+  for (var loop = 0; loop < 2; loop++) {
+    for (var i = 0; i < cards.length; i++) {
+      var c = cards[i];
+      trackHtml += '<div class="ht-final-album-card" style="background:' + c.bg + '">';
+      trackHtml += '<span class="ht-card-emoji">' + c.emo + '</span>';
+      trackHtml += '<span class="ht-card-lbl">' + _escHtml(c.lbl) + '</span>';
+      trackHtml += '</div>';
+    }
+  }
+
+  // ── 주변 — 떠다니는 감정 이모지 (절대위치 · 각자 다른 delay·duration) ──
+  var floatEmojis = ['😊','🥰','✨','🌈','💛','🍀','💖','⭐','🌸','😌','💞','🦋','🌟','💫'];
+  var positions = [
+    { top:'10%',  left:'8%'  }, { top:'18%',  right:'12%' }, { top:'32%',  left:'4%'  },
+    { top:'34%',  right:'5%' }, { bottom:'42%', left:'10%' }, { bottom:'38%', right:'9%' },
+    { bottom:'18%', left:'14%' }, { bottom:'22%', right:'15%' },
+    { top:'46%',  left:'2%'  }, { top:'48%',  right:'2%' },
+    { bottom:'8%',  left:'24%' }, { bottom:'10%', right:'26%' },
+    { top:'6%', left:'42%' }, { bottom:'4%', right:'42%' }
+  ];
+  var floatHtml = '';
+  for (var fi = 0; fi < positions.length; fi++) {
+    var p = positions[fi];
+    var posStyle = '';
+    if (p.top != null)    posStyle += 'top:' + p.top + ';';
+    if (p.bottom != null) posStyle += 'bottom:' + p.bottom + ';';
+    if (p.left != null)   posStyle += 'left:' + p.left + ';';
+    if (p.right != null)  posStyle += 'right:' + p.right + ';';
+    var dur = (7 + (fi % 5) * 1.4).toFixed(1);  // 7.0~12.6s
+    var dly = ((fi * 0.7) % 5).toFixed(1);      // 0~5s
+    var emo = floatEmojis[fi % floatEmojis.length];
+    floatHtml += '<span class="ht-final-floating" style="' + posStyle + 'animation:htFinalFloat ' + dur + 's ease-in-out ' + dly + 's infinite">' + emo + '</span>';
+  }
+
+  // ── 본문 빌드 ──
+  var html = '<div class="heart-tale-final-cover">';
+  // 떠다니는 이모지 (배경)
+  html += floatHtml;
+  // 메타·제목·부제
+  html += '<div class="ht-final-meta">' + _escHtml(name) + '의 한 해 마음</div>';
+  html += '<div class="ht-final-title">✨ 마음 파노라마</div>';
+  html += '<div class="ht-final-sub">사회정서역량검사부터 감정앨범·일상앨범까지<br>한 해의 모든 마음이 한 폭으로 흐릅니다</div>';
+  // 가운데 가로 흐름 미리보기
+  html += '<div class="ht-final-album-mask">';
+  html += '<div class="ht-final-album-track">' + trackHtml + '</div>';
+  html += '</div>';
+  // 교사 신호 분기
+  if (panoramaActive) {
+    html += '<button type="button" class="ht-final-btn-active" onclick="openHeartPanorama()">';
+    html += '✨ 1년 마음 파노라마 펼치기';
+    html += '</button>';
+    html += '<div class="ht-final-hint-active">선생님이 허용해 주셨어요 💛</div>';
+  } else {
+    html += '<button type="button" class="ht-final-btn-locked" onclick="_htpPanoramaNotYet()">';
+    html += '🔒 아직 잠긴 페이지예요';
+    html += '</button>';
+    html += '<div class="ht-final-hint-locked">선생님이 마음 파노라마 시간을 시작하면<br>한 해의 모든 마음이 펼쳐져요 ✨</div>';
+  }
+  // PDF/JPG 저장 의도 안내 (변쌤 명시 — 궁극 목표 사전 노출)
+  html += '<div class="ht-final-save-hint">📄 펼친 파노라마는 한 장의 그림으로 저장할 수 있어요</div>';
+  html += '</div>';
   return html;
 }
 
@@ -17049,18 +17303,13 @@ function _buildHeartTaleCoverHTML() {
   }
   // 87차: 미리보기에서도 매칭 학생 없으면 placeholder 이모지로 (교사 사진 박히지 않게)
   var avatarInner = profileImg ? ('<img src="' + _escHtml(profileImg) + '" alt="">') : '🌱';
-  // 87차: 마음 파노라마 진입 버튼 (표지에서도 마지막으로 가는 장치 — 변쌤 명시)
-  //   교사가 broadcast 시작 신호 보냈을 때만 클릭 가능. 그 전엔 안내 문구.
-  var panoramaActive = !!STATE._heartPanoramaActive;  // _onHeartPanoramaStartReceived에서 true set
-  var panoramaBtnClass = panoramaActive ? 'heart-tale-panorama-btn active' : 'heart-tale-panorama-btn';
-  var panoramaOnClick  = panoramaActive ? 'openHeartPanorama()' : '_htpPanoramaNotYet()';
+  // 87차 정정 (변쌤 명시): 첫 표지에서 마음 파노라마 버튼 제거 → 마지막 표지(week=46)에 의미 있게 배치
   var html = '<div class="heart-tale-cover">';
   html += '<div class="heart-tale-cover-avatar">' + avatarInner + '</div>';
   html += '<div class="heart-tale-cover-title">' + _escHtml(name) + '의 마음동화</div>';
   html += '<div class="heart-tale-cover-divider"></div>';
   html += '<div class="heart-tale-cover-subtitle">한 주에 한 페이지<br>1년의 마음 이야기</div>';
   html += '<div class="heart-tale-cover-hint">▶ 다음 페이지로 넘겨보세요</div>';
-  html += '<button type="button" class="' + panoramaBtnClass + '" onclick="' + panoramaOnClick + '">✨ 마음 파노라마 보기</button>';
   html += '</div>';
   return html;
 }
@@ -17079,18 +17328,20 @@ function openHeartPanorama() {
   }
 }
 
-// 인디케이터·화살표 갱신 (표지=0 분기)
+// 인디케이터·화살표 갱신 (표지=0 / 주차 1~45 / 마지막 표지=46 분기)
+//   87차: 마지막 표지(46) 추가 — next 가드 +1 허용
 function _updateHeartTaleNav(week_no) {
+  var FINAL = HEART_TALE_TOTAL_WEEKS + 1;  // 87차: 마지막 표지 자리 (예: 45→46)
   var ind = document.getElementById('htp-week-indicator');
   if (ind) {
-    ind.textContent = (week_no === 0)
-      ? '표지 / ' + HEART_TALE_TOTAL_WEEKS + '주차'
-      : week_no + ' / ' + HEART_TALE_TOTAL_WEEKS + '주차';
+    if (week_no === 0)         ind.textContent = '표지 / ' + HEART_TALE_TOTAL_WEEKS + '주차';
+    else if (week_no === FINAL) ind.textContent = '마지막 표지 / ' + HEART_TALE_TOTAL_WEEKS + '주차';
+    else                        ind.textContent = week_no + ' / ' + HEART_TALE_TOTAL_WEEKS + '주차';
   }
   var prev = document.getElementById('htp-prev-btn');
   var next = document.getElementById('htp-next-btn');
   if (prev) prev.disabled = (week_no <= 0);
-  if (next) next.disabled = (week_no >= HEART_TALE_TOTAL_WEEKS);
+  if (next) next.disabled = (week_no >= FINAL);  // 87차: 마지막 표지(46) 까지 갈 수 있음
 }
 
 // 본 페이지 즉시 렌더 (애니메이션 없이 — 첫 진입·점프 등)
@@ -17283,7 +17534,7 @@ async function _htpFetchPages(student_uid) {
   try {
     var rows = await _sbFetch('weekly_book', {
       student_uid: 'eq.' + student_uid,
-      select: 'page_uid,week_no,word,photo_url,thumb_url,student_text,bot_line,recorded_at,recorded_by_nfc_uid'
+      select: 'page_uid,week_no,word,photo_url,thumb_url,student_text,bot_line,recorded_at,recorded_by_nfc_uid,title,emotion_tags'
     });
     var byWeek = {};
     for (var i = 0; i < (rows || []).length; i++) {
@@ -18133,7 +18384,7 @@ function _navHeartTalePage(dir, jumpTo) {
   var current = STATE._htpCurrentWeek;
   if (current === undefined || current === null) current = 0;
   var target = (dir === 0 && jumpTo !== undefined) ? jumpTo : current + dir;
-  if (target < 0 || target > HEART_TALE_TOTAL_WEEKS) return;
+  if (target < 0 || target > HEART_TALE_TOTAL_WEEKS + 1) return;  // 87차: 마지막 표지(46) 까지 허용
   if (target === current) return;
 
   var existing = card.querySelector('.heart-tale-page-inner');
@@ -18333,47 +18584,49 @@ function simulateBookTag() {
 // 81차b: 마음동화 NFC 등록 마법사 (다중 NFC — 책 종이 차례별)
 // ════════════════════════════════════════
 // 학생 1명 = 책 종이 N장 = NFC 스티커 N개 (등록 차례 = 페이지 묶음 차례)
-// 36주 페이지 분배는 _getWeekRange로 산출 (앞 묶음이 +1주)
-// 모달 단계: setup(책 페이지 수 입력) / list(등록 현황) / tagging(NFC 태깅)
-// 자물쇠 페이지네이션·기록 흐름은 82차 작업 (이번 차수는 등록 마법사까지)
+// 87차: 36 → 45주 페이지 분배 갱신 (HEART_TALE_TOTAL_WEEKS 사용 통일)
+//   기존 학생: book_nfc_count 그대로 유지. _getWeekRange 결과만 자동 +9주 확장 (마지막 묶음에 추가됨)
+//   교사 변경: NFC 등록 마법사 → list 단계 「📐 책 페이지 수 변경」 버튼 (이미 있음)
+// 자물쇠 페이지네이션·기록 흐름은 82차 작업
 // ─────────────────────────────────────────
 
 // 변쌤 정정 모델: NFC 1개 = 책 1권 = N 페이지 (N=책 1권의 종이 수)
-// 권장 NFC = ceil(36/N) (마음이음 36주 교육과정 기준)
-// 최대 NFC = ceil(52/N) (학생 자율 확장 최대 52주)
-// seq i → 페이지 범위: (i-1)*N+1 ~ min(i*N, 52)
+// 87차 권장 NFC = ceil(45/N) (마음이음 45주 교육과정 — 무지개 44주제 + 마무리 1)
+// 87차 최대 NFC = ceil(60/N) (학생 자율 확장 최대 60주 — code.gs registerBookNfcSeq와 일치)
+// seq i → 페이지 범위: (i-1)*N+1 ~ min(i*N, 60)
 function _getWeekRange(seq, pagesPerBook) {
   var n = parseInt(pagesPerBook, 10) || 0;
   var s = parseInt(seq, 10) || 0;
   if (!n || s < 1) return { start: 0, end: 0 };
+  var maxWeek = HEART_TALE_TOTAL_WEEKS + 15;  // 87차: 45주 + 자율 확장 여유 15 = 60 (code.gs와 일치)
   var start = (s - 1) * n + 1;
-  if (start > 52) return { start: 0, end: 0 };
-  return { start: start, end: Math.min(s * n, 52) };
+  if (start > maxWeek) return { start: 0, end: 0 };
+  return { start: start, end: Math.min(s * n, maxWeek) };
 }
 
-// 책 페이지 수 N → {권장, 최대} NFC 수 산출
+// 책 페이지 수 N → {권장, 최대} NFC 수 산출 (87차: HEART_TALE_TOTAL_WEEKS 답습)
 function _bookNfcCounts(pagesPerBook) {
   var n = parseInt(pagesPerBook, 10) || 0;
   if (!n) return { recommended: 0, max: 0 };
   return {
-    recommended: Math.ceil(36 / n),  // 1년 36주 (마음이음 교육과정)
-    max:         Math.ceil(52 / n)   // 학생 자율 확장 (최대 52주)
+    recommended: Math.ceil(HEART_TALE_TOTAL_WEEKS / n),         // 87차: 1년 45주 (무지개 교육과정)
+    max:         Math.ceil((HEART_TALE_TOTAL_WEEKS + 15) / n)   // 87차: 학생 자율 확장 최대 60주
   };
 }
 
-// chip/input 채워질 때 권장 NFC 수 동적 안내
+// chip/input 채워질 때 권장 NFC 수 동적 안내 (87차: 36 → 45 갱신)
 function _renderBookCountHint(n) {
   var hint = document.getElementById('bookNfcCountHint');
   if (!hint) return;
   var num = parseInt(n, 10);
-  if (!(num >= 4 && num <= 36)) { hint.textContent = ''; return; }
+  if (!(num >= 4 && num <= HEART_TALE_TOTAL_WEEKS)) { hint.textContent = ''; return; }
   var c = _bookNfcCounts(num);
-  hint.innerHTML = num + '장 책 → NFC <b>' + c.recommended + '장 권장</b> (1년 36주)<br>'
-                 + '<span style="font-size:11px;color:var(--gray);font-weight:500">최대 ' + c.max + '장까지 등록 가능 (52주)</span>';
+  hint.innerHTML = num + '장 책 → NFC <b>' + c.recommended + '장 권장</b> (1년 ' + HEART_TALE_TOTAL_WEEKS + '주)<br>'
+                 + '<span style="font-size:11px;color:var(--gray);font-weight:500">최대 ' + c.max + '장까지 등록 가능 (자율 확장)</span>';
 }
 
-// 책 페이지 수 추천 chip 옵션 (마음이음 36주 기준)
-var _BOOK_NFC_COUNT_CHIPS = [8, 10, 12, 18, 30, 36];
+// 책 페이지 수 추천 chip 옵션 (87차: 45주 기준 — 일반 책 8/10/15장 + 학기별 11장 + 학기 1주씩 22장 + 무지개 45장)
+var _BOOK_NFC_COUNT_CHIPS = [8, 10, 15, 22, 30, 45];
 
 // 클라이언트 충돌 검사 (낙관적 UI 직전 — Supabase 직접 fetch)
 // STUDENTS.nfc_uid (등교 카드) + student_book_nfc 활성 (다중 NFC) + TEACHERS.nfc_uid + admins.nfc_uid
@@ -18628,7 +18881,7 @@ async function _setBookCountConfirm() {
   if (!c) return;
   var input = document.getElementById('bookNfcCountInput');
   var n = parseInt(input && input.value, 10);
-  if (!(n >= 4 && n <= 36)) { toast('4 ~ 36 사이로 입력해 주세요'); return; }
+  if (!(n >= 4 && n <= HEART_TALE_TOTAL_WEEKS)) { toast('4 ~ ' + HEART_TALE_TOTAL_WEEKS + ' 사이로 입력해 주세요'); return; }  // 87차: 36 → 45
   if (n === c.count) { toast('현재와 같은 페이지 수예요'); return; }
 
   var releaseAll = !!STATE._bookNfcReleaseAllOnNext;
