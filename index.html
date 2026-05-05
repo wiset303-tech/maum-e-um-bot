@@ -4362,14 +4362,16 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 
 <!-- ══ 모달: 마음앨범 팝업 (SNS 스타일) ══ -->
 <div id="modal-album-popup" class="modal-overlay hidden" onclick="closeModalOutside(event,'modal-album-popup')">
-  <div class="modal-box" style="position:relative;padding:0;overflow:hidden;max-height:92vh">
+  <!-- 86차: 세로 긴 사진 시 캡션·해시태그 안 보이는 회귀 차단 — overflow:hidden → auto 안전망 (변쌤 명시) -->
+  <div class="modal-box" style="position:relative;padding:0;overflow-y:auto;max-height:92vh">
     <button class="modal-close" onclick="closeModal('modal-album-popup')"
       style="position:absolute;top:10px;right:12px;z-index:10;background:rgba(0,0,0,.35);color:#fff;border-radius:50%;width:28px;height:28px;font-size:16px">✕</button>
     <!-- 86차: 좌상단 업로드한 학생명 뱃지 (교사·관리자·학부모 뷰. 학생 본인 뷰에선 hide) -->
     <div id="popupAlbumStudentBadge" style="position:absolute;top:10px;left:12px;z-index:10;background:rgba(0,0,0,.55);color:#fff;padding:6px 12px;border-radius:14px;font-size:13px;font-weight:700;display:none;max-width:60%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     <!-- 86차: 빈 화면 회귀 차단 — 회색 그라디언트 placeholder + fade-in transition (변쌤 신고) -->
-    <!-- 86차 정정: min-height 제거 — 사진 비율(세로 짧음) 시 위쪽 흰 줄 + thumb→image 교체 layout 변동 동시 차단 (변쌤 명시 — 큰 변화 X) -->
-    <img id="popupAlbumImg" src="" alt="마음앨범" style="width:100%;display:block;max-height:80vh;object-fit:contain;background:linear-gradient(135deg,#e8eaed 0%,#f5f6f8 50%,#e8eaed 100%);transition:opacity .25s ease">
+    <!-- 86차 정정: min-height 제거 — 사진 비율(세로 짧음) 시 위쪽 흰 줄 + thumb→image 교체 layout 변동 동시 차단 -->
+    <!-- 86차 정정 2: max-height 80vh → 65vh — 세로 긴 사진(시간표 등) 시 캡션·해시태그·날짜 자리 확보 (변쌤 명시) -->
+    <img id="popupAlbumImg" src="" alt="마음앨범" style="width:100%;display:block;max-height:65vh;object-fit:contain;background:linear-gradient(135deg,#e8eaed 0%,#f5f6f8 50%,#e8eaed 100%);transition:opacity .25s ease">
     <div style="padding:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div id="popupAlbumDate" style="font-size:12px;color:var(--gray)"></div>
