@@ -2771,6 +2771,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   font-size:15.5px; font-weight:600;
   color:var(--navy);
   line-height:1.6; word-break:keep-all;
+  /* 88차 변쌤 명시: 두 줄 시 외톨이 차단 — 아랫줄이 윗줄보다 살짝 더 길게 (text-wrap:pretty 지원 브라우저) */
+  text-wrap:pretty;
   margin-bottom:24px;
   min-height:72px;
   display:flex; align-items:center; justify-content:center;
@@ -2834,9 +2836,10 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   50%      { box-shadow:0 4px 22px rgba(78,205,180,.65); }
 }
 
-/* 88차 Phase 4-A: SEL 결과 리포트 모달 — 무지개·방사형·비교 탭 */
+/* 88차 Phase 4-A·B: SEL 결과 리포트 모달 — 무지개·방사형·비교 탭 */
+/* 88차 변쌤 명시 fix: 모달 폭 키움(540→600) + chart·info min-height 고정(호버 깜빡 차단) + SVG 텍스트 가독성 키움 */
 .sel-result-box{
-  max-width:540px; padding:0; overflow:hidden;
+  max-width:600px; padding:0; overflow:hidden;
   border-radius:24px;
 }
 .sel-result-header{
@@ -2849,12 +2852,12 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .sel-result-header .modal-close{ top:10px; right:12px; }
 .sel-result-title{
   font-family:'Black Han Sans', sans-serif;
-  font-size:20px; color:var(--navy);
+  font-size:21px; color:var(--navy);
   letter-spacing:-.3px; line-height:1.15;
   margin-bottom:4px;
 }
 .sel-result-meta{
-  font-size:11.5px; color:var(--gray);
+  font-size:12.5px; color:var(--gray);
   letter-spacing:.2px; word-break:keep-all;
 }
 .sel-result-tabs{
@@ -2864,10 +2867,10 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   border-bottom:1px solid var(--lgray);
 }
 .sel-result-tab{
-  flex:1; padding:10px 6px;
+  flex:1; padding:11px 6px;
   border:none; background:transparent;
   font-family:inherit;
-  font-size:12.5px; font-weight:700;
+  font-size:13.5px; font-weight:700;
   color:var(--gray);
   letter-spacing:.2px;
   cursor:pointer;
@@ -2883,30 +2886,34 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   opacity:.35; cursor:not-allowed;
 }
 .sel-result-tab[disabled]:hover{ color:var(--gray); }
+/* chart 영역 height 고정 — 호버 시 layout 안 변동 */
 .sel-result-chart{
   background:#fff;
-  padding:12px 14px 6px;
-  min-height:280px;
+  padding:14px 16px 8px;
+  min-height:340px;
   display:flex; align-items:center; justify-content:center;
 }
 .sel-result-chart svg{ display:block; max-width:100%; height:auto; }
+/* info 박스 height 고정 — textContent 변경 시 모달 layout 안 변동 */
 .sel-result-info{
   background:var(--cream);
-  padding:11px 16px;
+  padding:12px 18px;
   border-top:1px solid var(--lgray);
-  font-size:12px; color:var(--navy);
+  font-size:13.5px; color:var(--navy);
   line-height:1.55; word-break:keep-all;
   text-align:center;
-  min-height:40px;
+  min-height:64px;
   letter-spacing:.1px;
+  display:flex; align-items:center; justify-content:center;
+  text-wrap:pretty;
 }
-.sel-result-info-default{ color:var(--gray); font-size:11.5px; }
-.sel-result-info-region{ font-weight:700; }
+.sel-result-info-default{ color:var(--gray); font-size:13px; }
+.sel-result-info-region{ font-weight:700; font-size:14px; }
 .sel-result-info-source{
   display:inline-block;
-  margin-left:6px; padding:1px 6px;
+  margin-left:6px; padding:2px 7px;
   border-radius:8px;
-  font-size:10px; font-weight:600;
+  font-size:11px; font-weight:600;
   background:var(--mint4); color:var(--mint2);
   vertical-align:middle;
 }
@@ -2919,35 +2926,36 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .sel-result-actions .btn{
   flex:1; font-size:12.5px; padding:11px 8px; font-weight:700;
 }
-/* SVG 호버 효과 — 다른 영역 dim */
+/* SVG 호버 — 깜빡 차단을 위해 transition 짧게·drop-shadow 제거 */
 .sel-rainbow-arc{
   cursor:pointer;
-  transition:opacity .2s ease, filter .2s ease;
+  transition:opacity .12s ease;
 }
 .sel-rainbow-arc.dim{ opacity:.28; }
-.sel-rainbow-arc.highlight{ filter:drop-shadow(0 0 6px rgba(0,0,0,.15)); }
+/* 88차 fix: highlight drop-shadow 제거 — SVG 외곽 변동으로 호버 영역 깜빡 차단 */
+.sel-rainbow-arc.highlight{ /* drop-shadow 효과 제거 */ }
 .sel-rainbow-label{
   font-family:'Noto Sans KR', sans-serif;
-  font-size:11.5px; font-weight:700;
+  font-size:14px; font-weight:700;
   pointer-events:none;
   user-select:none;
 }
 .sel-rainbow-score{
-  font-size:10.5px; font-weight:600;
+  font-size:13px; font-weight:600;
   pointer-events:none;
 }
 .sel-rainbow-center-name{
   font-family:'Black Han Sans', sans-serif;
-  font-size:14px; fill:var(--navy);
+  font-size:18px; fill:var(--navy);
   letter-spacing:-.2px;
 }
 .sel-rainbow-center-meta{
-  font-size:10.5px; fill:var(--gray);
+  font-size:13px; fill:var(--gray);
   letter-spacing:.2px;
 }
 .sel-rainbow-center-total{
   font-family:'Black Han Sans', sans-serif;
-  font-size:18px; fill:var(--mint2);
+  font-size:24px; fill:var(--mint2);
   letter-spacing:-.3px;
 }
 
@@ -4347,7 +4355,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <span style="background:var(--sel-r6)"></span>
       <span style="background:var(--sel-r7)"></span>
     </div>
-    <div class="sel-intro-prep">곧 본격 검사가 열려요<br>그날까지 마음의 준비만 살짝</div>
+    <div class="sel-intro-prep">28문항 · 약 5분<br>정답은 없어요 — 솔직하게 답하면 돼요</div>
     <div class="sel-intro-actions">
       <button class="btn btn-secondary sel-intro-btn-skip" onclick="_selSkipNow()">나중에</button>
       <button class="btn btn-primary sel-intro-btn-start" onclick="_selStartNow()">지금 살펴볼래요</button>
@@ -4408,7 +4416,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     </div>
     <div class="sel-result-tabs">
       <button type="button" class="sel-result-tab active" data-mode="rainbow" onclick="_selSwitchTab('rainbow')">🌈 무지개</button>
-      <button type="button" class="sel-result-tab" data-mode="radar" onclick="_selSwitchTab('radar')">⚡ 방사형</button>
+      <button type="button" class="sel-result-tab" data-mode="radar" onclick="_selSwitchTab('radar')">🔷 방사형</button>
       <button type="button" class="sel-result-tab" data-mode="compare" id="sel-result-tab-compare" onclick="_selSwitchTab('compare')">📊 비교</button>
     </div>
     <div class="sel-result-chart" id="sel-result-chart"></div>
@@ -19210,23 +19218,23 @@ function _renderSelRainbow(result) {
       var emptyPath = _selArcPath(cx, cy, Rmax, Rmin, a1, a2);
       svg += '<path class="sel-rainbow-arc" data-r="' + i + '" d="' + emptyPath + '" fill="rgba(0,0,0,.04)" stroke="#ccc" stroke-width="1" stroke-dasharray="3 3" />';
     }
-    // 라벨 (호 바깥쪽 중심각)
+    // 라벨 (호 바깥쪽 중심각) — 88차 fix: 큰 폰트(14px) 맞게 labelR 22→34
     var midDeg = (a1 + a2) / 2;
     var midRad = midDeg * Math.PI / 180;
-    var labelR = Rmax + 22;
+    var labelR = Rmax + 34;
     var lx = cx + labelR * Math.cos(midRad);
     var ly = cy + labelR * Math.sin(midRad);
     var anchor = (lx < cx - 30) ? 'end' : (lx > cx + 30) ? 'start' : 'middle';
     svg += '<text class="sel-rainbow-label" x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '" text-anchor="' + anchor + '" fill="' + color + '">R' + (i+1) + ' ' + _selEscape(meta.name) + '</text>';
-    svg += '<text class="sel-rainbow-score" x="' + lx.toFixed(1) + '" y="' + (ly + 14).toFixed(1) + '" text-anchor="' + anchor + '" fill="#7a8c98">' + score + '/20</text>';
+    svg += '<text class="sel-rainbow-score" x="' + lx.toFixed(1) + '" y="' + (ly + 17).toFixed(1) + '" text-anchor="' + anchor + '" fill="#7a8c98">' + score + '/20</text>';
   }
-  // 가운데 반원 — 학생 정보 (위쪽 반원 안)
-  svg += '<text class="sel-rainbow-center-name" x="' + cx + '" y="258" text-anchor="middle">' + name + '</text>';
+  // 가운데 반원 — 학생 정보 (큰 폰트 맞게 y 좌표 재배치, 18·24·13px 간격)
+  svg += '<text class="sel-rainbow-center-name" x="' + cx + '" y="252" text-anchor="middle">' + name + '</text>';
   if (schoolYear) {
-    svg += '<text class="sel-rainbow-center-meta" x="' + cx + '" y="278" text-anchor="middle">' + schoolYear + '</text>';
+    svg += '<text class="sel-rainbow-center-meta" x="' + cx + '" y="274" text-anchor="middle">' + schoolYear + '</text>';
   }
   svg += '<text class="sel-rainbow-center-total" x="' + cx + '" y="304" text-anchor="middle">' + total + ' / 140</text>';
-  svg += '<text class="sel-rainbow-center-meta" x="' + cx + '" y="322" text-anchor="middle">' + phaseLabel + (dateStr ? ' · ' + dateStr : '') + '</text>';
+  svg += '<text class="sel-rainbow-center-meta" x="' + cx + '" y="324" text-anchor="middle">' + phaseLabel + (dateStr ? ' · ' + dateStr : '') + '</text>';
   svg += '</svg>';
   chart.innerHTML = svg;
   // 호버·터치 인터랙션 (다른 영역 dim, 해당 영역 강조 + 인라인 안내)
