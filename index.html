@@ -18363,7 +18363,13 @@ function openSelIntro() {
 }
 
 // 설정 카드 클릭 분기 — 검사 완료(status='done')면 결과 모달, 아니면 intro 모달
+//   미리보기 모드: STATE.isPreview면 더미 결과로 결과 모달 자동 진입 (status 무관)
 function _selSettingsCardClick() {
+  // 미리보기 — 더미 결과 모달 (메모리 feedback_preview_seed_protected 답습)
+  if (STATE.isPreview) {
+    _selOpenResult({ isPreview:true });
+    return;
+  }
   var st = STATE._selStatus;
   if (st && st.status === 'done' && STATE.user && STATE.user.student_uid) {
     _selOpenResult({ student_uid: STATE.user.student_uid });
@@ -18511,7 +18517,7 @@ async function _selStartAssessment(opts) {
         // skipped/cancelled/null → status='in_progress' 재시작 (started_at 갱신, 응답값 보존)
         // in_progress → 이어쓰기 (started_at 보존)
         if (row.status !== 'in_progress') {
-          await _sbPatch('sel_assessment', 'uid=eq.'+row.uid, {
+          await _sbPatch('sel_assessment', { uid: 'eq.' + row.uid }, {
             status: 'in_progress',
             responder_role: opts.responder_role,
             responder_name: opts.responder_name || '',
@@ -18549,7 +18555,7 @@ async function _selStartAssessment(opts) {
         r5_score:null, r6_score:null, r7_score:null, total_score:null
       };
       for (var qi = 1; qi <= 28; qi++) clearBody['q'+qi] = null;
-      await _sbPatch('sel_assessment', 'uid=eq.'+row.uid, clearBody);
+      await _sbPatch('sel_assessment', { uid: 'eq.' + row.uid }, clearBody);
       var refreshed = Object.assign({}, row, clearBody);
       return { ok:true, assessment:refreshed };
     }
@@ -18605,7 +18611,7 @@ async function _selSaveProgress(uid, qPartial) {
   var ts = _htNewKstTs();
   var body = Object.assign({}, qPartial, { updated_at: ts });
   try {
-    await _sbPatch('sel_assessment', 'uid=eq.'+uid, body);
+    await _sbPatch('sel_assessment', { uid: 'eq.' + uid }, body);
   } catch(e) {
     console.error('[SEL SAVE PROGRESS]', e && e.message ? e.message : e);
     // fail-silent — 다음 5문항 시점에 재시도
@@ -18637,7 +18643,7 @@ async function _selCompleteAssessment(uid, qFull) {
     updated_at: ts
   });
   try {
-    await _sbPatch('sel_assessment', 'uid=eq.'+uid, body);
+    await _sbPatch('sel_assessment', { uid: 'eq.' + uid }, body);
     return { ok:true, scores:scores };
   } catch(e) {
     console.error('[SEL COMPLETE]', e && e.message ? e.message : e);
@@ -18650,7 +18656,7 @@ async function _selResetAssessment(uid) {
   if (!uid) return { ok:false };
   var ts = _htNewKstTs();
   try {
-    await _sbPatch('sel_assessment', 'uid=eq.'+uid, {
+    await _sbPatch('sel_assessment', { uid: 'eq.' + uid }, {
       status: 'cancelled',
       updated_at: ts
     });
@@ -18829,24 +18835,20 @@ function _selRenderQuestion() {
   }
 }
 
-// 5점 척도 답 선택 (1~5)
+// 5점 척도 답 선택 (1~5) — 답 박힘 즉시 fire-and-forget 1문항 PATCH
+//   변쌤 명시: 한 문항마다 저장 — 모달 닫혀도·새로고침해도 직전 문항까지 보존 (큰 데이터 안 쓰니 OK)
 function _selPickAnswer(v) {
   var st = STATE._selAssess;
   if (!st) return;
   if (v < 1 || v > 5) return;
   var qNum = st.currentIdx + 1;
-  // 같은 답 다시 누르면 자동 다음 (UX 답습)
-  var prev = st.answers['q' + qNum] || 0;
   st.answers['q' + qNum] = v;
-  st.pendingSaveSince++;
   _selRenderQuestion();
-  // 새 답이 박혔고 마지막 문항이 아니면 0.28초 후 자동 다음 (응답 흐름 가속)
-  if (!prev && st.currentIdx < 27) {
-    setTimeout(function() {
-      if (STATE._selAssess && STATE._selAssess.currentIdx === qNum - 1 && STATE._selAssess.answers['q'+qNum] === v) {
-        _selNext();
-      }
-    }, 280);
+  // 즉시 저장 (실 환경만, 미리보기는 DB 안 건드림)
+  if (!st.isPreview && st.uid) {
+    var partial = {};
+    partial['q' + qNum] = v;
+    _selSaveProgress(st.uid, partial);  // fire-and-forget
   }
 }
 
@@ -18858,22 +18860,13 @@ function _selPrev() {
   _selRenderQuestion();
 }
 
-// 다음 문항 — 마지막이면 응답 완료 흐름. 5문항 누적 시 자동 저장
+// 다음 문항 — 마지막이면 응답 완료 흐름 (저장은 _selPickAnswer에서 한 문항 단위로 즉시)
 async function _selNext() {
   var st = STATE._selAssess;
   if (!st) return;
   var qNum = st.currentIdx + 1;
   // 미응답이면 무시 (다음 버튼 비활성화 상태와 일관)
   if (!st.answers['q' + qNum]) return;
-  // 5문항 누적 자동 저장 (fire-and-forget, 실 환경만)
-  if (!st.isPreview && st.uid && st.pendingSaveSince >= st.saveBatchSize) {
-    var partial = {};
-    for (var i = 1; i <= 28; i++) {
-      if (st.answers['q'+i]) partial['q'+i] = st.answers['q'+i];
-    }
-    _selSaveProgress(st.uid, partial);
-    st.pendingSaveSince = 0;
-  }
   if (st.currentIdx === 27) {
     await _selFinish();
     return;
@@ -18915,6 +18908,21 @@ async function _selFinish() {
     _selCloseAssess();
     _refreshSelSettingsCard();
     toast('미리보기 검사 완료 — 총 ' + pvScores.total + '/140점');
+    // Phase 4-B: 미리보기에서도 결과 모달 자동 진입 (응답한 점수로 mockResult 생성)
+    var pvMockResult = {
+      uid: 'sel_preview_finished',
+      responder_name: STATE.user && STATE.user.name || '미리보기',
+      phase: st.phase, phase_label: st.phase + '차 진단',
+      grade_band: st.gradeBand,
+      school_year: STATE.user && parseInt(STATE.user.grade, 10) || null,
+      status: 'done', completed_at: _htNewKstTs(),
+      r1_score: pvScores.r1, r2_score: pvScores.r2, r3_score: pvScores.r3, r4_score: pvScores.r4,
+      r5_score: pvScores.r5, r6_score: pvScores.r6, r7_score: pvScores.r7,
+      total_score: pvScores.total
+    };
+    setTimeout(function() {
+      _selOpenResult({ isPreview:true, mockResult:pvMockResult });
+    }, 1200);
     return;
   }
   if (!st.uid) {
@@ -18967,6 +18975,57 @@ var _SEL_R_META = [
   { key:'r7', num:7, name:'자기주도',     desc:'스스로 준비·집중·마무리하기',              source:'KICE 학술' }
 ];
 
+// 미리보기 더미 결과 (관리자 교사·학생 미리보기에서 결과 모달 시연용 — DB 안 건드림)
+//   opts: { studentName?, schoolYear?, phase? } — 미명시 시 STATE.user 답습
+function _selMakePreviewResult(opts) {
+  opts = opts || {};
+  var u = STATE.user || {};
+  // 더미 7영역 점수 (3-6학년 평균 수준 + 영역별 약간 다양화)
+  var dummyScores = { r1:16, r2:14, r3:18, r4:17, r5:15, r6:13, r7:16 };
+  var total = dummyScores.r1 + dummyScores.r2 + dummyScores.r3 + dummyScores.r4
+            + dummyScores.r5 + dummyScores.r6 + dummyScores.r7;
+  var ts = (typeof _htNewKstTs === 'function') ? _htNewKstTs() : new Date().toISOString().slice(0,19);
+  return {
+    uid: 'sel_preview_curr',
+    student_uid: u.student_uid || 'preview_student',
+    phase: opts.phase || 2,
+    phase_label: opts.phase || '2026-2차',
+    grade_band: 'elem_high',
+    school_year: opts.schoolYear || parseInt(u.grade, 10) || 4,
+    responder_role: 'student',
+    responder_name: opts.studentName || u.name || '미리보기',
+    status: 'done',
+    completed_at: ts,
+    updated_at: ts,
+    r1_score: dummyScores.r1, r2_score: dummyScores.r2, r3_score: dummyScores.r3,
+    r4_score: dummyScores.r4, r5_score: dummyScores.r5, r6_score: dummyScores.r6,
+    r7_score: dummyScores.r7,
+    total_score: total
+  };
+}
+// 비교 탭용 — 1차 더미 (현재보다 살짝 낮은 점수, 성장 시연)
+function _selMakePreviewHistory(opts) {
+  opts = opts || {};
+  var u = STATE.user || {};
+  var prev = {
+    uid: 'sel_preview_prev',
+    student_uid: u.student_uid || 'preview_student',
+    phase: 1,
+    phase_label: '2026-1차',
+    grade_band: 'elem_high',
+    school_year: opts.schoolYear || parseInt(u.grade, 10) || 4,
+    responder_role: 'student',
+    responder_name: opts.studentName || u.name || '미리보기',
+    status: 'done',
+    completed_at: '2026-03-12 10:30:00',
+    r1_score:13, r2_score:11, r3_score:15, r4_score:14, r5_score:13, r6_score:11, r7_score:13,
+    total_score: 13+11+15+14+13+11+13
+  };
+  // current도 history에 포함 (Object.assign 복제)
+  var curr = _selMakePreviewResult(opts);
+  return [curr, prev];  // created_at desc 순서
+}
+
 // 결과 모달 진입 — student_uid + 옵션
 //   opts: { student_uid, phase?, isPreview?, mockResult? }
 //   mockResult = 미리보기 더미 데이터 (DB 안 건드림)
@@ -18975,9 +19034,12 @@ async function _selOpenResult(opts) {
   var modal = document.getElementById('modal-sel-result');
   if (!modal) return;
   var current = null, history = null;
-  // 미리보기·더미 — 그대로 사용
-  if (opts.isPreview && opts.mockResult) {
-    current = opts.mockResult;
+  // 88차 Phase 4-B: STATE.isPreview 자동 더미 시드 (메모리 feedback_preview_seed_protected 답습)
+  //   관리자 미리보기(교사·학생) 모드에선 DB 안 건드리고 더미 결과 노출
+  var isPv = opts.isPreview || STATE.isPreview;
+  if (isPv) {
+    current = opts.mockResult || _selMakePreviewResult(opts);
+    history = opts.mockHistory || _selMakePreviewHistory(opts);
   } else if (opts.student_uid) {
     if (typeof showLoading === 'function') showLoading('결과를 불러오는 중...');
     try {
@@ -19191,14 +19253,196 @@ function _renderSelRainbow(result) {
   });
 }
 
-// Phase 4-B placeholder — 다음 단계에서 구현
+// 방사형 레이더 SVG — 7축, 위 12시부터 시계방향, 5단계 격자 (4·8·12·16·20)
 function _renderSelRadar(result) {
   var chart = document.getElementById('sel-result-chart');
-  if (chart) chart.innerHTML = '<div style="color:var(--gray);font-size:13px;padding:80px 20px;text-align:center;line-height:1.6">방사형 차트는 곧 준비될 거예요<br><span style="font-size:11px">(Phase 4-B 작업 예정)</span></div>';
+  if (!chart || !result) return;
+  var scores = [
+    result.r1_score || 0, result.r2_score || 0, result.r3_score || 0,
+    result.r4_score || 0, result.r5_score || 0, result.r6_score || 0,
+    result.r7_score || 0
+  ];
+  var total = result.total_score
+            || scores.reduce(function(a,b){ return a + b; }, 0);
+  var cx = 340, cy = 220, Rmax = 150;
+  var sliceAngle = 360 / 7;   // 51.43°
+  var startAngle = -90;        // 위 12시
+  function pt(rIdx, level) {
+    var angle = startAngle + rIdx * sliceAngle;
+    var rad = angle * Math.PI / 180;
+    var r = Rmax * (level / 20);
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  }
+  var svg = '<svg viewBox="0 0 680 440" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-width:680px;overflow:visible">';
+  // 격자 다각형 (5단계 — 4·8·12·16·20)
+  for (var lv = 4; lv <= 20; lv += 4) {
+    var gridPts = [];
+    for (var ri = 0; ri < 7; ri++) {
+      var gp = pt(ri, lv);
+      gridPts.push(gp.x.toFixed(1) + ',' + gp.y.toFixed(1));
+    }
+    var fill = (lv === 20) ? 'rgba(245,247,250,.5)' : 'none';
+    svg += '<polygon points="' + gridPts.join(' ') + '" fill="' + fill + '" stroke="#dde3e9" stroke-width="1" stroke-dasharray="2 3" />';
+  }
+  // 7축 방사선
+  for (var ri2 = 0; ri2 < 7; ri2++) {
+    var ep = pt(ri2, 20);
+    svg += '<line x1="' + cx + '" y1="' + cy + '" x2="' + ep.x.toFixed(1) + '" y2="' + ep.y.toFixed(1) + '" stroke="#dde3e9" stroke-width="1" />';
+  }
+  // 응답 다각형 (현재 점수)
+  var dataPts = [];
+  for (var ri3 = 0; ri3 < 7; ri3++) {
+    var dp = pt(ri3, scores[ri3]);
+    dataPts.push(dp.x.toFixed(1) + ',' + dp.y.toFixed(1));
+  }
+  svg += '<polygon points="' + dataPts.join(' ') + '" fill="rgba(78,205,180,.22)" stroke="rgba(78,205,180,.85)" stroke-width="2.5" stroke-linejoin="round" />';
+  // 각 영역 점 + 라벨
+  var styles = getComputedStyle(document.documentElement);
+  for (var ri4 = 0; ri4 < 7; ri4++) {
+    var meta = _SEL_R_META[ri4];
+    var color = styles.getPropertyValue('--sel-' + meta.key).trim() || '#999';
+    var p = pt(ri4, scores[ri4]);
+    var lp = pt(ri4, 23);  // 라벨 — 격자 바깥쪽
+    var labelAnchor = (lp.x < cx - 8) ? 'end' : (lp.x > cx + 8) ? 'start' : 'middle';
+    svg += '<circle class="sel-radar-dot" data-r="' + ri4 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="6" fill="' + color + '" stroke="#fff" stroke-width="2.5" style="cursor:pointer;transition:r .15s" />';
+    svg += '<text class="sel-rainbow-label" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="' + color + '">R' + (ri4+1) + ' ' + _selEscape(meta.name) + '</text>';
+    svg += '<text class="sel-rainbow-score" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 14).toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="#7a8c98">' + scores[ri4] + '/20</text>';
+  }
+  // 하단 총점
+  svg += '<text class="sel-rainbow-center-total" x="' + cx + '" y="410" text-anchor="middle">' + total + ' / 140</text>';
+  svg += '</svg>';
+  chart.innerHTML = svg;
+  // 호버·터치 — 점에서 인라인 안내
+  var dots = chart.querySelectorAll('.sel-radar-dot');
+  dots.forEach(function(dot) {
+    var rIdx = parseInt(dot.getAttribute('data-r'), 10);
+    dot.addEventListener('mouseenter', function() {
+      dot.setAttribute('r', '8');
+      _selShowRegionInfo(rIdx, scores[rIdx]);
+    });
+    dot.addEventListener('mouseleave', function() {
+      dot.setAttribute('r', '6');
+      _selResetInfo();
+    });
+    dot.addEventListener('click', function() {
+      _selShowRegionInfo(rIdx, scores[rIdx]);
+    });
+  });
 }
+
+// 비교 모드 — 1차 회색 점선 + 2차 mint 진한 + 변화량 화살표 (영역별 ▲+N / ▽-N)
 function _renderSelCompare(prev, curr) {
   var chart = document.getElementById('sel-result-chart');
-  if (chart) chart.innerHTML = '<div style="color:var(--gray);font-size:13px;padding:80px 20px;text-align:center;line-height:1.6">1·2차 비교 차트는 곧 준비될 거예요<br><span style="font-size:11px">(Phase 4-B 작업 예정)</span></div>';
+  if (!chart || !curr || !prev) return;
+  var prevScores = [
+    prev.r1_score || 0, prev.r2_score || 0, prev.r3_score || 0,
+    prev.r4_score || 0, prev.r5_score || 0, prev.r6_score || 0,
+    prev.r7_score || 0
+  ];
+  var currScores = [
+    curr.r1_score || 0, curr.r2_score || 0, curr.r3_score || 0,
+    curr.r4_score || 0, curr.r5_score || 0, curr.r6_score || 0,
+    curr.r7_score || 0
+  ];
+  var prevTotal = prev.total_score || prevScores.reduce(function(a,b){ return a+b; }, 0);
+  var currTotal = curr.total_score || currScores.reduce(function(a,b){ return a+b; }, 0);
+  var deltaTotal = currTotal - prevTotal;
+  var prevLabel = prev.phase_label || (prev.phase + '차');
+  var currLabel = curr.phase_label || (curr.phase + '차');
+  var cx = 340, cy = 220, Rmax = 150;
+  var sliceAngle = 360 / 7;
+  var startAngle = -90;
+  function pt(rIdx, level) {
+    var angle = startAngle + rIdx * sliceAngle;
+    var rad = angle * Math.PI / 180;
+    var r = Rmax * (level / 20);
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  }
+  var svg = '<svg viewBox="0 0 680 440" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-width:680px;overflow:visible">';
+  // 격자
+  for (var lv = 4; lv <= 20; lv += 4) {
+    var gridPts = [];
+    for (var ri = 0; ri < 7; ri++) {
+      var gp = pt(ri, lv);
+      gridPts.push(gp.x.toFixed(1) + ',' + gp.y.toFixed(1));
+    }
+    var fill = (lv === 20) ? 'rgba(245,247,250,.5)' : 'none';
+    svg += '<polygon points="' + gridPts.join(' ') + '" fill="' + fill + '" stroke="#dde3e9" stroke-width="1" stroke-dasharray="2 3" />';
+  }
+  // 7축
+  for (var ri2 = 0; ri2 < 7; ri2++) {
+    var ep = pt(ri2, 20);
+    svg += '<line x1="' + cx + '" y1="' + cy + '" x2="' + ep.x.toFixed(1) + '" y2="' + ep.y.toFixed(1) + '" stroke="#dde3e9" stroke-width="1" />';
+  }
+  // 1차 다각형 (회색 점선)
+  var prevPts = [];
+  for (var ri3 = 0; ri3 < 7; ri3++) {
+    var pp = pt(ri3, prevScores[ri3]);
+    prevPts.push(pp.x.toFixed(1) + ',' + pp.y.toFixed(1));
+  }
+  svg += '<polygon points="' + prevPts.join(' ') + '" fill="rgba(160,170,180,.12)" stroke="#999" stroke-width="1.5" stroke-dasharray="4 4" />';
+  // 2차 다각형 (진한 mint)
+  var currPts = [];
+  for (var ri4 = 0; ri4 < 7; ri4++) {
+    var cp = pt(ri4, currScores[ri4]);
+    currPts.push(cp.x.toFixed(1) + ',' + cp.y.toFixed(1));
+  }
+  svg += '<polygon points="' + currPts.join(' ') + '" fill="rgba(78,205,180,.22)" stroke="rgba(78,205,180,.9)" stroke-width="2.5" stroke-linejoin="round" />';
+  // 점 + 라벨 + 변화량 화살표
+  var styles = getComputedStyle(document.documentElement);
+  for (var ri5 = 0; ri5 < 7; ri5++) {
+    var meta = _SEL_R_META[ri5];
+    var color = styles.getPropertyValue('--sel-' + meta.key).trim() || '#999';
+    var p = pt(ri5, currScores[ri5]);
+    var lp = pt(ri5, 23);
+    var labelAnchor = (lp.x < cx - 8) ? 'end' : (lp.x > cx + 8) ? 'start' : 'middle';
+    var d = currScores[ri5] - prevScores[ri5];
+    var deltaArrow = d > 0 ? '▲' : d < 0 ? '▽' : '·';
+    var deltaColor = d > 0 ? '#2aab90' : d < 0 ? '#d9455f' : '#999';
+    var deltaText = d > 0 ? ('+' + d) : (d === 0 ? '0' : String(d));
+    svg += '<circle class="sel-radar-dot" data-r="' + ri5 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="6" fill="' + color + '" stroke="#fff" stroke-width="2.5" style="cursor:pointer" />';
+    svg += '<text class="sel-rainbow-label" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="' + color + '">R' + (ri5+1) + ' ' + _selEscape(meta.name) + '</text>';
+    svg += '<text class="sel-rainbow-score" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 14).toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="' + deltaColor + '" font-weight="700">' + deltaArrow + ' ' + deltaText + '</text>';
+  }
+  // 하단 총점 비교
+  var totalArrow = deltaTotal > 0 ? '▲' : deltaTotal < 0 ? '▽' : '·';
+  var totalColor = deltaTotal > 0 ? '#2aab90' : deltaTotal < 0 ? '#d9455f' : '#999';
+  var totalText = deltaTotal > 0 ? ('+' + deltaTotal) : (deltaTotal === 0 ? '0' : String(deltaTotal));
+  svg += '<text class="sel-rainbow-center-meta" x="' + cx + '" y="395" text-anchor="middle">' + _selEscape(prevLabel) + ' ' + prevTotal + ' → ' + _selEscape(currLabel) + ' ' + currTotal + '</text>';
+  svg += '<text class="sel-rainbow-center-total" x="' + cx + '" y="418" text-anchor="middle" fill="' + totalColor + '">' + totalArrow + ' ' + totalText + '점</text>';
+  svg += '</svg>';
+  chart.innerHTML = svg;
+  // 호버 — 영역 i 비교 (이전·현재 점수·변화량)
+  var dots = chart.querySelectorAll('.sel-radar-dot');
+  dots.forEach(function(dot) {
+    var rIdx = parseInt(dot.getAttribute('data-r'), 10);
+    dot.addEventListener('mouseenter', function() {
+      dot.setAttribute('r', '8');
+      _selShowCompareInfo(rIdx, prevScores[rIdx], currScores[rIdx]);
+    });
+    dot.addEventListener('mouseleave', function() {
+      dot.setAttribute('r', '6');
+      _selResetInfo();
+    });
+    dot.addEventListener('click', function() {
+      _selShowCompareInfo(rIdx, prevScores[rIdx], currScores[rIdx]);
+    });
+  });
+}
+
+// 비교 모드 호버 인라인 안내 — 영역 + 1·2차 점수 + 변화량
+function _selShowCompareInfo(rIdx, prevScore, currScore) {
+  var info = document.getElementById('sel-result-info');
+  if (!info) return;
+  var meta = _SEL_R_META[rIdx];
+  if (!meta) return;
+  var d = currScore - prevScore;
+  var arrow = d > 0 ? '▲' : d < 0 ? '▽' : '·';
+  var deltaColor = d > 0 ? 'var(--mint2)' : d < 0 ? '#d9455f' : 'var(--gray)';
+  var deltaText = d > 0 ? ('+' + d) : (d === 0 ? '변화 없음' : String(d));
+  info.innerHTML = '<span class="sel-result-info-region" style="color:var(--sel-' + meta.key + ')">R' + meta.num + ' ' + meta.name + '</span>'
+                 + ' · <strong>' + prevScore + ' → ' + currScore + '</strong>'
+                 + ' · <span style="color:' + deltaColor + ';font-weight:700">' + arrow + ' ' + deltaText + '</span>';
 }
 
 // 키보드 단축키 — 1~5: 답 선택 / Enter·→: 다음 / ←: 이전 / Esc: 닫기
