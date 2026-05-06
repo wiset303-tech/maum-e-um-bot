@@ -3292,15 +3292,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   font-size:36px; fill:var(--mint2);
   letter-spacing:-.3px;
 }
-/* 89차 변쌤 명시 (re-fix) — 방사형 글자 너무 커 절반으로 줄임 (23/20 → 14/12) */
+/* 89차 변쌤 명시 (re-fix2) — 방사형 글자는 무지개와 동일(20/18) · 변쌤 절반 의도는 OOO/140 배지만 */
 .sel-radar-label{
   font-family:'Noto Sans KR', sans-serif;
-  font-size:14px; font-weight:700;
+  font-size:20px; font-weight:700;
   pointer-events:none;
   user-select:none;
 }
 .sel-radar-score{
-  font-size:12px; font-weight:600;
+  font-size:18px; font-weight:600;
   pointer-events:none;
 }
 /* 89차 변쌤 명시 — OOO/140 배지 (한 폰트 줄임 + 민트크림 그라디언트 + 흰 글자, 무지개·방사형 공용) */
@@ -19924,8 +19924,8 @@ function _renderSelRadar(result) {
     var r = Rmax * (level / 20);
     return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
   }
-  // 89차 변쌤 명시 (re-fix) — viewBox 470 → 440 revert. 배지를 SVG 밖 div로 빼서 7축 라벨과 안 겹치게
-  var svg = '<svg viewBox="0 0 680 440" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-width:680px;overflow:visible">';
+  // 89차 변쌤 명시 (re-fix2) — viewBox y 470 (라벨·점수 들어갈 자리. 배지는 SVG 밖 div라 안 겹침)
+  var svg = '<svg viewBox="0 0 680 470" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-width:680px;overflow:visible">';
   // 격자 다각형 (5단계 — 4·8·12·16·20)
   for (var lv = 4; lv <= 20; lv += 4) {
     var gridPts = [];
@@ -20012,8 +20012,8 @@ function _renderSelCompare(prev, curr) {
     var r = Rmax * (level / 20);
     return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
   }
-  // 89차 변쌤 명시 (re-fix) — viewBox 480 → 440 revert. 배지를 SVG 밖 div로 빼서 7축 라벨과 안 겹치게
-  var svg = '<svg viewBox="0 0 680 440" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-width:680px;overflow:visible">';
+  // 89차 변쌤 명시 (re-fix2) — viewBox y 470 (라벨·변화량 들어갈 자리. 배지는 SVG 밖 div라 안 겹침)
+  var svg = '<svg viewBox="0 0 680 470" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-width:680px;overflow:visible">';
   // 격자
   for (var lv = 4; lv <= 20; lv += 4) {
     var gridPts = [];
@@ -20057,9 +20057,9 @@ function _renderSelCompare(prev, curr) {
     var deltaText = d > 0 ? ('+' + d) : (d === 0 ? '0' : String(d));
     svg += '<circle class="sel-radar-hit" data-r="' + ri5 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="22" fill="transparent" style="cursor:pointer" />';
     svg += '<circle class="sel-radar-dot" data-r="' + ri5 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="7" fill="' + color + '" stroke="#fff" stroke-width="2.5" style="transition:r .15s" pointer-events="none" />';
-    // 89차 변쌤 명시 (re-fix) — 영역 라벨·변화량 둘 다 anchor='middle' / 변화량은 sel-compare-delta 작은 클래스
+    // 89차 변쌤 명시 (re-fix2) — 비교 변화량도 무지개와 동일 폰트(sel-rainbow-score 18px) revert. 절반 의도는 ▲+N점 배지만
     svg += '<text class="sel-rainbow-label" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="middle" fill="' + color + '">' + _selRegionLabel(ri5) + '</text>';
-    svg += '<text class="sel-compare-delta" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 16).toFixed(1) + '" text-anchor="middle" fill="' + deltaColor + '">' + deltaArrow + ' ' + deltaText + '</text>';
+    svg += '<text class="sel-rainbow-score" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 24).toFixed(1) + '" text-anchor="middle" fill="' + deltaColor + '" font-weight="700">' + deltaArrow + ' ' + deltaText + '</text>';
   }
   // 89차 변쌤 명시 (re-fix) — 하단 총점 비교는 SVG 밖 div로 (7축 라벨과 안 겹치게)
   svg += '</svg>';
