@@ -3292,15 +3292,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   font-size:36px; fill:var(--mint2);
   letter-spacing:-.3px;
 }
-/* 89차 변쌤 명시 — 방사형 라벨/점수는 무지개보다 한 단계 큰 폰트 (방사형 SVG layout이 더 압축되어 작아 보임) */
+/* 89차 변쌤 명시 (re-fix) — 방사형 글자 너무 커 절반으로 줄임 (23/20 → 14/12) */
 .sel-radar-label{
   font-family:'Noto Sans KR', sans-serif;
-  font-size:23px; font-weight:700;
+  font-size:14px; font-weight:700;
   pointer-events:none;
   user-select:none;
 }
 .sel-radar-score{
-  font-size:20px; font-weight:600;
+  font-size:12px; font-weight:600;
   pointer-events:none;
 }
 /* 89차 변쌤 명시 — OOO/140 배지 (한 폰트 줄임 + 민트크림 그라디언트 + 흰 글자, 무지개·방사형 공용) */
@@ -3327,14 +3327,19 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 }
 .sel-compare-badge{
   display:inline-block;
-  padding:5px 18px;
-  border-radius:20px;
+  padding:4px 14px;
+  border-radius:14px;
   color:#fff;
   font-family:'Black Han Sans', sans-serif;
-  font-size:22px;
+  font-size:16px;             /* 89차 변쌤 명시 (re-fix) — 22→16px (절반에 가까이) */
   letter-spacing:-.2px;
   white-space:nowrap;
   box-shadow:0 2px 8px rgba(0,0,0,.12);
+}
+/* 89차 변쌤 명시 (re-fix) — 비교 SVG 영역별 변화량(▲+3 식)도 절반 사이즈 (sel-rainbow-score 18px → 12px) */
+.sel-compare-delta{
+  font-size:12px; font-weight:700;
+  pointer-events:none;
 }
 .sel-compare-badge-pos{ background:linear-gradient(135deg, #2aab90 0%, #4ecdb4 100%); box-shadow:0 2px 8px rgba(78,205,180,.32); }
 .sel-compare-badge-neg{ background:linear-gradient(135deg, #c93450 0%, #e57288 100%); box-shadow:0 2px 8px rgba(229,114,136,.32); }
@@ -19747,21 +19752,22 @@ function _selGenerateCompareSummary(prev, curr) {
   var maxName = _SEL_R_META[maxIdx].name;
   var maxColorVar = 'var(--sel-' + _SEL_R_META[maxIdx].key + ')';
   var msg;
+  // 89차 변쌤 명시 (re-fix) — 두 줄 메시지는 첫 줄 짧고 둘째 줄 길게 + 마지막 어절·이모지 nbsp로 외톨이 차단
   if (totalDelta > 0 && posCnt >= 5) {
     msg = (role === 'student')
-      ? '한 해 동안 7가지 마음이 모두 자랐어요. 특히 <strong style="color:' + maxColorVar + '">' + maxName + '</strong>이 +' + maxDelta + '점 가장 많이 자랐어요 ✨'
+      ? '한 해 동안 7가지 마음이 모두 자랐어요.<br>특히 <strong style="color:' + maxColorVar + '">' + maxName + '</strong>이 +' + maxDelta + '점 가장 많이 자랐어요 ✨'
       : posCnt + '개 영역 향상 · 총 +' + totalDelta + ' · ' + maxName + ' 영역 +' + maxDelta + ' 최대';
   } else if (totalDelta > 0) {
     msg = (role === 'student')
-      ? posCnt + '개 영역이 자랐어요. <strong style="color:' + maxColorVar + '">' + maxName + '</strong>이 +' + maxDelta + '점 가장 많이 자랐어요'
+      ? posCnt + '개 영역이 자랐어요.<br><strong style="color:' + maxColorVar + '">' + maxName + '</strong>이 +' + maxDelta + '점 가장 많이 자랐어요'
       : posCnt + '개 향상 / ' + negCnt + '개 감소 / 총 +' + totalDelta + ' · ' + maxName + ' +' + maxDelta;
   } else if (totalDelta === 0) {
     msg = (role === 'student')
-      ? '한 해 동안 마음이 잘 유지되고 있어요'
+      ? '한 해 동안 마음이<br>잘 유지되고 있어요'
       : '총점 변화 없음 · 향상 ' + posCnt + ' / 감소 ' + negCnt + ' (상쇄)';
   } else {
     msg = (role === 'student')
-      ? '한 해 동안 일부 영역이 변동이 있어요. 다음 학기 함께 다시 살펴봐요'
+      ? '한 해 동안 일부 영역에 변동이 있어요.<br>다음 학기 함께 다시 살펴봐요'
       : negCnt + '개 감소 / 총 ' + totalDelta + ' · 다음 학기 검토';
   }
   return '<span style="color:var(--navy);font-size:12.5px;line-height:1.5;text-wrap:pretty;word-break:keep-all">' + msg + '</span>';
@@ -19775,16 +19781,16 @@ function _selShowRegionInfo(rIdx, score) {
   if (!meta) return;
   var st = STATE._selResult;
   var role = (st && st.viewerRole) || 'student';
-  // 89차 변쌤 명시 — 점 분리자 정리 (영역명+점수 한 줄, 메시지 한 줄). short는 리포트 카드에서 보기
+  // 89차 변쌤 명시 — 점 분리자 정리. info 박스가 flex row라 <br> 무시됨 → 띄어쓰기 + margin으로 분리
   if (role === 'student') {
     var lvl = _selScoreLevel(score);
     var msg = (meta.student && meta.student.msg && meta.student.msg[lvl]) || '';
     info.innerHTML = '<span class="sel-result-info-region" style="color:var(--sel-' + meta.key + ')">' + _selEscape(meta.name) + ' ' + (score||0) + '/20점</span>'
-                   + (msg ? '<br><span style="color:var(--mint2);font-weight:700">' + _selEscape(msg) + '</span>' : '');
+                   + (msg ? ' <span style="color:var(--mint2);font-weight:700;margin-left:4px">' + _selEscape(msg) + '</span>' : '');
   } else {
     info.innerHTML = '<span class="sel-result-info-region" style="color:var(--sel-' + meta.key + ')">R' + meta.num + ' ' + _selEscape(meta.name) + ' ' + (score||0) + '/20</span>'
                    + ' <span class="sel-result-info-source">' + _selEscape(meta.teacher.source) + '</span>'
-                   + '<br><span style="color:var(--gray);font-size:11.5px">' + _selEscape(meta.teacher.desc) + '</span>';
+                   + ' <span style="color:var(--gray);font-size:11.5px;margin-left:4px">' + _selEscape(meta.teacher.desc) + '</span>';
   }
 }
 
@@ -20051,9 +20057,9 @@ function _renderSelCompare(prev, curr) {
     var deltaText = d > 0 ? ('+' + d) : (d === 0 ? '0' : String(d));
     svg += '<circle class="sel-radar-hit" data-r="' + ri5 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="22" fill="transparent" style="cursor:pointer" />';
     svg += '<circle class="sel-radar-dot" data-r="' + ri5 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="7" fill="' + color + '" stroke="#fff" stroke-width="2.5" style="transition:r .15s" pointer-events="none" />';
-    // 89차 변쌤 명시 — 영역명·변화량 둘 다 anchor='middle' 통일 (가운데 정렬)
+    // 89차 변쌤 명시 (re-fix) — 영역 라벨·변화량 둘 다 anchor='middle' / 변화량은 sel-compare-delta 작은 클래스
     svg += '<text class="sel-rainbow-label" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="middle" fill="' + color + '">' + _selRegionLabel(ri5) + '</text>';
-    svg += '<text class="sel-rainbow-score" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 24).toFixed(1) + '" text-anchor="middle" fill="' + deltaColor + '" font-weight="700">' + deltaArrow + ' ' + deltaText + '</text>';
+    svg += '<text class="sel-compare-delta" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 16).toFixed(1) + '" text-anchor="middle" fill="' + deltaColor + '">' + deltaArrow + ' ' + deltaText + '</text>';
   }
   // 89차 변쌤 명시 (re-fix) — 하단 총점 비교는 SVG 밖 div로 (7축 라벨과 안 겹치게)
   svg += '</svg>';
@@ -20111,7 +20117,7 @@ function _selShowCompareInfo(rIdx, prevScore, currScore) {
   }
   info.innerHTML = '<span class="sel-result-info-region" style="color:var(--sel-' + meta.key + ')">' + label + '</span>'
                  + ' <span style="color:' + deltaColor + ';font-weight:700">' + friendly + '</span>'
-                 + '<br><span style="color:var(--gray);font-size:11.5px">' + _selEscape(_selPhaseLabel(st && st.previous)) + ' ' + prevScore + '점 → ' + _selEscape(_selPhaseLabel(st && st.current)) + ' ' + currScore + '점</span>';
+                 + ' <span style="color:var(--gray);font-size:11.5px;margin-left:4px">' + _selEscape(_selPhaseLabel(st && st.previous)) + ' ' + prevScore + '점 → ' + _selEscape(_selPhaseLabel(st && st.current)) + ' ' + currScore + '점</span>';
 }
 
 // 89차 — phase_label 안전 fetch (1차/2차 등)
