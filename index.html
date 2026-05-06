@@ -2846,9 +2846,10 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   /* 88차 변쌤 명시: 차트·비교는 짧게(580px)·리포트는 길게(92vh) — _selSwitchTab에서 mode 클래스 토글 */
   max-height:600px;
 }
-.sel-result-box.mode-chart{ max-height:600px; }
-.sel-result-box.mode-compare{ max-height:600px; }
-.sel-result-box.mode-report{ max-height:92vh; }
+/* 89차 모바일 세로 잘림 차단 — min(절대값, vh)로 작은 폰에서 vh 자동 적용 */
+.sel-result-box.mode-chart{ max-height:min(600px, 88vh); }
+.sel-result-box.mode-compare{ max-height:min(600px, 88vh); }
+.sel-result-box.mode-report{ max-height:88vh; }
 /* chart·compare는 차트 영역 높이 컴팩트, report는 sel-report-v2-* 풀 사용 */
 .sel-result-box.mode-chart .sel-result-chart,
 .sel-result-box.mode-compare .sel-result-chart{
@@ -3102,12 +3103,12 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   margin-left:2px;
 }
 .sel-report-v2-cards{
-  display:flex; flex-direction:column; gap:9px;
+  display:flex; flex-direction:column; gap:7px;
 }
 .sel-report-v2-card{
   background:#fff;
   border-radius:16px;
-  padding:13px 14px 11px;
+  padding:10px 14px 9px;
   box-shadow:0 2px 10px rgba(0,0,0,.04);
   position:relative;
   overflow:hidden;
@@ -3281,6 +3282,24 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   font-family:'Black Han Sans', sans-serif;
   font-size:36px; fill:var(--mint2);
   letter-spacing:-.3px;
+}
+/* 89차 변쌤 명시 — 방사형 라벨/점수는 무지개보다 한 단계 큰 폰트 (방사형 SVG layout이 더 압축되어 작아 보임) */
+.sel-radar-label{
+  font-family:'Noto Sans KR', sans-serif;
+  font-size:23px; font-weight:700;
+  pointer-events:none;
+  user-select:none;
+}
+.sel-radar-score{
+  font-size:20px; font-weight:600;
+  pointer-events:none;
+}
+/* 89차 변쌤 명시 — OOO/140 배지 (한 폰트 줄임 + 민트크림 그라디언트 + 흰 글자, 무지개·방사형 공용) */
+.sel-total-badge-text{
+  font-family:'Black Han Sans', sans-serif;
+  font-size:28px; fill:#fff;
+  letter-spacing:-.2px;
+  pointer-events:none;
 }
 
 /* SEL intro 모달 본문 */
@@ -19704,6 +19723,10 @@ function _renderSelRainbow(result) {
   var schoolYear  = result.school_year ? (result.school_year + '학년') : '';
   // SVG 본문
   var svg = '<svg viewBox="0 0 680 420" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-width:680px;overflow:visible">';
+  // 89차 OOO/140 배지 그라디언트 (mint deep → mint light, 흰 글자 가독성)
+  svg += '<defs><linearGradient id="selBadgeRainbow" x1="0%" y1="0%" x2="100%" y2="100%">'
+       + '<stop offset="0%" stop-color="#2aab90"/><stop offset="100%" stop-color="#4ecdb4"/>'
+       + '</linearGradient></defs>';
   // 7개 호 (좌측 R1 → 우측 R7)
   var styles = getComputedStyle(document.documentElement);
   for (var i = 0; i < 7; i++) {
@@ -19736,8 +19759,10 @@ function _renderSelRainbow(result) {
   if (schoolYear) {
     svg += '<text class="sel-rainbow-center-meta" x="' + cx + '" y="266" text-anchor="middle">' + schoolYear + '</text>';
   }
-  svg += '<text class="sel-rainbow-center-total" x="' + cx + '" y="306" text-anchor="middle">' + total + ' / 140</text>';
-  svg += '<text class="sel-rainbow-center-meta" x="' + cx + '" y="330" text-anchor="middle">' + phaseLabel + (dateStr ? ' · ' + dateStr : '') + '</text>';
+  // 89차 OOO/140 배지 — rect (mint gradient) + 흰 글자 (변쌤 명시)
+  svg += '<rect x="' + (cx-78) + '" y="284" width="156" height="40" rx="20" fill="url(#selBadgeRainbow)" />';
+  svg += '<text class="sel-total-badge-text" x="' + cx + '" y="312" text-anchor="middle">' + total + ' / 140</text>';
+  svg += '<text class="sel-rainbow-center-meta" x="' + cx + '" y="346" text-anchor="middle">' + phaseLabel + (dateStr ? ' · ' + dateStr : '') + '</text>';
   svg += '</svg>';
   chart.innerHTML = svg;
   // 호버·터치 인터랙션 (다른 영역 dim, 해당 영역 강조 + 인라인 안내)
@@ -19784,7 +19809,12 @@ function _renderSelRadar(result) {
     var r = Rmax * (level / 20);
     return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
   }
-  var svg = '<svg viewBox="0 0 680 440" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-width:680px;overflow:visible">';
+  // 89차 viewBox y 440→470 — OOO/140 배지(높이 40 + padding) 들어갈 자리 확보
+  var svg = '<svg viewBox="0 0 680 470" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-width:680px;overflow:visible">';
+  // 89차 OOO/140 배지 그라디언트 (mint deep → mint light, 흰 글자 가독성)
+  svg += '<defs><linearGradient id="selBadgeRadar" x1="0%" y1="0%" x2="100%" y2="100%">'
+       + '<stop offset="0%" stop-color="#2aab90"/><stop offset="100%" stop-color="#4ecdb4"/>'
+       + '</linearGradient></defs>';
   // 격자 다각형 (5단계 — 4·8·12·16·20)
   for (var lv = 4; lv <= 20; lv += 4) {
     var gridPts = [];
@@ -19818,11 +19848,13 @@ function _renderSelRadar(result) {
     // invisible hit area(r=22) + dot 시각만 (r=7, pointer-events:none)
     svg += '<circle class="sel-radar-hit" data-r="' + ri4 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="22" fill="transparent" style="cursor:pointer" />';
     svg += '<circle class="sel-radar-dot" data-r="' + ri4 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="7" fill="' + color + '" stroke="#fff" stroke-width="2.5" style="transition:r .15s" pointer-events="none" />';
-    svg += '<text class="sel-rainbow-label" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="' + color + '">' + _selRegionLabel(ri4) + '</text>';
-    svg += '<text class="sel-rainbow-score" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 24).toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="#7a8c98">' + scores[ri4] + '/20</text>';
+    // 89차 변쌤 명시 — 방사형 라벨/점수는 무지개보다 한 단계 큰 폰트 (sel-radar-label/score 23/20px)
+    svg += '<text class="sel-radar-label" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="' + color + '">' + _selRegionLabel(ri4) + '</text>';
+    svg += '<text class="sel-radar-score" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 26).toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="#7a8c98">' + scores[ri4] + '/20</text>';
   }
-  // 하단 총점
-  svg += '<text class="sel-rainbow-center-total" x="' + cx + '" y="424" text-anchor="middle">' + total + ' / 140</text>';
+  // 89차 OOO/140 배지 — rect (mint gradient) + 흰 글자 (변쌤 명시 · viewBox 470 안 y=420~460)
+  svg += '<rect x="' + (cx-78) + '" y="420" width="156" height="40" rx="20" fill="url(#selBadgeRadar)" />';
+  svg += '<text class="sel-total-badge-text" x="' + cx + '" y="448" text-anchor="middle">' + total + ' / 140</text>';
   svg += '</svg>';
   chart.innerHTML = svg;
   // 호버·터치 — invisible hit area(r=20)에 이벤트 바인딩, dot은 시각만 (r 7→9 살짝 확대)
