@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<!-- 88차: 브라우저 메모리 캐시 차단 — 새 배포 즉시 반영 (Vercel ETag와 2중 안전망) -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>마음이음</title>
 <link rel="icon" type="image/png" href="./favicon.png">
 <link rel="apple-touch-icon" href="./favicon.png">
@@ -18040,7 +18044,7 @@ function _refreshSelSettingsCard() {
   } else {  // null·skipped·cancelled·has_record===false → 미수행
     if (card)  card.classList.add('pulse');
     if (badge) badge.classList.remove('hidden');
-    if (sub)   sub.textContent = '아직 안 했어요 — 짧게 7가지 마음 빛깔을 살펴봐요';
+    if (sub)   sub.textContent = '아직 안 했어요 — 우리의 7가지 마음 빛깔을 살펴봐요';
   }
 }
 
