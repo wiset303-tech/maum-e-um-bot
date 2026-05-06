@@ -3292,15 +3292,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   font-size:36px; fill:var(--mint2);
   letter-spacing:-.3px;
 }
-/* 89차 변쌤 명시 (re-fix2) — 방사형 글자는 무지개와 동일(20/18) · 변쌤 절반 의도는 OOO/140 배지만 */
+/* 89차 변쌤 명시 (re-fix4) — 방사형 글자는 무지개보다 2pt 큼 (방사형 layout이 더 압축되어 보임) */
 .sel-radar-label{
   font-family:'Noto Sans KR', sans-serif;
-  font-size:20px; font-weight:700;
+  font-size:22px; font-weight:700;
   pointer-events:none;
   user-select:none;
 }
 .sel-radar-score{
-  font-size:18px; font-weight:600;
+  font-size:20px; font-weight:600;
   pointer-events:none;
 }
 /* 89차 변쌤 명시 — OOO/140 배지 (한 폰트 줄임 + 민트크림 그라디언트 + 흰 글자, 무지개·방사형 공용) */
@@ -20066,19 +20066,19 @@ function _renderSelCompare(prev, curr) {
     var deltaText = d > 0 ? ('+' + d) : (d === 0 ? '0' : String(d));
     svg += '<circle class="sel-radar-hit" data-r="' + ri5 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="22" fill="transparent" style="cursor:pointer" />';
     svg += '<circle class="sel-radar-dot" data-r="' + ri5 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="7" fill="' + color + '" stroke="#fff" stroke-width="2.5" style="transition:r .15s" pointer-events="none" />';
-    // 89차 변쌤 명시 (re-fix3) — 비교 변화량 한 포인트 키움 (sel-rainbow-score 18 → inline 19px)
-    svg += '<text class="sel-rainbow-label" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="middle" fill="' + color + '">' + _selRegionLabel(ri5) + '</text>';
-    svg += '<text class="sel-rainbow-score" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 25).toFixed(1) + '" text-anchor="middle" fill="' + deltaColor + '" font-weight="700" style="font-size:19px">' + deltaArrow + ' ' + deltaText + '</text>';
+    // 89차 변쌤 명시 (re-fix4) — 비교탭도 방사형 차트라 sel-radar-label/score 클래스 사용 (22/20px)
+    svg += '<text class="sel-radar-label" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="middle" fill="' + color + '">' + _selRegionLabel(ri5) + '</text>';
+    svg += '<text class="sel-radar-score" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 26).toFixed(1) + '" text-anchor="middle" fill="' + deltaColor + '" font-weight="700">' + deltaArrow + ' ' + deltaText + '</text>';
   }
   // 89차 변쌤 명시 (re-fix) — 하단 총점 비교는 SVG 밖 div로 (7축 라벨과 안 겹치게)
   svg += '</svg>';
   var totalArrow = deltaTotal > 0 ? '▲' : deltaTotal < 0 ? '▽' : '·';
   var totalText = deltaTotal > 0 ? ('+' + deltaTotal) : (deltaTotal === 0 ? '0' : String(deltaTotal));
   var badgeCls = deltaTotal > 0 ? 'pos' : deltaTotal < 0 ? 'neg' : 'zero';
-  // 89차 변쌤 명시 (re-fix3) — currLabel의 "N차" 부분만 민트크림 highlight (현재 진단 강조)
-  var currLabelHtml = _selEscape(currLabel).replace(/(\d+차)/, '<span class="sel-compare-curr-emph">$1</span>');
+  // 89차 변쌤 명시 (re-fix4) — currLabel + currTotal 통째로 민트크림 highlight (2026-2차 112 전체 강조)
+  var currHtml = '<span class="sel-compare-curr-emph">' + _selEscape(currLabel) + ' ' + currTotal + '</span>';
   var summaryHtml = '<div class="sel-compare-summary-bar">'
-                  + '<span class="sel-compare-prev-curr">' + _selEscape(prevLabel) + ' ' + prevTotal + ' → ' + currLabelHtml + ' ' + currTotal + '</span>'
+                  + '<span class="sel-compare-prev-curr">' + _selEscape(prevLabel) + ' ' + prevTotal + ' → ' + currHtml + '</span>'
                   + '<span class="sel-compare-badge sel-compare-badge-' + badgeCls + '">' + totalArrow + ' ' + totalText + '점</span>'
                   + '</div>';
   // 89차 변쌤 명시 (re-fix v2) — wrap div로 svg+배지 세로 정렬 (parent flex 가로 늘어남 차단)
