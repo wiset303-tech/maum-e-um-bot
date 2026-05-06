@@ -4688,7 +4688,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <button class="modal-close" onclick="closeModal('modal-sel-intro')">✕</button>
     <img class="sel-intro-logo" src="./favicon.png" alt="마음이음">
     <div class="sel-intro-title">마음이음 역량검사</div>
-    <div class="sel-intro-sub">짧은 문항으로 내 마음의<br>7가지 빛깔을 살펴봐요.<br>한 해 동안 어떻게 자라는지<br>마음 파노라마에 담겨요</div>
+    <div class="sel-intro-sub">짧은 문항으로 내 마음의<br>7가지 빛깔을 살펴봐요.<br>한 해 동안 어떻게 자라는지<br>한눈에 살펴볼 수 있어요</div>
     <div class="sel-intro-rainbow">
       <span style="background:var(--sel-r1)"></span>
       <span style="background:var(--sel-r2)"></span>
@@ -18700,7 +18700,7 @@ function _refreshSelSettingsCard() {
   if (done) {
     if (card)  card.classList.remove('pulse');
     if (badge) badge.classList.add('hidden');
-    if (sub)   sub.textContent = '검사 완료 — 결과는 마음 파노라마에서 만나요';
+    if (sub)   sub.textContent = '검사 완료 — 다시 살펴볼 수 있어요';
   } else if (st.status === 'in_progress') {
     if (card)  card.classList.add('pulse');
     if (badge) badge.classList.remove('hidden');
@@ -19328,7 +19328,7 @@ var _SEL_R_META = [
   {
     key:'r1', num:1, name:'자기인식',
     student: {
-      short:'내 마음이 어떤지 스스로 알아채고 표현하는 힘',
+      short:'내 마음이 어떤지 스스로 알아채고 표현하는 힘',
       examples:[
         '기분이 좋은 이유나 속상한 이유를 말로 설명하기',
         '기쁨·서운함 같은 감정 단어를 평소에 써보기'
@@ -19345,7 +19345,7 @@ var _SEL_R_META = [
   {
     key:'r2', num:2, name:'자기조절',
     student: {
-      short:'화나거나 답답할 때 마음을 건강하게 다스리는 힘',
+      short:'화나거나 답답할 때 마음을 건강하게 다스리는 힘',
       examples:[
         '화날 때 잠시 멈추고 깊게 숨 쉬기',
         '속상할 때 그림 그리기·이야기하기 등 건강한 방법 써보기'
@@ -19362,7 +19362,7 @@ var _SEL_R_META = [
   {
     key:'r3', num:3, name:'관계인식',
     student: {
-      short:'친구의 마음을 살펴보고 공감하는 힘',
+      short:'친구의 마음을 살펴보고 공감하는 힘',
       examples:[
         '친구가 슬퍼할 때 어깨 토닥여주기',
         '친구에게 좋은 일 생기면 말로 축하하기'
@@ -19379,7 +19379,7 @@ var _SEL_R_META = [
   {
     key:'r4', num:4, name:'관계관리',
     student: {
-      short:'친구들과 두루 잘 어울리고 대화하는 힘',
+      short:'친구들과 두루 잘 어울리고 대화하는 힘',
       examples:[
         '쉬는 시간에 친구들과 어울려 활동하기',
         '새 모둠에서도 자연스럽게 인사하고 어울리기'
@@ -19396,7 +19396,7 @@ var _SEL_R_META = [
   {
     key:'r5', num:5, name:'공동체 가치',
     student: {
-      short:'함께 쓰는 것을 소중히 다루고 잘못을 인정하는 힘',
+      short:'함께 쓰는 것을 소중히 다루고 잘못을 인정하는 힘',
       examples:[
         '빌린 물건 깨끗이 돌려주기',
         '잘못했을 때 정중하게 「미안해」 말하기'
@@ -19413,7 +19413,7 @@ var _SEL_R_META = [
   {
     key:'r6', num:6, name:'정신건강',
     student: {
-      short:'마음이 힘들 때 어른께 도움 요청하는 힘',
+      short:'마음이 힘들 때 어른께 도움 요청하는 힘',
       examples:[
         '속상할 때 선생님이나 부모님께 이야기하기',
         '친구가 마음 아파 보이면 어른께 알리기'
@@ -19430,7 +19430,7 @@ var _SEL_R_META = [
   {
     key:'r7', num:7, name:'자기주도',
     student: {
-      short:'스스로 준비하고 끝까지 해내는 힘',
+      short:'스스로 준비하고 끝까지 해내는 힘',
       examples:[
         '쉬는 시간에 다음 수업 미리 준비하기',
         '과제를 미루지 않고 기한 내 제출하기'
@@ -19650,10 +19650,56 @@ function _selSwitchChartSub(sub) {
   else                 _renderSelRainbow(st.current);
 }
 
-// 인라인 설명 박스 default 안내
+// 인라인 설명 박스 default 안내 — 89차 변쌤 명시: 비교 모드면 종합 코멘트 자동 노출 (역량 자체 설명 X)
 function _selResetInfo() {
   var info = document.getElementById('sel-result-info');
-  if (info) info.innerHTML = '<span class="sel-result-info-default">영역 위에 손가락을 올리면 자세한 설명이 나와요</span>';
+  if (!info) return;
+  var st = STATE._selResult;
+  if (st && st.mode === 'compare' && st.previous && st.current) {
+    info.innerHTML = _selGenerateCompareSummary(st.previous, st.current);
+  } else {
+    info.innerHTML = '<span class="sel-result-info-default">영역 위에 손가락을 올리면 자세한 설명이 나와요</span>';
+  }
+}
+
+// 89차 변쌤 명시 — 비교 탭 종합 코멘트 (어떤 영역이 얼마나 자랐는지 자동 분석·친절 문장)
+function _selGenerateCompareSummary(prev, curr) {
+  var st = STATE._selResult;
+  var role = (st && st.viewerRole) || 'student';
+  var deltas = [];
+  for (var i = 0; i < 7; i++) {
+    var key = 'r' + (i+1) + '_score';
+    deltas.push((curr[key]||0) - (prev[key]||0));
+  }
+  var totalDelta = (curr.total_score||0) - (prev.total_score||0);
+  var posCnt = 0, negCnt = 0;
+  var maxIdx = 0, maxDelta = deltas[0];
+  for (var j = 0; j < 7; j++) {
+    if (deltas[j] > 0) posCnt++;
+    else if (deltas[j] < 0) negCnt++;
+    if (deltas[j] > maxDelta) { maxDelta = deltas[j]; maxIdx = j; }
+  }
+  var maxName = _SEL_R_META[maxIdx].name;
+  var maxColorVar = 'var(--sel-' + _SEL_R_META[maxIdx].key + ')';
+  var msg;
+  if (totalDelta > 0 && posCnt >= 5) {
+    msg = (role === 'student')
+      ? '한 해 동안 7가지 마음이 모두 자랐어요. 특히 <strong style="color:' + maxColorVar + '">' + maxName + '</strong>이 +' + maxDelta + '점 가장 많이 자랐어요 ✨'
+      : posCnt + '개 영역 향상 · 총 +' + totalDelta + ' · ' + maxName + ' 영역 +' + maxDelta + ' 최대';
+  } else if (totalDelta > 0) {
+    msg = (role === 'student')
+      ? posCnt + '개 영역이 자랐어요. <strong style="color:' + maxColorVar + '">' + maxName + '</strong>이 +' + maxDelta + '점 가장 많이 자랐어요'
+      : posCnt + '개 향상 / ' + negCnt + '개 감소 / 총 +' + totalDelta + ' · ' + maxName + ' +' + maxDelta;
+  } else if (totalDelta === 0) {
+    msg = (role === 'student')
+      ? '한 해 동안 마음이 잘 유지되고 있어요'
+      : '총점 변화 없음 · 향상 ' + posCnt + ' / 감소 ' + negCnt + ' (상쇄)';
+  } else {
+    msg = (role === 'student')
+      ? '한 해 동안 일부 영역이 변동이 있어요. 다음 학기 함께 다시 살펴봐요'
+      : negCnt + '개 감소 / 총 ' + totalDelta + ' · 다음 학기 검토';
+  }
+  return '<span style="color:var(--navy);font-size:12.5px;line-height:1.5;text-wrap:pretty;word-break:keep-all">' + msg + '</span>';
 }
 
 // 영역 호버 시 인라인 설명 — 88차 변쌤 명시: viewerRole 분기 (학생: R번호·출처배지 X·점수 구간 메시지 / 교사: 디테일)
@@ -19664,18 +19710,16 @@ function _selShowRegionInfo(rIdx, score) {
   if (!meta) return;
   var st = STATE._selResult;
   var role = (st && st.viewerRole) || 'student';
+  // 89차 변쌤 명시 — 점 분리자 정리 (영역명+점수 한 줄, 메시지 한 줄). short는 리포트 카드에서 보기
   if (role === 'student') {
     var lvl = _selScoreLevel(score);
     var msg = (meta.student && meta.student.msg && meta.student.msg[lvl]) || '';
-    info.innerHTML = '<span class="sel-result-info-region" style="color:var(--sel-' + meta.key + ')">' + _selEscape(meta.name) + '</span>'
-                   + ' · ' + _selEscape(meta.student.short)
-                   + ' · <strong>' + (score||0) + '/20점</strong>'
-                   + (msg ? ' · <span style="color:var(--mint2);font-weight:700">' + _selEscape(msg) + '</span>' : '');
+    info.innerHTML = '<span class="sel-result-info-region" style="color:var(--sel-' + meta.key + ')">' + _selEscape(meta.name) + ' ' + (score||0) + '/20점</span>'
+                   + (msg ? '<br><span style="color:var(--mint2);font-weight:700">' + _selEscape(msg) + '</span>' : '');
   } else {
-    info.innerHTML = '<span class="sel-result-info-region" style="color:var(--sel-' + meta.key + ')">R' + meta.num + ' ' + _selEscape(meta.name) + '</span>'
-                   + ' · ' + _selEscape(meta.teacher.desc)
+    info.innerHTML = '<span class="sel-result-info-region" style="color:var(--sel-' + meta.key + ')">R' + meta.num + ' ' + _selEscape(meta.name) + ' ' + (score||0) + '/20</span>'
                    + ' <span class="sel-result-info-source">' + _selEscape(meta.teacher.source) + '</span>'
-                   + ' · <strong>' + (score||0) + '/20점</strong>';
+                   + '<br><span style="color:var(--gray);font-size:11.5px">' + _selEscape(meta.teacher.desc) + '</span>';
   }
 }
 
@@ -19750,9 +19794,9 @@ function _renderSelRainbow(result) {
     var labelR = Rmax + 52;
     var lx = cx + labelR * Math.cos(midRad);
     var ly = cy + labelR * Math.sin(midRad);
-    var anchor = (lx < cx - 30) ? 'end' : (lx > cx + 30) ? 'start' : 'middle';
-    svg += '<text class="sel-rainbow-label" x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '" text-anchor="' + anchor + '" fill="' + color + '">' + _selRegionLabel(i) + '</text>';
-    svg += '<text class="sel-rainbow-score" x="' + lx.toFixed(1) + '" y="' + (ly + 26).toFixed(1) + '" text-anchor="' + anchor + '" fill="#7a8c98">' + score + '/20</text>';
+    // 89차 변쌤 명시 — 영역명·점수 둘 다 anchor='middle'로 통일 (점수가 영역명 가운데 정렬)
+    svg += '<text class="sel-rainbow-label" x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '" text-anchor="middle" fill="' + color + '">' + _selRegionLabel(i) + '</text>';
+    svg += '<text class="sel-rainbow-score" x="' + lx.toFixed(1) + '" y="' + (ly + 26).toFixed(1) + '" text-anchor="middle" fill="#7a8c98">' + score + '/20</text>';
   }
   // 가운데 반원 — 학생 정보 (큰 폰트 26/16/36/16 맞게 y 좌표 재배치)
   svg += '<text class="sel-rainbow-center-name" x="' + cx + '" y="240" text-anchor="middle">' + name + '</text>';
@@ -19844,13 +19888,11 @@ function _renderSelRadar(result) {
     var color = styles.getPropertyValue('--sel-' + meta.key).trim() || '#999';
     var p = pt(ri4, scores[ri4]);
     var lp = pt(ri4, 31);
-    var labelAnchor = (lp.x < cx - 8) ? 'end' : (lp.x > cx + 8) ? 'start' : 'middle';
-    // invisible hit area(r=22) + dot 시각만 (r=7, pointer-events:none)
+    // 89차 변쌤 명시 — 라벨·점수 둘 다 anchor='middle' 통일 (점수가 영역명 가운데 정렬)
     svg += '<circle class="sel-radar-hit" data-r="' + ri4 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="22" fill="transparent" style="cursor:pointer" />';
     svg += '<circle class="sel-radar-dot" data-r="' + ri4 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="7" fill="' + color + '" stroke="#fff" stroke-width="2.5" style="transition:r .15s" pointer-events="none" />';
-    // 89차 변쌤 명시 — 방사형 라벨/점수는 무지개보다 한 단계 큰 폰트 (sel-radar-label/score 23/20px)
-    svg += '<text class="sel-radar-label" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="' + color + '">' + _selRegionLabel(ri4) + '</text>';
-    svg += '<text class="sel-radar-score" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 26).toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="#7a8c98">' + scores[ri4] + '/20</text>';
+    svg += '<text class="sel-radar-label" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="middle" fill="' + color + '">' + _selRegionLabel(ri4) + '</text>';
+    svg += '<text class="sel-radar-score" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 26).toFixed(1) + '" text-anchor="middle" fill="#7a8c98">' + scores[ri4] + '/20</text>';
   }
   // 89차 OOO/140 배지 — rect (mint gradient) + 흰 글자 (변쌤 명시 · viewBox 470 안 y=420~460)
   svg += '<rect x="' + (cx-78) + '" y="420" width="156" height="40" rx="20" fill="url(#selBadgeRadar)" />';
@@ -19904,7 +19946,14 @@ function _renderSelCompare(prev, curr) {
     var r = Rmax * (level / 20);
     return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
   }
-  var svg = '<svg viewBox="0 0 680 440" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-width:680px;overflow:visible">';
+  // 89차 viewBox y 440→480 — 변쌤 명시 OOO점 배지 자리 확보 (작은글자 y=388·배지 y=410·텍스트 y=438)
+  var svg = '<svg viewBox="0 0 680 480" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-width:680px;overflow:visible">';
+  // 89차 ▲+N점 배지용 그라디언트 3종 (상승=mint, 하강=red, 변화 없음=gray)
+  svg += '<defs>'
+       + '<linearGradient id="selBadgeCmpGreen" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#2aab90"/><stop offset="100%" stop-color="#4ecdb4"/></linearGradient>'
+       + '<linearGradient id="selBadgeCmpRed"   x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#c93450"/><stop offset="100%" stop-color="#e57288"/></linearGradient>'
+       + '<linearGradient id="selBadgeCmpGray"  x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7a8c98"/><stop offset="100%" stop-color="#a4b4be"/></linearGradient>'
+       + '</defs>';
   // 격자
   for (var lv = 4; lv <= 20; lv += 4) {
     var gridPts = [];
@@ -19948,15 +19997,17 @@ function _renderSelCompare(prev, curr) {
     var deltaText = d > 0 ? ('+' + d) : (d === 0 ? '0' : String(d));
     svg += '<circle class="sel-radar-hit" data-r="' + ri5 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="22" fill="transparent" style="cursor:pointer" />';
     svg += '<circle class="sel-radar-dot" data-r="' + ri5 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="7" fill="' + color + '" stroke="#fff" stroke-width="2.5" style="transition:r .15s" pointer-events="none" />';
-    svg += '<text class="sel-rainbow-label" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="' + color + '">' + _selRegionLabel(ri5) + '</text>';
-    svg += '<text class="sel-rainbow-score" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 24).toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="' + deltaColor + '" font-weight="700">' + deltaArrow + ' ' + deltaText + '</text>';
+    // 89차 변쌤 명시 — 영역명·변화량 둘 다 anchor='middle' 통일 (가운데 정렬)
+    svg += '<text class="sel-rainbow-label" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="middle" fill="' + color + '">' + _selRegionLabel(ri5) + '</text>';
+    svg += '<text class="sel-rainbow-score" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 24).toFixed(1) + '" text-anchor="middle" fill="' + deltaColor + '" font-weight="700">' + deltaArrow + ' ' + deltaText + '</text>';
   }
-  // 하단 총점 비교
+  // 89차 변쌤 명시 — 하단 총점 비교: 작은 글자(1차→2차) 위로·▲+N점 배지화 (위 글자와 겹침 차단)
   var totalArrow = deltaTotal > 0 ? '▲' : deltaTotal < 0 ? '▽' : '·';
-  var totalColor = deltaTotal > 0 ? '#2aab90' : deltaTotal < 0 ? '#d9455f' : '#999';
   var totalText = deltaTotal > 0 ? ('+' + deltaTotal) : (deltaTotal === 0 ? '0' : String(deltaTotal));
-  svg += '<text class="sel-rainbow-center-meta" x="' + cx + '" y="406" text-anchor="middle">' + _selEscape(prevLabel) + ' ' + prevTotal + ' → ' + _selEscape(currLabel) + ' ' + currTotal + '</text>';
-  svg += '<text class="sel-rainbow-center-total" x="' + cx + '" y="432" text-anchor="middle" fill="' + totalColor + '">' + totalArrow + ' ' + totalText + '점</text>';
+  var badgeGrad = deltaTotal > 0 ? 'url(#selBadgeCmpGreen)' : deltaTotal < 0 ? 'url(#selBadgeCmpRed)' : 'url(#selBadgeCmpGray)';
+  svg += '<text class="sel-rainbow-center-meta" x="' + cx + '" y="394" text-anchor="middle">' + _selEscape(prevLabel) + ' ' + prevTotal + ' → ' + _selEscape(currLabel) + ' ' + currTotal + '</text>';
+  svg += '<rect x="' + (cx-78) + '" y="412" width="156" height="40" rx="20" fill="' + badgeGrad + '" />';
+  svg += '<text class="sel-total-badge-text" x="' + cx + '" y="440" text-anchor="middle">' + totalArrow + ' ' + totalText + '점</text>';
   svg += '</svg>';
   chart.innerHTML = svg;
   // 호버·터치 — invisible hit area(r=20) + dot 시각만 (r 7→9)
@@ -19978,7 +20029,7 @@ function _renderSelCompare(prev, curr) {
   });
 }
 
-// 비교 모드 호버 — 88차 변쌤 명시: viewerRole 분기 (학생용 R번호 X)
+// 비교 모드 호버 — 89차 변쌤 명시: 역량 자체 설명 X · 어떤 부분이 얼마나 좋아졌는지 친절 문장
 function _selShowCompareInfo(rIdx, prevScore, currScore) {
   var info = document.getElementById('sel-result-info');
   if (!info) return;
@@ -19987,13 +20038,30 @@ function _selShowCompareInfo(rIdx, prevScore, currScore) {
   var st = STATE._selResult;
   var role = (st && st.viewerRole) || 'student';
   var d = currScore - prevScore;
-  var arrow = d > 0 ? '▲' : d < 0 ? '▽' : '·';
   var deltaColor = d > 0 ? 'var(--mint2)' : d < 0 ? '#d9455f' : 'var(--gray)';
-  var deltaText = d > 0 ? ('+' + d) : (d === 0 ? '변화 없음' : String(d));
   var label = (role === 'student') ? _selEscape(meta.name) : ('R' + meta.num + ' ' + _selEscape(meta.name));
+  var friendly;
+  if (role === 'student') {
+    if (d >= 5)      friendly = '한 해 동안 +' + d + '점 — 많이 자랐어요 ✨';
+    else if (d > 0)  friendly = '한 해 동안 +' + d + '점 자랐어요';
+    else if (d === 0) friendly = '잘 유지되고 있어요';
+    else if (d >= -2) friendly = d + '점 — 다음에 다시 살펴봐요';
+    else              friendly = d + '점 — 함께 다시 살펴봐요';
+  } else {
+    var pct = prevScore > 0 ? Math.round((d / prevScore) * 100) : 0;
+    if (d > 0)       friendly = '+' + d + '점 향상 (' + (pct >= 0 ? '+' : '') + pct + '%)';
+    else if (d === 0) friendly = '변화 없음';
+    else              friendly = d + '점 감소 (' + pct + '%)';
+  }
   info.innerHTML = '<span class="sel-result-info-region" style="color:var(--sel-' + meta.key + ')">' + label + '</span>'
-                 + ' · <strong>' + prevScore + ' → ' + currScore + '</strong>'
-                 + ' · <span style="color:' + deltaColor + ';font-weight:700">' + arrow + ' ' + deltaText + '</span>';
+                 + ' <span style="color:' + deltaColor + ';font-weight:700">' + friendly + '</span>'
+                 + '<br><span style="color:var(--gray);font-size:11.5px">' + _selEscape(_selPhaseLabel(st && st.previous)) + ' ' + prevScore + '점 → ' + _selEscape(_selPhaseLabel(st && st.current)) + ' ' + currScore + '점</span>';
+}
+
+// 89차 — phase_label 안전 fetch (1차/2차 등)
+function _selPhaseLabel(rec) {
+  if (!rec) return '';
+  return rec.phase_label || ((rec.phase || 1) + '차');
 }
 
 // 88차 변쌤 명시 v2: SEL 리포트 탭 — 마음이음 톤 새 디자인 (favicon·mint cream·작은 글자·여백)
