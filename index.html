@@ -2887,6 +2887,159 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   opacity:.35; cursor:not-allowed;
 }
 .sel-result-tab[disabled]:hover{ color:var(--gray); }
+/* 88차: 차트 탭 전용 2차 토글 ([무지개]/[방사형]) — 1차 탭 아래 행 */
+.sel-chart-subtoggle{
+  display:flex; gap:8px;
+  padding:10px 16px;
+  background:var(--mint4);
+  border-bottom:1px solid var(--lgray);
+  justify-content:center;
+}
+.sel-chart-subtoggle.hidden{ display:none; }
+.sel-chart-sub{
+  flex:0 0 auto;
+  padding:7px 18px;
+  border:1.5px solid transparent;
+  background:#fff;
+  border-radius:999px;
+  font-family:inherit;
+  font-size:13px; font-weight:700;
+  color:var(--gray);
+  cursor:pointer;
+  transition:transform .12s, border-color .15s, color .15s, box-shadow .15s;
+}
+.sel-chart-sub:hover{ transform:translateY(-1px); color:var(--mint2); }
+.sel-chart-sub.active{
+  background:linear-gradient(135deg, var(--mint), var(--mint2));
+  color:#fff;
+  border-color:transparent;
+  box-shadow:0 3px 10px rgba(78,205,180,.32);
+}
+/* 88차: 리포트 탭 — 학생/교사 친화 카드 7개 세로 배열 */
+.sel-report-wrap{
+  background:#fff;
+  padding:14px 18px 18px;
+  max-height:580px;
+  overflow-y:auto;
+}
+.sel-report-summary{
+  text-align:center;
+  padding:8px 12px 14px;
+  margin-bottom:10px;
+  border-bottom:1px dashed var(--lgray);
+}
+.sel-report-summary-name{
+  font-family:'Black Han Sans', sans-serif;
+  font-size:20px; color:var(--navy);
+  letter-spacing:-.2px;
+}
+.sel-report-summary-total{
+  font-family:'Black Han Sans', sans-serif;
+  font-size:24px; color:var(--mint2);
+  margin-top:4px;
+}
+.sel-report-summary-meta{
+  font-size:12.5px; color:var(--gray);
+  margin-top:3px;
+}
+.sel-report-card{
+  display:flex; align-items:flex-start; gap:12px;
+  padding:14px;
+  margin-bottom:10px;
+  background:#fff;
+  border-radius:14px;
+  border:1.5px solid var(--lgray);
+  border-left:5px solid var(--lgray);
+  transition:transform .15s, box-shadow .15s;
+}
+.sel-report-card:hover{ transform:translateY(-1px); box-shadow:0 4px 14px rgba(0,0,0,.06); }
+.sel-report-card-bar{
+  flex-shrink:0;
+  width:42px; height:42px;
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  color:#fff;
+  font-family:'Black Han Sans', sans-serif;
+  font-size:15px;
+  letter-spacing:-.3px;
+  box-shadow:0 2px 6px rgba(0,0,0,.12);
+}
+.sel-report-card-body{ flex:1; min-width:0; }
+.sel-report-card-head{
+  display:flex; align-items:baseline; justify-content:space-between;
+  gap:10px;
+  margin-bottom:5px;
+  flex-wrap:wrap;
+}
+.sel-report-card-name{
+  font-size:16px; font-weight:800;
+  color:var(--navy);
+  letter-spacing:-.2px;
+}
+.sel-report-card-score{
+  font-family:'Black Han Sans', sans-serif;
+  font-size:18px;
+  letter-spacing:-.2px;
+}
+.sel-report-card-desc{
+  font-size:13.5px; color:var(--navy);
+  line-height:1.55; word-break:keep-all;
+  text-wrap:pretty;
+  margin-bottom:8px;
+  opacity:.9;
+}
+.sel-report-card-msg{
+  font-size:13px; color:var(--mint2);
+  font-weight:700;
+  margin-bottom:8px;
+  letter-spacing:-.1px;
+}
+.sel-report-card-msg.low{ color:#d9455f; }
+.sel-report-card-msg.mid{ color:#e8a23a; }
+.sel-report-examples-title{
+  font-size:11.5px; font-weight:700;
+  color:var(--gray);
+  letter-spacing:.4px;
+  margin-bottom:4px;
+}
+.sel-report-examples{
+  margin:0; padding-left:18px;
+  font-size:12.5px; color:var(--navy);
+  line-height:1.55; word-break:keep-all;
+  opacity:.85;
+}
+.sel-report-examples li{ margin-bottom:2px; }
+/* 교사용 추가 영역 (학생용엔 hidden) */
+.sel-report-teacher-extra{
+  margin-top:10px;
+  padding:9px 11px;
+  background:var(--cream);
+  border-radius:10px;
+  border:1px dashed rgba(78,205,180,.3);
+}
+.sel-report-teacher-extra-title{
+  font-size:11px; font-weight:800;
+  color:var(--mint2);
+  letter-spacing:.5px;
+  margin-bottom:5px;
+}
+.sel-report-teacher-keywords{
+  display:flex; flex-wrap:wrap; gap:5px;
+  margin-bottom:7px;
+}
+.sel-report-teacher-keyword{
+  display:inline-block;
+  padding:2px 8px;
+  background:var(--mint4);
+  color:var(--mint2);
+  border-radius:999px;
+  font-size:11px; font-weight:600;
+}
+.sel-report-teacher-tips{
+  margin:0; padding-left:16px;
+  font-size:12px; color:var(--navy);
+  line-height:1.5;
+}
 /* chart 영역 height 고정 — 호버 시 layout 안 변동 */
 .sel-result-chart{
   background:#fff;
@@ -4415,10 +4568,16 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <div class="sel-result-title" id="sel-result-title">마음이음 역량검사 결과</div>
       <div class="sel-result-meta" id="sel-result-meta"></div>
     </div>
+    <!-- 88차 변쌤 명시: 1차 탭 [차트][리포트][비교] + 차트 안 2차 토글 [무지개][방사형] -->
     <div class="sel-result-tabs">
-      <button type="button" class="sel-result-tab active" data-mode="rainbow" onclick="_selSwitchTab('rainbow')">🌈 무지개</button>
-      <button type="button" class="sel-result-tab" data-mode="radar" onclick="_selSwitchTab('radar')">🔷 방사형</button>
-      <button type="button" class="sel-result-tab" data-mode="compare" id="sel-result-tab-compare" onclick="_selSwitchTab('compare')">📊 비교</button>
+      <button type="button" class="sel-result-tab active" data-mode="chart" onclick="_selSwitchTab('chart')">📊 차트</button>
+      <button type="button" class="sel-result-tab" data-mode="report" onclick="_selSwitchTab('report')">📋 리포트</button>
+      <button type="button" class="sel-result-tab" data-mode="compare" id="sel-result-tab-compare" onclick="_selSwitchTab('compare')">📈 비교</button>
+    </div>
+    <!-- 차트 탭 전용 2차 토글 — 차트 모드일 때만 표시 -->
+    <div class="sel-chart-subtoggle" id="sel-chart-subtoggle">
+      <button type="button" class="sel-chart-sub active" data-sub="rainbow" onclick="_selSwitchChartSub('rainbow')">🌈 무지개</button>
+      <button type="button" class="sel-chart-sub" data-sub="radar" onclick="_selSwitchChartSub('radar')">🔷 방사형</button>
     </div>
     <div class="sel-result-chart" id="sel-result-chart"></div>
     <div class="sel-result-info" id="sel-result-info">
@@ -18973,16 +19132,146 @@ async function _selFinish() {
 // 명세서 §7 시각 명세 답습 (마음이음 무지개 컨셉 + 가운데 반원 프로필)
 // ════════════════════════════════════════════════════════════
 
-// 영역 메타 — 라벨·색·학술 출처 (호버 인라인 안내용)
+// 영역 메타 — 88차 변쌤 명시: 학생용/교사용 분리. 학생 화면엔 R번호·KICE/마음이음 배지 X
+//   student: 한 줄 desc + 예시 2개 (개조식) + 점수 구간 메시지 3종 (high/mid/low)
+//   teacher: 학술 출처·키워드·지도 방법
 var _SEL_R_META = [
-  { key:'r1', num:1, name:'자기인식',     desc:'내 기분과 감정을 알아차리고 표현하기',     source:'KICE 학술' },
-  { key:'r2', num:2, name:'자기조절',     desc:'화·스트레스를 건강하게 다스리기',          source:'마음이음' },
-  { key:'r3', num:3, name:'관계인식',     desc:'친구의 마음을 살펴보고 공감하기',          source:'KICE 학술' },
-  { key:'r4', num:4, name:'관계관리',     desc:'친구들과 두루 잘 어울리기',                source:'KICE 학술' },
-  { key:'r5', num:5, name:'공동체 가치',  desc:'함께 쓰는 것을 소중히, 잘못 인정·사과',     source:'KICE 학술' },
-  { key:'r6', num:6, name:'정신건강',     desc:'마음이 힘들 때 도움 요청·표현',            source:'마음이음' },
-  { key:'r7', num:7, name:'자기주도',     desc:'스스로 준비·집중·마무리하기',              source:'KICE 학술' }
+  {
+    key:'r1', num:1, name:'자기인식',
+    student: {
+      short:'내 마음이 어떤지 스스로 알아채고 표현하는 힘',
+      examples:[
+        '기분이 좋은 이유나 속상한 이유를 말로 설명하기',
+        '기쁨·서운함 같은 감정 단어를 평소에 써보기'
+      ],
+      msg:{ high:'내 마음을 잘 살펴보고 있어요!', mid:'마음 단어를 조금 더 늘려봐요', low:'내 마음 신호를 천천히 살펴봐요' }
+    },
+    teacher: {
+      desc:'정서 인식·표현·이해 — 자기조절의 출발점',
+      source:'KICE 학술', sourceKey:'kice',
+      keywords:['감정 인식','감정 명명','정서 표현'],
+      tips:['감정 단어 카드 활용','「오늘 마음 일기」 5분 쓰기','또래 모델링']
+    }
+  },
+  {
+    key:'r2', num:2, name:'자기조절',
+    student: {
+      short:'화나거나 답답할 때 마음을 건강하게 다스리는 힘',
+      examples:[
+        '화날 때 잠시 멈추고 깊게 숨 쉬기',
+        '속상할 때 그림 그리기·이야기하기 등 건강한 방법 써보기'
+      ],
+      msg:{ high:'마음을 잘 다스리고 있어요!', mid:'잠시 멈추는 연습을 더 해봐요', low:'천천히 함께 진정 방법을 찾아봐요' }
+    },
+    teacher: {
+      desc:'정서·충동 조절 — KICE 자기관리(시간·과제) 외 정서조절 영역 보완',
+      source:'마음이음 (CASEL self-management 답습)', sourceKey:'maum',
+      keywords:['정서 조절','충동 통제','진정 기술'],
+      tips:['호흡·STOP 기법 모델링','안전 공간 만들기','충동 직전 대안 행동 제시']
+    }
+  },
+  {
+    key:'r3', num:3, name:'관계인식',
+    student: {
+      short:'친구의 마음을 살펴보고 공감하는 힘',
+      examples:[
+        '친구가 슬퍼할 때 어깨 토닥여주기',
+        '친구에게 좋은 일 생기면 말로 축하하기'
+      ],
+      msg:{ high:'친구 마음을 잘 살펴봐요!', mid:'친구 표정·말투를 좀 더 살펴봐요', low:'친구 마음 알아채는 연습을 함께 해봐요' }
+    },
+    teacher: {
+      desc:'공감 — 타인 정서 인식·이해',
+      source:'KICE 학술', sourceKey:'kice',
+      keywords:['공감','조망 수용','정서 인식'],
+      tips:['역할극','공감 카드','또래 갈등 중재 코칭']
+    }
+  },
+  {
+    key:'r4', num:4, name:'관계관리',
+    student: {
+      short:'친구들과 두루 잘 어울리고 대화하는 힘',
+      examples:[
+        '쉬는 시간에 친구들과 어울려 활동하기',
+        '새 모둠에서도 자연스럽게 인사하고 어울리기'
+      ],
+      msg:{ high:'친구들과 잘 어울리고 있어요!', mid:'먼저 다가가는 연습을 더 해봐요', low:'함께할 친구를 천천히 찾아봐요' }
+    },
+    teacher: {
+      desc:'긍정적 관계 맺기 — 또래 상호작용·집단 적응',
+      source:'KICE 학술', sourceKey:'kice',
+      keywords:['관계 형성','협동','집단 적응'],
+      tips:['협동 학습','또래 멘토링','학급 행사 역할 분담']
+    }
+  },
+  {
+    key:'r5', num:5, name:'공동체 가치',
+    student: {
+      short:'함께 쓰는 것을 소중히 다루고 잘못을 인정하는 힘',
+      examples:[
+        '빌린 물건 깨끗이 돌려주기',
+        '잘못했을 때 정중하게 「미안해」 말하기'
+      ],
+      msg:{ high:'책임감을 잘 보여주고 있어요!', mid:'실수 인정하는 연습을 더 해봐요', low:'규칙·약속을 함께 다시 배워봐요' }
+    },
+    teacher: {
+      desc:'책임있는 행동 — 공동체 규범·실수 인정·사과',
+      source:'KICE 학술', sourceKey:'kice',
+      keywords:['책임감','정직','회복적 태도'],
+      tips:['학급 규칙 함께 만들기','자기 평가지','회복적 생활교육']
+    }
+  },
+  {
+    key:'r6', num:6, name:'정신건강',
+    student: {
+      short:'마음이 힘들 때 어른께 도움 요청하는 힘',
+      examples:[
+        '속상할 때 선생님이나 부모님께 이야기하기',
+        '친구가 마음 아파 보이면 어른께 알리기'
+      ],
+      msg:{ high:'도움 요청을 잘 하고 있어요!', mid:'어려울 때 말로 표현해 봐요', low:'믿을 수 있는 어른을 함께 찾아봐요' }
+    },
+    teacher: {
+      desc:'정신건강 리터러시 — 도움 요청·자기 인식·표현',
+      source:'마음이음 (한국형 SEL 6역량 / 최지욱 외 2021 답습)', sourceKey:'maum',
+      keywords:['도움 요청','정신건강 인식','표현'],
+      tips:['안전한 어른 카드','도움 요청 연습','위기 신호 학급 단위 인식']
+    }
+  },
+  {
+    key:'r7', num:7, name:'자기주도',
+    student: {
+      short:'스스로 준비하고 끝까지 해내는 힘',
+      examples:[
+        '쉬는 시간에 다음 수업 미리 준비하기',
+        '과제를 미루지 않고 기한 내 제출하기'
+      ],
+      msg:{ high:'스스로 잘 해내고 있어요!', mid:'할 일을 작게 나눠 시작해 봐요', low:'함께 계획표를 만들어 봐요' }
+    },
+    teacher: {
+      desc:'자기관리 — 시간·과제 자기조절 (정서조절은 R2 별도)',
+      source:'KICE 학술', sourceKey:'kice',
+      keywords:['시간 관리','과제 집중','자기 점검'],
+      tips:['체크리스트','단기 목표 설정','자율 학습 시간']
+    }
+  }
 ];
+
+// 점수 구간 결정 — 16~20=high, 12~15=mid, 0~11=low
+function _selScoreLevel(score) {
+  if (score >= 16) return 'high';
+  if (score >= 12) return 'mid';
+  return 'low';
+}
+
+// 88차: 영역 라벨 — viewerRole 답습 (학생: 이름만 / 교사·학부모·관리자: R번호+이름)
+function _selRegionLabel(rIdx) {
+  var meta = _SEL_R_META[rIdx];
+  if (!meta) return '';
+  var st = STATE._selResult;
+  var role = (st && st.viewerRole) || 'student';
+  return (role === 'student') ? _selEscape(meta.name) : ('R' + meta.num + ' ' + _selEscape(meta.name));
+}
 
 // 미리보기 더미 결과 (관리자 교사·학생 미리보기에서 결과 모달 시연용 — DB 안 건드림)
 //   opts: { studentName?, schoolYear?, phase? } — 미명시 시 STATE.user 답습
@@ -19088,12 +19377,15 @@ async function _selOpenResult(opts) {
       if (!previous || h.phase > previous.phase) previous = h;
     }
   }
-  // STATE에 저장
+  // 88차: viewerRole 자동 결정 — 학생 본인은 친화 톤(R번호·출처배지 X), 교사·학부모·관리자는 디테일
+  var viewerRole = opts.viewerRole || (STATE.role === 'student' ? 'student' : 'teacher');
   STATE._selResult = {
     current: current,
     previous: previous,
-    mode: 'rainbow',
-    isPreview: !!opts.isPreview
+    mode: 'chart',           // 1차 탭 기본 chart
+    chartMode: 'rainbow',     // 차트 sub 기본 무지개
+    isPreview: !!opts.isPreview,
+    viewerRole: viewerRole
   };
   // 헤더 텍스트
   var titleEl = document.getElementById('sel-result-title');
@@ -19107,8 +19399,8 @@ async function _selOpenResult(opts) {
     if (previous) cmpTab.removeAttribute('disabled');
     else          cmpTab.setAttribute('disabled', 'true');
   }
-  // 탭 초기화 → rainbow active
-  _selSwitchTab('rainbow');
+  // 탭 초기화 → chart 탭 active (sub: rainbow 기본)
+  _selSwitchTab('chart');
   modal.classList.remove('hidden');
 }
 
@@ -19118,25 +19410,49 @@ function _selCloseResult() {
   STATE._selResult = null;
 }
 
-// 탭 전환 — rainbow/radar/compare
+// 88차 탭 재설계 — 1차 탭 [chart][report][compare] + 차트 안 sub-toggle [rainbow][radar]
 function _selSwitchTab(mode) {
   var st = STATE._selResult;
   if (!st) return;
-  // 비교 탭 비활성 시 무시
   if (mode === 'compare' && !st.previous) return;
   st.mode = mode;
-  // 탭 active 클래스
+  // 1차 탭 active 클래스
   var tabs = document.querySelectorAll('#modal-sel-result .sel-result-tab');
   for (var i = 0; i < tabs.length; i++) {
     if (tabs[i].getAttribute('data-mode') === mode) tabs[i].classList.add('active');
     else tabs[i].classList.remove('active');
   }
-  // 인라인 설명 박스 초기화
+  // 차트 sub-toggle은 chart 모드에서만 표시
+  var subtoggle = document.getElementById('sel-chart-subtoggle');
+  if (subtoggle) {
+    if (mode === 'chart') subtoggle.classList.remove('hidden');
+    else                  subtoggle.classList.add('hidden');
+  }
   _selResetInfo();
-  // 차트 렌더
-  if (mode === 'rainbow') _renderSelRainbow(st.current);
-  else if (mode === 'radar')   _renderSelRadar(st.current);
-  else if (mode === 'compare') _renderSelCompare(st.previous, st.current);
+  if (mode === 'chart') {
+    var sub = st.chartMode || 'rainbow';
+    if (sub === 'radar') _renderSelRadar(st.current);
+    else                 _renderSelRainbow(st.current);
+  } else if (mode === 'report') {
+    _renderSelReport(st.current);
+  } else if (mode === 'compare') {
+    _renderSelCompare(st.previous, st.current);
+  }
+}
+
+// 차트 탭 안 sub-토글 — 무지개·방사형 전환
+function _selSwitchChartSub(sub) {
+  var st = STATE._selResult;
+  if (!st) return;
+  st.chartMode = sub;
+  var btns = document.querySelectorAll('#sel-chart-subtoggle .sel-chart-sub');
+  for (var i = 0; i < btns.length; i++) {
+    if (btns[i].getAttribute('data-sub') === sub) btns[i].classList.add('active');
+    else btns[i].classList.remove('active');
+  }
+  _selResetInfo();
+  if (sub === 'radar') _renderSelRadar(st.current);
+  else                 _renderSelRainbow(st.current);
 }
 
 // 인라인 설명 박스 default 안내
@@ -19145,17 +19461,27 @@ function _selResetInfo() {
   if (info) info.innerHTML = '<span class="sel-result-info-default">영역 위에 손가락을 올리면 자세한 설명이 나와요</span>';
 }
 
-// 영역 호버 시 인라인 설명 표시
+// 영역 호버 시 인라인 설명 — 88차 변쌤 명시: viewerRole 분기 (학생: R번호·출처배지 X·점수 구간 메시지 / 교사: 디테일)
 function _selShowRegionInfo(rIdx, score) {
   var info = document.getElementById('sel-result-info');
   if (!info) return;
   var meta = _SEL_R_META[rIdx];
   if (!meta) return;
-  var srcCls = meta.source === 'KICE 학술' ? 'sel-result-info-source' : 'sel-result-info-source';
-  info.innerHTML = '<span class="sel-result-info-region" style="color:var(--sel-' + meta.key + ')">R' + meta.num + ' ' + meta.name + '</span>'
-                 + ' · ' + meta.desc
-                 + ' <span class="' + srcCls + '">' + meta.source + '</span>'
-                 + ' · <strong>' + (score||0) + '/20점</strong>';
+  var st = STATE._selResult;
+  var role = (st && st.viewerRole) || 'student';
+  if (role === 'student') {
+    var lvl = _selScoreLevel(score);
+    var msg = (meta.student && meta.student.msg && meta.student.msg[lvl]) || '';
+    info.innerHTML = '<span class="sel-result-info-region" style="color:var(--sel-' + meta.key + ')">' + _selEscape(meta.name) + '</span>'
+                   + ' · ' + _selEscape(meta.student.short)
+                   + ' · <strong>' + (score||0) + '/20점</strong>'
+                   + (msg ? ' · <span style="color:var(--mint2);font-weight:700">' + _selEscape(msg) + '</span>' : '');
+  } else {
+    info.innerHTML = '<span class="sel-result-info-region" style="color:var(--sel-' + meta.key + ')">R' + meta.num + ' ' + _selEscape(meta.name) + '</span>'
+                   + ' · ' + _selEscape(meta.teacher.desc)
+                   + ' <span class="sel-result-info-source">' + _selEscape(meta.teacher.source) + '</span>'
+                   + ' · <strong>' + (score||0) + '/20점</strong>';
+  }
 }
 
 // SVG annular sector path — 시작각·끝각 (도) → path d 문자열
@@ -19226,7 +19552,7 @@ function _renderSelRainbow(result) {
     var lx = cx + labelR * Math.cos(midRad);
     var ly = cy + labelR * Math.sin(midRad);
     var anchor = (lx < cx - 30) ? 'end' : (lx > cx + 30) ? 'start' : 'middle';
-    svg += '<text class="sel-rainbow-label" x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '" text-anchor="' + anchor + '" fill="' + color + '">R' + (i+1) + ' ' + _selEscape(meta.name) + '</text>';
+    svg += '<text class="sel-rainbow-label" x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '" text-anchor="' + anchor + '" fill="' + color + '">' + _selRegionLabel(i) + '</text>';
     svg += '<text class="sel-rainbow-score" x="' + lx.toFixed(1) + '" y="' + (ly + 22).toFixed(1) + '" text-anchor="' + anchor + '" fill="#7a8c98">' + score + '/20</text>';
   }
   // 가운데 반원 — 학생 정보 (큰 폰트 22/15/30/15 맞게 y 좌표 재배치)
@@ -19313,27 +19639,30 @@ function _renderSelRadar(result) {
     var p = pt(ri4, scores[ri4]);
     var lp = pt(ri4, 27);
     var labelAnchor = (lp.x < cx - 8) ? 'end' : (lp.x > cx + 8) ? 'start' : 'middle';
-    svg += '<circle class="sel-radar-dot" data-r="' + ri4 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="7" fill="' + color + '" stroke="#fff" stroke-width="2.5" style="cursor:pointer;transition:r .15s" />';
-    svg += '<text class="sel-rainbow-label" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="' + color + '">R' + (ri4+1) + ' ' + _selEscape(meta.name) + '</text>';
+    // 88차 변쌤 명시: 점은 r=7 시각만, 호버 hit area는 invisible r=20 (호버·터치 쉽게)
+    svg += '<circle class="sel-radar-hit" data-r="' + ri4 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="20" fill="transparent" style="cursor:pointer" />';
+    svg += '<circle class="sel-radar-dot" data-r="' + ri4 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="7" fill="' + color + '" stroke="#fff" stroke-width="2.5" style="transition:r .15s" pointer-events="none" />';
+    svg += '<text class="sel-rainbow-label" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="' + color + '">' + _selRegionLabel(ri4) + '</text>';
     svg += '<text class="sel-rainbow-score" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 20).toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="#7a8c98">' + scores[ri4] + '/20</text>';
   }
   // 하단 총점
   svg += '<text class="sel-rainbow-center-total" x="' + cx + '" y="418" text-anchor="middle">' + total + ' / 140</text>';
   svg += '</svg>';
   chart.innerHTML = svg;
-  // 호버·터치 — 점에서 인라인 안내
-  var dots = chart.querySelectorAll('.sel-radar-dot');
-  dots.forEach(function(dot) {
-    var rIdx = parseInt(dot.getAttribute('data-r'), 10);
-    dot.addEventListener('mouseenter', function() {
-      dot.setAttribute('r', '8');
+  // 호버·터치 — invisible hit area(r=20)에 이벤트 바인딩, dot은 시각만 (r 7→9 살짝 확대)
+  var hits = chart.querySelectorAll('.sel-radar-hit');
+  hits.forEach(function(hit) {
+    var rIdx = parseInt(hit.getAttribute('data-r'), 10);
+    var dot = chart.querySelector('.sel-radar-dot[data-r="' + rIdx + '"]');
+    hit.addEventListener('mouseenter', function() {
+      if (dot) dot.setAttribute('r', '9');
       _selShowRegionInfo(rIdx, scores[rIdx]);
     });
-    dot.addEventListener('mouseleave', function() {
-      dot.setAttribute('r', '6');
+    hit.addEventListener('mouseleave', function() {
+      if (dot) dot.setAttribute('r', '7');
       _selResetInfo();
     });
-    dot.addEventListener('click', function() {
+    hit.addEventListener('click', function() {
       _selShowRegionInfo(rIdx, scores[rIdx]);
     });
   });
@@ -19409,8 +19738,9 @@ function _renderSelCompare(prev, curr) {
     var deltaArrow = d > 0 ? '▲' : d < 0 ? '▽' : '·';
     var deltaColor = d > 0 ? '#2aab90' : d < 0 ? '#d9455f' : '#999';
     var deltaText = d > 0 ? ('+' + d) : (d === 0 ? '0' : String(d));
-    svg += '<circle class="sel-radar-dot" data-r="' + ri5 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="7" fill="' + color + '" stroke="#fff" stroke-width="2.5" style="cursor:pointer" />';
-    svg += '<text class="sel-rainbow-label" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="' + color + '">R' + (ri5+1) + ' ' + _selEscape(meta.name) + '</text>';
+    svg += '<circle class="sel-radar-hit" data-r="' + ri5 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="20" fill="transparent" style="cursor:pointer" />';
+    svg += '<circle class="sel-radar-dot" data-r="' + ri5 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="7" fill="' + color + '" stroke="#fff" stroke-width="2.5" style="transition:r .15s" pointer-events="none" />';
+    svg += '<text class="sel-rainbow-label" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="' + color + '">' + _selRegionLabel(ri5) + '</text>';
     svg += '<text class="sel-rainbow-score" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 20).toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="' + deltaColor + '" font-weight="700">' + deltaArrow + ' ' + deltaText + '</text>';
   }
   // 하단 총점 비교
@@ -19421,37 +19751,116 @@ function _renderSelCompare(prev, curr) {
   svg += '<text class="sel-rainbow-center-total" x="' + cx + '" y="426" text-anchor="middle" fill="' + totalColor + '">' + totalArrow + ' ' + totalText + '점</text>';
   svg += '</svg>';
   chart.innerHTML = svg;
-  // 호버 — 영역 i 비교 (이전·현재 점수·변화량)
-  var dots = chart.querySelectorAll('.sel-radar-dot');
-  dots.forEach(function(dot) {
-    var rIdx = parseInt(dot.getAttribute('data-r'), 10);
-    dot.addEventListener('mouseenter', function() {
-      dot.setAttribute('r', '8');
+  // 호버·터치 — invisible hit area(r=20) + dot 시각만 (r 7→9)
+  var hits = chart.querySelectorAll('.sel-radar-hit');
+  hits.forEach(function(hit) {
+    var rIdx = parseInt(hit.getAttribute('data-r'), 10);
+    var dot = chart.querySelector('.sel-radar-dot[data-r="' + rIdx + '"]');
+    hit.addEventListener('mouseenter', function() {
+      if (dot) dot.setAttribute('r', '9');
       _selShowCompareInfo(rIdx, prevScores[rIdx], currScores[rIdx]);
     });
-    dot.addEventListener('mouseleave', function() {
-      dot.setAttribute('r', '6');
+    hit.addEventListener('mouseleave', function() {
+      if (dot) dot.setAttribute('r', '7');
       _selResetInfo();
     });
-    dot.addEventListener('click', function() {
+    hit.addEventListener('click', function() {
       _selShowCompareInfo(rIdx, prevScores[rIdx], currScores[rIdx]);
     });
   });
 }
 
-// 비교 모드 호버 인라인 안내 — 영역 + 1·2차 점수 + 변화량
+// 비교 모드 호버 — 88차 변쌤 명시: viewerRole 분기 (학생용 R번호 X)
 function _selShowCompareInfo(rIdx, prevScore, currScore) {
   var info = document.getElementById('sel-result-info');
   if (!info) return;
   var meta = _SEL_R_META[rIdx];
   if (!meta) return;
+  var st = STATE._selResult;
+  var role = (st && st.viewerRole) || 'student';
   var d = currScore - prevScore;
   var arrow = d > 0 ? '▲' : d < 0 ? '▽' : '·';
   var deltaColor = d > 0 ? 'var(--mint2)' : d < 0 ? '#d9455f' : 'var(--gray)';
   var deltaText = d > 0 ? ('+' + d) : (d === 0 ? '변화 없음' : String(d));
-  info.innerHTML = '<span class="sel-result-info-region" style="color:var(--sel-' + meta.key + ')">R' + meta.num + ' ' + meta.name + '</span>'
+  var label = (role === 'student') ? _selEscape(meta.name) : ('R' + meta.num + ' ' + _selEscape(meta.name));
+  info.innerHTML = '<span class="sel-result-info-region" style="color:var(--sel-' + meta.key + ')">' + label + '</span>'
                  + ' · <strong>' + prevScore + ' → ' + currScore + '</strong>'
                  + ' · <span style="color:' + deltaColor + ';font-weight:700">' + arrow + ' ' + deltaText + '</span>';
+}
+
+// 88차 변쌤 명시: SEL 리포트 탭 — 학생/교사 분리 카드 7개
+//   학생: 영역 동그라미·이름·점수 + 한 줄 desc + 점수 구간 메시지 + 예시 2개 (개조식)
+//   교사: 위 + 학술 출처·키워드·지도 방법 (회색 박스)
+function _renderSelReport(result) {
+  var chart = document.getElementById('sel-result-chart');
+  if (!chart || !result) return;
+  var st = STATE._selResult;
+  var role = (st && st.viewerRole) || 'student';
+  var scores = [
+    result.r1_score || 0, result.r2_score || 0, result.r3_score || 0,
+    result.r4_score || 0, result.r5_score || 0, result.r6_score || 0,
+    result.r7_score || 0
+  ];
+  var total = result.total_score || scores.reduce(function(a,b){ return a+b; }, 0);
+  var name = result.responder_name || '';
+  var phaseLabel = result.phase_label || ((result.phase || 1) + '차 진단');
+  var dateStr = (result.completed_at || result.updated_at || '').slice(0, 10);
+  var schoolYear = result.school_year ? (result.school_year + '학년') : '';
+  var html = '<div class="sel-report-wrap">';
+  // 상단 요약 (이름·학년·총점·검사 차수·날짜)
+  html += '<div class="sel-report-summary">';
+  html += '<div class="sel-report-summary-name">' + _selEscape(name) + '</div>';
+  if (schoolYear) html += '<div class="sel-report-summary-meta">' + _selEscape(schoolYear) + '</div>';
+  html += '<div class="sel-report-summary-total">' + total + ' / 140</div>';
+  html += '<div class="sel-report-summary-meta">' + _selEscape(phaseLabel) + (dateStr ? ' · ' + dateStr : '') + '</div>';
+  html += '</div>';
+  // 영역 카드 7개
+  for (var i = 0; i < 7; i++) {
+    var meta = _SEL_R_META[i];
+    var sc = scores[i];
+    var lvl = _selScoreLevel(sc);
+    var msg = (meta.student.msg && meta.student.msg[lvl]) || '';
+    var msgCls = (lvl === 'low') ? 'low' : (lvl === 'mid') ? 'mid' : '';
+    // 동그라미 라벨 — 학생 화면엔 숫자만, 교사·관리자는 R번호
+    var barLabel = (role === 'student') ? String(i+1) : ('R' + meta.num);
+    html += '<div class="sel-report-card" style="border-left-color:var(--sel-' + meta.key + ')">';
+    html += '<div class="sel-report-card-bar" style="background:var(--sel-' + meta.key + ')">' + barLabel + '</div>';
+    html += '<div class="sel-report-card-body">';
+    html += '<div class="sel-report-card-head">';
+    html += '<div class="sel-report-card-name">' + _selEscape(meta.name) + '</div>';
+    html += '<div class="sel-report-card-score" style="color:var(--sel-' + meta.key + ')">' + sc + ' / 20</div>';
+    html += '</div>';
+    // 학생 친화 한 줄
+    html += '<div class="sel-report-card-desc">' + _selEscape(meta.student.short) + '</div>';
+    // 점수 구간 메시지
+    if (msg) html += '<div class="sel-report-card-msg ' + msgCls + '">' + _selEscape(msg) + '</div>';
+    // 예시 2개 (개조식)
+    html += '<div class="sel-report-examples-title">예) 이런 모습이에요</div>';
+    html += '<ul class="sel-report-examples">';
+    for (var j = 0; j < meta.student.examples.length; j++) {
+      html += '<li>' + _selEscape(meta.student.examples[j]) + '</li>';
+    }
+    html += '</ul>';
+    // 교사·학부모·관리자 추가 영역 — 학술 출처·키워드·지도 방법
+    if (role !== 'student') {
+      html += '<div class="sel-report-teacher-extra">';
+      html += '<div class="sel-report-teacher-extra-title">' + _selEscape(meta.teacher.source) + ' · ' + _selEscape(meta.teacher.desc) + '</div>';
+      html += '<div class="sel-report-teacher-keywords">';
+      for (var k = 0; k < meta.teacher.keywords.length; k++) {
+        html += '<span class="sel-report-teacher-keyword">#' + _selEscape(meta.teacher.keywords[k]) + '</span>';
+      }
+      html += '</div>';
+      html += '<ul class="sel-report-teacher-tips">';
+      for (var t = 0; t < meta.teacher.tips.length; t++) {
+        html += '<li>' + _selEscape(meta.teacher.tips[t]) + '</li>';
+      }
+      html += '</ul>';
+      html += '</div>';
+    }
+    html += '</div></div>';  // body, card 닫음
+  }
+  html += '</div>';  // wrap 닫음
+  chart.innerHTML = html;
 }
 
 // 키보드 단축키 — 1~5: 답 선택 / Enter·→: 다음 / ←: 이전 / Esc: 닫기
