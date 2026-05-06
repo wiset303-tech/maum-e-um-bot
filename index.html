@@ -2710,6 +2710,247 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   50%      { transform:scale(1.18); opacity:1; }
 }
 
+/* 88차 Phase 2-B: SEL 28문항 응답 모달 — mint 톤·영역 색 인라인 */
+.sel-assess-box{
+  max-width:480px; padding:0; overflow:hidden;
+  border-radius:24px;
+}
+.sel-assess-header{
+  position:relative;
+  padding:18px 22px 14px;
+  background:linear-gradient(135deg, var(--mint4) 0%, var(--mint3) 100%);
+  border-bottom:1px solid rgba(78,205,180,.18);
+}
+.sel-assess-header .modal-close{ top:10px; right:12px; }
+.sel-assess-name{
+  font-size:12.5px; color:var(--gray);
+  margin-bottom:4px; word-break:keep-all;
+  font-weight:600;
+}
+.sel-assess-progress-row{
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:8px; gap:10px;
+}
+.sel-assess-region-label{
+  display:flex; align-items:center; gap:7px;
+  font-size:13px; font-weight:800; color:var(--navy);
+  letter-spacing:-.2px;
+}
+.sel-assess-region-dot{
+  width:11px; height:11px; border-radius:50%;
+  flex-shrink:0;
+  box-shadow:0 0 0 2px #fff, 0 1px 3px rgba(0,0,0,.15);
+}
+.sel-assess-counter{
+  font-size:11.5px; color:var(--gray);
+  font-weight:700; letter-spacing:.3px;
+  white-space:nowrap;
+}
+.sel-assess-progress-bar{
+  width:100%; height:6px;
+  background:rgba(255,255,255,.7);
+  border-radius:999px; overflow:hidden;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.05);
+}
+.sel-assess-progress-fill{
+  height:100%;
+  background:linear-gradient(90deg, var(--mint), var(--mint2));
+  border-radius:999px;
+  transition:width .35s ease;
+}
+.sel-assess-body{
+  padding:26px 24px 14px;
+  text-align:center;
+}
+.sel-assess-q-num{
+  font-size:11.5px; color:var(--mint2);
+  font-weight:800; letter-spacing:.6px;
+  margin-bottom:10px;
+}
+.sel-assess-q-text{
+  font-size:15.5px; font-weight:600;
+  color:var(--navy);
+  line-height:1.6; word-break:keep-all;
+  margin-bottom:24px;
+  min-height:72px;
+  display:flex; align-items:center; justify-content:center;
+}
+.sel-assess-scale{
+  display:grid; grid-template-columns:repeat(5, 1fr); gap:6px;
+  margin-bottom:10px;
+}
+.sel-assess-scale-btn{
+  width:50px; height:50px; margin:0 auto;
+  border-radius:50%;
+  border:2px solid var(--lgray);
+  background:#fff;
+  font-family:inherit;
+  font-size:17px; font-weight:800;
+  color:var(--gray);
+  cursor:pointer;
+  transition:transform .12s ease, border-color .12s, background .25s, color .12s, box-shadow .15s;
+  display:flex; align-items:center; justify-content:center;
+}
+.sel-assess-scale-btn:hover{
+  transform:translateY(-2px);
+  border-color:var(--mint);
+  color:var(--mint2);
+}
+.sel-assess-scale-btn.selected{
+  border-color:transparent;
+  background:linear-gradient(135deg, var(--mint), var(--mint2));
+  color:#fff;
+  box-shadow:0 5px 16px rgba(78,205,180,.38);
+  transform:scale(1.06);
+}
+.sel-assess-scale-labels{
+  display:grid; grid-template-columns:repeat(5, 1fr); gap:6px;
+  font-size:10.5px; color:var(--gray);
+  margin-bottom:6px;
+  text-align:center;
+  word-break:keep-all;
+  line-height:1.35;
+}
+.sel-assess-hint{
+  font-size:11px; color:var(--gray);
+  text-align:center;
+  padding:6px 22px 14px;
+  letter-spacing:.2px;
+  font-weight:500;
+}
+.sel-assess-actions{
+  display:grid; grid-template-columns:1fr 1.4fr; gap:8px;
+  padding:0 22px 20px;
+}
+.sel-assess-actions .btn{ font-size:13.5px; padding:13px 8px; font-weight:700; }
+.sel-assess-btn-finish{
+  background:linear-gradient(135deg, var(--mint), var(--mint2)) !important;
+  color:#fff !important;
+  letter-spacing:.3px;
+  animation:selAssessFinishPulse 1.6s ease-in-out infinite;
+}
+@keyframes selAssessFinishPulse{
+  0%, 100% { box-shadow:0 4px 16px rgba(78,205,180,.4); }
+  50%      { box-shadow:0 4px 22px rgba(78,205,180,.65); }
+}
+
+/* 88차 Phase 4-A: SEL 결과 리포트 모달 — 무지개·방사형·비교 탭 */
+.sel-result-box{
+  max-width:540px; padding:0; overflow:hidden;
+  border-radius:24px;
+}
+.sel-result-header{
+  position:relative;
+  padding:18px 22px 12px;
+  background:linear-gradient(135deg, var(--mint4) 0%, var(--mint3) 100%);
+  border-bottom:1px solid rgba(78,205,180,.18);
+  text-align:center;
+}
+.sel-result-header .modal-close{ top:10px; right:12px; }
+.sel-result-title{
+  font-family:'Black Han Sans', sans-serif;
+  font-size:20px; color:var(--navy);
+  letter-spacing:-.3px; line-height:1.15;
+  margin-bottom:4px;
+}
+.sel-result-meta{
+  font-size:11.5px; color:var(--gray);
+  letter-spacing:.2px; word-break:keep-all;
+}
+.sel-result-tabs{
+  display:flex; gap:0;
+  padding:8px 14px 0;
+  background:#fff;
+  border-bottom:1px solid var(--lgray);
+}
+.sel-result-tab{
+  flex:1; padding:10px 6px;
+  border:none; background:transparent;
+  font-family:inherit;
+  font-size:12.5px; font-weight:700;
+  color:var(--gray);
+  letter-spacing:.2px;
+  cursor:pointer;
+  border-bottom:2.5px solid transparent;
+  transition:color .15s, border-color .15s;
+}
+.sel-result-tab:hover{ color:var(--mint2); }
+.sel-result-tab.active{
+  color:var(--mint2);
+  border-bottom-color:var(--mint2);
+}
+.sel-result-tab[disabled]{
+  opacity:.35; cursor:not-allowed;
+}
+.sel-result-tab[disabled]:hover{ color:var(--gray); }
+.sel-result-chart{
+  background:#fff;
+  padding:12px 14px 6px;
+  min-height:280px;
+  display:flex; align-items:center; justify-content:center;
+}
+.sel-result-chart svg{ display:block; max-width:100%; height:auto; }
+.sel-result-info{
+  background:var(--cream);
+  padding:11px 16px;
+  border-top:1px solid var(--lgray);
+  font-size:12px; color:var(--navy);
+  line-height:1.55; word-break:keep-all;
+  text-align:center;
+  min-height:40px;
+  letter-spacing:.1px;
+}
+.sel-result-info-default{ color:var(--gray); font-size:11.5px; }
+.sel-result-info-region{ font-weight:700; }
+.sel-result-info-source{
+  display:inline-block;
+  margin-left:6px; padding:1px 6px;
+  border-radius:8px;
+  font-size:10px; font-weight:600;
+  background:var(--mint4); color:var(--mint2);
+  vertical-align:middle;
+}
+.sel-result-actions{
+  display:flex; gap:8px;
+  padding:12px 16px 18px;
+  background:#fff;
+  border-top:1px solid var(--lgray);
+}
+.sel-result-actions .btn{
+  flex:1; font-size:12.5px; padding:11px 8px; font-weight:700;
+}
+/* SVG 호버 효과 — 다른 영역 dim */
+.sel-rainbow-arc{
+  cursor:pointer;
+  transition:opacity .2s ease, filter .2s ease;
+}
+.sel-rainbow-arc.dim{ opacity:.28; }
+.sel-rainbow-arc.highlight{ filter:drop-shadow(0 0 6px rgba(0,0,0,.15)); }
+.sel-rainbow-label{
+  font-family:'Noto Sans KR', sans-serif;
+  font-size:11.5px; font-weight:700;
+  pointer-events:none;
+  user-select:none;
+}
+.sel-rainbow-score{
+  font-size:10.5px; font-weight:600;
+  pointer-events:none;
+}
+.sel-rainbow-center-name{
+  font-family:'Black Han Sans', sans-serif;
+  font-size:14px; fill:var(--navy);
+  letter-spacing:-.2px;
+}
+.sel-rainbow-center-meta{
+  font-size:10.5px; fill:var(--gray);
+  letter-spacing:.2px;
+}
+.sel-rainbow-center-total{
+  font-family:'Black Han Sans', sans-serif;
+  font-size:18px; fill:var(--mint2);
+  letter-spacing:-.3px;
+}
+
 /* SEL intro 모달 본문 */
 /* 88차: 마음이음 톤 답습 — favicon 로고·Black Han Sans·mint 그라디언트 */
 .sel-intro-logo{
@@ -4061,7 +4302,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     </div>
     <!-- 88차: 학생용 마음이음 역량검사 카드 (mint 톤·favicon 로고·무지개 알람 뱃지) -->
     <div id="set-student-sel-wrap" style="display:none;margin-top:14px;padding-top:14px;border-top:1px dashed var(--lgray)">
-      <div id="set-student-sel-card" class="set-sel-card" onclick="openSelIntro()">
+      <div id="set-student-sel-card" class="set-sel-card" onclick="_selSettingsCardClick()">
         <span id="set-student-sel-badge" class="sel-rainbow-badge hidden" aria-hidden="true"></span>
         <img class="set-sel-logo" src="./favicon.png" alt="마음이음">
         <div class="set-sel-body">
@@ -4110,6 +4351,72 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <div class="sel-intro-actions">
       <button class="btn btn-secondary sel-intro-btn-skip" onclick="_selSkipNow()">나중에</button>
       <button class="btn btn-primary sel-intro-btn-start" onclick="_selStartNow()">지금 살펴볼래요</button>
+    </div>
+  </div>
+</div>
+
+<!-- 88차 Phase 2-B: SEL 28문항 응답 모달 — 학생 본인·교사·학부모 공용 (학생부터 적용) -->
+<div id="modal-sel-assess" class="modal-overlay hidden" style="z-index:3500" onclick="event.stopPropagation()">
+  <div class="modal-box sel-assess-box" onclick="event.stopPropagation()">
+    <div class="sel-assess-header">
+      <button class="modal-close" onclick="_selCloseAssess()">✕</button>
+      <div class="sel-assess-name" id="sel-assess-name"></div>
+      <div class="sel-assess-progress-row">
+        <div class="sel-assess-region-label">
+          <span class="sel-assess-region-dot" id="sel-assess-region-dot"></span>
+          <span id="sel-assess-region-text"></span>
+        </div>
+        <div class="sel-assess-counter" id="sel-assess-counter">1/28</div>
+      </div>
+      <div class="sel-assess-progress-bar">
+        <div class="sel-assess-progress-fill" id="sel-assess-progress-fill" style="width:3.6%"></div>
+      </div>
+    </div>
+    <div class="sel-assess-body">
+      <div class="sel-assess-q-num" id="sel-assess-q-num">1번 문항</div>
+      <div class="sel-assess-q-text" id="sel-assess-q-text"></div>
+      <div class="sel-assess-scale" id="sel-assess-scale">
+        <button type="button" class="sel-assess-scale-btn" data-v="1" onclick="_selPickAnswer(1)">1</button>
+        <button type="button" class="sel-assess-scale-btn" data-v="2" onclick="_selPickAnswer(2)">2</button>
+        <button type="button" class="sel-assess-scale-btn" data-v="3" onclick="_selPickAnswer(3)">3</button>
+        <button type="button" class="sel-assess-scale-btn" data-v="4" onclick="_selPickAnswer(4)">4</button>
+        <button type="button" class="sel-assess-scale-btn" data-v="5" onclick="_selPickAnswer(5)">5</button>
+      </div>
+      <div class="sel-assess-scale-labels">
+        <div>전혀<br>그렇지<br>않다</div>
+        <div>그렇지<br>않다</div>
+        <div>보통<br>이다</div>
+        <div>그렇다</div>
+        <div>매우<br>그렇다</div>
+      </div>
+    </div>
+    <div class="sel-assess-hint">정답은 없어요 — 솔직하게 답해주면 돼요</div>
+    <div class="sel-assess-actions">
+      <button class="btn btn-secondary" id="sel-assess-prev-btn" onclick="_selPrev()">◀ 이전</button>
+      <button class="btn btn-primary" id="sel-assess-next-btn" onclick="_selNext()">다음 ▶</button>
+    </div>
+  </div>
+</div>
+
+<!-- 88차 Phase 4-A: SEL 결과 리포트 모달 — 무지개·방사형·비교 탭 -->
+<div id="modal-sel-result" class="modal-overlay hidden" style="z-index:3500" onclick="closeModalOutside(event,'modal-sel-result')">
+  <div class="modal-box sel-result-box" onclick="event.stopPropagation()">
+    <div class="sel-result-header">
+      <button class="modal-close" onclick="_selCloseResult()">✕</button>
+      <div class="sel-result-title" id="sel-result-title">마음이음 역량검사 결과</div>
+      <div class="sel-result-meta" id="sel-result-meta"></div>
+    </div>
+    <div class="sel-result-tabs">
+      <button type="button" class="sel-result-tab active" data-mode="rainbow" onclick="_selSwitchTab('rainbow')">🌈 무지개</button>
+      <button type="button" class="sel-result-tab" data-mode="radar" onclick="_selSwitchTab('radar')">⚡ 방사형</button>
+      <button type="button" class="sel-result-tab" data-mode="compare" id="sel-result-tab-compare" onclick="_selSwitchTab('compare')">📊 비교</button>
+    </div>
+    <div class="sel-result-chart" id="sel-result-chart"></div>
+    <div class="sel-result-info" id="sel-result-info">
+      <span class="sel-result-info-default">영역 위에 손가락을 올리면 자세한 설명이 나와요</span>
+    </div>
+    <div class="sel-result-actions">
+      <button class="btn btn-secondary" onclick="_selCloseResult()">닫기</button>
     </div>
   </div>
 </div>
@@ -18055,11 +18362,69 @@ function openSelIntro() {
   modal.classList.remove('hidden');
 }
 
-// 「지금 살펴볼래요」 — placeholder (88차+ 본격 검사 진입)
-function _selStartNow() {
+// 설정 카드 클릭 분기 — 검사 완료(status='done')면 결과 모달, 아니면 intro 모달
+function _selSettingsCardClick() {
+  var st = STATE._selStatus;
+  if (st && st.status === 'done' && STATE.user && STATE.user.student_uid) {
+    _selOpenResult({ student_uid: STATE.user.student_uid });
+  } else {
+    openSelIntro();
+  }
+}
+
+// 「지금 살펴볼래요」 — 88차 Phase 2-B 본격 (학년 가드 + 락 체크 + 모달 진입)
+async function _selStartNow() {
+  if (!STATE.user || STATE.role !== 'student') return;
+  var grade = parseInt(STATE.user.grade, 10) || 0;
+  // 명세서 §4.2: 1-2학년 학생 자가응답 X (교사·학부모만)
+  if (grade <= 2) {
+    closeModal('modal-sel-intro');
+    toast('저학년은 선생님께서 함께 살펴봐주실 거예요');
+    return;
+  }
   closeModal('modal-sel-intro');
-  toast('곧 본격 검사가 열려요 ✨ 그때 다시 안내해 드릴게요');
-  // 88차+ 본격: 학년·학년 띠별 문항 모달 진입 → 학생 응답 → submit_sel_answers RPC → 점수 산출 → 마음 파노라마 통합
+  // 미리보기 — 더미 진입 (DB 안 건드림)
+  if (STATE.isPreview) {
+    _selOpenAssess({ preview:true, gradeBand:_selGradeBand(grade), studentName:STATE.user.name });
+    return;
+  }
+  if (typeof showLoading === 'function') showLoading('잠시만요...');
+  try {
+    var res = await _selStartAssessment({
+      student_uid: STATE.user.student_uid,
+      phase: 1,  // Phase 6 auto_activate 도입 전 임시
+      responder_role: 'student',
+      responder_uid: STATE.user.student_uid,
+      responder_name: STATE.user.name || '',
+      school_year: grade,
+      grade_band: _selGradeBand(grade)
+    });
+    if (typeof hideLoading === 'function') hideLoading();
+    if (!res.ok) {
+      var ec = res.error && res.error.code;
+      if (ec === 'ERR_LOCKED') {
+        var roleLabel = res.error.by_role==='teacher' ? '선생님'
+                      : res.error.by_role==='parent'  ? '학부모님' : '다른 분';
+        toast('이미 ' + (res.error.by_name || roleLabel) + ' (' + roleLabel + ')이 응답하고 계세요');
+      } else if (ec === 'ERR_ALREADY_DONE') {
+        toast('이번 검사는 이미 완료했어요 — 결과를 보여드릴게요');
+        // Phase 4-A: 0.8초 후 결과 모달 자동 진입
+        var doneStuUid = STATE.user && STATE.user.student_uid;
+        setTimeout(function() {
+          if (doneStuUid) _selOpenResult({ student_uid:doneStuUid, phase:1 });
+        }, 800);
+      } else {
+        toast('잠시 후 다시 시도해 주세요');
+        console.error('[SEL START NOW]', res.error);
+      }
+      return;
+    }
+    _selOpenAssess({ assessment:res.assessment, gradeBand:_selGradeBand(grade), studentName:STATE.user.name });
+  } catch(e) {
+    if (typeof hideLoading === 'function') hideLoading();
+    console.error('[SEL START NOW]', e && e.message ? e.message : e);
+    toast('잠시 후 다시 시도해 주세요');
+  }
 }
 
 // 「나중에」 — sel_assessment에 skipped:true row INSERT (오늘 1회 더 안 띄움)
@@ -18333,6 +18698,532 @@ async function _selGetResult(student_uid, opts) {
     return null;
   }
 }
+
+// ════════════════════════════════════════════════════════════
+// 88차 Phase 2-B: SEL 28문항 응답 모달 동작 (학생 본인 화면 답습)
+// 영역별 4문항 = R1(1-4)·R2(5-8)·R3(9-12)·R4(13-16)·R5(17-20)·R6(21-24)·R7(25-28)
+// ════════════════════════════════════════════════════════════
+
+// 영역 라벨 (인덱스 0~6 = R1~R7)
+var _SEL_R_LABELS_ARR = ['자기인식','자기조절','관계인식','관계관리','공동체 가치','정신건강','자기주도'];
+
+// 응답 모달 진입 — 첫 미응답 문항으로 자동 점프 (이어쓰기)
+function _selOpenAssess(opts) {
+  opts = opts || {};
+  var modal = document.getElementById('modal-sel-assess');
+  if (!modal) return;
+  var assess = opts.assessment || {};
+  // 기존 응답값 추출 (이어쓰기 시 응답 보존)
+  var qFromRow = {};
+  for (var i = 1; i <= 28; i++) {
+    var v = assess['q'+i];
+    qFromRow['q'+i] = (typeof v === 'number' && v >= 1 && v <= 5) ? v : 0;
+  }
+  // 첫 미응답 문항 인덱스 (모두 응답이면 마지막)
+  var firstUnanswered = 0;
+  for (var j = 1; j <= 28; j++) {
+    if (!qFromRow['q'+j]) { firstUnanswered = j - 1; break; }
+    if (j === 28) firstUnanswered = 27;
+  }
+  // 학생 자가응답 = 1인칭 배열 / 1-2학년 교사용은 _SEL_QUESTIONS_ELEM_LOW
+  // (Phase 2-B는 학생 자가응답 우선 — 1-2학년 교사용 통합은 Phase 3에서)
+  var questions = (opts.gradeBand === 'elem_low') ? _SEL_QUESTIONS_ELEM_LOW : _SEL_QUESTIONS_STUDENT_HIGH;
+  STATE._selAssess = {
+    uid: assess.uid || null,
+    phase: assess.phase || 1,
+    gradeBand: opts.gradeBand || 'elem_high',
+    studentName: opts.studentName || '',
+    questions: questions,
+    answers: qFromRow,
+    currentIdx: firstUnanswered,
+    isPreview: !!opts.preview,
+    pendingSaveSince: 0,   // 마지막 자동 저장 이후 답한 문항 수
+    saveBatchSize: 5
+  };
+  modal.classList.remove('hidden');
+  _selRenderQuestion();
+  // beforeunload 경고 — 응답 도중 탭 닫기 시 안내
+  window.addEventListener('beforeunload', _selBeforeUnloadGuard);
+}
+
+// 응답 모달 닫기 — 남은 응답 자동 저장 + beforeunload 해제
+function _selCloseAssess() {
+  var modal = document.getElementById('modal-sel-assess');
+  if (modal) modal.classList.add('hidden');
+  window.removeEventListener('beforeunload', _selBeforeUnloadGuard);
+  // 닫기 직전 남은 응답 fire-and-forget 저장
+  var st = STATE._selAssess;
+  if (st && !st.isPreview && st.uid) {
+    var partial = {};
+    for (var i = 1; i <= 28; i++) {
+      if (st.answers['q'+i]) partial['q'+i] = st.answers['q'+i];
+    }
+    if (Object.keys(partial).length) _selSaveProgress(st.uid, partial);
+  }
+}
+
+// beforeunload guard — 응답 진행 중 탭/창 이탈 시 브라우저 기본 경고
+function _selBeforeUnloadGuard(e) {
+  if (!STATE._selAssess) return;
+  var ans = STATE._selAssess.answers || {};
+  var hasAny = false;
+  for (var i = 1; i <= 28; i++) { if (ans['q'+i]) { hasAny = true; break; } }
+  if (hasAny && !STATE._selAssess.isPreview) {
+    e.preventDefault();
+    e.returnValue = '응답을 마무리하지 않고 떠나면 일부 응답이 저장 안 될 수 있어요';
+    return e.returnValue;
+  }
+}
+
+// 현재 문항 렌더 — DOM 업데이트 (영역 색·진행 바·문항·5점 척도·이전·다음 버튼)
+function _selRenderQuestion() {
+  var st = STATE._selAssess;
+  if (!st) return;
+  var idx  = st.currentIdx;        // 0~27
+  var qNum = idx + 1;              // 1~28
+  var rIdx = Math.floor(idx / 4);  // 0~6
+  var rKey = 'r' + (rIdx + 1);     // 'r1'~'r7'
+  var rColor = getComputedStyle(document.documentElement).getPropertyValue('--sel-' + rKey).trim();
+  var rLabel = _SEL_R_LABELS_ARR[rIdx] || '';
+  // 헤더
+  var nameEl = document.getElementById('sel-assess-name');
+  if (nameEl) nameEl.textContent = (st.studentName || '나') + '의 마음이음 역량검사';
+  var dotEl = document.getElementById('sel-assess-region-dot');
+  if (dotEl) dotEl.style.background = rColor;
+  var rTextEl = document.getElementById('sel-assess-region-text');
+  if (rTextEl) rTextEl.textContent = 'R' + (rIdx+1) + ' ' + rLabel;
+  var counterEl = document.getElementById('sel-assess-counter');
+  if (counterEl) counterEl.textContent = qNum + '/28';
+  var fillEl = document.getElementById('sel-assess-progress-fill');
+  if (fillEl) fillEl.style.width = (qNum / 28 * 100).toFixed(1) + '%';
+  // 문항
+  var qNumEl = document.getElementById('sel-assess-q-num');
+  if (qNumEl) qNumEl.textContent = qNum + '번 문항';
+  var qTextEl = document.getElementById('sel-assess-q-text');
+  if (qTextEl) qTextEl.textContent = st.questions[idx] || '';
+  // 5점 척도 — 현재 답 강조
+  var current = st.answers['q' + qNum] || 0;
+  var btns = document.querySelectorAll('#sel-assess-scale .sel-assess-scale-btn');
+  for (var b = 0; b < btns.length; b++) {
+    var v = parseInt(btns[b].getAttribute('data-v'), 10);
+    if (v === current) btns[b].classList.add('selected');
+    else btns[b].classList.remove('selected');
+  }
+  // 이전 버튼 가시성 (첫 문항이면 hidden)
+  var prevBtn = document.getElementById('sel-assess-prev-btn');
+  if (prevBtn) prevBtn.style.visibility = (idx === 0) ? 'hidden' : 'visible';
+  // 다음 버튼 (마지막이면 「응답 완료」 + finish 펄스)
+  var nextBtn = document.getElementById('sel-assess-next-btn');
+  if (nextBtn) {
+    if (idx === 27) {
+      nextBtn.textContent = '응답 완료 ✓';
+      nextBtn.classList.add('sel-assess-btn-finish');
+    } else {
+      nextBtn.textContent = '다음 ▶';
+      nextBtn.classList.remove('sel-assess-btn-finish');
+    }
+    // 미응답이면 비활성
+    nextBtn.disabled = !current;
+    nextBtn.style.opacity = current ? '1' : '.5';
+    nextBtn.style.cursor   = current ? 'pointer' : 'not-allowed';
+  }
+}
+
+// 5점 척도 답 선택 (1~5)
+function _selPickAnswer(v) {
+  var st = STATE._selAssess;
+  if (!st) return;
+  if (v < 1 || v > 5) return;
+  var qNum = st.currentIdx + 1;
+  // 같은 답 다시 누르면 자동 다음 (UX 답습)
+  var prev = st.answers['q' + qNum] || 0;
+  st.answers['q' + qNum] = v;
+  st.pendingSaveSince++;
+  _selRenderQuestion();
+  // 새 답이 박혔고 마지막 문항이 아니면 0.28초 후 자동 다음 (응답 흐름 가속)
+  if (!prev && st.currentIdx < 27) {
+    setTimeout(function() {
+      if (STATE._selAssess && STATE._selAssess.currentIdx === qNum - 1 && STATE._selAssess.answers['q'+qNum] === v) {
+        _selNext();
+      }
+    }, 280);
+  }
+}
+
+// 이전 문항
+function _selPrev() {
+  var st = STATE._selAssess;
+  if (!st || st.currentIdx <= 0) return;
+  st.currentIdx--;
+  _selRenderQuestion();
+}
+
+// 다음 문항 — 마지막이면 응답 완료 흐름. 5문항 누적 시 자동 저장
+async function _selNext() {
+  var st = STATE._selAssess;
+  if (!st) return;
+  var qNum = st.currentIdx + 1;
+  // 미응답이면 무시 (다음 버튼 비활성화 상태와 일관)
+  if (!st.answers['q' + qNum]) return;
+  // 5문항 누적 자동 저장 (fire-and-forget, 실 환경만)
+  if (!st.isPreview && st.uid && st.pendingSaveSince >= st.saveBatchSize) {
+    var partial = {};
+    for (var i = 1; i <= 28; i++) {
+      if (st.answers['q'+i]) partial['q'+i] = st.answers['q'+i];
+    }
+    _selSaveProgress(st.uid, partial);
+    st.pendingSaveSince = 0;
+  }
+  if (st.currentIdx === 27) {
+    await _selFinish();
+    return;
+  }
+  st.currentIdx++;
+  _selRenderQuestion();
+}
+
+// 응답 완료 — 28문항 검증 + 클라이언트 채점 + status='done' patch + 마음 파노라마 안내
+async function _selFinish() {
+  var st = STATE._selAssess;
+  if (!st) return;
+  // 28문항 모두 응답 검증
+  var qFull = {};
+  var missing = [];
+  for (var i = 1; i <= 28; i++) {
+    qFull['q'+i] = st.answers['q'+i] || 0;
+    if (!qFull['q'+i]) missing.push(i);
+  }
+  if (missing.length) {
+    toast(missing.length + '개 문항이 비어있어요 — ' + missing[0] + '번 문항으로 돌아갈게요');
+    st.currentIdx = missing[0] - 1;
+    _selRenderQuestion();
+    return;
+  }
+  // 미리보기 — 채점만 + DB 안 건드림
+  if (st.isPreview) {
+    var pvScores = {
+      r1: qFull.q1+qFull.q2+qFull.q3+qFull.q4,
+      r2: qFull.q5+qFull.q6+qFull.q7+qFull.q8,
+      r3: qFull.q9+qFull.q10+qFull.q11+qFull.q12,
+      r4: qFull.q13+qFull.q14+qFull.q15+qFull.q16,
+      r5: qFull.q17+qFull.q18+qFull.q19+qFull.q20,
+      r6: qFull.q21+qFull.q22+qFull.q23+qFull.q24,
+      r7: qFull.q25+qFull.q26+qFull.q27+qFull.q28
+    };
+    pvScores.total = pvScores.r1+pvScores.r2+pvScores.r3+pvScores.r4+pvScores.r5+pvScores.r6+pvScores.r7;
+    STATE._selStatus = { has_record:true, status:'done', skipped:false, total_score:pvScores.total, phase:st.phase, completed_at:_htNewKstTs() };
+    _selCloseAssess();
+    _refreshSelSettingsCard();
+    toast('미리보기 검사 완료 — 총 ' + pvScores.total + '/140점');
+    return;
+  }
+  if (!st.uid) {
+    toast('잠시 후 다시 시도해 주세요');
+    return;
+  }
+  if (typeof showLoading === 'function') showLoading('마음 빛깔을 모으는 중...');
+  try {
+    var res = await _selCompleteAssessment(st.uid, qFull);
+    if (typeof hideLoading === 'function') hideLoading();
+    if (res.ok) {
+      STATE._selStatus = {
+        has_record: true, status: 'done', skipped: false,
+        total_score: res.scores.total, phase: st.phase,
+        completed_at: _htNewKstTs()
+      };
+      _selCloseAssess();
+      _refreshSelSettingsCard();
+      toast('검사 완료! 총 ' + res.scores.total + '/140점 — 결과를 보여드릴게요');
+      // Phase 4-A: 1.2초 후 결과 모달 자동 진입 (학생이 자기 결과 즉시 확인)
+      var resStudentUid = STATE.user && STATE.user.student_uid;
+      var resPhase = st.phase;
+      setTimeout(function() {
+        if (resStudentUid) _selOpenResult({ student_uid:resStudentUid, phase:resPhase });
+      }, 1200);
+    } else {
+      toast('저장에 실패했어요 — 잠시 후 다시 완료해 주세요');
+      console.error('[SEL FINISH]', res.error);
+    }
+  } catch(e) {
+    if (typeof hideLoading === 'function') hideLoading();
+    console.error('[SEL FINISH]', e && e.message ? e.message : e);
+    toast('잠시 후 다시 시도해 주세요');
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// 88차 Phase 4-A: SEL 결과 리포트 모달 — 무지개 SVG (Phase 4-B에 방사형·비교)
+// 명세서 §7 시각 명세 답습 (마음이음 무지개 컨셉 + 가운데 반원 프로필)
+// ════════════════════════════════════════════════════════════
+
+// 영역 메타 — 라벨·색·학술 출처 (호버 인라인 안내용)
+var _SEL_R_META = [
+  { key:'r1', num:1, name:'자기인식',     desc:'내 기분과 감정을 알아차리고 표현하기',     source:'KICE 학술' },
+  { key:'r2', num:2, name:'자기조절',     desc:'화·스트레스를 건강하게 다스리기',          source:'마음이음' },
+  { key:'r3', num:3, name:'관계인식',     desc:'친구의 마음을 살펴보고 공감하기',          source:'KICE 학술' },
+  { key:'r4', num:4, name:'관계관리',     desc:'친구들과 두루 잘 어울리기',                source:'KICE 학술' },
+  { key:'r5', num:5, name:'공동체 가치',  desc:'함께 쓰는 것을 소중히, 잘못 인정·사과',     source:'KICE 학술' },
+  { key:'r6', num:6, name:'정신건강',     desc:'마음이 힘들 때 도움 요청·표현',            source:'마음이음' },
+  { key:'r7', num:7, name:'자기주도',     desc:'스스로 준비·집중·마무리하기',              source:'KICE 학술' }
+];
+
+// 결과 모달 진입 — student_uid + 옵션
+//   opts: { student_uid, phase?, isPreview?, mockResult? }
+//   mockResult = 미리보기 더미 데이터 (DB 안 건드림)
+async function _selOpenResult(opts) {
+  opts = opts || {};
+  var modal = document.getElementById('modal-sel-result');
+  if (!modal) return;
+  var current = null, history = null;
+  // 미리보기·더미 — 그대로 사용
+  if (opts.isPreview && opts.mockResult) {
+    current = opts.mockResult;
+  } else if (opts.student_uid) {
+    if (typeof showLoading === 'function') showLoading('결과를 불러오는 중...');
+    try {
+      // 전체 history fetch (이전 phase 비교용)
+      history = await _selGetResult(opts.student_uid, { history:true });
+      if (history && history.length) {
+        // phase 지정 또는 가장 최근 done
+        if (opts.phase) {
+          for (var i = 0; i < history.length; i++) {
+            if (history[i].phase === opts.phase && history[i].status === 'done') {
+              current = history[i]; break;
+            }
+          }
+        } else {
+          for (var j = 0; j < history.length; j++) {
+            if (history[j].status === 'done') { current = history[j]; break; }
+          }
+        }
+      }
+    } catch(e) {
+      console.error('[SEL OPEN RESULT]', e && e.message ? e.message : e);
+    }
+    if (typeof hideLoading === 'function') hideLoading();
+  }
+  if (!current) {
+    toast('아직 완료된 검사가 없어요');
+    return;
+  }
+  // 이전 phase row (비교 탭용) — current 보다 phase 작은 가장 최근 done
+  var previous = null;
+  if (history && history.length) {
+    for (var k = 0; k < history.length; k++) {
+      var h = history[k];
+      if (h.uid === current.uid) continue;
+      if (h.status !== 'done') continue;
+      if (h.phase >= current.phase) continue;
+      if (!previous || h.phase > previous.phase) previous = h;
+    }
+  }
+  // STATE에 저장
+  STATE._selResult = {
+    current: current,
+    previous: previous,
+    mode: 'rainbow',
+    isPreview: !!opts.isPreview
+  };
+  // 헤더 텍스트
+  var titleEl = document.getElementById('sel-result-title');
+  var metaEl  = document.getElementById('sel-result-meta');
+  var phaseLabel = current.phase_label || (current.phase + '차 진단');
+  if (titleEl) titleEl.textContent = (current.responder_name || '나') + '의 마음이음 역량검사';
+  if (metaEl)  metaEl.textContent  = phaseLabel + ' · ' + (current.completed_at || current.updated_at || '').slice(0, 10);
+  // 비교 탭 활성/비활성
+  var cmpTab = document.getElementById('sel-result-tab-compare');
+  if (cmpTab) {
+    if (previous) cmpTab.removeAttribute('disabled');
+    else          cmpTab.setAttribute('disabled', 'true');
+  }
+  // 탭 초기화 → rainbow active
+  _selSwitchTab('rainbow');
+  modal.classList.remove('hidden');
+}
+
+function _selCloseResult() {
+  var modal = document.getElementById('modal-sel-result');
+  if (modal) modal.classList.add('hidden');
+  STATE._selResult = null;
+}
+
+// 탭 전환 — rainbow/radar/compare
+function _selSwitchTab(mode) {
+  var st = STATE._selResult;
+  if (!st) return;
+  // 비교 탭 비활성 시 무시
+  if (mode === 'compare' && !st.previous) return;
+  st.mode = mode;
+  // 탭 active 클래스
+  var tabs = document.querySelectorAll('#modal-sel-result .sel-result-tab');
+  for (var i = 0; i < tabs.length; i++) {
+    if (tabs[i].getAttribute('data-mode') === mode) tabs[i].classList.add('active');
+    else tabs[i].classList.remove('active');
+  }
+  // 인라인 설명 박스 초기화
+  _selResetInfo();
+  // 차트 렌더
+  if (mode === 'rainbow') _renderSelRainbow(st.current);
+  else if (mode === 'radar')   _renderSelRadar(st.current);
+  else if (mode === 'compare') _renderSelCompare(st.previous, st.current);
+}
+
+// 인라인 설명 박스 default 안내
+function _selResetInfo() {
+  var info = document.getElementById('sel-result-info');
+  if (info) info.innerHTML = '<span class="sel-result-info-default">영역 위에 손가락을 올리면 자세한 설명이 나와요</span>';
+}
+
+// 영역 호버 시 인라인 설명 표시
+function _selShowRegionInfo(rIdx, score) {
+  var info = document.getElementById('sel-result-info');
+  if (!info) return;
+  var meta = _SEL_R_META[rIdx];
+  if (!meta) return;
+  var srcCls = meta.source === 'KICE 학술' ? 'sel-result-info-source' : 'sel-result-info-source';
+  info.innerHTML = '<span class="sel-result-info-region" style="color:var(--sel-' + meta.key + ')">R' + meta.num + ' ' + meta.name + '</span>'
+                 + ' · ' + meta.desc
+                 + ' <span class="' + srcCls + '">' + meta.source + '</span>'
+                 + ' · <strong>' + (score||0) + '/20점</strong>';
+}
+
+// SVG annular sector path — 시작각·끝각 (도) → path d 문자열
+//   각도 0°=오른쪽, 90°=아래, 180°=왼쪽, 270°=위 (SVG 좌표계)
+function _selArcPath(cx, cy, R, r, a1, a2) {
+  var rad1 = a1 * Math.PI / 180;
+  var rad2 = a2 * Math.PI / 180;
+  var x1Out = cx + R * Math.cos(rad1), y1Out = cy + R * Math.sin(rad1);
+  var x2Out = cx + R * Math.cos(rad2), y2Out = cy + R * Math.sin(rad2);
+  var x1In  = cx + r * Math.cos(rad1), y1In  = cy + r * Math.sin(rad1);
+  var x2In  = cx + r * Math.cos(rad2), y2In  = cy + r * Math.sin(rad2);
+  var large = (a2 - a1) > 180 ? 1 : 0;
+  return 'M ' + x1Out.toFixed(2) + ' ' + y1Out.toFixed(2)
+       + ' A ' + R + ' ' + R + ' 0 ' + large + ' 1 ' + x2Out.toFixed(2) + ' ' + y2Out.toFixed(2)
+       + ' L ' + x2In.toFixed(2) + ' ' + y2In.toFixed(2)
+       + ' A ' + r.toFixed(2) + ' ' + r.toFixed(2) + ' 0 ' + large + ' 0 ' + x1In.toFixed(2) + ' ' + y1In.toFixed(2)
+       + ' Z';
+}
+
+// SVG 텍스트 안전 — < > & 이스케이프 (학생 이름 등)
+function _selEscape(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// 무지개 SVG 렌더 — 명세서 §7.2 답습 (반원 7등분 + 점수 비례 채움 + 가운데 반원 프로필)
+function _renderSelRainbow(result) {
+  var chart = document.getElementById('sel-result-chart');
+  if (!chart || !result) return;
+  var scores = {
+    r1: result.r1_score || 0, r2: result.r2_score || 0, r3: result.r3_score || 0,
+    r4: result.r4_score || 0, r5: result.r5_score || 0, r6: result.r6_score || 0,
+    r7: result.r7_score || 0
+  };
+  var total = result.total_score
+            || (scores.r1+scores.r2+scores.r3+scores.r4+scores.r5+scores.r6+scores.r7);
+  // SVG 좌표 (명세서 §7.2)
+  var cx = 340, cy = 320, Rmax = 240, Rmin = 110;
+  var sliceDeg = 180 / 7;  // 25.71°
+  // 학생 정보 (가운데 반원)
+  var name        = _selEscape(result.responder_name || '');
+  var phaseLabel  = _selEscape(result.phase_label || ((result.phase || 1) + '차 진단'));
+  var dateStr     = (result.completed_at || result.updated_at || '').slice(0, 10);
+  var schoolYear  = result.school_year ? (result.school_year + '학년') : '';
+  // SVG 본문
+  var svg = '<svg viewBox="0 0 680 420" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-width:680px;overflow:visible">';
+  // 7개 호 (좌측 R1 → 우측 R7)
+  var styles = getComputedStyle(document.documentElement);
+  for (var i = 0; i < 7; i++) {
+    var meta = _SEL_R_META[i];
+    var score = scores[meta.key];
+    var a1 = 180 + i * sliceDeg;
+    var a2 = a1 + sliceDeg - 0.6;  // 호 사이 살짝 간격 (시각 분리)
+    var color = styles.getPropertyValue('--sel-' + meta.key).trim() || '#999';
+    if (score > 0) {
+      var innerR = Rmax - (Rmax - Rmin) * (score / 20);
+      var arcPath = _selArcPath(cx, cy, Rmax, innerR, a1, a2);
+      svg += '<path class="sel-rainbow-arc" data-r="' + i + '" d="' + arcPath + '" fill="' + color + '" stroke="#fff" stroke-width="1.5" />';
+    } else {
+      // score=0 — 회색 점선 outline (참여만 표시)
+      var emptyPath = _selArcPath(cx, cy, Rmax, Rmin, a1, a2);
+      svg += '<path class="sel-rainbow-arc" data-r="' + i + '" d="' + emptyPath + '" fill="rgba(0,0,0,.04)" stroke="#ccc" stroke-width="1" stroke-dasharray="3 3" />';
+    }
+    // 라벨 (호 바깥쪽 중심각)
+    var midDeg = (a1 + a2) / 2;
+    var midRad = midDeg * Math.PI / 180;
+    var labelR = Rmax + 22;
+    var lx = cx + labelR * Math.cos(midRad);
+    var ly = cy + labelR * Math.sin(midRad);
+    var anchor = (lx < cx - 30) ? 'end' : (lx > cx + 30) ? 'start' : 'middle';
+    svg += '<text class="sel-rainbow-label" x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '" text-anchor="' + anchor + '" fill="' + color + '">R' + (i+1) + ' ' + _selEscape(meta.name) + '</text>';
+    svg += '<text class="sel-rainbow-score" x="' + lx.toFixed(1) + '" y="' + (ly + 14).toFixed(1) + '" text-anchor="' + anchor + '" fill="#7a8c98">' + score + '/20</text>';
+  }
+  // 가운데 반원 — 학생 정보 (위쪽 반원 안)
+  svg += '<text class="sel-rainbow-center-name" x="' + cx + '" y="258" text-anchor="middle">' + name + '</text>';
+  if (schoolYear) {
+    svg += '<text class="sel-rainbow-center-meta" x="' + cx + '" y="278" text-anchor="middle">' + schoolYear + '</text>';
+  }
+  svg += '<text class="sel-rainbow-center-total" x="' + cx + '" y="304" text-anchor="middle">' + total + ' / 140</text>';
+  svg += '<text class="sel-rainbow-center-meta" x="' + cx + '" y="322" text-anchor="middle">' + phaseLabel + (dateStr ? ' · ' + dateStr : '') + '</text>';
+  svg += '</svg>';
+  chart.innerHTML = svg;
+  // 호버·터치 인터랙션 (다른 영역 dim, 해당 영역 강조 + 인라인 안내)
+  var arcs = chart.querySelectorAll('.sel-rainbow-arc');
+  arcs.forEach(function(arc) {
+    var rIdx = parseInt(arc.getAttribute('data-r'), 10);
+    var rScore = scores[_SEL_R_META[rIdx].key];
+    arc.addEventListener('mouseenter', function() {
+      arcs.forEach(function(a) {
+        if (a === arc) a.classList.add('highlight');
+        else { a.classList.add('dim'); a.classList.remove('highlight'); }
+      });
+      _selShowRegionInfo(rIdx, rScore);
+    });
+    arc.addEventListener('mouseleave', function() {
+      arcs.forEach(function(a) { a.classList.remove('dim'); a.classList.remove('highlight'); });
+      _selResetInfo();
+    });
+    arc.addEventListener('click', function() {
+      arcs.forEach(function(a) { a.classList.remove('dim'); a.classList.remove('highlight'); });
+      arc.classList.add('highlight');
+      _selShowRegionInfo(rIdx, rScore);
+    });
+  });
+}
+
+// Phase 4-B placeholder — 다음 단계에서 구현
+function _renderSelRadar(result) {
+  var chart = document.getElementById('sel-result-chart');
+  if (chart) chart.innerHTML = '<div style="color:var(--gray);font-size:13px;padding:80px 20px;text-align:center;line-height:1.6">방사형 차트는 곧 준비될 거예요<br><span style="font-size:11px">(Phase 4-B 작업 예정)</span></div>';
+}
+function _renderSelCompare(prev, curr) {
+  var chart = document.getElementById('sel-result-chart');
+  if (chart) chart.innerHTML = '<div style="color:var(--gray);font-size:13px;padding:80px 20px;text-align:center;line-height:1.6">1·2차 비교 차트는 곧 준비될 거예요<br><span style="font-size:11px">(Phase 4-B 작업 예정)</span></div>';
+}
+
+// 키보드 단축키 — 1~5: 답 선택 / Enter·→: 다음 / ←: 이전 / Esc: 닫기
+// 모달 hidden 시 early return — input·textarea 입력 중에도 X
+function _selKeyHandler(e) {
+  var modal = document.getElementById('modal-sel-assess');
+  if (!modal || modal.classList.contains('hidden')) return;
+  var t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+  var k = e.key;
+  if (k >= '1' && k <= '5') {
+    _selPickAnswer(parseInt(k, 10));
+    e.preventDefault();
+  } else if (k === 'Enter' || k === 'ArrowRight') {
+    _selNext();
+    e.preventDefault();
+  } else if (k === 'ArrowLeft') {
+    _selPrev();
+    e.preventDefault();
+  } else if (k === 'Escape') {
+    _selCloseAssess();
+    e.preventDefault();
+  }
+}
+document.addEventListener('keydown', _selKeyHandler);
 
 // 학생 첫 로그인 자동 안내 — 미수행이면 intro 모달 띄움
 async function _showSelIntroIfNeeded() {
