@@ -2627,6 +2627,106 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   background-clip:text; -webkit-background-clip:text;
   color:transparent;
 }
+
+/* ═══════ 87차: SEL 마음이음 역량검사 ═══════ */
+/* 설정 모달 안 카드 — 미수행 시 펄스 강조 (변쌤 명시 "안한 학생에게만 하이라이팅") */
+.set-sel-card{
+  display:flex; align-items:center; gap:12px;
+  padding:14px 14px;
+  background:linear-gradient(135deg, #fdf4ff 0%, #ede9fe 50%, #dbeafe 100%);
+  border:1.5px solid rgba(167,139,250,.25);
+  border-radius:14px;
+  cursor:pointer;
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.set-sel-card:hover{ transform:translateY(-1px); box-shadow:0 4px 14px rgba(167,139,250,.18); }
+.set-sel-card.pulse{
+  animation:setSelPulse 2.4s ease-in-out infinite;
+  border-color:rgba(167,139,250,.55);
+}
+@keyframes setSelPulse{
+  0%, 100% { box-shadow:0 0 0 0 rgba(167,139,250,.35); }
+  50%      { box-shadow:0 0 0 8px rgba(167,139,250,0); }
+}
+.set-sel-emoji{
+  flex-shrink:0;
+  font-size:28px; line-height:1;
+  filter:drop-shadow(0 2px 4px rgba(167,139,250,.25));
+}
+.set-sel-body{ flex:1; min-width:0; }
+.set-sel-title{
+  font-size:14.5px; font-weight:800;
+  color:#5b3990;
+  letter-spacing:-.2px;
+  margin-bottom:3px;
+}
+.set-sel-sub{
+  font-size:11.5px; color:#7a6da5;
+  letter-spacing:.1px;
+  line-height:1.45;
+  word-break:keep-all;
+}
+.set-sel-arrow{
+  flex-shrink:0;
+  color:#a78bfa; font-size:18px; font-weight:700;
+}
+
+/* SEL intro 모달 본문 */
+.sel-intro-emoji{
+  font-size:48px; line-height:1;
+  margin-bottom:8px;
+  animation:selIntroEmojiFloat 2.4s ease-in-out infinite;
+}
+@keyframes selIntroEmojiFloat{
+  0%, 100% { transform:translateY(0) rotate(0deg); }
+  50%      { transform:translateY(-4px) rotate(8deg); }
+}
+.sel-intro-title{
+  font-family:'Gamja Flower', cursive, sans-serif;
+  font-size:32px; font-weight:700;
+  color:#7c3aed;
+  letter-spacing:.5px;
+  line-height:1;
+  margin-bottom:10px;
+  text-shadow:1.5px 1.5px 0 rgba(167,139,250,.18);
+}
+.sel-intro-sub{
+  font-size:13px; color:var(--navy);
+  line-height:1.65;
+  word-break:keep-all;
+  margin-bottom:14px;
+}
+.sel-intro-rainbow{
+  display:flex; gap:0;
+  width:80%; max-width:240px; height:8px;
+  margin:6px auto 12px;
+  border-radius:4px;
+  overflow:hidden;
+  box-shadow:0 2px 6px rgba(0,0,0,.08);
+}
+.sel-intro-rainbow span{ flex:1; }
+.sel-intro-prep{
+  font-size:11.5px; color:#7a6da5;
+  background:#faf7ff;
+  border:1px dashed rgba(167,139,250,.3);
+  border-radius:10px;
+  padding:9px 12px;
+  margin-bottom:14px;
+  line-height:1.55;
+  word-break:keep-all;
+}
+.sel-intro-actions{
+  display:grid; grid-template-columns:1fr 1.4fr; gap:8px;
+}
+.sel-intro-btn-skip{
+  font-size:13px; padding:12px 8px;
+}
+.sel-intro-btn-start{
+  font-size:13.5px; font-weight:800; padding:12px 8px;
+  background:linear-gradient(135deg,#a78bfa,#60a5fa) !important;
+  color:#fff !important;
+  letter-spacing:.3px;
+}
 .heart-tale-bot-avatar::before{
   /* 봇 안테나 (상단 작은 노란 점) */
   content:''; position:absolute;
@@ -3914,6 +4014,17 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <div><div class="settings-label">🔒 개인정보처리방침</div></div>
       <span style="color:var(--gray);font-size:16px">›</span>
     </div>
+    <!-- 87차: 학생용 마음이음 역량검사 카드 (변쌤 명시 — 미수행 학생에게 하이라이팅) -->
+    <div id="set-student-sel-wrap" style="display:none;margin-top:14px;padding-top:14px;border-top:1px dashed var(--lgray)">
+      <div id="set-student-sel-card" class="set-sel-card" onclick="openSelIntro()">
+        <div class="set-sel-emoji">✨</div>
+        <div class="set-sel-body">
+          <div class="set-sel-title">마음이음 역량검사</div>
+          <div class="set-sel-sub" id="set-student-sel-sub">짧은 문항으로 내 마음 7가지 역량을 살펴봐요</div>
+        </div>
+        <div class="set-sel-arrow">›</div>
+      </div>
+    </div>
     <!-- 73차: 관리자 전용 — 전체 새로고침 안내 + 관리자 탭 진입 -->
     <div id="set-admin-broadcast-wrap" style="display:none;margin-top:14px;padding-top:14px;border-top:1px dashed var(--lgray)">
       <div style="font-size:11.5px;color:var(--gray);font-weight:700;margin-bottom:8px;letter-spacing:0.3px">🛠 관리자 도구</div>
@@ -3929,6 +4040,30 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
               onclick="_gotoAdminToolsTab()">
         <span>🛠</span><span>이메일·미리보기·마음토큰 초기화 →</span>
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- 87차: SEL 마음이음 역량검사 안내 모달 (학생 첫 로그인 자동 + 설정탭 카드 클릭) -->
+<div id="modal-sel-intro" class="modal-overlay hidden" style="z-index:3500" onclick="closeModalOutside(event,'modal-sel-intro')">
+  <div class="modal-box" style="position:relative;max-width:380px;text-align:center;padding:28px 22px 22px" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal('modal-sel-intro')">✕</button>
+    <div class="sel-intro-emoji">✨</div>
+    <div class="sel-intro-title">마음이음 역량검사</div>
+    <div class="sel-intro-sub">짧은 문항으로 내 마음의 7가지 빛깔을<br>살펴봐요. 한 해 동안 어떻게 자라는지<br>마음 파노라마에 담겨요 🌈</div>
+    <div class="sel-intro-rainbow">
+      <span style="background:#D9455F"></span>
+      <span style="background:#E67E22"></span>
+      <span style="background:#C9A227"></span>
+      <span style="background:#2E8B57"></span>
+      <span style="background:#1E6FB8"></span>
+      <span style="background:#1A237E"></span>
+      <span style="background:#6A3DB5"></span>
+    </div>
+    <div class="sel-intro-prep">곧 본격 검사가 열려요 — 그날까지 마음의 준비만 살짝 ✨</div>
+    <div class="sel-intro-actions">
+      <button class="btn btn-secondary sel-intro-btn-skip" onclick="_selSkipNow()">나중에</button>
+      <button class="btn btn-primary sel-intro-btn-start" onclick="_selStartNow()">지금 살펴볼래요</button>
     </div>
   </div>
 </div>
@@ -7060,6 +7195,14 @@ function openSettings() {
   var adminWrap = document.getElementById('set-admin-broadcast-wrap');
   if (adminWrap) adminWrap.style.display = (STATE.role === 'admin') ? '' : 'none';
   if (STATE.role === 'admin') _refreshBroadcastCooldownUI();
+  // 87차: 학생 SEL 카드 표시 + 미수행 펄스 갱신 (변쌤 명시 "안한 학생에게만 하이라이팅")
+  if (typeof _refreshSelSettingsCard === 'function') {
+    // 캐시 없으면 fetch 후 갱신 (모달 열어둔 채 비동기)
+    if (!STATE._selStatus && STATE.user && STATE.user.student_uid && STATE.role === 'student') {
+      _selFetchStatus(STATE.user.student_uid).then(function(){ _refreshSelSettingsCard(); });
+    }
+    _refreshSelSettingsCard();
+  }
 }
 
 // 73차: 관리자 — 전체 새로고침 안내 보내기 (낙관적 UI: 즉시 토스트 + 쿨다운, GAS는 백그라운드)
@@ -7877,6 +8020,8 @@ async function onLoginSuccess(data) {
     startPersonaPoll();
     startNotificationRealtime(); // 65차 E: 알림 실시간 구독 (선물·마음봇 알림 등)
     startTokenRealtime();        // 70차: 학생 token_balance UPDATE → 상단 뱃지·마음온도계 즉시 갱신
+    // 87차: SEL 첫 로그인 자동 안내 — 미수행이면 0.6초 후 intro 모달 (skip 가능)
+    try { _showSelIntroIfNeeded(); } catch(e) { console.warn('[SEL INTRO]', e); }
     if (data.teacher_uid) {
       // 55차: Supabase 직접 (GAS fallback)
       _sbFetch('students', { teacher_uid:'eq.'+data.teacher_uid })
@@ -17729,6 +17874,141 @@ function _hpStartAutoScroll() {
 function _hpStopAutoScroll() {
   if (STATE._hpAutoTimer) { clearInterval(STATE._hpAutoTimer); STATE._hpAutoTimer = null; }
   STATE._hpAutoPaused = false;
+}
+
+// ════════════════════════════════════════════════════════════
+// 87차: SEL 마음이음 역량검사 — placeholder (변쌤 명시 캡처본 받기 전 본격 X)
+//   • 첫 로그인 시 자동 안내 모달 (skip 가능)
+//   • 학생 설정 모달 카드 — 미수행이면 펄스 강조
+//   • 본격 문항·점수 산출은 88차+ 변쌤 캡처본 받은 후
+// 메모리 답습: project_curriculum_2022_rainbow.md (7역량 무지개 매핑)
+// ════════════════════════════════════════════════════════════
+
+// SEL 상태 fetch — 학생의 마지막 sel_assessment row (cache: STATE._selStatus)
+async function _selFetchStatus(student_uid) {
+  if (!student_uid) return null;
+  // 미리보기는 더미 — 미수행으로 가정 (관리자 시연용)
+  if (STATE.isPreview) {
+    STATE._selStatus = { has_record:false, skipped:false };
+    return STATE._selStatus;
+  }
+  try {
+    var rows = await _sbFetch('sel_assessment', {
+      student_uid: 'eq.' + student_uid,
+      order: 'taken_at.desc',
+      limit: '1',
+      select: 'uid,phase,taken_at,skipped,total_score'
+    });
+    if (rows && rows.length) {
+      var r = rows[0];
+      STATE._selStatus = {
+        has_record: true,
+        phase: r.phase,
+        taken_at: r.taken_at,
+        skipped: !!r.skipped,
+        total_score: r.total_score
+      };
+    } else {
+      STATE._selStatus = { has_record:false, skipped:false };
+    }
+    return STATE._selStatus;
+  } catch(e) {
+    console.warn('[SEL FETCH STATUS]', e && e.message ? e.message : e);
+    STATE._selStatus = { has_record:false, skipped:false };
+    return STATE._selStatus;
+  }
+}
+
+// 설정 모달 열 때 학생 SEL 카드 보임 + 미수행 펄스 갱신
+function _refreshSelSettingsCard() {
+  var wrap = document.getElementById('set-student-sel-wrap');
+  if (!wrap) return;
+  // 학생만 보임
+  if (!STATE.user || STATE.role !== 'student') {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = '';
+  var card = document.getElementById('set-student-sel-card');
+  var sub  = document.getElementById('set-student-sel-sub');
+  var st = STATE._selStatus || { has_record:false, skipped:false };
+  // 미수행(skipped 또는 record 없음) → 펄스 강조 + 안내
+  if (!st.has_record || st.skipped) {
+    if (card) card.classList.add('pulse');
+    if (sub)  sub.textContent  = '아직 안 했어요 — 짧게 7가지 마음 빛깔을 살펴봐요';
+  } else {
+    if (card) card.classList.remove('pulse');
+    if (sub)  sub.textContent  = '검사 완료 — 결과는 마음 파노라마에서 만나요';
+  }
+}
+
+// SEL intro 모달 열기 (설정 카드 클릭 또는 첫 로그인 자동)
+function openSelIntro() {
+  var modal = document.getElementById('modal-sel-intro');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+}
+
+// 「지금 살펴볼래요」 — placeholder (88차+ 본격 검사 진입)
+function _selStartNow() {
+  closeModal('modal-sel-intro');
+  toast('곧 본격 검사가 열려요 ✨ 그때 다시 안내해 드릴게요');
+  // 88차+ 본격: 학년·학년 띠별 문항 모달 진입 → 학생 응답 → submit_sel_answers RPC → 점수 산출 → 마음 파노라마 통합
+}
+
+// 「나중에」 — sel_assessment에 skipped:true row INSERT (오늘 1회 더 안 띄움)
+async function _selSkipNow() {
+  closeModal('modal-sel-intro');
+  if (!STATE.user || !STATE.user.student_uid) return;
+  if (STATE.isPreview) {
+    // 미리보기 — 메모리만 갱신
+    STATE._selStatus = { has_record:true, skipped:true, taken_at:_htNewKstTs() };
+    _refreshSelSettingsCard();
+    return;
+  }
+  try {
+    var ts = _htNewKstTs();
+    var uid = 'sel_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    await _sbInsert('sel_assessment', {
+      uid: uid,
+      student_uid: STATE.user.student_uid,
+      phase: 'pre',
+      grade_band: _selGradeBand(STATE.user.grade),
+      taken_at: ts,
+      skipped: true,
+      created_at: ts,
+      updated_at: ts
+    });
+    STATE._selStatus = { has_record:true, skipped:true, taken_at:ts };
+    _refreshSelSettingsCard();
+    toast('나중에 다시 안내해 드릴게요 — 설정에서 언제든 살펴볼 수 있어요');
+  } catch(e) {
+    console.error('[SEL SKIP]', e && e.message ? e.message : e);
+  }
+}
+
+// 학년 → 검사 띠 (저학년/고학년/중/고)
+function _selGradeBand(grade) {
+  var g = parseInt(grade, 10) || 0;
+  if (g >= 1 && g <= 2)  return 'elem_low';
+  if (g >= 3 && g <= 6)  return 'elem_high';
+  if (g >= 7 && g <= 9)  return 'mid';
+  if (g >= 10 && g <= 12) return 'high';
+  return 'elem_high';
+}
+
+// 학생 첫 로그인 자동 안내 — 미수행이면 intro 모달 띄움
+async function _showSelIntroIfNeeded() {
+  if (!STATE.user || STATE.role !== 'student') return;
+  // 같은 단말 세션 중복 방지
+  if (STATE._selIntroShown) return;
+  STATE._selIntroShown = true;
+  await _selFetchStatus(STATE.user.student_uid);
+  var st = STATE._selStatus || {};
+  // 이미 본 검사 또는 skip한 경우 → 자동 X (설정 카드에서 언제든 진입 가능)
+  if (st.has_record) return;
+  // 자동 안내 모달
+  setTimeout(function(){ openSelIntro(); }, 600);
 }
 
 // 87차: 마음 파노라마 'ㄹ' snake 출력본 → JPG 저장 (변쌤 명시 본격 구현)
