@@ -3219,6 +3219,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   display:flex; align-items:center; justify-content:center;
 }
 .sel-result-chart svg{ display:block; width:100%; height:auto; max-width:none; }
+/* 89차 변쌤 명시 (re-fix v2) — svg+배지 세로 wrap (parent .sel-result-chart flex 가로 늘어남 차단) */
+.sel-chart-wrap{
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:0;
+}
+.sel-chart-wrap > svg{ display:block; width:100%; height:auto; max-width:680px; margin:0 auto; }
 /* info 박스 height 고정 — textContent 변경 시 모달 layout 안 변동 (min-height X, 고정 height) */
 .sel-result-info{
   background:var(--cream);
@@ -19946,10 +19955,10 @@ function _renderSelRadar(result) {
     svg += '<text class="sel-radar-label" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="middle" fill="' + color + '">' + _selRegionLabel(ri4) + '</text>';
     svg += '<text class="sel-radar-score" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 26).toFixed(1) + '" text-anchor="middle" fill="#7a8c98">' + scores[ri4] + '/20</text>';
   }
-  // 89차 변쌤 명시 (re-fix) — 배지를 SVG 밖 div로 (7축 공동체 가치·관계관리 라벨과 안 겹치게)
+  // 89차 변쌤 명시 (re-fix v2) — wrap div로 svg+배지 세로 정렬 (parent flex 가로 늘어남 차단)
   svg += '</svg>';
   var radarSummary = '<div class="sel-radar-summary-bar"><span class="sel-radar-total-badge">' + total + ' / 140</span></div>';
-  chart.innerHTML = svg + radarSummary;
+  chart.innerHTML = '<div class="sel-chart-wrap">' + svg + radarSummary + '</div>';
   // 호버·터치 — invisible hit area(r=20)에 이벤트 바인딩, dot은 시각만 (r 7→9 살짝 확대)
   var hits = chart.querySelectorAll('.sel-radar-hit');
   hits.forEach(function(hit) {
@@ -20055,7 +20064,8 @@ function _renderSelCompare(prev, curr) {
                   + '<span class="sel-compare-prev-curr">' + _selEscape(prevLabel) + ' ' + prevTotal + ' → ' + _selEscape(currLabel) + ' ' + currTotal + '</span>'
                   + '<span class="sel-compare-badge sel-compare-badge-' + badgeCls + '">' + totalArrow + ' ' + totalText + '점</span>'
                   + '</div>';
-  chart.innerHTML = svg + summaryHtml;
+  // 89차 변쌤 명시 (re-fix v2) — wrap div로 svg+배지 세로 정렬 (parent flex 가로 늘어남 차단)
+  chart.innerHTML = '<div class="sel-chart-wrap">' + svg + summaryHtml + '</div>';
   // 호버·터치 — invisible hit area(r=20) + dot 시각만 (r 7→9)
   var hits = chart.querySelectorAll('.sel-radar-hit');
   hits.forEach(function(hit) {
