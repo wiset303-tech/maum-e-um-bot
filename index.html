@@ -2152,35 +2152,35 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .heart-tale-cover-avatar img{
   width:100%; height:100%; object-fit:cover; border-radius:50%;
 }
-/* 90차 변쌤 명시 — 마음동화 표지 학생 그림 영역 (학생 본인만 업로드 · 미업로드 시 프로필 사진 가운데 · 업로드 후 학생 그림이 자리 차지) */
+/* 90차 변쌤 명시 (re-fix) — 표지 그림 300×300 (모바일 260) · 카메라 사진은 object-fit:cover로 가운데 1:1 정사각 자동 잘림 */
 .heart-tale-cover-imgwrap{
-  width:200px; height:200px;
-  border-radius:18px;
+  width:300px; height:300px;
+  border-radius:22px;
   overflow:hidden;
-  margin-bottom:18px;
+  margin-bottom:14px;
   background:linear-gradient(135deg, #faf6ed 0%, #ffe7d6 100%);
   border:3px solid #7ed6c0;
-  box-shadow:0 4px 12px rgba(60,140,120,0.25), 0 1px 3px rgba(60,40,20,0.10);
+  box-shadow:0 4px 14px rgba(60,140,120,0.28), 0 1px 3px rgba(60,40,20,0.10);
   display:flex; align-items:center; justify-content:center;
   position:relative;
   flex-shrink:0;
 }
 .heart-tale-cover-imgwrap img{
-  width:100%; height:100%; object-fit:cover;
+  width:100%; height:100%; object-fit:cover;   /* 카메라 4:3 사진 자동 가운데 1:1 정사각 자르기 */
   display:block;
 }
 .heart-tale-cover-imgwrap-placeholder{
-  font-size:72px; line-height:1;
+  font-size:96px; line-height:1;
 }
 .heart-tale-cover-upload-btn{
   background:linear-gradient(135deg, #7ed6c0 0%, #5cc4a8 100%);
   color:#fff;
-  font-size:13px; font-weight:700;
-  padding:8px 18px;
-  border-radius:14px;
+  font-size:12px; font-weight:700;
+  padding:7px 16px;
+  border-radius:13px;
   border:none;
   cursor:pointer;
-  margin-top:6px;
+  margin-top:4px;
   letter-spacing:.2px;
   box-shadow:0 2px 6px rgba(60,140,120,0.28);
   transition:transform .15s, box-shadow .15s;
@@ -2190,25 +2190,25 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .heart-tale-cover-upload-btn:hover{ transform:translateY(-1px); box-shadow:0 4px 10px rgba(60,140,120,0.4); }
 .heart-tale-cover-upload-btn:active{ transform:translateY(0); }
 .heart-tale-cover-title{
-  font-size:24px; color:#3a2818;
-  font-weight:800; letter-spacing:-1px;
+  font-size:21px; color:#3a2818;          /* 90차 변쌤 명시 (re-fix) — 24→21 살짝 줄임 (표지 300×300 비례) */
+  font-weight:800; letter-spacing:-.8px;
   margin:0;
   line-height:1.2;
 }
 .heart-tale-cover-divider{
-  width:50px; height:1px;
+  width:46px; height:1px;
   background:rgba(120,80,40,0.3);
-  margin:14px auto;
+  margin:11px auto;                       /* 14→11 살짝 압축 */
 }
 .heart-tale-cover-subtitle{
-  font-size:12.5px; color:#8a6a48;
-  line-height:1.6; letter-spacing:-0.2px;
+  font-size:12px; color:#8a6a48;          /* 12.5→12 미세조정 */
+  line-height:1.55; letter-spacing:-0.2px;
   font-weight:500;
   max-width:240px;
 }
 .heart-tale-cover-hint{
-  font-size:10.5px; color:#a08868;
-  margin-top:24px;
+  font-size:10px; color:#a08868;          /* 10.5→10 미세조정 */
+  margin-top:18px;                        /* 24→18 살짝 압축 */
   letter-spacing:.3px;
 }
 .heart-tale-meta{
@@ -3618,11 +3618,11 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   .heart-tale-week-word{ font-size:23px; }
   .heart-tale-photo-wrap{ height:208px; max-width:320px; }
   .heart-tale-spine{ flex-basis:48px; padding:6px 4px; }
-  .heart-tale-cover-title{ font-size:21px; }
+  .heart-tale-cover-title{ font-size:19px; }                                  /* 90차 (re-fix) 21→19 */
   .heart-tale-cover-avatar{ width:76px; height:76px; font-size:42px; }
-  /* 90차 변쌤 명시 — 모바일 표지 그림 영역 살짝 작게 */
-  .heart-tale-cover-imgwrap{ width:170px; height:170px; }
-  .heart-tale-cover-imgwrap-placeholder{ font-size:62px; }
+  /* 90차 변쌤 명시 (re-fix) — 모바일 표지 그림 영역 260×260 (큰 폰 300 → 모바일 260) */
+  .heart-tale-cover-imgwrap{ width:260px; height:260px; }
+  .heart-tale-cover-imgwrap-placeholder{ font-size:84px; }
   .heart-tale-watermark{ top:11px; left:24px; font-size:15px; }
 }
 
