@@ -2841,11 +2841,26 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .sel-result-box{
   max-width:720px; padding:0;
   border-radius:24px;
-  /* 88차 모바일 잘림 fix: min-height 제거 + 뷰포트 92% 안에 들어가게 + 안에서 스크롤 */
-  /* 호버 깜빡은 .sel-result-info·.sel-result-chart height 고정으로 자체 차단 */
-  max-height:92vh;
   overflow-y:auto;
   overflow-x:hidden;
+  /* 88차 변쌤 명시: 차트·비교는 짧게(580px)·리포트는 길게(92vh) — _selSwitchTab에서 mode 클래스 토글 */
+  max-height:600px;
+}
+.sel-result-box.mode-chart{ max-height:600px; }
+.sel-result-box.mode-compare{ max-height:600px; }
+.sel-result-box.mode-report{ max-height:92vh; }
+/* chart·compare는 차트 영역 높이 컴팩트, report는 sel-report-v2-* 풀 사용 */
+.sel-result-box.mode-chart .sel-result-chart,
+.sel-result-box.mode-compare .sel-result-chart{
+  min-height:300px; padding:6px 14px 4px;
+}
+.sel-result-box.mode-report .sel-result-chart{
+  min-height:auto; padding:0;
+  display:block;
+}
+.sel-result-box.mode-report .sel-result-info,
+.sel-result-box.mode-report .sel-chart-subtoggle{
+  display:none;
 }
 .sel-result-header{
   position:relative;
@@ -3044,6 +3059,157 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   font-size:12px; color:var(--navy);
   line-height:1.5;
 }
+
+/* 88차 변쌤 명시: 리포트 탭 v2 — 마음이음 톤 새 디자인 (mint·cream·favicon·작은 글자·여백) */
+.sel-report-v2{
+  background:linear-gradient(180deg, var(--mint4) 0%, #fff 220px);
+  padding:0 14px 16px;
+}
+.sel-report-v2-hero{
+  text-align:center;
+  padding:18px 12px 16px;
+}
+.sel-report-v2-logo{
+  width:42px; height:42px;
+  border-radius:50%;
+  background:#fff;
+  padding:5px;
+  box-shadow:0 4px 14px rgba(78,205,180,.22), 0 0 0 1px rgba(78,205,180,.12);
+  margin:0 auto 8px;
+  display:block;
+  object-fit:contain;
+}
+.sel-report-v2-name{
+  font-family:'Black Han Sans', sans-serif;
+  font-size:17px; color:var(--navy);
+  letter-spacing:-.3px; line-height:1.2;
+  margin-bottom:3px;
+}
+.sel-report-v2-meta{
+  font-size:11px; color:var(--gray);
+  letter-spacing:.2px;
+}
+.sel-report-v2-total{
+  font-family:'Black Han Sans', sans-serif;
+  font-size:30px; color:var(--mint2);
+  margin-top:8px;
+  letter-spacing:-.5px;
+  line-height:1;
+}
+.sel-report-v2-total span{
+  font-family:'Noto Sans KR', sans-serif;
+  font-size:13px; color:var(--gray); font-weight:500;
+  margin-left:2px;
+}
+.sel-report-v2-cards{
+  display:flex; flex-direction:column; gap:9px;
+}
+.sel-report-v2-card{
+  background:#fff;
+  border-radius:16px;
+  padding:13px 14px 11px;
+  box-shadow:0 2px 10px rgba(0,0,0,.04);
+  position:relative;
+  overflow:hidden;
+}
+.sel-report-v2-card::before{
+  content:'';
+  position:absolute;
+  left:0; top:0; bottom:0;
+  width:4px;
+  background:var(--accent, var(--mint));
+}
+.sel-report-v2-card-head{
+  display:flex; align-items:center; gap:9px;
+  margin-bottom:5px;
+}
+.sel-report-v2-card-dot{
+  width:10px; height:10px; border-radius:50%;
+  background:var(--accent);
+  flex-shrink:0;
+  box-shadow:0 0 0 2px #fff, 0 1px 4px rgba(0,0,0,.12);
+}
+.sel-report-v2-card-name{
+  flex:1; min-width:0;
+  font-size:13.5px; font-weight:800;
+  color:var(--navy);
+  letter-spacing:-.2px;
+}
+.sel-report-v2-card-score{
+  font-family:'Black Han Sans', sans-serif;
+  font-size:18px; color:var(--accent);
+  letter-spacing:-.3px;
+  line-height:1;
+}
+.sel-report-v2-card-score span{
+  font-family:'Noto Sans KR', sans-serif;
+  font-size:10.5px; color:var(--gray); font-weight:600;
+  margin-left:1px;
+}
+.sel-report-v2-card-line{
+  font-size:11.5px; color:var(--navy); opacity:.7;
+  line-height:1.5; word-break:keep-all;
+  margin-bottom:4px;
+  text-wrap:pretty;
+}
+.sel-report-v2-card-msg{
+  font-size:12px; color:var(--accent);
+  font-weight:700;
+  margin-bottom:8px;
+  letter-spacing:-.1px;
+}
+.sel-report-v2-card-eg{
+  background:var(--mint4);
+  border-radius:10px;
+  padding:7px 10px 8px;
+}
+.sel-report-v2-eg-title{
+  font-size:9.5px; font-weight:800;
+  color:var(--mint2);
+  letter-spacing:.5px;
+  margin-bottom:3px;
+}
+.sel-report-v2-card-eg ul{
+  margin:0; padding-left:13px;
+  font-size:11.5px; color:var(--navy);
+  line-height:1.55; word-break:keep-all;
+  opacity:.85;
+}
+.sel-report-v2-card-eg li{ margin-bottom:1px; }
+/* 교사·관리자 추가 박스 (학생용엔 hidden) */
+.sel-report-v2-teacher{
+  margin-top:9px;
+  padding:8px 10px 9px;
+  background:rgba(0,0,0,.025);
+  border-radius:10px;
+  border:1px dashed rgba(78,205,180,.25);
+}
+.sel-report-v2-teacher-source{
+  font-size:10.5px; color:var(--mint2);
+  font-weight:700;
+  margin-bottom:4px;
+  letter-spacing:.1px;
+}
+.sel-report-v2-teacher-keys{
+  display:flex; flex-wrap:wrap; gap:4px;
+  margin-bottom:5px;
+}
+.sel-report-v2-teacher-key{
+  display:inline-block;
+  padding:1px 7px;
+  background:#fff;
+  color:var(--mint2);
+  border:1px solid rgba(78,205,180,.25);
+  border-radius:999px;
+  font-size:10px; font-weight:600;
+  letter-spacing:.1px;
+}
+.sel-report-v2-teacher-tips{
+  margin:0; padding-left:13px;
+  font-size:11px; color:var(--navy); opacity:.82;
+  line-height:1.55;
+}
+
 /* chart 영역 height 고정 — 호버 시 layout 안 변동 */
 .sel-result-chart{
   background:#fff;
@@ -19426,7 +19592,13 @@ function _selSwitchTab(mode) {
     if (tabs[i].getAttribute('data-mode') === mode) tabs[i].classList.add('active');
     else tabs[i].classList.remove('active');
   }
-  // 차트 sub-toggle은 chart 모드에서만 표시
+  // 88차 변쌤 명시: modal-box mode 클래스 토글 — 차트·비교는 짧게(600px), 리포트는 길게(92vh)
+  var box = document.querySelector('#modal-sel-result .sel-result-box');
+  if (box) {
+    box.classList.remove('mode-chart','mode-report','mode-compare');
+    box.classList.add('mode-' + mode);
+  }
+  // 차트 sub-toggle은 chart 모드에서만 표시 (CSS에서도 mode-report일 때 hide)
   var subtoggle = document.getElementById('sel-chart-subtoggle');
   if (subtoggle) {
     if (mode === 'chart') subtoggle.classList.remove('hidden');
@@ -19792,9 +19964,9 @@ function _selShowCompareInfo(rIdx, prevScore, currScore) {
                  + ' · <span style="color:' + deltaColor + ';font-weight:700">' + arrow + ' ' + deltaText + '</span>';
 }
 
-// 88차 변쌤 명시: SEL 리포트 탭 — 학생/교사 분리 카드 7개
-//   학생: 영역 동그라미·이름·점수 + 한 줄 desc + 점수 구간 메시지 + 예시 2개 (개조식)
-//   교사: 위 + 학술 출처·키워드·지도 방법 (회색 박스)
+// 88차 변쌤 명시 v2: SEL 리포트 탭 — 마음이음 톤 새 디자인 (favicon·mint cream·작은 글자·여백)
+//   학생: hero(로고·이름·총점) + 영역 카드 7개 (영역 색 좌측 보더·작은 점·한 줄·메시지·예시 mint 박스)
+//   교사·관리자: 위 + 카드마다 학술 출처·키워드·지도 방법 회색 점선 박스
 function _renderSelReport(result) {
   var chart = document.getElementById('sel-result-chart');
   if (!chart || !result) return;
@@ -19810,60 +19982,64 @@ function _renderSelReport(result) {
   var phaseLabel = result.phase_label || ((result.phase || 1) + '차 진단');
   var dateStr = (result.completed_at || result.updated_at || '').slice(0, 10);
   var schoolYear = result.school_year ? (result.school_year + '학년') : '';
-  var html = '<div class="sel-report-wrap">';
-  // 상단 요약 (이름·학년·총점·검사 차수·날짜)
-  html += '<div class="sel-report-summary">';
-  html += '<div class="sel-report-summary-name">' + _selEscape(name) + '</div>';
-  if (schoolYear) html += '<div class="sel-report-summary-meta">' + _selEscape(schoolYear) + '</div>';
-  html += '<div class="sel-report-summary-total">' + total + ' / 140</div>';
-  html += '<div class="sel-report-summary-meta">' + _selEscape(phaseLabel) + (dateStr ? ' · ' + dateStr : '') + '</div>';
+  var html = '<div class="sel-report-v2">';
+  // hero — favicon 로고 + 학생 이름 + 학년·차수·날짜 + 총점
+  html += '<div class="sel-report-v2-hero">';
+  html += '<img class="sel-report-v2-logo" src="./favicon.png" alt="마음이음">';
+  html += '<div class="sel-report-v2-name">' + _selEscape(name) + '</div>';
+  var metaLine = [];
+  if (schoolYear) metaLine.push(_selEscape(schoolYear));
+  metaLine.push(_selEscape(phaseLabel));
+  if (dateStr)    metaLine.push(dateStr);
+  html += '<div class="sel-report-v2-meta">' + metaLine.join(' · ') + '</div>';
+  html += '<div class="sel-report-v2-total">' + total + '<span>/ 140</span></div>';
   html += '</div>';
-  // 영역 카드 7개
+  // 카드 7개
+  html += '<div class="sel-report-v2-cards">';
   for (var i = 0; i < 7; i++) {
     var meta = _SEL_R_META[i];
     var sc = scores[i];
     var lvl = _selScoreLevel(sc);
     var msg = (meta.student.msg && meta.student.msg[lvl]) || '';
-    var msgCls = (lvl === 'low') ? 'low' : (lvl === 'mid') ? 'mid' : '';
-    // 동그라미 라벨 — 학생 화면엔 숫자만, 교사·관리자는 R번호
-    var barLabel = (role === 'student') ? String(i+1) : ('R' + meta.num);
-    html += '<div class="sel-report-card" style="border-left-color:var(--sel-' + meta.key + ')">';
-    html += '<div class="sel-report-card-bar" style="background:var(--sel-' + meta.key + ')">' + barLabel + '</div>';
-    html += '<div class="sel-report-card-body">';
-    html += '<div class="sel-report-card-head">';
-    html += '<div class="sel-report-card-name">' + _selEscape(meta.name) + '</div>';
-    html += '<div class="sel-report-card-score" style="color:var(--sel-' + meta.key + ')">' + sc + ' / 20</div>';
+    html += '<div class="sel-report-v2-card" style="--accent:var(--sel-' + meta.key + ')">';
+    // head — 점·이름·점수
+    html += '<div class="sel-report-v2-card-head">';
+    html += '<div class="sel-report-v2-card-dot"></div>';
+    html += '<div class="sel-report-v2-card-name">' + _selEscape(meta.name) + '</div>';
+    html += '<div class="sel-report-v2-card-score">' + sc + '<span>/ 20</span></div>';
     html += '</div>';
-    // 학생 친화 한 줄
-    html += '<div class="sel-report-card-desc">' + _selEscape(meta.student.short) + '</div>';
-    // 점수 구간 메시지
-    if (msg) html += '<div class="sel-report-card-msg ' + msgCls + '">' + _selEscape(msg) + '</div>';
-    // 예시 2개 (개조식)
-    html += '<div class="sel-report-examples-title">예) 이런 모습이에요</div>';
-    html += '<ul class="sel-report-examples">';
+    // 한 줄 + 점수 구간 메시지
+    html += '<div class="sel-report-v2-card-line">' + _selEscape(meta.student.short) + '</div>';
+    if (msg) html += '<div class="sel-report-v2-card-msg">' + _selEscape(msg) + '</div>';
+    // 예시 mint 박스
+    html += '<div class="sel-report-v2-card-eg">';
+    html += '<div class="sel-report-v2-eg-title">이런 모습이에요</div>';
+    html += '<ul>';
     for (var j = 0; j < meta.student.examples.length; j++) {
       html += '<li>' + _selEscape(meta.student.examples[j]) + '</li>';
     }
     html += '</ul>';
-    // 교사·학부모·관리자 추가 영역 — 학술 출처·키워드·지도 방법
+    html += '</div>';
+    // 교사·학부모·관리자 추가
     if (role !== 'student') {
-      html += '<div class="sel-report-teacher-extra">';
-      html += '<div class="sel-report-teacher-extra-title">' + _selEscape(meta.teacher.source) + ' · ' + _selEscape(meta.teacher.desc) + '</div>';
-      html += '<div class="sel-report-teacher-keywords">';
+      html += '<div class="sel-report-v2-teacher">';
+      html += '<div class="sel-report-v2-teacher-source">R' + meta.num + ' · ' + _selEscape(meta.teacher.source) + ' · ' + _selEscape(meta.teacher.desc) + '</div>';
+      html += '<div class="sel-report-v2-teacher-keys">';
       for (var k = 0; k < meta.teacher.keywords.length; k++) {
-        html += '<span class="sel-report-teacher-keyword">#' + _selEscape(meta.teacher.keywords[k]) + '</span>';
+        html += '<span class="sel-report-v2-teacher-key">#' + _selEscape(meta.teacher.keywords[k]) + '</span>';
       }
       html += '</div>';
-      html += '<ul class="sel-report-teacher-tips">';
+      html += '<ul class="sel-report-v2-teacher-tips">';
       for (var t = 0; t < meta.teacher.tips.length; t++) {
         html += '<li>' + _selEscape(meta.teacher.tips[t]) + '</li>';
       }
       html += '</ul>';
       html += '</div>';
     }
-    html += '</div></div>';  // body, card 닫음
+    html += '</div>';  // card 닫음
   }
-  html += '</div>';  // wrap 닫음
+  html += '</div>';    // cards 닫음
+  html += '</div>';    // v2 wrap 닫음
   chart.innerHTML = html;
 }
 
