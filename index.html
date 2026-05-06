@@ -2090,7 +2090,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 
 /* 페이지 inner — 평소는 일반 흐름(incoming), 넘김 시 outgoing은 absolute */
 .heart-tale-page-inner{
-  padding:18px 18px 14px 28px;
+  /* 90차 변쌤 명시 — padding-top 18→36px (좌상단 워터마크 "마음이음🌈"와 본문 meta·week-word 겹침 차단) */
+  padding:36px 18px 14px 28px;
   box-sizing:border-box;
   display:flex; flex-direction:column;
   min-height:540px;
@@ -2151,6 +2152,43 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .heart-tale-cover-avatar img{
   width:100%; height:100%; object-fit:cover; border-radius:50%;
 }
+/* 90차 변쌤 명시 — 마음동화 표지 학생 그림 영역 (학생 본인만 업로드 · 미업로드 시 프로필 사진 가운데 · 업로드 후 학생 그림이 자리 차지) */
+.heart-tale-cover-imgwrap{
+  width:200px; height:200px;
+  border-radius:18px;
+  overflow:hidden;
+  margin-bottom:18px;
+  background:linear-gradient(135deg, #faf6ed 0%, #ffe7d6 100%);
+  border:3px solid #7ed6c0;
+  box-shadow:0 4px 12px rgba(60,140,120,0.25), 0 1px 3px rgba(60,40,20,0.10);
+  display:flex; align-items:center; justify-content:center;
+  position:relative;
+  flex-shrink:0;
+}
+.heart-tale-cover-imgwrap img{
+  width:100%; height:100%; object-fit:cover;
+  display:block;
+}
+.heart-tale-cover-imgwrap-placeholder{
+  font-size:72px; line-height:1;
+}
+.heart-tale-cover-upload-btn{
+  background:linear-gradient(135deg, #7ed6c0 0%, #5cc4a8 100%);
+  color:#fff;
+  font-size:13px; font-weight:700;
+  padding:8px 18px;
+  border-radius:14px;
+  border:none;
+  cursor:pointer;
+  margin-top:6px;
+  letter-spacing:.2px;
+  box-shadow:0 2px 6px rgba(60,140,120,0.28);
+  transition:transform .15s, box-shadow .15s;
+  font-family:inherit;
+  word-break:keep-all;
+}
+.heart-tale-cover-upload-btn:hover{ transform:translateY(-1px); box-shadow:0 4px 10px rgba(60,140,120,0.4); }
+.heart-tale-cover-upload-btn:active{ transform:translateY(0); }
 .heart-tale-cover-title{
   font-size:24px; color:#3a2818;
   font-weight:800; letter-spacing:-1px;
@@ -2851,9 +2889,11 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .sel-result-box.mode-compare{ max-height:min(680px, 92vh); }   /* 89차 변쌤 명시 (re-fix3) — 600→680 살짝 늘림 (R1 자기인식 잘림 + 종합 코멘트 영역 확보) */
 .sel-result-box.mode-report{ max-height:88vh; }
 /* chart·compare는 차트 영역 높이 컴팩트, report는 sel-report-v2-* 풀 사용 */
-.sel-result-box.mode-chart .sel-result-chart,
-.sel-result-box.mode-compare .sel-result-chart{
+.sel-result-box.mode-chart .sel-result-chart{
   min-height:300px; padding:6px 14px 4px;
+}
+.sel-result-box.mode-compare .sel-result-chart{
+  min-height:300px; padding:24px 14px 4px;   /* 89차 변쌤 명시 (re-fix5) — 비교탭은 sub-toggle 없어서 탭 행과 자기인식 라벨 사이 여백 부족 → padding-top 24px */
 }
 .sel-result-box.mode-report .sel-result-chart{
   min-height:auto; padding:0;
@@ -3574,12 +3614,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   letter-spacing:.3px; font-weight:600;
 }
 @media (max-width:480px){
-  .heart-tale-page-inner{ padding:16px 14px 12px 22px; }
+  .heart-tale-page-inner{ padding:32px 14px 12px 22px; }   /* 90차 변쌤 명시 — 좌상단 워터마크와 본문 겹침 차단 (16→32) */
   .heart-tale-week-word{ font-size:23px; }
   .heart-tale-photo-wrap{ height:208px; max-width:320px; }
   .heart-tale-spine{ flex-basis:48px; padding:6px 4px; }
   .heart-tale-cover-title{ font-size:21px; }
   .heart-tale-cover-avatar{ width:76px; height:76px; font-size:42px; }
+  /* 90차 변쌤 명시 — 모바일 표지 그림 영역 살짝 작게 */
+  .heart-tale-cover-imgwrap{ width:170px; height:170px; }
+  .heart-tale-cover-imgwrap-placeholder{ font-size:62px; }
   .heart-tale-watermark{ top:11px; left:24px; font-size:15px; }
 }
 
@@ -18524,40 +18567,61 @@ function _htpResolvePhotoSrc(photoUrl) {
   return 'https://lh3.googleusercontent.com/d/' + s + '=w500';
 }
 
-// 표지 빌더 — 학생 본인 프로필 원형 (87차 회귀 fix — 86차까지 STATE.user.profile_image_url로 교사 사진 박힌 회귀) + "○○의 마음동화"
+// 표지 빌더 — 학생 그림 표지(book_cover_url) > 프로필 사진 > 🌱 placeholder + 학생 본인이면 업로드 버튼 (90차 변쌤 명시)
+//   87차 회귀 fix 답습 — 보고 있는 학생 본인의 프로필 사용 (다른 학생 책 열 때 STATE.user 박지 말 것)
 function _buildHeartTaleCoverHTML() {
   var name = STATE._htpStudentName || '나';
   var profileImg = '';
+  var bookCover = '';   // 90차: 학생 그림 표지 (Storage URL)
   var stuUid = STATE._htpStudentUid;
-  // 87차: 보고 있는 학생 본인의 프로필 사용
-  //   ① 학생 본인 자기 책 펼침 → STATE.user.profile_image_url
-  //   ② 교사·학부모·관리자·미리보기가 학생 책 펼침 → STATE.students에서 매칭 학생 찾기
   if (stuUid && stuUid !== 'me') {
     if (STATE.user && (stuUid === STATE.user.student_uid)) {
       profileImg = STATE.user.profile_image_url || '';
+      bookCover  = STATE.user.book_cover_url || '';
     } else if (Array.isArray(STATE.students)) {
       for (var i = 0; i < STATE.students.length; i++) {
         if (STATE.students[i] && STATE.students[i].student_uid === stuUid) {
           profileImg = STATE.students[i].profile_image_url || '';
+          bookCover  = STATE.students[i].book_cover_url || '';
           break;
         }
       }
     }
   } else if (STATE.user && STATE.user.role === 'student') {
-    // 학생 본인 + uid 미확정 (미리보기 등) — STATE.user fallback
     profileImg = STATE.user.profile_image_url || '';
+    bookCover  = STATE.user.book_cover_url || '';
   }
-  // 87차: 미리보기에서도 매칭 학생 없으면 placeholder 이모지로 (교사 사진 박히지 않게)
-  var avatarInner = profileImg ? ('<img src="' + _escHtml(profileImg) + '" alt="">') : '🌱';
+  // 90차 변쌤 명시 — 학생 본인만 표지 업로드 가능. 교사·학부모·관리자는 보기만
+  var isSelf = !!(STATE.user && STATE.user.role === 'student'
+              && (STATE.user.student_uid === stuUid || stuUid === 'me' || !stuUid));
+  // 90차 변쌤 명시 — 표지 그림 우선 → 프로필 → placeholder 🌱
+  var imgInner;
+  if (bookCover) {
+    imgInner = '<img src="' + _escHtml(bookCover) + '" alt="' + _escHtml(name) + '의 표지">';
+  } else if (profileImg) {
+    imgInner = '<img src="' + _escHtml(profileImg) + '" alt="' + _escHtml(name) + '의 프로필">';
+  } else {
+    imgInner = '<span class="heart-tale-cover-imgwrap-placeholder" aria-hidden="true">🌱</span>';
+  }
   // 87차 정정 (변쌤 명시): 첫 표지에서 마음 파노라마 버튼 제거 → 마지막 표지(week=46)에 의미 있게 배치
   var html = '<div class="heart-tale-cover">';
-  html += '<div class="heart-tale-cover-avatar">' + avatarInner + '</div>';
+  html += '<div class="heart-tale-cover-imgwrap">' + imgInner + '</div>';
   html += '<div class="heart-tale-cover-title">' + _escHtml(name) + '의 마음동화</div>';
   html += '<div class="heart-tale-cover-divider"></div>';
   html += '<div class="heart-tale-cover-subtitle">한 주에 한 페이지<br>1년의 마음 이야기</div>';
+  if (isSelf) {
+    html += '<button type="button" class="heart-tale-cover-upload-btn" onclick="_htOpenCoverUpload()">';
+    html += bookCover ? '✏️ 표지 그림 변경' : '✏️ 그림으로 표지 만들기';
+    html += '</button>';
+  }
   html += '<div class="heart-tale-cover-hint">▶ 다음 페이지로 넘겨보세요</div>';
   html += '</div>';
   return html;
+}
+
+// 90차 단계 2 임시 — 다음 단계(B-3)에서 본격 구현 (사진 input + Storage upload + Supabase patch)
+function _htOpenCoverUpload() {
+  if (typeof toast === 'function') toast('곧 표지 그림을 올릴 수 있어요 (단계 B-3 구현 중)', 1800);
 }
 
 // 87차: 마음 파노라마 — 교사 broadcast 신호 전 클릭 시 안내 (변쌤 명시 "안내문구")
