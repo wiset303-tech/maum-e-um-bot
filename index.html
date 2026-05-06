@@ -18108,6 +18108,232 @@ function _selGradeBand(grade) {
   return 'elem_high';
 }
 
+// ════════════════════════════════════════════════════════════
+// 88차 Phase 2: SEL 응답 CRUD 헬퍼 5종 — Supabase 직접 + 낙관적 UI
+// 명세서 §8 GAS 라우트 답습 X — 마음이음 패턴 (CLAUDE.md 5-1, feedback_supabase_first)
+// 모든 함수 fail-silent + 콘솔 에러 로깅 (메모리 답습 feedback_supabase_fail_silent_recovery)
+// ════════════════════════════════════════════════════════════
+
+// Phase 2-1. 응답 시작 — 락 체크 + INSERT or 이어쓰기 (UNIQUE 23505 catch)
+//   opts: { student_uid, phase, responder_role, responder_uid, responder_name, school_year, grade_band, phase_label? }
+//   반환: { ok, assessment?, error?:{ code, by_role?, by_name?, status?, detail? } }
+//     ok=true:  새 row INSERT 또는 기존 row 재시작·이어쓰기 (assessment = 53컬럼 row)
+//     ok=false:
+//       ERR_LOCKED        — 다른 주체가 응답 중·완료 (by_role·by_name 포함, 모달 안내용)
+//       ERR_ALREADY_DONE  — 같은 주체가 이미 완료 (assessment 포함, 결과 보기로 분기)
+//       ERR_INVALID_OPTS  — 필수 필드 누락
+//       ERR_UNKNOWN       — Supabase 실패 (detail 포함)
+async function _selStartAssessment(opts) {
+  if (!opts || !opts.student_uid || !opts.phase || !opts.responder_role || !opts.responder_uid) {
+    return { ok:false, error:{ code:'ERR_INVALID_OPTS' } };
+  }
+  var ts = _htNewKstTs();
+  var newUid = 'sel_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  // 1) 기존 row 확인 (UNIQUE student_uid+phase)
+  try {
+    var existing = await _sbFetch('sel_assessment', {
+      student_uid: 'eq.' + opts.student_uid,
+      phase: 'eq.' + opts.phase,
+      limit: '1'
+    });
+    if (existing && existing.length) {
+      var row = existing[0];
+      // 같은 responder
+      if (row.responder_uid === opts.responder_uid) {
+        if (row.status === 'done') {
+          return { ok:false, error:{ code:'ERR_ALREADY_DONE' }, assessment:row };
+        }
+        // skipped/cancelled/null → status='in_progress' 재시작 (started_at 갱신, 응답값 보존)
+        // in_progress → 이어쓰기 (started_at 보존)
+        if (row.status !== 'in_progress') {
+          await _sbPatch('sel_assessment', 'uid=eq.'+row.uid, {
+            status: 'in_progress',
+            responder_role: opts.responder_role,
+            responder_name: opts.responder_name || '',
+            school_year: opts.school_year || null,
+            grade_band: opts.grade_band || null,
+            started_at: ts,
+            updated_at: ts
+          });
+          row.status = 'in_progress';
+          row.started_at = ts;
+        }
+        return { ok:true, assessment:row };
+      }
+      // 다른 responder & 활성 (in_progress·done) → 락
+      if (row.status === 'in_progress' || row.status === 'done') {
+        return { ok:false, error:{
+          code:'ERR_LOCKED',
+          by_role: row.responder_role,
+          by_name: row.responder_name || '',
+          status: row.status
+        }};
+      }
+      // 다른 responder & 비활성 (skipped·cancelled) → 새 주체가 새 시작 (옛 응답 클리어)
+      var clearBody = {
+        status: 'in_progress',
+        responder_role: opts.responder_role,
+        responder_uid: opts.responder_uid,
+        responder_name: opts.responder_name || '',
+        school_year: opts.school_year || null,
+        grade_band: opts.grade_band || null,
+        started_at: ts,
+        updated_at: ts,
+        completed_at: null,
+        r1_score:null, r2_score:null, r3_score:null, r4_score:null,
+        r5_score:null, r6_score:null, r7_score:null, total_score:null
+      };
+      for (var qi = 1; qi <= 28; qi++) clearBody['q'+qi] = null;
+      await _sbPatch('sel_assessment', 'uid=eq.'+row.uid, clearBody);
+      var refreshed = Object.assign({}, row, clearBody);
+      return { ok:true, assessment:refreshed };
+    }
+    // 2) 없으면 INSERT
+    var newRow = {
+      uid: newUid,
+      student_uid: opts.student_uid,
+      phase: opts.phase,
+      phase_label: opts.phase_label || null,
+      school_year: opts.school_year || null,
+      grade_band: opts.grade_band || null,
+      responder_role: opts.responder_role,
+      responder_uid: opts.responder_uid,
+      responder_name: opts.responder_name || '',
+      status: 'in_progress',
+      created_at: ts,
+      started_at: ts,
+      updated_at: ts
+    };
+    await _sbInsert('sel_assessment', newRow);
+    return { ok:true, assessment:newRow };
+  } catch(e) {
+    // 23505 race condition — 두 단말이 동시 INSERT 시 한 쪽 충돌
+    var msg = e && e.message ? e.message : String(e);
+    if (/23505|duplicate key/i.test(msg)) {
+      try {
+        var retry = await _sbFetch('sel_assessment', {
+          student_uid: 'eq.' + opts.student_uid,
+          phase: 'eq.' + opts.phase,
+          limit: '1'
+        });
+        if (retry && retry.length) {
+          var rrow = retry[0];
+          if (rrow.responder_uid === opts.responder_uid) return { ok:true, assessment:rrow };
+          return { ok:false, error:{
+            code:'ERR_LOCKED',
+            by_role: rrow.responder_role,
+            by_name: rrow.responder_name || '',
+            status: rrow.status
+          }};
+        }
+      } catch(_) {}
+    }
+    console.error('[SEL START]', msg);
+    return { ok:false, error:{ code:'ERR_UNKNOWN', detail:msg } };
+  }
+}
+
+// Phase 2-2. 자동 저장 — 5문항마다 fire-and-forget _sbPatch (실패해도 앱 안 멈춤)
+//   uid: assessment uid / qPartial: { q1:4, q2:5, ... } 부분만
+async function _selSaveProgress(uid, qPartial) {
+  if (!uid || !qPartial) return;
+  var ts = _htNewKstTs();
+  var body = Object.assign({}, qPartial, { updated_at: ts });
+  try {
+    await _sbPatch('sel_assessment', 'uid=eq.'+uid, body);
+  } catch(e) {
+    console.error('[SEL SAVE PROGRESS]', e && e.message ? e.message : e);
+    // fail-silent — 다음 5문항 시점에 재시도
+  }
+}
+
+// Phase 2-3. 응답 완료 — 클라이언트 채점 (r1~r7 + total) + status='done'
+//   uid: assessment uid / qFull: { q1..q28 } 28개 모두 (1~5 점수)
+//   반환: { ok, scores:{r1,r2,...,r7,total}, error? }
+async function _selCompleteAssessment(uid, qFull) {
+  if (!uid || !qFull) return { ok:false, error:'missing args' };
+  // 영역별 합산 (각 4문항 × 1~5점 = 4~20)
+  var scores = {
+    r1: (qFull.q1||0)  + (qFull.q2||0)  + (qFull.q3||0)  + (qFull.q4||0),
+    r2: (qFull.q5||0)  + (qFull.q6||0)  + (qFull.q7||0)  + (qFull.q8||0),
+    r3: (qFull.q9||0)  + (qFull.q10||0) + (qFull.q11||0) + (qFull.q12||0),
+    r4: (qFull.q13||0) + (qFull.q14||0) + (qFull.q15||0) + (qFull.q16||0),
+    r5: (qFull.q17||0) + (qFull.q18||0) + (qFull.q19||0) + (qFull.q20||0),
+    r6: (qFull.q21||0) + (qFull.q22||0) + (qFull.q23||0) + (qFull.q24||0),
+    r7: (qFull.q25||0) + (qFull.q26||0) + (qFull.q27||0) + (qFull.q28||0)
+  };
+  scores.total = scores.r1 + scores.r2 + scores.r3 + scores.r4 + scores.r5 + scores.r6 + scores.r7;
+  var ts = _htNewKstTs();
+  var body = Object.assign({}, qFull, {
+    r1_score: scores.r1, r2_score: scores.r2, r3_score: scores.r3, r4_score: scores.r4,
+    r5_score: scores.r5, r6_score: scores.r6, r7_score: scores.r7, total_score: scores.total,
+    status: 'done',
+    completed_at: ts,
+    updated_at: ts
+  });
+  try {
+    await _sbPatch('sel_assessment', 'uid=eq.'+uid, body);
+    return { ok:true, scores:scores };
+  } catch(e) {
+    console.error('[SEL COMPLETE]', e && e.message ? e.message : e);
+    return { ok:false, scores:scores, error:e && e.message ? e.message : String(e) };
+  }
+}
+
+// Phase 2-4. 교사 재시작 — status='cancelled' (row 보존, 다른 주체가 새 시작 가능)
+async function _selResetAssessment(uid) {
+  if (!uid) return { ok:false };
+  var ts = _htNewKstTs();
+  try {
+    await _sbPatch('sel_assessment', 'uid=eq.'+uid, {
+      status: 'cancelled',
+      updated_at: ts
+    });
+    return { ok:true };
+  } catch(e) {
+    console.error('[SEL RESET]', e && e.message ? e.message : e);
+    return { ok:false, error:e && e.message ? e.message : String(e) };
+  }
+}
+
+// Phase 2-5. 결과 조회
+//   opts: { phase?, history? }
+//     history=true → 모든 phase 배열 (created_at desc)
+//     phase 지정   → 해당 phase row 단일
+//     미지정       → 가장 최근 status='done' row (없으면 null)
+//   반환: row 객체 / 배열 / null
+async function _selGetResult(student_uid, opts) {
+  if (!student_uid) return null;
+  opts = opts || {};
+  try {
+    var selectCols = 'uid,phase,phase_label,grade_band,school_year,'
+                   + 'responder_role,responder_uid,responder_name,'
+                   + 'created_at,started_at,completed_at,updated_at,status,'
+                   + 'q1,q2,q3,q4,q5,q6,q7,q8,q9,q10,q11,q12,q13,q14,'
+                   + 'q15,q16,q17,q18,q19,q20,q21,q22,q23,q24,q25,q26,q27,q28,'
+                   + 'r1_score,r2_score,r3_score,r4_score,r5_score,r6_score,r7_score,total_score';
+    var filters = {
+      student_uid: 'eq.' + student_uid,
+      order: 'created_at.desc',
+      select: selectCols
+    };
+    if (opts.phase) {
+      filters.phase = 'eq.' + opts.phase;
+      filters.limit = '1';
+    } else if (!opts.history) {
+      filters.status = 'eq.done';
+      filters.limit = '1';
+    }
+    var rows = await _sbFetch('sel_assessment', filters);
+    if (!rows || !rows.length) return null;
+    if (opts.history) return rows;
+    return rows[0];
+  } catch(e) {
+    console.error('[SEL GET RESULT]', e && e.message ? e.message : e);
+    return null;
+  }
+}
+
 // 학생 첫 로그인 자동 안내 — 미수행이면 intro 모달 띄움
 async function _showSelIntroIfNeeded() {
   if (!STATE.user || STATE.role !== 'student') return;
