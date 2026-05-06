@@ -2837,10 +2837,11 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 }
 
 /* 88차 Phase 4-A·B: SEL 결과 리포트 모달 — 무지개·방사형·비교 탭 */
-/* 88차 변쌤 명시 fix: 모달 폭 키움(540→600) + chart·info min-height 고정(호버 깜빡 차단) + SVG 텍스트 가독성 키움 */
+/* 88차 변쌤 명시 2차 fix: 모달 폭 키움(600→720) + 박스 min-height 720 고정(호버 layout 변동 절대 차단) + SVG 텍스트 한 단계 더 키움 */
 .sel-result-box{
-  max-width:600px; padding:0; overflow:hidden;
+  max-width:720px; padding:0; overflow:hidden;
   border-radius:24px;
+  min-height:720px;       /* 호버 시 modal-box 자체 height 변동 절대 차단 */
 }
 .sel-result-header{
   position:relative;
@@ -2852,12 +2853,12 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .sel-result-header .modal-close{ top:10px; right:12px; }
 .sel-result-title{
   font-family:'Black Han Sans', sans-serif;
-  font-size:21px; color:var(--navy);
+  font-size:23px; color:var(--navy);
   letter-spacing:-.3px; line-height:1.15;
   margin-bottom:4px;
 }
 .sel-result-meta{
-  font-size:12.5px; color:var(--gray);
+  font-size:13px; color:var(--gray);
   letter-spacing:.2px; word-break:keep-all;
 }
 .sel-result-tabs{
@@ -2867,10 +2868,10 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   border-bottom:1px solid var(--lgray);
 }
 .sel-result-tab{
-  flex:1; padding:11px 6px;
+  flex:1; padding:12px 6px;
   border:none; background:transparent;
   font-family:inherit;
-  font-size:13.5px; font-weight:700;
+  font-size:15px; font-weight:700;
   color:var(--gray);
   letter-spacing:.2px;
   cursor:pointer;
@@ -2890,30 +2891,31 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .sel-result-chart{
   background:#fff;
   padding:14px 16px 8px;
-  min-height:340px;
+  min-height:380px;
   display:flex; align-items:center; justify-content:center;
 }
-.sel-result-chart svg{ display:block; max-width:100%; height:auto; }
-/* info 박스 height 고정 — textContent 변경 시 모달 layout 안 변동 */
+.sel-result-chart svg{ display:block; width:100%; height:auto; max-width:none; }
+/* info 박스 height 고정 — textContent 변경 시 모달 layout 안 변동 (min-height X, 고정 height) */
 .sel-result-info{
   background:var(--cream);
-  padding:12px 18px;
+  padding:14px 20px;
   border-top:1px solid var(--lgray);
-  font-size:13.5px; color:var(--navy);
+  font-size:14.5px; color:var(--navy);
   line-height:1.55; word-break:keep-all;
   text-align:center;
-  min-height:64px;
+  height:76px;            /* 고정 height — overflow 시 잘림 (변동 차단 우선) */
   letter-spacing:.1px;
   display:flex; align-items:center; justify-content:center;
   text-wrap:pretty;
+  overflow:hidden;
 }
-.sel-result-info-default{ color:var(--gray); font-size:13px; }
-.sel-result-info-region{ font-weight:700; font-size:14px; }
+.sel-result-info-default{ color:var(--gray); font-size:14px; }
+.sel-result-info-region{ font-weight:700; font-size:15px; }
 .sel-result-info-source{
   display:inline-block;
-  margin-left:6px; padding:2px 7px;
+  margin-left:6px; padding:2px 8px;
   border-radius:8px;
-  font-size:11px; font-weight:600;
+  font-size:12px; font-weight:600;
   background:var(--mint4); color:var(--mint2);
   vertical-align:middle;
 }
@@ -2924,38 +2926,37 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   border-top:1px solid var(--lgray);
 }
 .sel-result-actions .btn{
-  flex:1; font-size:12.5px; padding:11px 8px; font-weight:700;
+  flex:1; font-size:13px; padding:12px 8px; font-weight:700;
 }
-/* SVG 호버 — 깜빡 차단을 위해 transition 짧게·drop-shadow 제거 */
+/* SVG 호버 — 깜빡 차단 (transition 짧게·drop-shadow 제거·modal-box min-height 고정) */
 .sel-rainbow-arc{
   cursor:pointer;
   transition:opacity .12s ease;
 }
 .sel-rainbow-arc.dim{ opacity:.28; }
-/* 88차 fix: highlight drop-shadow 제거 — SVG 외곽 변동으로 호버 영역 깜빡 차단 */
-.sel-rainbow-arc.highlight{ /* drop-shadow 효과 제거 */ }
+.sel-rainbow-arc.highlight{ /* drop-shadow 제거 — 호버 영역 변동 차단 */ }
 .sel-rainbow-label{
   font-family:'Noto Sans KR', sans-serif;
-  font-size:14px; font-weight:700;
+  font-size:17px; font-weight:700;
   pointer-events:none;
   user-select:none;
 }
 .sel-rainbow-score{
-  font-size:13px; font-weight:600;
+  font-size:15px; font-weight:600;
   pointer-events:none;
 }
 .sel-rainbow-center-name{
   font-family:'Black Han Sans', sans-serif;
-  font-size:18px; fill:var(--navy);
+  font-size:22px; fill:var(--navy);
   letter-spacing:-.2px;
 }
 .sel-rainbow-center-meta{
-  font-size:13px; fill:var(--gray);
+  font-size:15px; fill:var(--gray);
   letter-spacing:.2px;
 }
 .sel-rainbow-center-total{
   font-family:'Black Han Sans', sans-serif;
-  font-size:24px; fill:var(--mint2);
+  font-size:30px; fill:var(--mint2);
   letter-spacing:-.3px;
 }
 
@@ -19218,23 +19219,23 @@ function _renderSelRainbow(result) {
       var emptyPath = _selArcPath(cx, cy, Rmax, Rmin, a1, a2);
       svg += '<path class="sel-rainbow-arc" data-r="' + i + '" d="' + emptyPath + '" fill="rgba(0,0,0,.04)" stroke="#ccc" stroke-width="1" stroke-dasharray="3 3" />';
     }
-    // 라벨 (호 바깥쪽 중심각) — 88차 fix: 큰 폰트(14px) 맞게 labelR 22→34
+    // 라벨 (호 바깥쪽 중심각) — 88차 2차 fix: 큰 폰트(17/15) 맞게 labelR 34→42, score y +17→+22
     var midDeg = (a1 + a2) / 2;
     var midRad = midDeg * Math.PI / 180;
-    var labelR = Rmax + 34;
+    var labelR = Rmax + 42;
     var lx = cx + labelR * Math.cos(midRad);
     var ly = cy + labelR * Math.sin(midRad);
     var anchor = (lx < cx - 30) ? 'end' : (lx > cx + 30) ? 'start' : 'middle';
     svg += '<text class="sel-rainbow-label" x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '" text-anchor="' + anchor + '" fill="' + color + '">R' + (i+1) + ' ' + _selEscape(meta.name) + '</text>';
-    svg += '<text class="sel-rainbow-score" x="' + lx.toFixed(1) + '" y="' + (ly + 17).toFixed(1) + '" text-anchor="' + anchor + '" fill="#7a8c98">' + score + '/20</text>';
+    svg += '<text class="sel-rainbow-score" x="' + lx.toFixed(1) + '" y="' + (ly + 22).toFixed(1) + '" text-anchor="' + anchor + '" fill="#7a8c98">' + score + '/20</text>';
   }
-  // 가운데 반원 — 학생 정보 (큰 폰트 맞게 y 좌표 재배치, 18·24·13px 간격)
-  svg += '<text class="sel-rainbow-center-name" x="' + cx + '" y="252" text-anchor="middle">' + name + '</text>';
+  // 가운데 반원 — 학생 정보 (큰 폰트 22/15/30/15 맞게 y 좌표 재배치)
+  svg += '<text class="sel-rainbow-center-name" x="' + cx + '" y="246" text-anchor="middle">' + name + '</text>';
   if (schoolYear) {
-    svg += '<text class="sel-rainbow-center-meta" x="' + cx + '" y="274" text-anchor="middle">' + schoolYear + '</text>';
+    svg += '<text class="sel-rainbow-center-meta" x="' + cx + '" y="270" text-anchor="middle">' + schoolYear + '</text>';
   }
   svg += '<text class="sel-rainbow-center-total" x="' + cx + '" y="304" text-anchor="middle">' + total + ' / 140</text>';
-  svg += '<text class="sel-rainbow-center-meta" x="' + cx + '" y="324" text-anchor="middle">' + phaseLabel + (dateStr ? ' · ' + dateStr : '') + '</text>';
+  svg += '<text class="sel-rainbow-center-meta" x="' + cx + '" y="326" text-anchor="middle">' + phaseLabel + (dateStr ? ' · ' + dateStr : '') + '</text>';
   svg += '</svg>';
   chart.innerHTML = svg;
   // 호버·터치 인터랙션 (다른 영역 dim, 해당 영역 강조 + 인라인 안내)
@@ -19304,20 +19305,20 @@ function _renderSelRadar(result) {
     dataPts.push(dp.x.toFixed(1) + ',' + dp.y.toFixed(1));
   }
   svg += '<polygon points="' + dataPts.join(' ') + '" fill="rgba(78,205,180,.22)" stroke="rgba(78,205,180,.85)" stroke-width="2.5" stroke-linejoin="round" />';
-  // 각 영역 점 + 라벨
+  // 각 영역 점 + 라벨 — 88차 2차 fix: 큰 폰트(17/15) 맞게 labelR 23→27, score y +14→+20, 점 r 6→7
   var styles = getComputedStyle(document.documentElement);
   for (var ri4 = 0; ri4 < 7; ri4++) {
     var meta = _SEL_R_META[ri4];
     var color = styles.getPropertyValue('--sel-' + meta.key).trim() || '#999';
     var p = pt(ri4, scores[ri4]);
-    var lp = pt(ri4, 23);  // 라벨 — 격자 바깥쪽
+    var lp = pt(ri4, 27);
     var labelAnchor = (lp.x < cx - 8) ? 'end' : (lp.x > cx + 8) ? 'start' : 'middle';
-    svg += '<circle class="sel-radar-dot" data-r="' + ri4 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="6" fill="' + color + '" stroke="#fff" stroke-width="2.5" style="cursor:pointer;transition:r .15s" />';
+    svg += '<circle class="sel-radar-dot" data-r="' + ri4 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="7" fill="' + color + '" stroke="#fff" stroke-width="2.5" style="cursor:pointer;transition:r .15s" />';
     svg += '<text class="sel-rainbow-label" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="' + color + '">R' + (ri4+1) + ' ' + _selEscape(meta.name) + '</text>';
-    svg += '<text class="sel-rainbow-score" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 14).toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="#7a8c98">' + scores[ri4] + '/20</text>';
+    svg += '<text class="sel-rainbow-score" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 20).toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="#7a8c98">' + scores[ri4] + '/20</text>';
   }
   // 하단 총점
-  svg += '<text class="sel-rainbow-center-total" x="' + cx + '" y="410" text-anchor="middle">' + total + ' / 140</text>';
+  svg += '<text class="sel-rainbow-center-total" x="' + cx + '" y="418" text-anchor="middle">' + total + ' / 140</text>';
   svg += '</svg>';
   chart.innerHTML = svg;
   // 호버·터치 — 점에서 인라인 안내
@@ -19396,28 +19397,28 @@ function _renderSelCompare(prev, curr) {
     currPts.push(cp.x.toFixed(1) + ',' + cp.y.toFixed(1));
   }
   svg += '<polygon points="' + currPts.join(' ') + '" fill="rgba(78,205,180,.22)" stroke="rgba(78,205,180,.9)" stroke-width="2.5" stroke-linejoin="round" />';
-  // 점 + 라벨 + 변화량 화살표
+  // 점 + 라벨 + 변화량 화살표 — 88차 2차 fix: 큰 폰트 맞게 labelR 23→27, score y +14→+20, 점 r 6→7
   var styles = getComputedStyle(document.documentElement);
   for (var ri5 = 0; ri5 < 7; ri5++) {
     var meta = _SEL_R_META[ri5];
     var color = styles.getPropertyValue('--sel-' + meta.key).trim() || '#999';
     var p = pt(ri5, currScores[ri5]);
-    var lp = pt(ri5, 23);
+    var lp = pt(ri5, 27);
     var labelAnchor = (lp.x < cx - 8) ? 'end' : (lp.x > cx + 8) ? 'start' : 'middle';
     var d = currScores[ri5] - prevScores[ri5];
     var deltaArrow = d > 0 ? '▲' : d < 0 ? '▽' : '·';
     var deltaColor = d > 0 ? '#2aab90' : d < 0 ? '#d9455f' : '#999';
     var deltaText = d > 0 ? ('+' + d) : (d === 0 ? '0' : String(d));
-    svg += '<circle class="sel-radar-dot" data-r="' + ri5 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="6" fill="' + color + '" stroke="#fff" stroke-width="2.5" style="cursor:pointer" />';
+    svg += '<circle class="sel-radar-dot" data-r="' + ri5 + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="7" fill="' + color + '" stroke="#fff" stroke-width="2.5" style="cursor:pointer" />';
     svg += '<text class="sel-rainbow-label" x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="' + color + '">R' + (ri5+1) + ' ' + _selEscape(meta.name) + '</text>';
-    svg += '<text class="sel-rainbow-score" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 14).toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="' + deltaColor + '" font-weight="700">' + deltaArrow + ' ' + deltaText + '</text>';
+    svg += '<text class="sel-rainbow-score" x="' + lp.x.toFixed(1) + '" y="' + (lp.y + 20).toFixed(1) + '" text-anchor="' + labelAnchor + '" fill="' + deltaColor + '" font-weight="700">' + deltaArrow + ' ' + deltaText + '</text>';
   }
   // 하단 총점 비교
   var totalArrow = deltaTotal > 0 ? '▲' : deltaTotal < 0 ? '▽' : '·';
   var totalColor = deltaTotal > 0 ? '#2aab90' : deltaTotal < 0 ? '#d9455f' : '#999';
   var totalText = deltaTotal > 0 ? ('+' + deltaTotal) : (deltaTotal === 0 ? '0' : String(deltaTotal));
-  svg += '<text class="sel-rainbow-center-meta" x="' + cx + '" y="395" text-anchor="middle">' + _selEscape(prevLabel) + ' ' + prevTotal + ' → ' + _selEscape(currLabel) + ' ' + currTotal + '</text>';
-  svg += '<text class="sel-rainbow-center-total" x="' + cx + '" y="418" text-anchor="middle" fill="' + totalColor + '">' + totalArrow + ' ' + totalText + '점</text>';
+  svg += '<text class="sel-rainbow-center-meta" x="' + cx + '" y="400" text-anchor="middle">' + _selEscape(prevLabel) + ' ' + prevTotal + ' → ' + _selEscape(currLabel) + ' ' + currTotal + '</text>';
+  svg += '<text class="sel-rainbow-center-total" x="' + cx + '" y="426" text-anchor="middle" fill="' + totalColor + '">' + totalArrow + ' ' + totalText + '점</text>';
   svg += '</svg>';
   chart.innerHTML = svg;
   // 호버 — 영역 i 비교 (이전·현재 점수·변화량)
