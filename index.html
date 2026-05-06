@@ -34,6 +34,14 @@
   --shadow2: 0 2px 12px rgba(0,0,0,.08);
   --r:       20px;
   --r2:      14px;
+  /* 88차: SEL 사회정서역량 7색 — 명세서 §7.1 밝은 톤 (R3 노랑 변쌤 명시 답습) */
+  --sel-r1:  #E85770;  /* 자기인식 — 코랄빛 */
+  --sel-r2:  #F39C4D;  /* 자기조절 — 살구 */
+  --sel-r3:  #FFD93D;  /* 관계인식 — 예쁜 노랑 */
+  --sel-r4:  #51C878;  /* 관계관리 — 민트빛 초록 */
+  --sel-r5:  #4A9BE0;  /* 공동체 가치 — 하늘빛 파랑 */
+  --sel-r6:  #5C7CFA;  /* 정신건강 — 인디고 라이트 */
+  --sel-r7:  #9775E0;  /* 자기주도 — 라벤더 */
   --GAS_URL: 'https://script.google.com/macros/s/AKfycbxef53CsHzTsfsd1LQV5hyZWcrDmamy0jcRRmJYDd8b-PGk4duvvaouFNEuPH1hcHQ2Yw/exec';
 }
 
@@ -17877,12 +17885,57 @@ function _hpStopAutoScroll() {
 }
 
 // ════════════════════════════════════════════════════════════
-// 87차: SEL 마음이음 역량검사 — placeholder (변쌤 명시 캡처본 받기 전 본격 X)
+// 87차: SEL 마음이음 역량검사 — placeholder (87차 본격 X)
+// 88차: Phase 1 — DB 스키마(53컬럼)·문항 상수·87차 함수 fit fix (스키마 매핑 변경)
 //   • 첫 로그인 시 자동 안내 모달 (skip 가능)
-//   • 학생 설정 모달 카드 — 미수행이면 펄스 강조
-//   • 본격 문항·점수 산출은 88차+ 변쌤 캡처본 받은 후
-// 메모리 답습: project_curriculum_2022_rainbow.md (7역량 무지개 매핑)
+//   • 학생 설정 모달 카드 — 미수행이면 펄스 강조 (변쌤 명시)
+//   • 본격 응답·채점·리포트는 Phase 2~6 (다음 차수)
+// 학술: KICE 우연경·윤미리(2024) R1·R3·R4·R5·R7 + 마음이음 R2·R6 자체
+// 명세서: 사회정서역량검사/마음이음_SEL진단_설계명세_v1.md
+// 메모리 답습: project_curriculum_2022_rainbow.md (7역량 무지개)
 // ════════════════════════════════════════════════════════════
+
+// 고학년(3-6학년) 학생 자가응답 1인칭 28문항 — 명세서 §3.3 답습
+// 변환 원칙: "자신이/학생이 ~한다" → "나는 ~한다 / 나는 ~할 수 있다"
+// 교사용 _SEL_QUESTIONS_ELEM_HIGH (code.gs)와 동일 순서·동일 영역
+var _SEL_QUESTIONS_STUDENT_HIGH = [
+  // R1 자기인식
+  '나는 어떤 상황에서 내 기분이 좋은지 말로 설명할 수 있다.',
+  '나는 속상하거나 화난 이유를 말로 설명할 수 있다.',
+  '나는 내 기분을 적절한 감정 단어로 설명할 수 있다.',
+  '나는 내 기분을 말이나 표정으로 표현할 수 있다.',
+  // R2 자기조절 (고학년 표현)
+  '나는 화나거나 스트레스를 받을 때 호흡, 운동 등 건강한 방법으로 진정하려 한다.',
+  '나는 충동적으로 행동하기 전에 잠시 멈추어 생각한다.',
+  '나는 갈등 상황에서 감정에 휘둘리지 않고 차분하게 대응하려 한다.',
+  '나는 좌절하거나 실망스러운 일이 있어도 내 감정을 적절히 다스린다.',
+  // R3 관계인식
+  '나는 친구가 슬퍼할 때 위로하는 반응을 보인다.',
+  '나는 친구에게 좋은 일이 생겼을 때 말이나 행동으로 축하한다.',
+  '나는 친구와 대화할 때, 상대방의 말에 맞장구를 치거나 적극적으로 호응한다.',
+  '나는 친구가 다쳤을 때, 다가가서 살펴보고 걱정해준다.',
+  // R4 관계관리
+  '나는 학급에서 여러 친구들과 두루 잘 어울린다.',
+  '나는 학급 친구들과 어려움 없이 대화를 나눈다.',
+  '나는 쉬는 시간에 친구들과 어울리거나 활동한다.',
+  '나는 놀이나 과제 상황 등에서 집단 구성이 달라져도 잘 어울린다.',
+  // R5 공동체 가치
+  '나는 함께 사용하는 물건을 소중히 다룬다.',
+  '나는 내 실수를 인정한다.',
+  '나는 잘못했을 때 정중하게 사과한다.',
+  '나는 다른 사람의 물건을 사용할 때 허락을 구한다.',
+  // R6 정신건강 (고학년 표현)
+  '나는 마음이 힘들 때 누구에게 어떻게 도움을 요청해야 할지 안다.',
+  '나는 친구의 마음건강이 걱정될 때 어른(선생님·부모님)에게 알린다.',
+  '나는 스트레스가 쌓일 때 건강한 방법(운동·취미·휴식 등)으로 해소한다.',
+  '나는 마음이 답답하거나 우울할 때 내 상태를 인식하고 표현할 수 있다.',
+  // R7 자기주도적 실천
+  '나는 쉬는 시간에 다음 수업을 미리 준비한다.',
+  '나는 과제를 수행할 때 딴 짓을 하지 않고 과제에 집중한다.',
+  '나는 과제를 미루지 않고 기한 내에 제출한다.',
+  '나는 수업 중 미처 끝내지 못한 과제가 있으면 쉬는 시간을 활용해서 마무리한다.'
+];
+
 
 // SEL 상태 fetch — 학생의 마지막 sel_assessment row (cache: STATE._selStatus)
 async function _selFetchStatus(student_uid) {
@@ -17893,28 +17946,33 @@ async function _selFetchStatus(student_uid) {
     return STATE._selStatus;
   }
   try {
+    // 88차: 새 스키마 — taken_at·skipped 폐기, created_at(모든 row)·status enum 사용
     var rows = await _sbFetch('sel_assessment', {
       student_uid: 'eq.' + student_uid,
-      order: 'taken_at.desc',
+      order: 'created_at.desc',
       limit: '1',
-      select: 'uid,phase,taken_at,skipped,total_score'
+      select: 'uid,phase,grade_band,created_at,started_at,completed_at,status,total_score'
     });
     if (rows && rows.length) {
       var r = rows[0];
       STATE._selStatus = {
         has_record: true,
         phase: r.phase,
-        taken_at: r.taken_at,
-        skipped: !!r.skipped,
+        grade_band: r.grade_band,
+        created_at: r.created_at,
+        started_at: r.started_at,
+        completed_at: r.completed_at,
+        status: r.status,                       // 'in_progress'/'done'/'cancelled'/'skipped'
+        skipped: r.status === 'skipped',         // 87차 호환 필드 (기존 분기 답습)
         total_score: r.total_score
       };
     } else {
-      STATE._selStatus = { has_record:false, skipped:false };
+      STATE._selStatus = { has_record:false, status:null, skipped:false };
     }
     return STATE._selStatus;
   } catch(e) {
     console.warn('[SEL FETCH STATUS]', e && e.message ? e.message : e);
-    STATE._selStatus = { has_record:false, skipped:false };
+    STATE._selStatus = { has_record:false, status:null, skipped:false };
     return STATE._selStatus;
   }
 }
@@ -17931,12 +17989,16 @@ function _refreshSelSettingsCard() {
   wrap.style.display = '';
   var card = document.getElementById('set-student-sel-card');
   var sub  = document.getElementById('set-student-sel-sub');
-  var st = STATE._selStatus || { has_record:false, skipped:false };
-  // 미수행(skipped 또는 record 없음) → 펄스 강조 + 안내
-  if (!st.has_record || st.skipped) {
+  var st = STATE._selStatus || { has_record:false, status:null, skipped:false };
+  // 88차: status enum 분기 (variants: in_progress / done / cancelled / skipped / null)
+  //   완료(status==='done')만 펄스 OFF, 나머지 모두 미수행으로 분류 (변쌤 명시 답습)
+  if (!st.has_record || st.status === 'skipped' || st.status === 'cancelled' || !st.status) {
     if (card) card.classList.add('pulse');
     if (sub)  sub.textContent  = '아직 안 했어요 — 짧게 7가지 마음 빛깔을 살펴봐요';
-  } else {
+  } else if (st.status === 'in_progress') {
+    if (card) card.classList.add('pulse');
+    if (sub)  sub.textContent  = '검사 진행 중이에요 — 이어서 응답할 수 있어요';
+  } else {  // 'done'
     if (card) card.classList.remove('pulse');
     if (sub)  sub.textContent  = '검사 완료 — 결과는 마음 파노라마에서 만나요';
   }
@@ -17960,26 +18022,31 @@ function _selStartNow() {
 async function _selSkipNow() {
   closeModal('modal-sel-intro');
   if (!STATE.user || !STATE.user.student_uid) return;
+  var ts = _htNewKstTs();
   if (STATE.isPreview) {
-    // 미리보기 — 메모리만 갱신
-    STATE._selStatus = { has_record:true, skipped:true, taken_at:_htNewKstTs() };
+    // 미리보기 — 메모리만 갱신 (DB 안 건드림)
+    STATE._selStatus = { has_record:true, status:'skipped', skipped:true, created_at:ts, phase:1 };
     _refreshSelSettingsCard();
     return;
   }
   try {
-    var ts = _htNewKstTs();
     var uid = 'sel_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    // 88차: 새 스키마 — phase int, status enum, skipped 컬럼 폐기 → status:'skipped'
+    // phase: 1로 하드코드 (Phase 6 auto_activate 도입 전 임시 — Settings sel_current_phase 미구현)
     await _sbInsert('sel_assessment', {
       uid: uid,
       student_uid: STATE.user.student_uid,
-      phase: 'pre',
+      phase: 1,
       grade_band: _selGradeBand(STATE.user.grade),
-      taken_at: ts,
-      skipped: true,
+      school_year: parseInt(STATE.user.grade, 10) || null,
+      responder_role: 'student',
+      responder_uid: STATE.user.student_uid,
+      responder_name: STATE.user.name || '',
+      status: 'skipped',
       created_at: ts,
       updated_at: ts
     });
-    STATE._selStatus = { has_record:true, skipped:true, taken_at:ts };
+    STATE._selStatus = { has_record:true, status:'skipped', skipped:true, created_at:ts, phase:1 };
     _refreshSelSettingsCard();
     toast('나중에 다시 안내해 드릴게요 — 설정에서 언제든 살펴볼 수 있어요');
   } catch(e) {
