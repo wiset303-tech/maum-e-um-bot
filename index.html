@@ -1412,13 +1412,14 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   100% { transform:scale(1) rotateY(0); }
 }
 .heart-tale-close{
-  position:absolute; top:-44px; right:0;
-  width:36px; height:36px;
+  /* 91차 fix: modal-overlay(transform 없음) 직접 자식이라 viewport 기준 fixed. 모달 길어져도 항상 우측 상단 */
+  position:fixed; top:14px; right:14px;
+  width:40px; height:40px;
   background:rgba(255,255,255,0.95); border:none; border-radius:50%;
-  font-size:18px; color:#5b3a1f; cursor:pointer;
+  font-size:20px; color:#5b3a1f; cursor:pointer;
   display:flex; align-items:center; justify-content:center;
-  box-shadow:0 4px 10px rgba(0,0,0,0.15);
-  z-index:2;
+  box-shadow:0 4px 12px rgba(0,0,0,0.18);
+  z-index:5;
   transition:transform .2s, background .2s;
 }
 .heart-tale-close:hover{ background:#fff; transform:scale(1.08); }
@@ -5649,8 +5650,9 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 <!-- ══ 모달: 공통 확인 (66차: 브라우저 confirm() 대체 · _uiConfirm 헬퍼 전용) ══ -->
 <!-- 80차: 마음동화 펼치기 모달 (z-index:3200) -->
 <div id="modal-heart-tale-page" class="modal-overlay hidden" style="z-index:3200" onclick="closeModalOutside(event,'modal-heart-tale-page')">
+  <!-- 91차 fix: X 버튼을 modal-box 밖으로 빼서 viewport 기준 fixed (transform 부모 영향 회피 — 모달 길어져도 항상 우측 상단) -->
+  <button class="heart-tale-close" onclick="event.stopPropagation();closeHeartTalePage()" aria-label="닫기">✕</button>
   <div class="heart-tale-modal-box" onclick="event.stopPropagation()">
-    <button class="heart-tale-close" onclick="closeHeartTalePage()" aria-label="닫기">✕</button>
     <div class="heart-tale-book">
       <div class="heart-tale-watermark" aria-hidden="true">마음이음🌈</div>
       <div class="heart-tale-card" id="htp-card-wrap"></div>
@@ -18604,15 +18606,16 @@ function _buildHeartTalePageRealHTML(week_no) {
     if (row.bot_line) {
       var isThinking = (row.bot_line.indexOf('마음을 읽고 있어요') === 0 || row.bot_line.indexOf('마음을 다시 읽고 있어요') === 0);
       html += '<div class="heart-tale-bot-row" style="display:flex;align-items:flex-start;gap:6px">';
+      // 91차 ⓑ fix2: 아바타 + 새 답변 버튼을 한 column에 (변쌤 명시 — 마음봇 얼굴 아래)
+      //   말풍선 가로 폭이 새 답변 버튼 자리만큼 늘어나 50자 두 줄 fit
+      html += '<div style="display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0">';
       html += '<div class="heart-tale-bot-avatar" aria-hidden="true"></div>';
+      if (canRecord && !isThinking) {
+        html += '<button class="ht-bot-regen" onclick="_regenerateBotLine(' + week_no + ')" title="AI에게 새 답변 받기" style="font-size:9.5px;color:#5a8aa0;background:#f0f7ff;border:1px solid #b8d4e8;border-radius:8px;padding:2px 7px;cursor:pointer;white-space:nowrap">✨ 새 답변</button>';
+      }
+      html += '</div>';
       html += '<div class="heart-tale-bot-bubble"' + (isThinking ? ' style="opacity:.7;font-style:italic"' : '') + '>' + _escHtml(row.bot_line) + '</div>';
       html += '</div>';
-      // 91차 ⓑ fix — 새 답변 버튼을 말풍선 아래 우측에. 글자 한 포인트 작게(9.5px). 말풍선 가로 폭 ↑ → 50자 두 줄 fit
-      if (canRecord && !isThinking) {
-        html += '<div style="display:flex;justify-content:flex-end;padding:3px 4px 0">';
-        html += '<button class="ht-bot-regen" onclick="_regenerateBotLine(' + week_no + ')" title="AI에게 새 답변 받기" style="font-size:9.5px;color:#5a8aa0;background:#f0f7ff;border:1px solid #b8d4e8;border-radius:8px;padding:2px 8px;cursor:pointer;white-space:nowrap">✨ 새 답변</button>';
-        html += '</div>';
-      }
     }
     // 87차: 학생이 선택한 감정 칩 표시 (배지형 — 페이지 본문에는 read-only로)
     // 91차 변쌤 명시 — 90차 가로 스크롤 거슬림 fix. 한 줄 fit (4개) + 넘치면 「+N개」 더보기 → modal-ht-emo-categories
@@ -21974,13 +21977,16 @@ async function _htpSaveRecord() {
   }
 
   var word = _PV_HEART_TALE_WORDS[(week_no - 1) % _PV_HEART_TALE_WORDS.length];
-  // 91차 ⓑ: 낙관적 UI — 즉시 placeholder 표시. 백그라운드 generate_book_bot_line 응답 도착 시 swap
-  var bot_line = '마음을 읽고 있어요... ✨';
 
   // 캐시 이전 상태 스냅샷 (실패 시 롤백용)
   if (!STATE._htpPages) STATE._htpPages = {};
   var prevSnapshot = STATE._htpPages[week_no] ? JSON.parse(JSON.stringify(STATE._htpPages[week_no])) : null;
   var prevPageUid = (prevSnapshot && prevSnapshot.page_uid) || '';
+
+  // 91차 ⓑ fix: 첫 저장만 placeholder + 백그라운드 generate. 수정 저장은 기존 봇 답변 보존
+  //   (학생/교사가 「✨ 새 답변」 명시 클릭해야 갱신 — UX 답습. 수정→저장 흐름에서 봇 답변 또 호출되던 결함 차단)
+  var isFirstBotLine = !(prevSnapshot && prevSnapshot.bot_line);
+  var bot_line = isFirstBotLine ? '마음을 읽고 있어요... ✨' : prevSnapshot.bot_line;
 
   // ① 낙관적 캐시 갱신 — 임시 photo_url = base64 (또는 기존 유지) / recorded_at = 즉시
   var optimisticPhotoUrl = newPhotoB64 || (keepExisting ? STATE._htpRecordingExistingPhotoUrl : '');
@@ -22060,27 +22066,28 @@ async function _htpSaveRecord() {
     toast('저장이 안 됐어요. 다시 시도해 주세요');
   });
 
-  // 91차 ⓑ: 백그라운드 AI 봇 답변 (낙관적 UI — save 응답과 병렬, 빠른 쪽이 placeholder swap)
-  //   text-only는 빠름(0.5~1초), 사진 multimodal은 1~2초. 응답 도착 시 STATE 갱신 + Supabase patch
-  api('generate_book_bot_line', {
-    student_text: text,
-    theme_title:  theme.title || '',
-    mind_skill:   theme.mind_skill || '',
-    emotion_tags: emoTagsCsv,
-    image_b64:    newPhotoB64 || ''
-  }).then(function(botRes) {
-    if (!botRes || botRes.status !== 'ok' || !botRes.data || !botRes.data.bot_line) return;
-    var newLine = botRes.data.bot_line;
-    var pg = STATE._htpPages && STATE._htpPages[week_no];
-    if (!pg) return;
-    pg.bot_line = newLine;
-    if (STATE._htpCurrentWeek === week_no) _renderHeartTalePage(week_no);
-    // page_uid 박혔으면 Supabase 직접 patch (RLS 81차 anon UPDATE 정책 답습)
-    if (pg.page_uid) {
-      _sbPatch('weekly_book', { page_uid: 'eq.' + pg.page_uid }, { bot_line: newLine })
-        .catch(function(e){ console.error('[HT BOT LINE PATCH]', e && e.message || e); });
-    }
-  }).catch(function(e){ console.error('[HT BOT LINE]', e && e.message || e); });
+  // 91차 ⓑ fix: 첫 저장만 자동 generate. 수정 저장 시 기존 bot_line 보존 — 학생/교사가 「✨ 새 답변」으로만 명시 갱신
+  //   image_b64 안 보냄 (text-only 답습 — 응답 0.5~1초. 사진 multimodal 1.5~3초로 매우 느림 신고 fix)
+  if (isFirstBotLine) {
+    api('generate_book_bot_line', {
+      student_text: text,
+      theme_title:  theme.title || '',
+      mind_skill:   theme.mind_skill || '',
+      emotion_tags: emoTagsCsv
+    }).then(function(botRes) {
+      if (!botRes || botRes.status !== 'ok' || !botRes.data || !botRes.data.bot_line) return;
+      var newLine = botRes.data.bot_line;
+      var pg = STATE._htpPages && STATE._htpPages[week_no];
+      if (!pg) return;
+      pg.bot_line = newLine;
+      if (STATE._htpCurrentWeek === week_no) _renderHeartTalePage(week_no);
+      // page_uid 박혔으면 Supabase 직접 patch (RLS 81차 anon UPDATE 정책 답습)
+      if (pg.page_uid) {
+        _sbPatch('weekly_book', { page_uid: 'eq.' + pg.page_uid }, { bot_line: newLine })
+          .catch(function(e){ console.error('[HT BOT LINE PATCH]', e && e.message || e); });
+      }
+    }).catch(function(e){ console.error('[HT BOT LINE]', e && e.message || e); });
+  }
 
   // 91차 ⓐ: 미등록 감정 백그라운드 분류 (낙관적 UI — emotion_word_categories에 영구 박힘)
   //   학생 본인 페이지 칩은 즉시 보임. 카테고리 모달 진입 시 캐시 hit으로 즉시 분류
