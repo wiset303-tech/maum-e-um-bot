@@ -1349,17 +1349,19 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .heart-tale-entry.ht-class-active::after{
   content:'📣 수업 중';
   position:absolute;
-  top:10px; right:14px;
-  font-size:11px; color:#fff;
+  top:8px; right:8px;
+  font-size:10px; color:#fff;
   background:linear-gradient(135deg, #7ed6c0, #5fc4a8);
-  padding:4px 10px;
-  border-radius:12px;
+  padding:3px 8px;
+  border-radius:10px;
   font-weight:700;
-  letter-spacing:.3px;
+  letter-spacing:.2px;
   box-shadow:0 2px 6px rgba(126,214,192,0.4);
   animation:htClassActiveBadge 1.5s ease-in-out infinite;
   z-index:2;
-  white-space:nowrap;  /* 91차 fix: 배지 폭 좁아 글자 한 자씩 줄바꿈되던 회귀 차단 */
+  white-space:nowrap;
+  width:auto; max-width:none;  /* 91차 fix6: 배지 잘림 회귀 차단 (overflow:hidden 카드 안 fit) */
+  line-height:1.2;
 }
 @keyframes htClassActivePulse{
   0%,100%{ transform:scale(1); }
@@ -12801,6 +12803,11 @@ async function loadNotifications() {
 //   · 학생이 X로 닫은 채 5분 후 관리자가 또 보내도 알림함에 1개만 남게 (dedupe)
 //   · 새로고침은 1번이면 충분 — 중복 쌓일 필요 없음
 function _filterStaleAppUpdateNotifs() {
+  // 91차 ⓒ: 마음동화 수업 시작/종료는 신호 전용 — 알림 목록·헤더 카운트에서 차단 (변쌤 명시 답습)
+  //   loadNotifications 시점에 DB에서 받아도 자동 제거. _addNotificationFromRow에서도 unshift 차단.
+  _notifications = _notifications.filter(function(n){
+    return n.type !== 'heart_tale_class_start' && n.type !== 'heart_tale_class_end';
+  });
   var loadAt = STATE.pageLoadAt || 0;
   var killed = [];
   // 1단계: 페이지 로드 이전 stale 제거
@@ -20923,6 +20930,7 @@ function _updateHeartTaleNav(week_no) {
 function _renderHeartTalePage(week_no) {
   var card = document.getElementById('htp-card-wrap');
   if (!card) return;
+  console.log('[HT RENDER]', week_no, { mode:STATE._htpMode, role:STATE.role, hasRow:!!(STATE._htpPages && STATE._htpPages[week_no]) });
   card.innerHTML = '<div class="heart-tale-page-inner" data-week="' + week_no + '">' + _buildHeartTalePageHTML(week_no) + '</div>';
   STATE._htpCurrentWeek = week_no;
   _updateHeartTaleNav(week_no);
@@ -21776,6 +21784,13 @@ async function _syncHeartTaleClassHighlightForStudent() {
   try {
     var active = await _fetchHeartTaleClassActive(STATE.user.student_uid);
     _setHeartTaleClassHighlight(!!active);
+    // 91차 fix6: active이면 STATE._htpMode='class' 박아 자물쇠 게이트 우회 (변쌤 신고 답습)
+    //   학생 부팅 시 수업 진행 중이면 마음동화 펼치기 클릭 → 자물쇠 X, 즉시 표지 진입
+    if (active) {
+      STATE._htpMode = 'class';
+      STATE._htpRecordSeq = null;
+      STATE._htpLocked = false;
+    }
   } catch(e) {
     console.error('[HT CLASS HIGHLIGHT SYNC]', e && e.message ? e.message : e);
   }
