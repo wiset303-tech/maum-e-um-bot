@@ -1888,10 +1888,17 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   user-select:none;
   -webkit-user-select:none;
   touch-action:none;
+  /* 90차 변쌤 신고 fix — 사진 영역 자체 max-height (모달 세로 길이 차단). flex column 안에서 사진 영역만 줄어들고 actions 항상 보임 */
+  max-height:62vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 .ht-crop-stage canvas{
   display:block;
   width:100%; height:auto;
+  max-height:62vh;
+  object-fit:contain;
 }
 .ht-crop-overlay{
   position:absolute; top:0; left:0; right:0; bottom:0;
@@ -5727,8 +5734,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     </div>
     <div class="ht-crop-actions">
       <button class="ht-crop-btn ht-crop-btn-cancel" onclick="closeModal('modal-heart-tale-crop'); STATE._htpCropMode=null;">취소</button>
-      <button class="ht-crop-btn ht-crop-btn-original" onclick="_htpCropResetOriginal()">원본 그대로</button>
-      <button class="ht-crop-btn ht-crop-btn-redetect" onclick="_htpCropAutoDetect()">다시 자동</button>
+      <button class="ht-crop-btn ht-crop-btn-original" onclick="_htpCropResetOriginal()">원본</button>
+      <button class="ht-crop-btn ht-crop-btn-redetect" onclick="_htpCropAutoDetect()">다시</button>
       <button class="ht-crop-btn ht-crop-btn-confirm" onclick="_htpCropConfirm()">이렇게 자르기</button>
     </div>
   </div>
@@ -18657,6 +18664,15 @@ function _buildHeartTaleCoverHTML() {
     if (STATE.user && (stuUid === STATE.user.student_uid)) {
       profileImg = STATE.user.profile_image_url || '';
       bookCover  = STATE.user.book_cover_url || '';
+      // 90차 변쌤 신고 fix — STATE.user.book_cover_url 비어있을 때 STATE.students에서 자기 row fallback (로그인 응답 누락 안전망)
+      if (!bookCover && Array.isArray(STATE.students)) {
+        for (var iSelf = 0; iSelf < STATE.students.length; iSelf++) {
+          if (STATE.students[iSelf] && STATE.students[iSelf].student_uid === STATE.user.student_uid) {
+            bookCover = STATE.students[iSelf].book_cover_url || '';
+            break;
+          }
+        }
+      }
     } else if (Array.isArray(STATE.students)) {
       for (var i = 0; i < STATE.students.length; i++) {
         if (STATE.students[i] && STATE.students[i].student_uid === stuUid) {
@@ -18669,6 +18685,14 @@ function _buildHeartTaleCoverHTML() {
   } else if (STATE.user && STATE.user.role === 'student') {
     profileImg = STATE.user.profile_image_url || '';
     bookCover  = STATE.user.book_cover_url || '';
+    if (!bookCover && Array.isArray(STATE.students)) {
+      for (var iSelf2 = 0; iSelf2 < STATE.students.length; iSelf2++) {
+        if (STATE.students[iSelf2] && STATE.students[iSelf2].student_uid === STATE.user.student_uid) {
+          bookCover = STATE.students[iSelf2].book_cover_url || '';
+          break;
+        }
+      }
+    }
   }
   // 90차 변쌤 명시 — 학생 본인만 표지 업로드 가능. 교사·학부모·관리자는 보기만
   var isSelf = !!(STATE.user && STATE.user.role === 'student'
@@ -21952,6 +21976,14 @@ function _htpCropConfirm() {
   var b64;
   try { b64 = out.toDataURL('image/jpeg', 0.85); }
   catch(e) { console.error('[HT CROP CONFIRM]', e); toast('자르기에 실패했어요'); return; }
+
+  // 90차 변쌤 신고 진단 로그 — crop rect·결과 b64 크기 (반영 안 됨 신고 시 콘솔 캡처)
+  console.log('[HT CROP CONFIRM]', {
+    canvasSize: canvas.width + 'x' + canvas.height,
+    cropRect: { left:r.left, top:r.top, right:r.right, bottom:r.bottom },
+    cropSize: w + 'x' + h,
+    b64KB: Math.round(b64.length / 1024)
+  });
 
   // 90차 변쌤 신고 fix — STATE._htpCropMode 분기 ('cover' = 표지 / 그 외 = 페이지)
   var mode = STATE._htpCropMode || 'page';
