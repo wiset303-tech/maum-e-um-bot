@@ -1674,14 +1674,29 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   max-width:480px;
   width:92%;
   margin:auto;
-  padding:22px 22px 18px;
+  /* 90차 변쌤 신고 fix2 — padding 22→14 (모바일 본문 컴팩트), 글자 크기는 그대로 */
+  padding:16px 16px 0;
   box-shadow:0 20px 60px rgba(0,0,0,0.3);
   animation:popIn .25s cubic-bezier(.2,.9,.3,1.2);
   position:relative;
-  /* 90차 변쌤 신고 fix — 세로 잘림 차단 (모바일 viewport 안에 들어가게) */
   max-height:92vh;
   overflow-y:auto;
   overscroll-behavior:contain;
+  display:flex;
+  flex-direction:column;
+}
+/* 90차 변쌤 신고 fix2 — 사진 영역 모바일에서 작게 (180→130) + 사진 자체 max-height 작게 */
+.ht-rec-modal-box .ht-rec-photo-area{ min-height:130px; margin-bottom:10px; }
+.ht-rec-modal-box .ht-rec-photo-area img{ max-height:200px; }
+/* 90차 변쌤 신고 fix2 — actions(취소/저장) 항상 화면 안. flex-shrink + sticky bottom */
+.ht-rec-modal-box .ht-rec-actions{
+  flex-shrink:0;
+  position:sticky;
+  bottom:0;
+  background:#fff;
+  padding:10px 0 14px;
+  margin-top:6px;
+  z-index:2;
 }
 .ht-rec-title{
   font-size:16px; font-weight:700;
@@ -5714,7 +5729,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <button class="ht-crop-btn ht-crop-btn-cancel" onclick="closeModal('modal-heart-tale-crop'); STATE._htpCropMode=null;">취소</button>
       <button class="ht-crop-btn ht-crop-btn-original" onclick="_htpCropResetOriginal()">원본 그대로</button>
       <button class="ht-crop-btn ht-crop-btn-redetect" onclick="_htpCropAutoDetect()">다시 자동</button>
-      <button class="ht-crop-btn ht-crop-btn-confirm" onclick="_htpCropConfirm()">이대로 잘라주기</button>
+      <button class="ht-crop-btn ht-crop-btn-confirm" onclick="_htpCropConfirm()">이렇게 자르기</button>
     </div>
   </div>
 </div>
@@ -18773,12 +18788,14 @@ function _htCoverApplyCropped(b64) {
     image_b64: b64
   }).then(function(res) {
     if (typeof hideLoading === 'function') hideLoading();
-    if (res && res.status === 'OK' && res.image_url) {
-      STATE.user.book_cover_url = res.image_url;
+    // 90차 변쌤 신고 fix — code.gs ok()는 {status:'ok', data:{image_url,...}} 형식. 'OK' (대문자) 비교 회귀 차단
+    var imageUrl = res && res.data && res.data.image_url;
+    if (res && res.status === 'ok' && imageUrl) {
+      STATE.user.book_cover_url = imageUrl;
       if (Array.isArray(STATE.students)) {
         for (var j = 0; j < STATE.students.length; j++) {
           if (STATE.students[j] && STATE.students[j].student_uid === STATE.user.student_uid) {
-            STATE.students[j].book_cover_url = res.image_url;
+            STATE.students[j].book_cover_url = imageUrl;
             break;
           }
         }
