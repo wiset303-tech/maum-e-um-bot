@@ -8853,7 +8853,17 @@ async function onLoginSuccess(data) {
         // 74차 B: loadSettings는 스피너 대기 목록에서 제외 (teachers.album_daily_limit은 이미 로그인 응답에 포함됨)
         //   그 외 persona·alarm 설정은 fire-and-forget — 완료 시 관련 paint 훅이 STATE 반영
         (function(){ loadSettings().catch(function(){}); return Promise.resolve(); })(),
+        // 90차 변쌤 명시 — 로그인 로딩스피너 돌 때 마음앨범 3 sub 데이터 + 이미지 prefetch (탭 클릭 후 1초 빈 화면 차단)
+        (typeof _loadEmotionsMaster === 'function' ? _loadEmotionsMaster() : Promise.resolve()).catch(function(){}),
+        (typeof _loadEmotionAlbumCache === 'function' ? _loadEmotionAlbumCache() : Promise.resolve()).catch(function(){}),
+        (typeof _loadTeacherTaleProgress === 'function' ? _loadTeacherTaleProgress(teacherUid) : Promise.resolve()).catch(function(){}),
       ]);
+      // 90차 변쌤 명시 — 이미지 자체 백그라운드 다운로드 (Promise.all 끝난 후 fire-and-forget · STATE.students·_teacherAlbumAll·_emotionAlbumCache 박힌 시점)
+      setTimeout(function(){
+        try { if (typeof _prefetchAlbumThumbs === 'function') _prefetchAlbumThumbs(_teacherAlbumAll); } catch(e) {}
+        try { if (typeof _prefetchAlbumThumbs === 'function') _prefetchAlbumThumbs(_emotionAlbumCache); } catch(e) {}
+        try { if (typeof _prefetchTeacherTaleCovers === 'function') _prefetchTeacherTaleCovers(STATE.students); } catch(e) {}
+      }, 100);
       renderEmotionBarcode();
     }
 
