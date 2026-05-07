@@ -9340,11 +9340,11 @@ function settingsHTML() {
       '<button class="btn btn-secondary" style="margin-top:8px;width:100%;font-size:13px;padding:13px 18px" onclick="triggerNfcFromSelf()">🪪 내 마음카드 등록/교체</button>' +
       '<button class="btn btn-secondary" style="margin-top:8px;width:100%;font-size:13px;padding:13px 18px" onclick="openEmailEdit()">📧 이메일 등록/변경</button>' +
     '</div>' +
-    // 91차 ③: 사회정서역량 진단 — 교사 학급 일괄 진단 진입점 (변쌤 명시 — 항상 노출)
-    '<div class="card card-mint" style="margin-top:8px">' +
-      '<div class="card-label">📋 사회정서역량 진단</div>' +
-      '<div style="font-size:12px;color:var(--gray);margin-bottom:10px;line-height:1.55">우리 반 학생을 7역량 28문항으로 평가해요. 1-2학년은 교사 관찰형, 3-6학년은 학생 자가응답 어조 자동 분기.</div>' +
-      '<button class="btn btn-secondary" style="width:100%;font-size:13px;padding:13px 18px" onclick="_openTeacherSelClassModal()">👥 학급 진단 시작</button>' +
+    // 91차 ③ fix12 (변쌤 명시 답습): 카드 이름 + 무지개 인덱스 라벨 + 버튼 비율 자연
+    '<div class="card" style="margin-top:8px;background:linear-gradient(135deg,#fffaf0,#fff5e6 45%,#f5fbf7);border:1px solid rgba(232,87,112,0.18)">' +
+      '<div class="card-label" style="background:linear-gradient(90deg,var(--sel-r1),var(--sel-r2),var(--sel-r3),var(--sel-r4),var(--sel-r5),var(--sel-r6),var(--sel-r7));-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;letter-spacing:.3px">🌈 우리 반 마음이음 역량 모아보기</div>' +
+      '<div style="font-size:12px;color:var(--gray);margin-bottom:12px;line-height:1.55">7역량 28문항으로 학생 마음을 살펴봐요. 1-2학년은 교사 관찰형, 3-6학년은 학생 자가응답 어조 자동.</div>' +
+      '<button class="btn btn-secondary" style="width:100%;font-size:13px;padding:11px 14px" onclick="_openTeacherSelClassModal()">👥 학급 진단 시작</button>' +
     '</div>' +
     // 83차: 전담 교사 v1 — 담임이 같은 학교 교사에게 본인 학급 마음앨범 열람만 허용
     '<div class="card card-mint" style="margin-top:8px">' +
@@ -19773,6 +19773,10 @@ function _teacherSelSwitchMode(mode) {
   _renderTeacherSelClassList();
 }
 
+// 91차 ③ fix12: 학생 카드 클릭 시 row 상태 답습 위해 STATE에 cache 박음
+var _teacherSelRowsCache = {};
+var _teacherSelStudentsCache = {};
+
 async function _renderTeacherSelClassList() {
   var body = document.getElementById('selClassBody');
   if (!body) return;
@@ -19813,6 +19817,10 @@ async function _renderTeacherSelClassList() {
   } catch(e) {
     console.error('[SEL CLASS FETCH]', e && e.message || e);
   }
+  // 91차 ③ fix12: 학생 카드 클릭 시 row 상태 답습 위해 cache 박음
+  _teacherSelRowsCache = rowsByStu;
+  _teacherSelStudentsCache = {};
+  students.forEach(function(s){ _teacherSelStudentsCache[s.student_uid] = s; });
 
   if (_teacherSelClassMode === 'student') {
     _renderTeacherSelStudentMode(body, students, rowsByStu);
@@ -19843,16 +19851,21 @@ function _renderTeacherSelStudentMode(body, students, rowsByStu) {
     var row = rowsByStu[s.student_uid];
     var badge = _selStatusBadge(row, myUid);
     var nameEsc = _escHtml((s.num||'') + '번 ' + s.name);
-    html += '<div style="padding:10px;border-radius:10px;border:1.5px solid var(--lgray);background:#fff;cursor:pointer;transition:transform .15s" onclick="_teacherSelStartForStudent(\'' + (typeof _escAttr === 'function' ? _escAttr(s.student_uid) : s.student_uid) + '\',\'' + (typeof _escAttr === 'function' ? _escAttr(s.name) : s.name) + '\',' + (parseInt(s.grade)||3) + ')" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'\'">' +
-      '<div style="font-size:12.5px;font-weight:700;color:var(--navy);margin-bottom:5px">' + nameEsc + '</div>' +
+    var safeUid = (typeof _escAttr === 'function' ? _escAttr(s.student_uid) : s.student_uid);
+    var hasMenu = !!row;  // 91차 ③ fix12: row 있으면 점점점 메뉴 (결과 보기·초기화)
+    html += '<div style="position:relative;padding:10px;border-radius:10px;border:1.5px solid var(--lgray);background:#fff;cursor:pointer;transition:transform .15s" onclick="_teacherSelHandleStudentClick(\'' + safeUid + '\')" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'\'">' +
+      '<div style="font-size:12.5px;font-weight:700;color:var(--navy);margin-bottom:5px;padding-right:' + (hasMenu ? '20px' : '0') + '">' + nameEsc + '</div>' +
       '<div style="display:inline-block;font-size:10.5px;font-weight:600;background:' + badge.bg + ';color:' + badge.color + ';padding:3px 8px;border-radius:10px">' + badge.label + '</div>';
     if (row && row.status === 'done' && row.total_score) {
       html += '<div style="font-size:10px;color:var(--gray);margin-top:4px">' + row.total_score + ' / 140점</div>';
     }
+    if (hasMenu) {
+      html += '<button onclick="event.stopPropagation();_teacherSelOpenStudentMenu(event,\'' + safeUid + '\')" style="position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:6px;background:transparent;border:none;color:var(--gray);font-size:16px;font-weight:700;cursor:pointer;line-height:1;padding:0">⋯</button>';
+    }
     html += '</div>';
   });
   html += '</div>';
-  html += '<div style="margin-top:12px;font-size:11px;color:var(--gray);line-height:1.6;padding:8px 10px;background:#fafafa;border-radius:8px">💡 학생 카드를 누르면 28문항 응답 모달이 열려요. 다른 분(학생·학부모)이 이미 응답 중이면 재시작할지 묻습니다.</div>';
+  html += '<div style="margin-top:12px;font-size:11px;color:var(--gray);line-height:1.6;padding:8px 10px;background:#fafafa;border-radius:8px">💡 카드를 눌러 진단을 시작/이어쓰기/결과 보기 해요. 점점점(⋯) 메뉴로 결과 보기·초기화 가능.</div>';
   body.innerHTML = html;
 }
 
@@ -19926,6 +19939,109 @@ async function _teacherSelResetAndStart(student_uid, student_name, grade) {
     hideLoading();
     console.error('[TEACHER SEL RESET]', e && e.message || e);
     toast('재시작 실패');
+  }
+}
+
+// 91차 ③ fix12 (변쌤 정밀 답습): 학생 카드 클릭 → row 상태 분기
+//   미시작 → confirm "진단 시작?" → OK이면 _selStartAssessment + _selOpenAssess
+//   진행 중(자기) → 이어쓰기 (_selOpenAssess 답습)
+//   완료(자기) → 결과 보기 (_renderSelReport 답습 — 학생용 결과 모달 그대로)
+//   다른 분 진행/완료 → 락 confirm + 재시작
+async function _teacherSelHandleStudentClick(student_uid) {
+  var row = _teacherSelRowsCache[student_uid];
+  var s = _teacherSelStudentsCache[student_uid];
+  if (!s) return;
+  var myUid = STATE.user && STATE.user.teacher_uid;
+  var grade = parseInt(s.grade) || 3;
+  if (row && row.status === 'done' && row.responder_uid === myUid) {
+    _teacherSelOpenResult(student_uid, s.name, _teacherSelClassPhase);
+    return;
+  }
+  if (row && row.status === 'in_progress' && row.responder_uid === myUid) {
+    closeModal('modal-sel-teacher-class');
+    if (typeof _selOpenAssess === 'function') {
+      _selOpenAssess({ assessment: row, gradeBand: row.grade_band || _selGradeBand(grade), studentName: s.name });
+    }
+    return;
+  }
+  if (row && (row.status === 'done' || row.status === 'in_progress')) {
+    _teacherSelStartForStudent(student_uid, s.name, grade);
+    return;
+  }
+  // 미시작 또는 skipped → confirm 먼저
+  var ok = await appConfirm(
+    '진단을 시작할까요?',
+    s.name + ' 학생의 ' + _teacherSelClassPhase + '차 사회정서역량 진단을 시작해요. 28문항을 응답하면 자동으로 점수가 계산돼요.',
+    { okLabel: '시작' }
+  );
+  if (ok) _teacherSelStartForStudent(student_uid, s.name, grade);
+}
+
+// 점점점(⋯) 메뉴 — 결과 보기 / 초기화
+function _teacherSelOpenStudentMenu(ev, student_uid) {
+  var s = _teacherSelStudentsCache[student_uid];
+  var row = _teacherSelRowsCache[student_uid];
+  if (!s) return;
+  _teacherSelCloseMenu();
+  var btn = ev.currentTarget;
+  var rect = btn.getBoundingClientRect();
+  var menu = document.createElement('div');
+  menu.id = 'selStudentMenu';
+  menu.style.cssText = 'position:fixed;top:' + (rect.bottom + 4) + 'px;left:' + Math.max(8, rect.right - 140) + 'px;z-index:3600;background:#fff;border:1px solid var(--lgray);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.14);padding:6px;min-width:140px';
+  var safeUid = (typeof _escAttr === 'function' ? _escAttr(student_uid) : student_uid);
+  var safeName = (typeof _escAttr === 'function' ? _escAttr(s.name) : s.name);
+  var hasResult = row && row.status === 'done';
+  var inner = '';
+  if (hasResult) {
+    inner += '<button onclick="_teacherSelOpenResult(\'' + safeUid + '\',\'' + safeName + '\',' + _teacherSelClassPhase + ');_teacherSelCloseMenu()" style="display:block;width:100%;padding:8px 10px;background:none;border:none;text-align:left;font-size:12.5px;color:var(--navy);cursor:pointer;border-radius:6px" onmouseover="this.style.background=\'#f5fbf7\'" onmouseout="this.style.background=\'\'">📊 결과 보기</button>';
+  }
+  inner += '<button onclick="_teacherSelResetByMenu(\'' + safeUid + '\',\'' + safeName + '\');_teacherSelCloseMenu()" style="display:block;width:100%;padding:8px 10px;background:none;border:none;text-align:left;font-size:12.5px;color:#c0392b;cursor:pointer;border-radius:6px" onmouseover="this.style.background=\'#fef2f2\'" onmouseout="this.style.background=\'\'">🔄 초기화</button>';
+  menu.innerHTML = inner;
+  document.body.appendChild(menu);
+  setTimeout(function(){
+    document.addEventListener('click', _teacherSelCloseMenu, { once: true });
+  }, 0);
+}
+
+function _teacherSelCloseMenu() {
+  var menu = document.getElementById('selStudentMenu');
+  if (menu && menu.parentNode) menu.parentNode.removeChild(menu);
+}
+
+// 결과 보기 — _renderSelReport 답습 (학생용 결과 모달과 동일 — 변쌤 명시 "이미 만들어진 것 차용·답습")
+async function _teacherSelOpenResult(student_uid, student_name, phase) {
+  showLoading('결과를 불러오는 중이에요 📊');
+  try {
+    var result = await _selGetResult(student_uid, { phase: phase });
+    hideLoading();
+    if (!result) { toast('결과를 찾을 수 없어요'); return; }
+    if (typeof _renderSelReport === 'function') _renderSelReport(result);
+  } catch(e) {
+    hideLoading();
+    console.error('[TEACHER SEL RESULT]', e && e.message || e);
+    toast('결과 불러오기 실패');
+  }
+}
+
+// 초기화 — _selResetAssessment 답습 (status='cancelled' + q1~q28 클리어 → 미시작 상태로 복귀)
+async function _teacherSelResetByMenu(student_uid, student_name) {
+  var ok = await appConfirm(
+    '초기화할까요?',
+    student_name + ' 학생의 ' + _teacherSelClassPhase + '차 진단을 미시작으로 되돌려요. 응답이 모두 사라지고 학생/학부모/교사 누구든 다시 시작할 수 있어요.',
+    { danger: true, okLabel: '초기화' }
+  );
+  if (!ok) return;
+  showLoading('초기화 중이에요 🔄');
+  try {
+    var row = _teacherSelRowsCache[student_uid];
+    if (row && row.uid) await _selResetAssessment(row.uid);
+    hideLoading();
+    toast('초기화됐어요');
+    await _renderTeacherSelClassList();
+  } catch(e) {
+    hideLoading();
+    console.error('[TEACHER SEL RESET MENU]', e && e.message || e);
+    toast('초기화 실패');
   }
 }
 
