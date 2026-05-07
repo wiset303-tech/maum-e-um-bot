@@ -9030,11 +9030,15 @@ async function onLoginSuccess(data) {
         .catch(function(e){ console.error('[SB CHAT HIST PRELOAD]', e && e.message ? e.message : e); }),
       // 91차 ⓒ: 마음동화 수업 active 상태 동기화 (broadcast 못 받았어도 새로고침 시 하이라이팅 복구 — 87차 파노라마 패턴 답습)
       (typeof _syncHeartTaleClassHighlightForStudent === 'function' ? _syncHeartTaleClassHighlightForStudent() : Promise.resolve()).catch(function(){}),
+      // 91차 ②: 학급 학생 오늘 감정 일괄 동기화 (변쌤 신고 답습 — 감정바코드 담임과 일치)
+      //   STATE.studentEmotions 채움 → 감정앨범 탭 진입 시 무지개 바코드 정상 표시
+      (typeof _syncStudentClassEmotions === 'function' ? _syncStudentClassEmotions() : Promise.resolve()).catch(function(){}),
     ]);
     hideLoading();
     startPersonaPoll();
     startNotificationRealtime(); // 65차 E: 알림 실시간 구독 (선물·마음봇 알림 등)
     startTokenRealtime();        // 70차: 학생 token_balance UPDATE → 상단 뱃지·마음온도계 즉시 갱신
+    if (typeof startStudentEmotionRealtime === 'function') startStudentEmotionRealtime(); // 91차 ②: 학급 친구 감정 변동 즉시 STATE 갱신 + 감정바코드 재렌더
     // 87차: SEL 첫 로그인 자동 안내 — 미수행이면 0.6초 후 intro 모달 (skip 가능)
     try { _showSelIntroIfNeeded(); } catch(e) { console.warn('[SEL INTRO]', e); }
     if (data.teacher_uid) {
@@ -13466,6 +13470,79 @@ function startEmotionSignalPoll() {
       }
     } catch(e) {} // 네트워크 오류 시 조용히 넘김
   }, 15000);
+}
+
+// 91차 ②: 학생 단말 감정바코드 동기화 (변쌤 신고 답습 — 학생 화면도 담임과 같은 무지개 바코드)
+//   학생 부팅 시 학급 학생 오늘 감정 일괄 fetch + STATE.studentEmotions 채움
+//   학급 친구 감정 변동 broadcast 시 STATE 갱신 + 감정바코드 재렌더 (90차 emoAlbumBarcode 답습)
+async function _syncStudentClassEmotions() {
+  if (STATE.role !== 'student') return;
+  var tUid = STATE.user && STATE.user.teacher_uid;
+  if (!tUid) return;
+  try {
+    var today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+    var rows = await _sbFetchEmotionsSince(today, {
+      teacher_uid: 'eq.' + tUid,
+      type: 'eq.checkin'
+    });
+    STATE.studentEmotions = STATE.studentEmotions || {};
+    (rows || []).forEach(function(e) {
+      if (e && e.student_uid) {
+        STATE.studentEmotions[e.student_uid] = {
+          macro: e.macro_emotion,
+          micro: e.micro_emotion,
+          score: e.emotion_score
+        };
+      }
+    });
+  } catch(e) {
+    console.error('[STU CLASS EMO]', e && e.message ? e.message : e);
+  }
+}
+
+var _studentEmotionChannel = null;
+function startStudentEmotionRealtime() {
+  stopStudentEmotionRealtime();
+  if (STATE.role !== 'student') return;
+  var tUid = STATE.user && STATE.user.teacher_uid;
+  if (!tUid) return;
+  try {
+    if (!_sbClient && typeof supabase !== 'undefined') {
+      _sbClient = supabase.createClient(SB_URL, SB_KEY);
+    }
+    if (!_sbClient) return;
+    var channelName = 'stu-emotions-' + tUid;
+    var insertCfg = { event: 'INSERT', schema: 'public', table: 'emotions', filter: 'teacher_uid=eq.' + tUid };
+    var updateCfg = { event: 'UPDATE', schema: 'public', table: 'emotions', filter: 'teacher_uid=eq.' + tUid };
+    var onChange = function(payload) {
+      var row = payload && payload.new;
+      if (!row || row.type !== 'checkin') return;
+      var today = new Date(Date.now() + 9*3600000).toISOString().slice(0,10);
+      var dateKST = (row.timestamp || '').slice(0, 10);
+      if (dateKST !== today) return;
+      STATE.studentEmotions = STATE.studentEmotions || {};
+      STATE.studentEmotions[row.student_uid] = {
+        macro: row.macro_emotion,
+        micro: row.micro_emotion,
+        score: row.emotion_score
+      };
+      // 감정앨범 상단 우리반 바코드 재렌더 (90차 답습 — 학생도 자기 자리 보임)
+      if (typeof renderEmotionBarcode === 'function') {
+        try { renderEmotionBarcode({ trackId:'emoAlbumBarcodeTrack', numsId:'emoAlbumBarcodeNums', tagId:'emoAlbumBarcodeTag' }); } catch(e) {}
+      }
+    };
+    _studentEmotionChannel = _sbClient
+      .channel(channelName)
+      .on('postgres_changes', insertCfg, onChange)
+      .on('postgres_changes', updateCfg, onChange)
+      .subscribe(function(status){ try { console.log('[STU EMO RT]', channelName, status); } catch(e) {} });
+  } catch(e) { console.error('[STU EMO RT]', e && e.message ? e.message : e); }
+}
+function stopStudentEmotionRealtime() {
+  if (_studentEmotionChannel && _sbClient) {
+    try { _sbClient.removeChannel(_studentEmotionChannel); } catch(e) {}
+    _studentEmotionChannel = null;
+  }
 }
 
 function stopDashboardPoll() {
@@ -21714,12 +21791,12 @@ function _renderTaleAlbumHeader(stus) {
   }
   html += '</div>';
   // ── 우: 마음 파노라마 ──
-  html += '<div class="ht-pano-bar" style="padding:10px 12px;border-radius:12px;background:linear-gradient(135deg,#faf5ff,#eff6ff);border:1.5px dashed #ddd6fe;display:flex;flex-direction:column;justify-content:center">';
+  html += '<div class="ht-pano-bar" style="padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,#faf5ff,#eff6ff);border:1px solid #ddd6fe">';
   if (panoActive) {
     html += '<button class="ht-class-btn" onclick="_endHeartPanorama()" style="width:100%;background:linear-gradient(135deg,#a78bfa,#60a5fa);color:#fff;border:none;padding:11px 14px;border-radius:11px;font-weight:700;font-size:14px;cursor:pointer;letter-spacing:.3px">⏹ 마음 파노라마 종료</button>';
     html += '<div style="margin-top:6px;font-size:11px;color:#6d5fa5;text-align:center;line-height:1.5;word-break:keep-all">파노라마 진행 중 — 학생들이 마지막 표지에서 펼쳐볼 수 있어요</div>';
   } else {
-    html += '<button class="ht-class-btn" onclick="_startHeartPanorama()" style="width:100%;background:linear-gradient(135deg,#fbcfe8,#c7d2fe);color:#5b3990;border:none;padding:11px 14px;border-radius:11px;font-weight:700;font-size:14px;cursor:pointer;letter-spacing:.3px">✨ 마음 파노라마 시작</button>';
+    html += '<button class="ht-class-btn" onclick="_startHeartPanorama()" style="width:100%;background:linear-gradient(135deg,#fbcfe8,#c7d2fe);color:#5b3990;border:none;padding:11px 14px;border-radius:11px;font-weight:700;font-size:14px;cursor:pointer;letter-spacing:.3px">🎞️ 마음 파노라마 시작</button>';
     html += '<div style="margin-top:6px;font-size:11px;color:#7a6da5;text-align:center;line-height:1.5;word-break:keep-all">시작하면 학생들이 마지막 표지에서<br>1년의 마음을 펼쳐볼 수 있어요 ✨</div>';
   }
   html += '</div>';
