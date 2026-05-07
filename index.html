@@ -20966,6 +20966,12 @@ async function _autoRetryBotLineIfStuck(week_no) {
     console.log('[HT RETRY skip:not-student]', week_no, { role:STATE.role });
     return;
   }
+  // 91차 fix10 (변쌤 신고 답습): _regenerateBotLine in-flight면 skip (두 generate 동시 호출 → 답변 덮어씌움 회귀 차단)
+  //   _regenerateBotLine이 placeholder 박은 후 _renderHeartTalePage 호출 → _autoRetryBotLineIfStuck도 호출되던 중복 fix
+  if (STATE._htpRegenInFlight && STATE._htpRegenInFlight[week_no]) {
+    console.log('[HT RETRY skip:regen-in-flight]', week_no);
+    return;
+  }
   STATE._htpRetryDone = STATE._htpRetryDone || {};
   if (STATE._htpRetryDone[week_no]) {
     console.log('[HT RETRY skip:already-tried]', week_no);
@@ -21137,10 +21143,11 @@ function _openEmoCategoriesModal(week_no) {
 //   응답 도착 시 STATE._htpPages 갱신 + 페이지 재렌더 + Supabase weekly_book.bot_line patch
 //   text-only로 보냄 (사진은 첫 저장 때만 multimodal — 재생성은 0.5~1초 빠른 답습)
 async function _regenerateBotLine(week_no) {
-  // 91차 fix4: in-flight flag로 중복 호출 차단 (자동 retry vs 사용자 ✨ 새 답변 클릭 race 방지)
+  // 91차 fix4: in-flight flag로 중복 호출 차단 (자동 retry vs 사용자 ✨ 새 응답 클릭 race 방지)
   STATE._htpRegenInFlight = STATE._htpRegenInFlight || {};
-  if (STATE._htpRegenInFlight[week_no]) return;
+  if (STATE._htpRegenInFlight[week_no]) { console.log('[HT REGEN skip:in-flight]', week_no); return; }
   STATE._htpRegenInFlight[week_no] = true;
+  console.log('[HT REGEN start]', week_no);
   var pages = STATE._htpPages || {};
   var row = pages[week_no];
   if (!row || !row.recorded_at) {
@@ -21160,10 +21167,12 @@ async function _regenerateBotLine(week_no) {
       emotion_tags: row.emotion_tags || ''
     });
     if (res && res.status === 'ok' && res.data && res.data.bot_line) {
+      console.log('[HT REGEN response]', (res.data.bot_line||'').slice(0, 30));
       row.bot_line = res.data.bot_line;
       if (STATE._htpCurrentWeek === week_no) _renderHeartTalePage(week_no);
       if (row.page_uid) {
         _sbPatch('weekly_book', { page_uid: 'eq.' + row.page_uid }, { bot_line: res.data.bot_line })
+          .then(function(){ console.log('[HT REGEN patch ok]'); })
           .catch(function(e){ console.error('[BOT LINE PATCH]', e && e.message || e); });
       }
       toast('새 응답이 도착했어요 ✨');
