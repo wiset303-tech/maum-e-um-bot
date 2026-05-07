@@ -5697,7 +5697,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
         <span style="font-size:11.5px;color:#7a8c9a;font-weight:700">💛 오늘의 감정</span>
         <span style="font-size:10.5px;color:#a89580">눌러서 빼고, 「+」로 추가해요</span>
       </div>
-      <div id="htRecEmoChips" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:36px;padding:7px 8px;background:#fffdf8;border:1.5px dashed #e7e3da;border-radius:10px"></div>
+      <div id="htRecEmoChips" style="display:flex;flex-wrap:nowrap;gap:6px;align-items:center;min-height:36px;padding:7px 8px;background:#fffdf8;border:1.5px dashed #e7e3da;border-radius:10px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch"></div>
     </div>
     <div class="ht-rec-actions">
       <button class="ht-rec-action ht-rec-cancel" onclick="closeModal('modal-heart-tale-record')">취소</button>
@@ -5707,6 +5707,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 </div>
 
 <!-- 87차: 감정 풀 선택 모달 (배지 + 버튼으로 오픈, EMOTIONS_MASTER 풀에서 고르기) -->
+<!-- 90차 변쌤 명시 — 등교 감정 체크인 답습 (긍정·중립·부정 macro 탭 + 직접 쓰기) -->
 <div id="modal-heart-tale-emo-pick" class="modal-overlay hidden" style="z-index:3500" onclick="closeModalOutside(event,'modal-heart-tale-emo-pick')">
   <div class="modal-box" style="position:relative;max-width:420px;max-height:78vh;overflow-y:auto" onclick="event.stopPropagation()">
     <div class="modal-title">💛 감정 고르기</div>
@@ -5714,7 +5715,29 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
     <div style="text-align:center;font-size:12px;color:var(--gray);margin-bottom:10px;line-height:1.5;word-break:keep-all">
       여러 개 골라도 돼요. 다시 누르면 빠져요.
     </div>
-    <div id="htRecEmoPickGrid" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:14px"></div>
+    <!-- macro 탭 (긍정·중립·부정·직접 쓰기) — 등교 답습 -->
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button type="button" class="ht-emo-macro-tab" data-macro="positive" onclick="_htpEmoPickSwitchMacro('positive')"
+        style="flex:1;padding:8px 4px;border-radius:10px;border:2px solid var(--lgray);background:#fff;font-size:13px;cursor:pointer;transition:all .15s">☀️<div style="font-size:10px;color:var(--gray);margin-top:2px">긍정</div></button>
+      <button type="button" class="ht-emo-macro-tab" data-macro="neutral" onclick="_htpEmoPickSwitchMacro('neutral')"
+        style="flex:1;padding:8px 4px;border-radius:10px;border:2px solid var(--lgray);background:#fff;font-size:13px;cursor:pointer;transition:all .15s">☁️<div style="font-size:10px;color:var(--gray);margin-top:2px">중립</div></button>
+      <button type="button" class="ht-emo-macro-tab" data-macro="negative" onclick="_htpEmoPickSwitchMacro('negative')"
+        style="flex:1;padding:8px 4px;border-radius:10px;border:2px solid var(--lgray);background:#fff;font-size:13px;cursor:pointer;transition:all .15s">☔<div style="font-size:10px;color:var(--gray);margin-top:2px">부정</div></button>
+      <button type="button" class="ht-emo-macro-tab" data-macro="custom" onclick="_htpEmoPickSwitchMacro('custom')"
+        style="flex:1;padding:8px 4px;border-radius:10px;border:2px solid var(--lgray);background:#fff;font-size:13px;cursor:pointer;transition:all .15s">✏️<div style="font-size:10px;color:var(--gray);margin-top:2px">직접</div></button>
+    </div>
+    <!-- 그리드 (긍정/중립/부정 선택 시 표시) -->
+    <div id="htRecEmoPickGrid" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:14px;min-height:60px"></div>
+    <!-- 직접 쓰기 영역 (custom 선택 시 표시) -->
+    <div id="htRecEmoPickCustom" style="display:none;margin-bottom:14px">
+      <div style="display:flex;gap:6px">
+        <input type="text" id="htRecEmoCustomInput" placeholder="감정 단어 직접 입력 (예: 신비로운)" maxlength="12"
+          style="flex:1;padding:9px 12px;border:1.5px solid #e7e3da;border-radius:10px;font-size:13px;font-family:inherit;background:#fffdf8"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();_htpEmoPickAddCustom();}">
+        <button type="button" class="btn-primary" style="padding:9px 14px;font-size:13px" onclick="_htpEmoPickAddCustom()">추가</button>
+      </div>
+      <div style="font-size:10.5px;color:var(--gray);margin-top:6px;text-align:center">12자 이내 한국어 권장</div>
+    </div>
     <button class="btn-primary" style="width:100%" onclick="closeModal('modal-heart-tale-emo-pick')">완료</button>
   </div>
 </div>
@@ -21564,14 +21587,12 @@ function _htpToggleEmoChip(idx) {
 
 // 「+」 클릭 → 감정 풀 선택 모달 (EMOTIONS_MASTER에서 고르기)
 //   STATE.emotionsMaster (감정제출 화면에서 미리 fetch해 둔 캐시) 사용. 없으면 폴백으로 v4 emotions 풀에서.
+// 90차 변쌤 명시 — 등교 감정 체크인 답습. macro 탭(긍정/중립/부정/직접) + 카테고리별 그리드
 async function _htpOpenEmoPickModal() {
-  var grid = document.getElementById('htRecEmoPickGrid');
-  if (!grid) return;
-  // 풀 결정 — 캐시 우선
+  // 풀 fetch (감정앨범 cache 우선 → Supabase 직접 → v4 default 합본)
   var pool = (Array.isArray(STATE.emotionsMaster) && STATE.emotionsMaster.length)
-    ? STATE.emotionsMaster.map(function(e){ return e.word; })
+    ? STATE.emotionsMaster.slice()
     : null;
-  // 폴백 — Supabase 직접 fetch (없거나 비어있으면)
   if (!pool) {
     try {
       var rows = await _sbFetch('emotions_master', {
@@ -21579,39 +21600,94 @@ async function _htpOpenEmoPickModal() {
         select: 'word,score_range,category',
         order: 'category.asc'
       });
-      if (rows && rows.length) {
-        STATE.emotionsMaster = rows;
-        pool = rows.map(function(e){ return e.word; });
-      }
+      if (rows && rows.length) { STATE.emotionsMaster = rows; pool = rows.slice(); }
     } catch(e) { console.warn('[HT EMO POOL fetch]', e && e.message ? e.message : e); }
   }
-  // 그래도 없으면 v4 default emotions 풀 합본
   if (!pool || !pool.length) {
+    // v4 default 합본 — category 없으면 macro fallback ('positive')
     var seen = {};
     pool = [];
     for (var ti = 0; ti < _HEART_TALE_THEMES_V4.length; ti++) {
       var emos = _HEART_TALE_THEMES_V4[ti].emotions || [];
       for (var ej = 0; ej < emos.length; ej++) {
-        if (!seen[emos[ej]]) { seen[emos[ej]] = 1; pool.push(emos[ej]); }
+        if (!seen[emos[ej]]) { seen[emos[ej]] = 1; pool.push({ word: emos[ej], category: 'positive' }); }
       }
     }
   }
+  STATE._htpEmoPickPool = pool;
+  STATE._htpEmoPickMacro = STATE._htpEmoPickMacro || 'positive';   // default 긍정 탭
+  _htpEmoPickRender();
+  document.getElementById('modal-heart-tale-emo-pick').classList.remove('hidden');
+}
 
+// macro 탭 전환
+function _htpEmoPickSwitchMacro(macro) {
+  STATE._htpEmoPickMacro = macro;
+  _htpEmoPickRender();
+}
+
+// 그리드·직접 쓰기 분기 렌더 + macro 탭 active 갱신
+function _htpEmoPickRender() {
+  var macro = STATE._htpEmoPickMacro || 'positive';
+  // 탭 active 갱신
+  var tabs = document.querySelectorAll('.ht-emo-macro-tab');
+  for (var t = 0; t < tabs.length; t++) {
+    var on = tabs[t].getAttribute('data-macro') === macro;
+    tabs[t].style.background = on ? '#fff7e6' : '#fff';
+    tabs[t].style.borderColor = on ? '#f0d9a8' : 'var(--lgray)';
+  }
+  var grid = document.getElementById('htRecEmoPickGrid');
+  var customBox = document.getElementById('htRecEmoPickCustom');
+  if (!grid || !customBox) return;
+  // 직접 쓰기 모드
+  if (macro === 'custom') {
+    grid.style.display = 'none';
+    customBox.style.display = '';
+    var inputEl = document.getElementById('htRecEmoCustomInput');
+    if (inputEl) { inputEl.value = ''; setTimeout(function(){ inputEl.focus(); }, 100); }
+    return;
+  }
+  // 그리드 모드 — pool에서 macro 카테고리 필터
+  grid.style.display = '';
+  customBox.style.display = 'none';
+  var pool = STATE._htpEmoPickPool || [];
   var current = STATE._htpRecordingEmoTags || [];
   var inSet = {};
   for (var ci = 0; ci < current.length; ci++) inSet[current[ci]] = 1;
-
+  var filtered = pool.filter(function(e){ return e && e.category === macro; });
   var html = '';
-  for (var i = 0; i < pool.length; i++) {
-    var w = pool[i];
-    var on = !!inSet[w];
-    var bg = on ? '#7ed6c0' : '#fff7e6';
-    var fg = on ? '#fff'    : '#7a5a3c';
-    var bd = on ? '#5cc4ad' : '#f0d9a8';
-    html += '<button type="button" onclick="_htpPickEmoFromPool(\'' + _escAttr(w) + '\')" style="font-size:12.5px;color:' + fg + ';background:' + bg + ';border:1.5px solid ' + bd + ';border-radius:14px;padding:5px 11px;font-weight:600;cursor:pointer;letter-spacing:.2px">' + _escHtml(w) + '</button>';
+  if (!filtered.length) {
+    html = '<div style="color:var(--gray);font-size:12px;padding:14px 0">이 분류에는 감정이 아직 없어요</div>';
+  } else {
+    for (var i = 0; i < filtered.length; i++) {
+      var w = filtered[i].word;
+      var on = !!inSet[w];
+      var bg = on ? '#7ed6c0' : '#fff7e6';
+      var fg = on ? '#fff'    : '#7a5a3c';
+      var bd = on ? '#5cc4ad' : '#f0d9a8';
+      html += '<button type="button" onclick="_htpPickEmoFromPool(\'' + _escAttr(w) + '\')" style="font-size:12.5px;color:' + fg + ';background:' + bg + ';border:1.5px solid ' + bd + ';border-radius:14px;padding:5px 11px;font-weight:600;cursor:pointer;letter-spacing:.2px">' + _escHtml(w) + '</button>';
+    }
   }
   grid.innerHTML = html;
-  document.getElementById('modal-heart-tale-emo-pick').classList.remove('hidden');
+}
+
+// 직접 쓰기 — input 값 → 칩 추가 (중복 차단·12자 이내)
+function _htpEmoPickAddCustom() {
+  var inputEl = document.getElementById('htRecEmoCustomInput');
+  if (!inputEl) return;
+  var word = String(inputEl.value || '').trim();
+  if (!word) { toast('감정 단어를 입력해 주세요'); return; }
+  if (word.length > 12) { toast('12자 이내로 입력해 주세요'); return; }
+  if (!STATE._htpRecordingEmoTags) STATE._htpRecordingEmoTags = [];
+  if (STATE._htpRecordingEmoTags.indexOf(word) >= 0) {
+    toast('이미 추가된 감정이에요');
+    inputEl.value = '';
+    return;
+  }
+  STATE._htpRecordingEmoTags.push(word);
+  inputEl.value = '';
+  _htpRenderEmoChips();
+  toast(word + ' 추가됐어요 💛', 1200);
 }
 
 // 감정 풀에서 한 개 선택 → 토글 (있으면 빼기·없으면 추가)
@@ -21625,8 +21701,8 @@ function _htpPickEmoFromPool(word) {
   else tags.push(word);
   STATE._htpRecordingEmoTags = tags;
   _htpRenderEmoChips();
-  // 풀 그리드도 즉시 색 갱신 (모달 그대로 유지 — 변쌤 여러 개 고르기 명시)
-  _htpOpenEmoPickModal();
+  // 90차 변쌤 명시 (re-fix) — _htpEmoPickRender 호출 (_htpOpenEmoPickModal 호출 X · macro 탭 유지)
+  _htpEmoPickRender();
 }
 
 // _escAttr 폴백 (이미 정의된 _escHtml 비슷한 헬퍼가 없을 때 안전망)
