@@ -1349,11 +1349,11 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .heart-tale-entry.ht-class-active::after{
   content:'📣 수업 중';
   position:absolute;
-  top:10px; right:10px;
-  font-size:12px; color:#fff;
+  top:10px; right:14px;
+  font-size:11px; color:#fff;
   background:linear-gradient(135deg, #7ed6c0, #5fc4a8);
-  padding:6px 14px;
-  border-radius:14px;
+  padding:5px 12px;
+  border-radius:13px;
   font-weight:700;
   letter-spacing:.2px;
   text-align:center;
@@ -1362,8 +1362,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   z-index:2;
   white-space:nowrap;
   width:auto; max-width:none;
-  line-height:1.4;
-  display:inline-block;  /* 91차 fix7: 가운데 정렬·크기 키움 (변쌤 명시 답습) */
+  line-height:1;  /* 91차 fix8: 텍스트 위쪽 치우침 fix (1.4→1 가운데 정렬) */
+  display:inline-block;
 }
 @keyframes htClassActivePulse{
   0%,100%{ transform:scale(1); }
@@ -20990,8 +20990,21 @@ async function _autoRetryBotLineIfStuck(week_no) {
     pg.bot_line = res.data.bot_line;
     if (STATE._htpCurrentWeek === week_no) _renderHeartTalePage(week_no);
     if (pg.page_uid) {
-      _sbPatch('weekly_book', { page_uid: 'eq.' + pg.page_uid }, { bot_line: res.data.bot_line })
-        .then(function(){ console.log('[HT RETRY patch ok]'); })
+      // 91차 fix8 진단: patch 후 즉시 fetch로 DB 실제 갱신 검증 (RLS UPDATE 차단 시 patch 200 OK라도 0 rows)
+      var expectedLine = res.data.bot_line;
+      _sbPatch('weekly_book', { page_uid: 'eq.' + pg.page_uid }, { bot_line: expectedLine })
+        .then(function(){
+          console.log('[HT RETRY patch ok]');
+          return _sbFetch('weekly_book', { page_uid: 'eq.' + pg.page_uid, select: 'bot_line', limit: '1' });
+        })
+        .then(function(rows){
+          var saved = rows && rows[0] && rows[0].bot_line || '';
+          if (saved === expectedLine) {
+            console.log('[HT RETRY DB verified]', saved.slice(0, 30));
+          } else {
+            console.error('[HT RETRY DB MISMATCH — RLS UPDATE 차단 의심]', { expected: expectedLine.slice(0,40), saved: saved.slice(0,40) });
+          }
+        })
         .catch(function(e){ console.error('[HT RETRY patch fail]', e && e.message || e); });
     } else {
       console.warn('[HT RETRY no-page-uid — Supabase patch skipped]');
