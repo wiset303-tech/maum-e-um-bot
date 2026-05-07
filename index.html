@@ -21345,7 +21345,18 @@ function _htpStartRealtime(student_uid) {
       var w = parseInt(row.week_no, 10);
       if (!(w >= 1 && w <= HEART_TALE_TOTAL_WEEKS)) return;
       if (!STATE._htpPages) STATE._htpPages = {};
+      // 91차 fix9 (변쌤 두 번 깜빡 신고 답습): 자기 patch broadcast 또는 STATE와 동일 내용이면 render skip
+      //   _autoRetryBotLineIfStuck/_regenerateBotLine이 _sbPatch 후 STATE 이미 갱신됨 → realtime이 같은 broadcast 받아도 추가 render 불필요
+      var prev = STATE._htpPages[w];
+      var sameContent = prev &&
+        prev.bot_line === row.bot_line &&
+        prev.student_text === row.student_text &&
+        prev.photo_url === row.photo_url &&
+        prev.recorded_at === row.recorded_at &&
+        prev.title === row.title &&
+        prev.emotion_tags === row.emotion_tags;
       STATE._htpPages[w] = row;
+      if (sameContent) return;  // 변경 없음 → render skip (두 번 깜빡 차단)
       // 현재 페이지면 즉시 재렌더 (다른 페이지면 spine 갱신만 — 페이지는 이동 시 자동 반영)
       if (STATE._htpCurrentWeek === w) _renderHeartTalePage(w);
       else _renderHeartTaleSpine();
