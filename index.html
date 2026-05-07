@@ -5927,6 +5927,36 @@ async function _sbDelete(table, filters) {
     throw new Error('SB DELETE '+res.status+': '+txt.slice(0,300));
   }
 }
+// 90차 변쌤 명시 ② — 클라이언트 직접 Supabase Storage 업로드 (GAS 거치지 않음)
+//   학생 회원증(anon key) + RLS 정책으로 path 한정 (heart-tale/cover_<uid>.jpg)
+//   x-upsert:true로 같은 path 덮어쓰기 (표지 변경 흐름)
+async function _sbStorageUploadDirect(bucket, path, b64DataUri, mimeType) {
+  // base64 prefix 제거 → binary Blob
+  var b64 = b64DataUri.indexOf(',') > -1 ? b64DataUri.substring(b64DataUri.indexOf(',') + 1) : b64DataUri;
+  var bin = atob(b64);
+  var bytes = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  var blob = new Blob([bytes], { type: mimeType || 'image/jpeg' });
+  var endpoint = SB_URL + '/storage/v1/object/' + bucket + '/' + path;
+  var res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'apikey': SB_KEY,
+      'Authorization': 'Bearer ' + SB_KEY,
+      'Content-Type': mimeType || 'image/jpeg',
+      'x-upsert': 'true'
+    },
+    body: blob
+  });
+  if (!res.ok) {
+    var txt = '';
+    try { txt = await res.text(); } catch(e) {}
+    console.error('[SB STORAGE UPLOAD]', res.status, txt.slice(0,300));
+    throw new Error('Storage ' + res.status + ': ' + txt.slice(0,200));
+  }
+  return SB_URL + '/storage/v1/object/public/' + bucket + '/' + path;
+}
+
 // 76차: emotions 시간 비교 함정 회피 헬퍼 — 60차 Δ⁴ 잔존 이슈
 //   emotions.timestamp는 text 컬럼이고 KST 문자열·UTC `+00` 형식 혼재 (RPC NOW() vs GAS now()).
 //   서버 `timestamp gte` 문자열 비교에서 UTC 형식 행 누락 (space < T → 부정확).
@@ -18768,78 +18798,69 @@ function _htHandleCoverFile(event) {
   });
 }
 
-// 90차 — crop 확정 후 표지 저장 (낙관적 UI + 로딩 스피너 + GAS api)
-function _htCoverApplyCropped(b64) {
+// 90차 변쌤 명시 ② — 클라이언트 직접 Supabase Storage + _sbPatch (GAS 거치지 않음. 학생 앱 속도 우선)
+//   76차 broadcast 알림 답습 — 빠른 경로(0.5초). RLS 정책으로 heart-tale/cover_<uid>.jpg path 한정 안전
+async function _htCoverApplyCropped(b64) {
   if (!STATE.user || !STATE.user.student_uid) {
     if (typeof toast === 'function') toast('학생 정보가 없어요');
     return;
   }
-  // 로딩 스피너 — Storage upload + Sheets·Supabase 동기화 사이 표시
   if (typeof showLoading === 'function') showLoading('표지를 저장하고 있어요 ✨');
 
-  // 낙관적 UI — base64로 즉시 표지 표시 (76차 답습), 백그라운드 GAS api
+  // 낙관적 UI — base64로 즉시 표지 표시 (76차 답습)
+  var stuUid = STATE.user.student_uid;
   var prevCover = STATE.user.book_cover_url || '';
   STATE.user.book_cover_url = b64;
   if (Array.isArray(STATE.students)) {
     for (var i = 0; i < STATE.students.length; i++) {
-      if (STATE.students[i] && STATE.students[i].student_uid === STATE.user.student_uid) {
+      if (STATE.students[i] && STATE.students[i].student_uid === stuUid) {
         STATE.students[i].book_cover_url = b64;
         break;
       }
     }
   }
-  if (STATE._htpCurrentWeek === 0 || typeof STATE._htpCurrentWeek === 'undefined') {
-    _renderHeartTalePage(0);
-  }
+  _renderHeartTalePage(0);
+  STATE._htpCurrentWeek = 0;
 
   function rollback() {
     STATE.user.book_cover_url = prevCover;
     if (Array.isArray(STATE.students)) {
       for (var k = 0; k < STATE.students.length; k++) {
-        if (STATE.students[k] && STATE.students[k].student_uid === STATE.user.student_uid) {
+        if (STATE.students[k] && STATE.students[k].student_uid === stuUid) {
           STATE.students[k].book_cover_url = prevCover;
           break;
         }
       }
     }
-    if (STATE._htpCurrentWeek === 0 || typeof STATE._htpCurrentWeek === 'undefined') {
-      _renderHeartTalePage(0);
-    }
+    _renderHeartTalePage(0);
   }
 
-  api('saveBookCover', {
-    student_uid: STATE.user.student_uid,
-    image_b64: b64
-  }).then(function(res) {
-    if (typeof hideLoading === 'function') hideLoading();
-    // 90차 변쌤 신고 fix — code.gs ok()는 {status:'ok', data:{image_url,...}} 형식. 'OK' (대문자) 비교 회귀 차단
-    var imageUrl = res && res.data && res.data.image_url;
-    if (res && res.status === 'ok' && imageUrl) {
-      STATE.user.book_cover_url = imageUrl;
-      if (Array.isArray(STATE.students)) {
-        for (var j = 0; j < STATE.students.length; j++) {
-          if (STATE.students[j] && STATE.students[j].student_uid === STATE.user.student_uid) {
-            STATE.students[j].book_cover_url = imageUrl;
-            break;
-          }
+  try {
+    // 1) Storage upload 직접 (anon key + RLS 정책으로 path 한정 — heart-tale/cover_<uid>.jpg)
+    var imageUrl = await _sbStorageUploadDirect('album', 'heart-tale/cover_' + stuUid + '.jpg', b64, 'image/jpeg');
+    // 2) students.book_cover_url 직접 patch (anon UPDATE 권한 — 14729 line 답습)
+    await _sbPatch('students', { student_uid: 'eq.' + stuUid }, { book_cover_url: imageUrl });
+    // 3) cache-busting (같은 path 덮어쓰기라 모바일 브라우저 캐시 우회)
+    var bustedUrl = imageUrl + '?v=' + Date.now();
+    STATE.user.book_cover_url = bustedUrl;
+    if (Array.isArray(STATE.students)) {
+      for (var j = 0; j < STATE.students.length; j++) {
+        if (STATE.students[j] && STATE.students[j].student_uid === stuUid) {
+          STATE.students[j].book_cover_url = bustedUrl;
+          break;
         }
       }
-      if (STATE._htpCurrentWeek === 0 || typeof STATE._htpCurrentWeek === 'undefined') {
-        _renderHeartTalePage(0);
-      }
-      if (typeof toast === 'function') toast('표지가 만들어졌어요 ✨');
-    } else {
-      var msg = (res && res.message) ? res.message : '저장 실패 — 다시 시도해주세요';
-      console.error('[HT COVER UPLOAD] api 응답:', res);
-      rollback();
-      if (typeof toast === 'function') toast(msg);
     }
-  }).catch(function(err) {
+    _renderHeartTalePage(0);
     if (typeof hideLoading === 'function') hideLoading();
-    console.error('[HT COVER UPLOAD] catch:', err);
+    if (typeof toast === 'function') toast('표지가 만들어졌어요 ✨');
+    console.log('[HT COVER 직접]', { imageUrl: imageUrl });
+  } catch(e) {
+    if (typeof hideLoading === 'function') hideLoading();
+    console.error('[HT COVER 직접 실패]', e && e.message ? e.message : e);
     rollback();
     if (typeof toast === 'function') toast('저장 실패 — 다시 시도해주세요');
-  });
+  }
 }
 
 // 87차: 마음 파노라마 — 교사 broadcast 신호 전 클릭 시 안내 (변쌤 명시 "안내문구")
@@ -21763,6 +21784,13 @@ function _htpAutoDetectCropRect(canvas) {
   var ctx = canvas.getContext('2d');
   var w = canvas.width, h = canvas.height;
   if (w < 50 || h < 50) return { left: 0, top: 0, right: w, bottom: h };
+  // 90차 변쌤 명시 — cover 모드(표지)는 1:1 정사각 강제 (자동 외곽선 무관·가운데 가장 큰 정사각)
+  if (STATE._htpCropMode === 'cover') {
+    var sq = Math.min(w, h);
+    var lx = Math.round((w - sq) / 2);
+    var ty = Math.round((h - sq) / 2);
+    return { left: lx, top: ty, right: lx + sq, bottom: ty + sq };
+  }
 
   // 너무 큰 이미지는 다운샘플링 (성능 — 320x240 정도면 충분)
   var sw = Math.min(w, 320), sh = Math.round(h * sw / w);
@@ -21929,6 +21957,21 @@ function _htpCropDragMove(e) {
     nt = Math.max(0, Math.min(nt, nb - minSize));
     nr = Math.min(imgW, Math.max(nr, nl + minSize));
     nb = Math.min(imgH, Math.max(nb, nt + minSize));
+  }
+  // 90차 변쌤 명시 — cover 모드(표지)는 모서리 드래그 시 1:1 정사각 강제. 반대 모서리 anchor 고정 + 작은 변(width/height)으로 정사각
+  if (STATE._htpCropMode === 'cover' && c !== 'box') {
+    var w0 = nr - nl, h0 = nb - nt;
+    var sqSize = Math.min(w0, h0);
+    if (sqSize < minSize) sqSize = minSize;
+    if (c === 'tl')      { nl = nr - sqSize; nt = nb - sqSize; }
+    else if (c === 'tr') { nr = nl + sqSize; nt = nb - sqSize; }
+    else if (c === 'bl') { nl = nr - sqSize; nb = nt + sqSize; }
+    else if (c === 'br') { nr = nl + sqSize; nb = nt + sqSize; }
+    // 경계 보정 (정사각 유지하면서 viewport 안 가두기)
+    if (nl < 0) { nr -= nl; nl = 0; }
+    if (nt < 0) { nb -= nt; nt = 0; }
+    if (nr > imgW) { nl -= (nr - imgW); nr = imgW; }
+    if (nb > imgH) { nt -= (nb - imgH); nb = imgH; }
   }
   STATE._htpCropRect = { left: nl, top: nt, right: nr, bottom: nb };
   _htpDrawCropOverlay();
