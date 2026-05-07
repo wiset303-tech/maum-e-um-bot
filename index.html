@@ -1919,16 +1919,18 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 }
 .ht-crop-handle{
   position:absolute;
-  width:28px; height:28px;
+  width:32px; height:32px;       /* 90차 변쌤 신고 — 28→32 (잡기 쉽게) */
   background:#fff;
   border:3px solid #5cc4ad;
   border-radius:50%;
-  margin:-14px 0 0 -14px;
-  box-shadow:0 2px 6px rgba(0,0,0,0.4);
+  /* 90차 변쌤 신고 — 핸들이 사진 안쪽 가려서 잡기 어려운 회귀. margin -14→-20 (모서리 외부로 6px 더 노출) */
+  margin:-20px 0 0 -20px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.5);
   cursor:grab;
   pointer-events:auto;
   touch-action:none;
   transition:transform .1s;
+  z-index:5;                       /* 사진 위에 항상 표시 */
 }
 .ht-crop-handle:active{ cursor:grabbing; transform:scale(1.15); }
 .ht-crop-actions{
@@ -24526,7 +24528,7 @@ async function renderEmotionAlbum() {
 
 // 90차 변쌤 명시 — 교사 마음동화 탭 진입 시 학급 학생 book_cover_url만 짧은 fetch (즉시 반영)
 //   · STATE.students 자체는 그대로 두고 book_cover_url 컬럼만 갱신 (다른 캐시·페르소나·일상앨범 등 영향 X)
-//   · select 2컬럼 N명 — 가벼움 (학급 25명 가정 시 응답 1KB 이내)
+//   · cache-busting (?v=timestamp) — 같은 path 덮어쓰기라 모바일 브라우저 캐시 옛 이미지 회귀 차단
 //   · 실패해도 기존 STATE.students 값 그대로 (UI 회귀 0)
 async function _refreshClassBookCovers(teacher_uid) {
   if (!teacher_uid || !Array.isArray(STATE.students) || !STATE.students.length) return;
@@ -24537,14 +24539,36 @@ async function _refreshClassBookCovers(teacher_uid) {
     });
     if (!Array.isArray(rows)) return;
     var by = {};
-    rows.forEach(function(r){ if (r && r.student_uid) by[r.student_uid] = r.book_cover_url || ''; });
+    var bust = Date.now();
+    rows.forEach(function(r){
+      if (r && r.student_uid) {
+        var raw = r.book_cover_url || '';
+        // cache-busting — 같은 Storage path 덮어쓰기라 옛 캐시 적중 차단
+        by[r.student_uid] = raw ? (raw + (raw.indexOf('?') > -1 ? '&' : '?') + 'v=' + bust) : '';
+      }
+    });
     STATE.students.forEach(function(s){
       if (s && s.student_uid && Object.prototype.hasOwnProperty.call(by, s.student_uid)) {
         s.book_cover_url = by[s.student_uid];
       }
     });
+    // 90차 변쌤 명시 — prefetch (renderTeacherTaleAlbum이 그리기 전 백그라운드 다운로드)
+    _prefetchTeacherTaleCovers(STATE.students);
   } catch(e) {
     console.error('[BOOK COVER refresh]', e && e.message ? e.message : e);
+  }
+}
+
+// 90차 변쌤 명시 — 교사 마음동화 탭 학생 표지 prefetch (감정앨범 _prefetchAlbumThumbs 답습)
+//   학급 N명 표지 백그라운드 다운로드 → 카드 렌더 시 즉시 표시 (1초 빈 사각형 차단)
+function _prefetchTeacherTaleCovers(students) {
+  if (!students || !students.length) return;
+  for (var i = 0; i < students.length; i++) {
+    var u = students[i] && students[i].book_cover_url;
+    if (typeof u === 'string' && u.indexOf('http') === 0) {
+      var img = new Image();
+      img.src = u;
+    }
   }
 }
 
