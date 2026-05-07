@@ -1356,14 +1356,15 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   border-radius:13px;
   font-weight:700;
   letter-spacing:.2px;
-  text-align:center;
   box-shadow:0 2px 6px rgba(126,214,192,0.4);
   animation:htClassActiveBadge 1.5s ease-in-out infinite;
   z-index:2;
   white-space:nowrap;
   width:auto; max-width:none;
-  line-height:1;  /* 91차 fix8: 텍스트 위쪽 치우침 fix (1.4→1 가운데 정렬) */
-  display:inline-block;
+  line-height:1.5;  /* 91차 fix9: emoji baseline 보정 (1→1.5) */
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;  /* 91차 fix9: flex로 정확 가운데 정렬 (변쌤 명시 답습 — 위로 치우침 회귀 차단) */
 }
 @keyframes htClassActivePulse{
   0%,100%{ transform:scale(1); }
@@ -18666,7 +18667,7 @@ function _buildHeartTalePageRealHTML(week_no) {
       html += '<div style="display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0">';
       html += '<div class="heart-tale-bot-avatar" aria-hidden="true"></div>';
       if (canRecord && !isThinking) {
-        html += '<button class="ht-bot-regen" onclick="_regenerateBotLine(' + week_no + ')" title="AI에게 새 답변 받기" style="font-size:9.5px;color:#5a8aa0;background:#f0f7ff;border:1px solid #b8d4e8;border-radius:8px;padding:2px 7px;cursor:pointer;white-space:nowrap">✨ 새 답변</button>';
+        html += '<button class="ht-bot-regen" onclick="_regenerateBotLine(' + week_no + ')" title="AI에게 새 응답 받기" style="font-size:9.5px;color:#5a8aa0;background:#f0f7ff;border:1px solid #b8d4e8;border-radius:8px;padding:2px 7px;cursor:pointer;white-space:nowrap">✨ 새 응답</button>';
       }
       html += '</div>';
       html += '<div class="heart-tale-bot-bubble"' + (isThinking ? ' style="opacity:.7;font-style:italic"' : '') + '>' + _escHtml(row.bot_line) + '</div>';
@@ -21003,6 +21004,8 @@ async function _autoRetryBotLineIfStuck(week_no) {
             console.log('[HT RETRY DB verified]', saved.slice(0, 30));
           } else {
             console.error('[HT RETRY DB MISMATCH — RLS UPDATE 차단 의심]', { expected: expectedLine.slice(0,40), saved: saved.slice(0,40) });
+            // 91차 fix9: mismatch 시 retryDone reset → 다음 진입 시 또 시도 (변쌤 명시 답습 — RLS 정책 fix 후 자동 회복)
+            if (STATE._htpRetryDone) delete STATE._htpRetryDone[week_no];
           }
         })
         .catch(function(e){ console.error('[HT RETRY patch fail]', e && e.message || e); });
@@ -21163,7 +21166,7 @@ async function _regenerateBotLine(week_no) {
         _sbPatch('weekly_book', { page_uid: 'eq.' + row.page_uid }, { bot_line: res.data.bot_line })
           .catch(function(e){ console.error('[BOT LINE PATCH]', e && e.message || e); });
       }
-      toast('새 답변이 도착했어요 ✨');
+      toast('새 응답이 도착했어요 ✨');
     } else {
       row.bot_line = prevLine;
       if (STATE._htpCurrentWeek === week_no) _renderHeartTalePage(week_no);
