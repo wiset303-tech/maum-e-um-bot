@@ -19749,10 +19749,14 @@ async function _openTeacherSelClassModal() {
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:8px">' +
         '<div style="flex:1;min-width:0">' +
           '<div style="font-size:18px;font-weight:700;color:var(--navy);font-family:\'Black Han Sans\',sans-serif;letter-spacing:.5px">📋 학급 사회정서역량 진단</div>' +
-          // 91차 fix15 (변쌤 명시 답습): 논문 근거 + 국가기초학력지원포털 하이퍼링크 — 회색글자 행 우측 자연 배치
-          '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;font-size:11.5px;color:var(--gray);margin-top:3px">' +
-            '<span>7역량 28문항 · 학생별/문항별 일괄</span>' +
-            '<a href="https://basics.go.kr" target="_blank" rel="noopener" style="color:var(--mint2);text-decoration:none;font-weight:600;font-size:11px">📚 KICE 사회정서역량 진단도구 ↗</a>' +
+          // 91차 fix17 (변쌤 명시 답습): 부제 + 논문(2024 평가원) + 국가기초학력지원포털 두 링크 자연 배치
+          '<div style="font-size:11.5px;color:var(--gray);margin-top:3px;line-height:1.6">' +
+            '<div>7역량 28문항 · 학생별/문항별 일괄</div>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:5px;align-items:center">' +
+              '<a href="https://www.ejce.org/archive/view_article?pid=jce-27-1-157" target="_blank" rel="noopener" title="(2024, 평가원) 초등학생의 사회정서역량 진단을 위한 교사용·부모용 측정도구 개발 및 타당화" style="color:var(--mint2);text-decoration:none;font-weight:600;font-size:10.5px;display:inline-flex;align-items:center;gap:3px">📄 사회정서역량 진단도구 (2024 평가원) ↗</a>' +
+              '<span style="color:var(--lgray);font-size:10px">·</span>' +
+              '<a href="https://basics.go.kr" target="_blank" rel="noopener" style="color:var(--mint2);text-decoration:none;font-weight:600;font-size:10.5px;display:inline-flex;align-items:center;gap:3px">🔗 국가기초학력지원포털 ↗</a>' +
+            '</div>' +
           '</div>' +
         '</div>' +
         '<button onclick="closeModal(\'modal-sel-teacher-class\')" style="font-size:22px;color:var(--gray);background:none;border:none;cursor:pointer;line-height:1;flex-shrink:0">×</button>' +
@@ -19905,15 +19909,15 @@ async function _teacherSelStartForStudent(student_uid, student_name, grade) {
     if (!res.ok) {
       var er = res.error || {};
       if (er.code === 'ERR_LOCKED') {
-        // 91차 fix13 (변쌤 명시 답습): appConfirm message는 plain text — HTML 태그 raw로 박힘 회귀 차단
+        // 91차 fix16 (변쌤 명시 답습): appConfirm message \n 줄바꿈 — 외톨이 글자 지양·시각적 자연 분절
         var byLabel = er.by_role === 'student' ? '학생' : er.by_role === 'parent' ? '학부모' : '다른 교사';
-        var lockMsg = byLabel + (er.by_name ? '(' + er.by_name + ')' : '') + '이 이미 ' + (er.status === 'done' ? '완료' : '진행 중') + '이에요. 교사 응답으로 다시 시작할까요? (기존 응답은 사라져요)';
+        var lockMsg = byLabel + (er.by_name ? '(' + er.by_name + ')' : '') + '이 이미\n' + (er.status === 'done' ? '완료' : '진행 중') + '이에요.\n교사 응답으로 다시 시작할까요?\n(기존 응답은 사라져요)';
         var lockOk = await appConfirm('다른 분이 응답 중이에요', lockMsg, { okLabel:'재시작' });
         if (lockOk) _teacherSelResetAndStart(student_uid, student_name, grade);
         return;
       }
       if (er.code === 'ERR_ALREADY_DONE') {
-        var doneMsg = student_name + ' 학생의 ' + _teacherSelClassPhase + '차 진단이 완료됐어요. 다시 시작할까요? (기존 응답은 사라져요)';
+        var doneMsg = student_name + ' 학생의 ' + _teacherSelClassPhase + '차 진단이\n완료됐어요.\n다시 시작할까요?\n(기존 응답은 사라져요)';
         var doneOk = await appConfirm('이미 완료된 진단', doneMsg, { okLabel:'재시작' });
         if (doneOk) _teacherSelResetAndStart(student_uid, student_name, grade);
         return;
@@ -19982,9 +19986,10 @@ async function _teacherSelHandleStudentClick(student_uid) {
     return;
   }
   // 미실시 또는 skipped → confirm "진단 시작?" 먼저
+  // 91차 fix16 (변쌤 명시 답습): 안내 문구 \n 줄바꿈 — 외톨이 글자 지양·시각적 자연 분절
   var ok = await appConfirm(
     '진단을 시작할까요?',
-    s.name + ' 학생의 ' + _teacherSelClassPhase + '차 사회정서역량 진단을 시작해요. 28문항을 응답하면 자동으로 점수가 계산돼요.',
+    s.name + ' 학생의 ' + _teacherSelClassPhase + '차 사회정서역량\n진단을 시작해요.\n28문항을 응답하면\n자동으로 점수가 계산돼요.',
     { okLabel: '시작' }
   );
   if (ok) _teacherSelStartForStudent(student_uid, s.name, grade);
@@ -20033,9 +20038,10 @@ function _teacherSelOpenResult(student_uid, student_name, phase) {
 
 // 초기화 — _selResetAssessment 답습 (status='cancelled' + q1~q28 클리어 → 미시작 상태로 복귀)
 async function _teacherSelResetByMenu(student_uid, student_name) {
+  // 91차 fix16 (변쌤 명시 답습): \n 줄바꿈 — 외톨이 글자 지양·시각적 자연 분절
   var ok = await appConfirm(
     '초기화할까요?',
-    student_name + ' 학생의 ' + _teacherSelClassPhase + '차 진단을 미시작으로 되돌려요. 응답이 모두 사라지고 학생/학부모/교사 누구든 다시 시작할 수 있어요.',
+    student_name + ' 학생의 ' + _teacherSelClassPhase + '차 진단을\n미시작으로 되돌려요.\n응답이 모두 사라지고 학생/학부모/교사 누구든\n다시 시작할 수 있어요.',
     { danger: true, okLabel: '초기화' }
   );
   if (!ok) return;
