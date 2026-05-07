@@ -9340,11 +9340,11 @@ function settingsHTML() {
       '<button class="btn btn-secondary" style="margin-top:8px;width:100%;font-size:13px;padding:13px 18px" onclick="triggerNfcFromSelf()">🪪 내 마음카드 등록/교체</button>' +
       '<button class="btn btn-secondary" style="margin-top:8px;width:100%;font-size:13px;padding:13px 18px" onclick="openEmailEdit()">📧 이메일 등록/변경</button>' +
     '</div>' +
-    // 91차 ③ fix12 (변쌤 명시 답습): 카드 이름 + 무지개 인덱스 라벨 + 버튼 비율 자연
-    '<div class="card" style="margin-top:8px;background:linear-gradient(135deg,#fffaf0,#fff5e6 45%,#f5fbf7);border:1px solid rgba(232,87,112,0.18)">' +
-      '<div class="card-label" style="background:linear-gradient(90deg,var(--sel-r1),var(--sel-r2),var(--sel-r3),var(--sel-r4),var(--sel-r5),var(--sel-r6),var(--sel-r7));-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;letter-spacing:.3px">🌈 우리 반 마음이음 역량 모아보기</div>' +
+    // 91차 ③ fix13 (변쌤 명시 답습): 흰 배경 + 왼쪽 무지개 테두리(인덱스 라벨지) + 카드명 단순화 + mint 버튼
+    '<div class="card" style="margin-top:8px;background:#fff;border-left:6px solid transparent;background-image:linear-gradient(#fff,#fff),linear-gradient(180deg,var(--sel-r1),var(--sel-r2),var(--sel-r3),var(--sel-r4),var(--sel-r5),var(--sel-r6),var(--sel-r7));background-origin:border-box;background-clip:padding-box,border-box">' +
+      '<div class="card-label" style="background:linear-gradient(90deg,var(--sel-r1),var(--sel-r2),var(--sel-r3),var(--sel-r4),var(--sel-r5),var(--sel-r6),var(--sel-r7));-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;letter-spacing:.3px">우리 반 마음이음 역량</div>' +
       '<div style="font-size:12px;color:var(--gray);margin-bottom:12px;line-height:1.55">7역량 28문항으로 학생 마음을 살펴봐요. 1-2학년은 교사 관찰형, 3-6학년은 학생 자가응답 어조 자동.</div>' +
-      '<button class="btn btn-secondary" style="width:100%;font-size:13px;padding:11px 14px" onclick="_openTeacherSelClassModal()">👥 학급 진단 시작</button>' +
+      '<button class="btn-primary" style="width:100%;font-size:13px;padding:11px 14px;border-radius:12px;border:none;color:#fff;background:linear-gradient(135deg,#7ed6c0,#5cc4ad);font-weight:700;cursor:pointer;letter-spacing:.3px;box-shadow:0 2px 8px rgba(126,214,192,0.28)" onclick="_openTeacherSelClassModal()">📊 모아보기</button>' +
     '</div>' +
     // 83차: 전담 교사 v1 — 담임이 같은 학교 교사에게 본인 학급 마음앨범 열람만 허용
     '<div class="card card-mint" style="margin-top:8px">' +
@@ -19830,18 +19830,18 @@ async function _renderTeacherSelClassList() {
 }
 
 function _selStatusBadge(row, myUid) {
-  if (!row) return { label:'미시작', bg:'#f0ede8', color:'var(--gray)' };
+  if (!row) return { label:'미실시', bg:'#f0ede8', color:'var(--gray)' };
   if (row.status === 'done') {
     if (row.responder_uid === myUid) return { label:'✓ 완료', bg:'#eaf6e1', color:'#5a8e3c' };
     var roleLabel = row.responder_role === 'student' ? '학생' : row.responder_role === 'parent' ? '학부모' : '교사';
-    return { label:roleLabel + ' 완료', bg:'#fff7e6', color:'#9a7a3c' };
+    return { label:roleLabel + ' 완료', bg:'#eaf6e1', color:'#5a8e3c' };
   }
   if (row.status === 'in_progress') {
     if (row.responder_uid === myUid) return { label:'진행 중', bg:'#dbeafe', color:'#1e40af' };
     var roleLabel2 = row.responder_role === 'student' ? '학생' : row.responder_role === 'parent' ? '학부모' : '교사';
     return { label:roleLabel2 + ' 진행', bg:'#fff7e6', color:'#9a7a3c' };
   }
-  return { label:'건너뜀', bg:'#f0ede8', color:'var(--gray)' };
+  return { label:'미실시', bg:'#f0ede8', color:'var(--gray)' };
 }
 
 function _renderTeacherSelStudentMode(body, students, rowsByStu) {
@@ -19895,15 +19895,15 @@ async function _teacherSelStartForStudent(student_uid, student_name, grade) {
     if (!res.ok) {
       var er = res.error || {};
       if (er.code === 'ERR_LOCKED') {
-        // 91차 fix11: appConfirm은 위치 인자(title, message, opts) — 객체 첫 인자 호출 시 [object Object] 회귀 차단
+        // 91차 fix13 (변쌤 명시 답습): appConfirm message는 plain text — HTML 태그 raw로 박힘 회귀 차단
         var byLabel = er.by_role === 'student' ? '학생' : er.by_role === 'parent' ? '학부모' : '다른 교사';
-        var lockMsg = byLabel + (er.by_name ? '(' + _escHtml(er.by_name) + ')' : '') + '이 이미 ' + (er.status === 'done' ? '완료' : '진행 중') + '이에요.<br>교사 응답으로 다시 시작할까요?<br><span style="font-size:11px;color:var(--gray)">(기존 응답은 사라집니다)</span>';
+        var lockMsg = byLabel + (er.by_name ? '(' + er.by_name + ')' : '') + '이 이미 ' + (er.status === 'done' ? '완료' : '진행 중') + '이에요. 교사 응답으로 다시 시작할까요? (기존 응답은 사라져요)';
         var lockOk = await appConfirm('다른 분이 응답 중이에요', lockMsg, { okLabel:'재시작' });
         if (lockOk) _teacherSelResetAndStart(student_uid, student_name, grade);
         return;
       }
       if (er.code === 'ERR_ALREADY_DONE') {
-        var doneMsg = _escHtml(student_name) + ' 학생의 ' + _teacherSelClassPhase + '차 진단이 완료됐어요.<br>다시 시작할까요?<br><span style="font-size:11px;color:var(--gray)">(기존 응답은 사라집니다)</span>';
+        var doneMsg = student_name + ' 학생의 ' + _teacherSelClassPhase + '차 진단이 완료됐어요. 다시 시작할까요? (기존 응답은 사라져요)';
         var doneOk = await appConfirm('이미 완료된 진단', doneMsg, { okLabel:'재시작' });
         if (doneOk) _teacherSelResetAndStart(student_uid, student_name, grade);
         return;
@@ -19953,10 +19953,12 @@ async function _teacherSelHandleStudentClick(student_uid) {
   if (!s) return;
   var myUid = STATE.user && STATE.user.teacher_uid;
   var grade = parseInt(s.grade) || 3;
-  if (row && row.status === 'done' && row.responder_uid === myUid) {
+  // 91차 ③ fix13 (변쌤 명시 답습): 완료된 진단(누구든)은 바로 결과 보기 — responder_uid 무관
+  if (row && row.status === 'done') {
     _teacherSelOpenResult(student_uid, s.name, _teacherSelClassPhase);
     return;
   }
+  // 진행 중 (자기) → 이어쓰기
   if (row && row.status === 'in_progress' && row.responder_uid === myUid) {
     closeModal('modal-sel-teacher-class');
     if (typeof _selOpenAssess === 'function') {
@@ -19964,11 +19966,12 @@ async function _teacherSelHandleStudentClick(student_uid) {
     }
     return;
   }
-  if (row && (row.status === 'done' || row.status === 'in_progress')) {
+  // 다른 분 진행 중 → 락 confirm + 재시작
+  if (row && row.status === 'in_progress') {
     _teacherSelStartForStudent(student_uid, s.name, grade);
     return;
   }
-  // 미시작 또는 skipped → confirm 먼저
+  // 미실시 또는 skipped → confirm "진단 시작?" 먼저
   var ok = await appConfirm(
     '진단을 시작할까요?',
     s.name + ' 학생의 ' + _teacherSelClassPhase + '차 사회정서역량 진단을 시작해요. 28문항을 응답하면 자동으로 점수가 계산돼요.',
@@ -20008,18 +20011,13 @@ function _teacherSelCloseMenu() {
   if (menu && menu.parentNode) menu.parentNode.removeChild(menu);
 }
 
-// 결과 보기 — _renderSelReport 답습 (학생용 결과 모달과 동일 — 변쌤 명시 "이미 만들어진 것 차용·답습")
-async function _teacherSelOpenResult(student_uid, student_name, phase) {
-  showLoading('결과를 불러오는 중이에요 📊');
-  try {
-    var result = await _selGetResult(student_uid, { phase: phase });
-    hideLoading();
-    if (!result) { toast('결과를 찾을 수 없어요'); return; }
-    if (typeof _renderSelReport === 'function') _renderSelReport(result);
-  } catch(e) {
-    hideLoading();
-    console.error('[TEACHER SEL RESULT]', e && e.message || e);
-    toast('결과 불러오기 실패');
+// 91차 ③ fix13 (변쌤 명시 답습): 결과 보기 — _selOpenResult 답습 (학생용 결과 모달 그대로 — 모달 열림·fetch·차트 모두 처리)
+//   기존: _renderSelReport만 호출 → 모달 자체 안 열림 (변쌤 신고: 로딩 스피너 돌고 바로 꺼짐)
+function _teacherSelOpenResult(student_uid, student_name, phase) {
+  if (typeof _selOpenResult === 'function') {
+    _selOpenResult({ student_uid: student_uid, phase: phase });
+  } else {
+    toast('결과 모달을 불러올 수 없어요');
   }
 }
 
