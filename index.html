@@ -1336,6 +1336,44 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   overflow:hidden;
   transition:transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .35s;
 }
+/* 91차 ⓒ: 마음동화 수업 시작 시 학생 화면 「📖 마음동화 펼치기」 카드 하이라이팅
+   (broadcast 도착 시 ht-class-active 클래스 토글, 종료 시 즉시 제거 — 변쌤 명시 답습) */
+.heart-tale-entry.ht-class-active{
+  animation:htClassActivePulse 2s ease-in-out infinite;
+  box-shadow:
+    0 2px 4px rgba(60,40,20,0.08),
+    0 8px 18px rgba(60,40,20,0.07),
+    0 0 0 3px #7ed6c0,
+    0 0 28px rgba(126,214,192,0.55);
+}
+.heart-tale-entry.ht-class-active::after{
+  content:'📣 수업 중';
+  position:absolute;
+  top:10px; right:14px;
+  font-size:11px; color:#fff;
+  background:linear-gradient(135deg, #7ed6c0, #5fc4a8);
+  padding:4px 10px;
+  border-radius:12px;
+  font-weight:700;
+  letter-spacing:.3px;
+  box-shadow:0 2px 6px rgba(126,214,192,0.4);
+  animation:htClassActiveBadge 1.5s ease-in-out infinite;
+  z-index:2;
+}
+@keyframes htClassActivePulse{
+  0%,100%{ transform:scale(1); }
+  50%{ transform:scale(1.012);
+    box-shadow:
+      0 2px 4px rgba(60,40,20,0.08),
+      0 8px 18px rgba(60,40,20,0.07),
+      0 0 0 4px #7ed6c0,
+      0 0 36px rgba(126,214,192,0.8);
+  }
+}
+@keyframes htClassActiveBadge{
+  0%,100%{ opacity:1; transform:translateY(0); }
+  50%{ opacity:.85; transform:translateY(-1px); }
+}
 .heart-tale-entry::before{
   /* 왼쪽 책등 음영 */
   content:'';
@@ -1708,7 +1746,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 }
 .ht-rec-week-label{
   font-size:12px; color:var(--mint2); font-weight:600;
-  text-align:center; margin-bottom:14px;
+  text-align:center; margin-bottom:8px;  /* 91차 fix: 14→8 (흐릿 라벨 제거 후 여백 축소) */
 }
 .ht-rec-photo-area{
   background:#fafaf6;
@@ -5668,11 +5706,13 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 
 <!-- 82차 Phase 3 + 87차 톤: 마음동화 페이지 기록·수정 모달 (z-index:3300, 마음동화 모달 위) -->
 <div id="modal-heart-tale-record" class="modal-overlay hidden" style="z-index:3300" onclick="closeModalOutside(event,'modal-heart-tale-record')">
+  <!-- 91차 fix: X 버튼 floating (마음 페이지 펼치기 모달 답습 — 모달 길어져도 우측 상단 항상 보임) -->
+  <button class="heart-tale-close" onclick="event.stopPropagation();closeModal('modal-heart-tale-record')" aria-label="닫기">✕</button>
   <div class="ht-rec-modal-box" onclick="event.stopPropagation()">
     <div class="ht-rec-title" id="htRecTitle">마음 기록하기</div>
     <div class="ht-rec-week-label" id="htRecWeekLabel">— 주차</div>
-    <!-- 87차: 흐릿 라벨 (무지개 영역·감정동화 권명·범교과) -->
-    <div class="ht-rec-faint" id="htRecFaint" style="text-align:center;font-size:10.5px;color:#a89580;opacity:.75;margin-bottom:10px;letter-spacing:.2px"></div>
+    <!-- 91차 fix: 흐릿 라벨 제거 (페이지 본문에 동일 정보 박혀 있어 중복 — 변쌤 명시 답습) -->
+    <div class="ht-rec-faint" id="htRecFaint" style="display:none"></div>
     <!-- 87차: 페이지 제목 input (default = 페이지 제목 v4, 학생이 변경 가능) -->
     <div style="margin-bottom:11px">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
@@ -8982,6 +9022,8 @@ async function onLoginSuccess(data) {
       _sbGetStudentChatHistory(data.student_uid)
         .then(function(rows){ STATE._preloadedChatHistory = rows || []; })
         .catch(function(e){ console.error('[SB CHAT HIST PRELOAD]', e && e.message ? e.message : e); }),
+      // 91차 ⓒ: 마음동화 수업 active 상태 동기화 (broadcast 못 받았어도 새로고침 시 하이라이팅 복구 — 87차 파노라마 패턴 답습)
+      (typeof _syncHeartTaleClassHighlightForStudent === 'function' ? _syncHeartTaleClassHighlightForStudent() : Promise.resolve()).catch(function(){}),
     ]);
     hideLoading();
     startPersonaPoll();
@@ -13507,7 +13549,10 @@ function _onNewNotification(row) {
     is_read: row.is_read === true || String(row.is_read).toUpperCase() === 'TRUE',
     related_uid: row.related_uid || ''
   };
-  _notifications.unshift(n);
+  // 91차 ⓒ: 마음동화 수업 시작/종료는 신호 전용 (알림 목록 X·헤더 카운트 X — 변쌤 명시 답습)
+  //   broadcast row는 _fetchHeartTaleClassActive로 active 산출만. 사용자에게 알림 표시 X
+  var isHtClassSignal = (n.type === 'heart_tale_class_start' || n.type === 'heart_tale_class_end');
+  if (!isHtClassSignal) _notifications.unshift(n);
   // 73차: app_update는 최신 1개만 살림 — 새 거 도착 시 기존 unread 자동 read 처리 (중복 방지)
   if (n.type === 'app_update') {
     var killed = [];
@@ -20902,8 +20947,11 @@ async function _autoRetryBotLineIfStuck(week_no) {
   if (!isStuck) {
     return;  // 정상 응답 박힌 row — 조용히 skip (변쌤 정책: 봇 응답 없을 때만 호출)
   }
-  if (typeof _htpIsMyRecordWeek !== 'function' || !_htpIsMyRecordWeek(week_no)) {
-    console.log('[HT RETRY skip:not-my-week]', week_no, { mode:STATE._htpMode, seq:STATE._htpRecordSeq });
+  // 91차 fix5: _htpIsMyRecordWeek 조건 제거 (변쌤 진단 답습 — view 모드라도 학생 본인이면 회복 OK)
+  //   _htpFetchPages가 student_uid='eq.본인'으로 fetch하니 STATE._htpPages의 row는 본인 것 보장
+  //   학부모/교사 view는 STATE.role 체크로 차단 (자녀·학생 페이지 자동 patch 정책 답습)
+  if (STATE.role !== 'student' || !STATE.user || !STATE.user.student_uid) {
+    console.log('[HT RETRY skip:not-student]', week_no, { role:STATE.role });
     return;
   }
   STATE._htpRetryDone = STATE._htpRetryDone || {};
@@ -21663,27 +21711,26 @@ function _renderTaleAlbumHeader(stus) {
   return html;
 }
 
-// 학생 측: 수업 시작 알림 도착 시 — 자동 진입(닫혀있으면) 또는 모드만 전환(이미 열려있으면)
+// 학생 측: 수업 시작 알림 도착 시 — 91차 fix (변쌤 명시): 토스트·자동 진입 X. 하이라이팅으로 시각 신호만
 function _onHeartTaleClassStartReceived(session_no) {
   if (!STATE.user || !STATE.user.student_uid) return;
   STATE._htpMode = 'class';
   STATE._htpRecordSeq = null;  // 수업 모드는 묶음 제한 없음
   STATE._htpLocked = false;
-  toast('📣 마음동화 수업이 시작됐어요');
-
+  // 91차 ⓒ: 하이라이팅 ON — 「📖 마음동화 펼치기」 카드 mint 펄스 + 「📣 수업 중」 배지
+  if (typeof _setHeartTaleClassHighlight === 'function') _setHeartTaleClassHighlight(true);
+  // 책 모달 이미 열려 있으면 모드 갱신 위해 재렌더 (열려 있지 않으면 자동 진입 X — 학생 인지 후 직접 클릭)
   var modal = document.getElementById('modal-heart-tale-page');
   if (modal && !modal.classList.contains('hidden')) {
     var w = STATE._htpCurrentWeek;
     if (w === undefined || w === null) w = 0;
     _renderHeartTalePage(w);
-  } else {
-    openHeartTalePage();
   }
 }
 
-// 학생 측: 수업 종료 알림 도착 시 — view 모드 전환 + 미저장 모달 자동 저장 안전망
+// 학생 측: 수업 종료 알림 도착 시 — 91차 fix (변쌤 명시): 토스트 X. 안전망 유지 + 하이라이팅 즉시 OFF
 async function _onHeartTaleClassEndReceived(session_no) {
-  // 안전망: 기록 모달 열려 있고 사진/글이 있으면 자동 저장
+  // 안전망 유지 — 기록 모달 열려 있고 사진/글이 있으면 자동 저장
   var recModal = document.getElementById('modal-heart-tale-record');
   if (recModal && !recModal.classList.contains('hidden')) {
     var ti = document.getElementById('htRecTextInput');
@@ -21700,13 +21747,36 @@ async function _onHeartTaleClassEndReceived(session_no) {
   STATE._htpMode = 'view';
   STATE._htpRecordSeq = null;
 
+  // 91차 ⓒ: 하이라이팅 즉시 OFF (변쌤 명시 — 종료 시 원래대로). 토스트 X
+  if (typeof _setHeartTaleClassHighlight === 'function') _setHeartTaleClassHighlight(false);
+
   var modal = document.getElementById('modal-heart-tale-page');
   if (modal && !modal.classList.contains('hidden')) {
     var w = STATE._htpCurrentWeek;
     if (w !== undefined && w !== null) _renderHeartTalePage(w);
-    toast('⏹ 마음동화 수업이 끝났어요. 더 수정하려면 🌈 마음동화 스티커를 태그해 주세요');
-  } else {
-    toast('⏹ 마음동화 수업이 끝났어요');
+  }
+}
+
+// 91차 ⓒ: 학생 화면 「📖 마음동화 펼치기」 카드 하이라이팅 토글 (broadcast 도착·부팅 동기화 시 호출)
+//   home_student·다른 화면에 박힌 모든 .heart-tale-entry 동시 토글 + STATE flag 박음
+function _setHeartTaleClassHighlight(active) {
+  STATE._htClassHighlight = !!active;
+  var els = document.querySelectorAll('.heart-tale-entry');
+  for (var i = 0; i < els.length; i++) {
+    els[i].classList.toggle('ht-class-active', !!active);
+  }
+}
+
+// 91차 ⓒ: 학생 부팅·재로그인 시 active 상태 동기화 (87차 _fetchHeartPanoramaActive 패턴 답습)
+//   broadcast 못 받은 시점에도 가장 최근 heart_tale_class_*로 active 산출 → 하이라이팅 복구
+async function _syncHeartTaleClassHighlightForStudent() {
+  if (!STATE.user || !STATE.user.student_uid) return;
+  if (STATE.role !== 'student') return;
+  try {
+    var active = await _fetchHeartTaleClassActive(STATE.user.student_uid);
+    _setHeartTaleClassHighlight(!!active);
+  } catch(e) {
+    console.error('[HT CLASS HIGHLIGHT SYNC]', e && e.message ? e.message : e);
   }
 }
 
