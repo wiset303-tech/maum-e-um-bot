@@ -2038,11 +2038,13 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .tale-book-cover.has-cover{
   background-size:cover;
   background-position:center;
-  /* 90차 변쌤 신고 fix — 1:1 정사각 강제 (flex 자식 높이에 aspect-ratio 깨지던 회귀 차단) */
+  /* 90차 변쌤 신고 fix v3 — flex column 자식 stack 높이가 aspect-ratio 우선 깨뜨림. display:block로 변경해 카드 height를 자식과 분리 (1:1 정사각 강제) */
+  display:block;
   aspect-ratio:1 / 1;
+  width:100%;
   min-height:0;
   height:auto;
-  width:100%;
+  box-sizing:border-box;
   overflow:hidden;       /* 자식 텍스트 넘쳐도 카드 1:1 유지 */
 }
 .tale-book-cover.has-cover::after{
@@ -13791,6 +13793,56 @@ function _scheduleCfRefresh(payload) {
 // 78차 fix: 감정앨범 변경 broadcast 송신 — 같은 채널('album-' + teacher_uid)에 신호
 //   76차 attendance broadcast 패턴 답습 — postgres_changes publication 누락 시에도 안전
 //   학생/교사 본인이 INSERT/UPDATE/DELETE 직후 호출 → 교사·관리자 단말 즉시 갱신 (워드클라우드/알림 패턴)
+// 90차 변쌤 명시 — 교사 단말 broadcast listener (마음동화 탭 보고 있을 때 학생 표지 변경 즉시 새로고침)
+var _bookCoverChannel = null;
+function _startTeacherBookCoverListener(teacher_uid) {
+  if (!teacher_uid || _bookCoverChannel) return;   // 이미 구독 중이면 skip
+  try {
+    if (!_sbClient && typeof supabase !== 'undefined') {
+      _sbClient = supabase.createClient(SB_URL, SB_KEY);
+    }
+    if (!_sbClient) return;
+    _bookCoverChannel = _sbClient.channel('book-cover-' + teacher_uid);
+    _bookCoverChannel.on('broadcast', { event: 'book-cover-changed' }, function(msg){
+      var stuUid = msg && msg.payload && msg.payload.student_uid;
+      if (!stuUid) return;
+      console.log('[BOOK COVER recv]', stuUid);
+      // STATE.students 갱신 + 마음동화 탭 보고 있으면 즉시 재렌더
+      if (typeof _refreshClassBookCovers === 'function') {
+        _refreshClassBookCovers(teacher_uid).then(function(){
+          if (STATE._albumSubTab === 'tale' && typeof renderTeacherTaleAlbum === 'function') {
+            renderTeacherTaleAlbum();
+          }
+        }).catch(function(){});
+      }
+    }).subscribe();
+  } catch(e) { console.error('[BOOK COVER listener setup]', e); }
+}
+
+// 90차 변쌤 명시 — 학생 표지 변경 시 교사 단말 새로고침 신호 (알림 X · channel broadcast 답습)
+function _broadcastBookCoverChange(teacher_uid, student_uid) {
+  if (!teacher_uid) return;
+  try {
+    if (!_sbClient && typeof supabase !== 'undefined') {
+      _sbClient = supabase.createClient(SB_URL, SB_KEY);
+    }
+    if (!_sbClient) return;
+    var ch = _sbClient.channel('book-cover-' + teacher_uid);
+    ch.subscribe(function(status){
+      if (status === 'SUBSCRIBED') {
+        try {
+          ch.send({
+            type: 'broadcast',
+            event: 'book-cover-changed',
+            payload: { teacher_uid: teacher_uid, student_uid: student_uid, t: Date.now() }
+          });
+        } catch(e) { console.error('[BOOK COVER BCAST send err]', e); }
+        setTimeout(function(){ try { _sbClient.removeChannel(ch); } catch(e){} }, 1000);
+      }
+    });
+  } catch(e) { console.error('[BOOK COVER BCAST setup]', e); }
+}
+
 function _broadcastEmotionAlbumChange(teacher_uid, emotion_id) {
   if (!teacher_uid) return;
   try {
@@ -18881,8 +18933,10 @@ async function _htCoverApplyCropped(b64) {
         _renderHeartTalePage(0);
         if (typeof toast === 'function') toast('표지가 만들어졌어요 ✨');
       }
-      // 90차 변쌤 명시 — 알림 송신 X (일상앨범·감정앨범 답습 — 사진 업로드 시 알림 보내지 않음)
-      // 교사 단말은 마음동화 탭 진입 시 _refreshClassBookCovers 자동 fetch로 새 표지 받음 (이미 박혀있음)
+      // 90차 변쌤 명시 — 알림 X · channel broadcast로 교사 단말 새로고침 신호 (감정앨범 _broadcastEmotionAlbumChange 답습)
+      if (STATE.user.teacher_uid && typeof _broadcastBookCoverChange === 'function') {
+        _broadcastBookCoverChange(STATE.user.teacher_uid, stuUid);
+      }
     } else {
       var msg = (res && res.message) ? res.message : '저장 실패 — 다시 시도해주세요';
       console.error('[HT COVER api 응답 실패]', res);
@@ -24136,6 +24190,10 @@ async function renderTeacherTaleAlbum() {
       await _loadTeacherTaleProgress(STATE.user.teacher_uid);
       // 90차 변쌤 명시 — 학생이 표지 업로드 시 교사 마음동화 탭 즉시 반영. STATE.students 캐시 그대로 두고 book_cover_url만 짧은 fetch (학급 N명, 컬럼 2개 — 100B 이내 경량)
       await _refreshClassBookCovers(STATE.user.teacher_uid);
+      // 90차 변쌤 명시 — channel broadcast listener (학생 표지 변경 즉시 새로고침 · 알림 X)
+      if (typeof _startTeacherBookCoverListener === 'function') {
+        _startTeacherBookCoverListener(STATE.user.teacher_uid);
+      }
     }
     sec.innerHTML = _renderTaleAlbumHeader(stus) + _buildTeacherTaleGridHTML(stus);
     console.log('[TEACHER TALE painted]', { stusN: stus.length, progN: Object.keys(_teacherTaleProgress||{}).length });
@@ -24507,7 +24565,9 @@ function _buildTeacherTaleGridHTML(stus) {
     var hasCover = !!(s.book_cover_url) && /^https?:\/\//.test(s.book_cover_url);
     var coverStyle = hasCover ? ' style="background-image:url(\'' + _escHtml(s.book_cover_url) + '\')"' : '';
     var coverCls = 'tale-book-cover' + (hasCover ? ' has-cover' : '');
-    html += '<div class="tale-book-item' + (isEmpty ? ' tale-empty' : '') + '" onclick="openHeartTalePage(\'' + safeUid + '\')">' +
+    // 90차 변쌤 신고 fix v3 — has-cover 카드는 tale-empty 클래스 박지 X (.tale-empty의 background:linear-gradient shorthand가 cover/position 초기화하던 회귀 차단)
+    var itemCls = 'tale-book-item' + (isEmpty && !hasCover ? ' tale-empty' : '');
+    html += '<div class="' + itemCls + '" onclick="openHeartTalePage(\'' + safeUid + '\')">' +
       '<div class="' + coverCls + '"' + coverStyle + '>' +
         '<div class="tale-book-num">' + num + '번</div>' +
         '<div class="tale-book-name">' + safeName + '</div>' +
