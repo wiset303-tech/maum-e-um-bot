@@ -20885,27 +20885,40 @@ function _renderHeartTalePage(week_no) {
   if (typeof _autoRetryBotLineIfStuck === 'function') _autoRetryBotLineIfStuck(week_no);
 }
 
-// 91차 fix3: 페이지 진입 시 봇 답변이 placeholder 상태면 한 번만 자동 재호출 (변쌤 신고 답습)
-//   "마음을 읽고 있어요..." / "마음을 다시 읽고 있어요..." 박힌 row만 회복. 본인 record 페이지 한정 (RLS 답습)
-//   STATE._htpRetryDone[week_no] 플래그로 한 번만 시도 (실패해도 무한 루프 X — 사용자가 ✨ 새 답변 직접 클릭 가능)
-function _autoRetryBotLineIfStuck(week_no) {
+// 91차 fix4 (변쌤 회귀 신고 답습): placeholder stuck 페이지 자가 회복 — 직접 GAS 호출 (placeholder 안 박음)
+//   기존 fix3는 _regenerateBotLine 호출 → placeholder 박은 후 응답 도착 → 두 호출 race condition으로 prevLine 덮어쓰기 발생
+//   신규: GAS 직접 호출 + 응답 도착 시 row.bot_line 한 번만 갱신 + _renderHeartTalePage 한 번만 호출 (깜빡 차단)
+//   본인 record 페이지 한정 (RLS) + retryDone 플래그로 한 번만 시도
+async function _autoRetryBotLineIfStuck(week_no) {
   var pages = STATE._htpPages || {};
   var row = pages[week_no];
   if (!row || !row.recorded_at || !row.bot_line) return;
   var line = String(row.bot_line);
   if (line.indexOf('마음을 읽고 있어요') !== 0 && line.indexOf('마음을 다시 읽고 있어요') !== 0) return;
-  // 본인 record 페이지만 자동 retry (RLS 정책 답습 — 학부모/교사 view에서는 그 학생이 진입 시 회복)
   if (typeof _htpIsMyRecordWeek !== 'function' || !_htpIsMyRecordWeek(week_no)) return;
   STATE._htpRetryDone = STATE._htpRetryDone || {};
   if (STATE._htpRetryDone[week_no]) return;
   STATE._htpRetryDone[week_no] = true;
-  setTimeout(function(){
-    if (typeof _regenerateBotLine === 'function') {
-      _regenerateBotLine(week_no).catch(function(e){
-        console.error('[HT AUTO RETRY]', e && e.message || e);
-      });
+  try {
+    var theme = (typeof _getHeartTaleTheme === 'function') ? _getHeartTaleTheme(week_no) : {};
+    var res = await api('generate_book_bot_line', {
+      student_text: row.student_text || '',
+      theme_title:  theme.title || '',
+      mind_skill:   theme.mind_skill || '',
+      emotion_tags: row.emotion_tags || ''
+    });
+    if (!res || res.status !== 'ok' || !res.data || !res.data.bot_line) return;
+    var pg = STATE._htpPages && STATE._htpPages[week_no];
+    if (!pg) return;
+    pg.bot_line = res.data.bot_line;
+    if (STATE._htpCurrentWeek === week_no) _renderHeartTalePage(week_no);
+    if (pg.page_uid) {
+      _sbPatch('weekly_book', { page_uid: 'eq.' + pg.page_uid }, { bot_line: res.data.bot_line })
+        .catch(function(e){ console.error('[HT AUTO RETRY PATCH]', e && e.message || e); });
     }
-  }, 200);
+  } catch(e) {
+    console.error('[HT AUTO RETRY]', e && e.message || e);
+  }
 }
 
 // 91차 ⓐ: 마음 페이지 감정 키워드 카테고리 분류 헬퍼
@@ -21028,9 +21041,17 @@ function _openEmoCategoriesModal(week_no) {
 //   응답 도착 시 STATE._htpPages 갱신 + 페이지 재렌더 + Supabase weekly_book.bot_line patch
 //   text-only로 보냄 (사진은 첫 저장 때만 multimodal — 재생성은 0.5~1초 빠른 답습)
 async function _regenerateBotLine(week_no) {
+  // 91차 fix4: in-flight flag로 중복 호출 차단 (자동 retry vs 사용자 ✨ 새 답변 클릭 race 방지)
+  STATE._htpRegenInFlight = STATE._htpRegenInFlight || {};
+  if (STATE._htpRegenInFlight[week_no]) return;
+  STATE._htpRegenInFlight[week_no] = true;
   var pages = STATE._htpPages || {};
   var row = pages[week_no];
-  if (!row || !row.recorded_at) { toast('이 페이지에 기록이 없어요'); return; }
+  if (!row || !row.recorded_at) {
+    delete STATE._htpRegenInFlight[week_no];
+    toast('이 페이지에 기록이 없어요');
+    return;
+  }
   var theme = (typeof _getHeartTaleTheme === 'function') ? _getHeartTaleTheme(week_no) : {};
   var prevLine = row.bot_line || '';
   row.bot_line = '마음을 다시 읽고 있어요... ✨';
@@ -21060,6 +21081,8 @@ async function _regenerateBotLine(week_no) {
     row.bot_line = prevLine;
     if (STATE._htpCurrentWeek === week_no) _renderHeartTalePage(week_no);
     toast('오류가 났어요');
+  } finally {
+    delete STATE._htpRegenInFlight[week_no];
   }
 }
 
@@ -22063,7 +22086,7 @@ async function _htpSaveRecord() {
 
   api('save_book_page', payload).then(function(res) {
     if (!res || res.status !== 'ok') throw new Error((res && res.message) || '저장 실패');
-    // ③ 응답 OK — photo_url을 진짜 file_id로 swap (현재 페이지 그대로면 silent 재렌더)
+    // ③ 응답 OK — photo_url을 진짜 Storage URL로 swap. STATE 통째 갱신 + DOM 부분 갱신만 (91차 fix4 깜빡 차단)
     var saved = res.data || {};
     var cur = STATE._htpPages[week_no] || {};
     STATE._htpPages[week_no] = {
@@ -22079,7 +22102,23 @@ async function _htpSaveRecord() {
       recorded_at: saved.recorded_at || cur.recorded_at,
       recorded_by_nfc_uid: recordedByNfcUid
     };
-    if (STATE._htpCurrentWeek === week_no) _renderHeartTalePage(week_no);
+    // 91차 fix4 (변쌤 깜빡 신고): _renderHeartTalePage 통째 호출 X. photo_url DOM 부분 + spine만 재렌더
+    //   낙관적 캐시 단계에서 student_text·title·emotion_tags 등은 이미 화면에 반영. swap 시점엔 photo_url(base64→Storage URL)만 변경
+    //   preload 후 src 교체로 새 사진 다운로드 끝나야 swap → 깜빡 X
+    if (STATE._htpCurrentWeek === week_no) {
+      var pageInner = document.querySelector('.heart-tale-page-inner[data-week="' + week_no + '"]');
+      var imgEl = pageInner ? pageInner.querySelector('img') : null;
+      if (imgEl && saved.photo_url) {
+        var newSrc = (typeof _htpResolvePhotoSrc === 'function') ? _htpResolvePhotoSrc(saved.photo_url) : saved.photo_url;
+        if (imgEl.src !== newSrc) {
+          var preload = new Image();
+          preload.onload = function(){ imgEl.src = newSrc; };
+          preload.onerror = function(){ imgEl.src = newSrc; };
+          preload.src = newSrc;
+        }
+      }
+      if (typeof _renderHeartTaleSpine === 'function') _renderHeartTaleSpine();
+    }
     try { AUDIO.sfx('save'); } catch(e) {}
     toast('마음 페이지가 저장됐어요 📖');
   }).catch(function(e) {
