@@ -1349,19 +1349,21 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 .heart-tale-entry.ht-class-active::after{
   content:'📣 수업 중';
   position:absolute;
-  top:8px; right:8px;
-  font-size:10px; color:#fff;
+  top:10px; right:10px;
+  font-size:12px; color:#fff;
   background:linear-gradient(135deg, #7ed6c0, #5fc4a8);
-  padding:3px 8px;
-  border-radius:10px;
+  padding:6px 14px;
+  border-radius:14px;
   font-weight:700;
   letter-spacing:.2px;
+  text-align:center;
   box-shadow:0 2px 6px rgba(126,214,192,0.4);
   animation:htClassActiveBadge 1.5s ease-in-out infinite;
   z-index:2;
   white-space:nowrap;
-  width:auto; max-width:none;  /* 91차 fix6: 배지 잘림 회귀 차단 (overflow:hidden 카드 안 fit) */
-  line-height:1.2;
+  width:auto; max-width:none;
+  line-height:1.4;
+  display:inline-block;  /* 91차 fix7: 가운데 정렬·크기 키움 (변쌤 명시 답습) */
 }
 @keyframes htClassActivePulse{
   0%,100%{ transform:scale(1); }
@@ -22716,6 +22718,11 @@ function _navHeartTalePage(dir, jumpTo) {
   STATE._htpCurrentWeek = target;
   _updateHeartTaleNav(target);
   _renderHeartTaleSpine();
+  // 91차 fix7 (변쌤 정밀 진단 답습): _navHeartTalePage가 _renderHeartTalePage 우회하던 회귀 차단
+  //   기존: page nav flip → _buildHeartTalePageHTML 직접 호출 → _autoRetryBotLineIfStuck 호출 안 됨 → placeholder stuck row 자동 회복 X
+  //   수정: nav 시점에도 자동 회복 호출 + 진단 로그
+  console.log('[HT NAV]', target, { mode:STATE._htpMode, role:STATE.role, hasRow:!!(STATE._htpPages && STATE._htpPages[target]) });
+  if (typeof _autoRetryBotLineIfStuck === 'function') _autoRetryBotLineIfStuck(target);
 
   // 1초 후 outgoing 정리
   setTimeout(function() {
