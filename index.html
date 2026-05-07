@@ -5692,7 +5692,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 </div>
 
 <!-- 82차 Phase 4: 사진 자르기 모달 (자동 외곽선 검출 + 4 모서리 드래그 보정, z-index:3400) -->
-<div id="modal-heart-tale-crop" class="modal-overlay hidden" style="z-index:3400" onclick="closeModalOutside(event,'modal-heart-tale-crop')">
+<div id="modal-heart-tale-crop" class="modal-overlay hidden" style="z-index:3400" onclick="closeModalOutside(event,'modal-heart-tale-crop'); STATE._htpCropMode=null;">
   <div class="ht-crop-modal-box" onclick="event.stopPropagation()">
     <div class="ht-crop-title">사진 자르기</div>
     <div class="ht-crop-sub">네 귀퉁이를 손가락으로 옮겨서 조정할 수 있어요</div>
@@ -5711,7 +5711,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       </div>
     </div>
     <div class="ht-crop-actions">
-      <button class="ht-crop-btn ht-crop-btn-cancel" onclick="closeModal('modal-heart-tale-crop')">취소</button>
+      <button class="ht-crop-btn ht-crop-btn-cancel" onclick="closeModal('modal-heart-tale-crop'); STATE._htpCropMode=null;">취소</button>
       <button class="ht-crop-btn ht-crop-btn-original" onclick="_htpCropResetOriginal()">원본 그대로</button>
       <button class="ht-crop-btn ht-crop-btn-redetect" onclick="_htpCropAutoDetect()">다시 자동</button>
       <button class="ht-crop-btn ht-crop-btn-confirm" onclick="_htpCropConfirm()">이대로 잘라주기</button>
@@ -18706,6 +18706,7 @@ function _htOpenCoverUpload() {
   input.click();
 }
 
+// 90차 변쌤 신고 fix — 표지 사진 다듬기(crop) 거치고 → 자르기 확정 시 _htCoverApplyCropped 호출
 function _htHandleCoverFile(event) {
   var file = event.target.files && event.target.files[0];
   if (!file) return;
@@ -18717,87 +18718,86 @@ function _htHandleCoverFile(event) {
     if (typeof toast === 'function') toast('학생 정보가 없어요');
     return;
   }
-  // 미리보기 모드는 더미 — DB·Storage 안 건드림 (메모리 feedback_preview_seed_protected 답습)
   if (STATE.isPreview) {
     if (typeof toast === 'function') toast('미리보기에서는 표지 변경이 적용되지 않아요');
     return;
   }
-  if (typeof toast === 'function') toast('표지를 만들고 있어요 ✨', 1800);
-  // 사진 리사이즈 — 1600px·q0.88 (원본·표지) + 300px·q0.85 (교사 마음앨범 썸네일용)
+  // 1단계 — 1600px resize 후 crop 모달 진입 (마음동화 페이지 답습)
   _htpResizeImage(file, 1600, 0.88, function(b64) {
-    _htpResizeImage(file, 300, 0.85, function(thumbB64) {
-      // 낙관적 UI — base64로 즉시 표지 표시 (76차 답습), 백그라운드 GAS api
-      var prevCover = STATE.user.book_cover_url || '';
-      STATE.user.book_cover_url = b64;
-      // STATE.students에도 동일 학생 row 갱신 (교사 미리보기·다른 곳 같은 캐시)
+    STATE._htpCropMode = 'cover';   // 표지 분기 플래그 — _htpCropConfirm에서 분기
+    _htpOpenCropModal(b64);
+  });
+}
+
+// 90차 — crop 확정 후 표지 저장 (낙관적 UI + 로딩 스피너 + GAS api)
+function _htCoverApplyCropped(b64) {
+  if (!STATE.user || !STATE.user.student_uid) {
+    if (typeof toast === 'function') toast('학생 정보가 없어요');
+    return;
+  }
+  // 로딩 스피너 — Storage upload + Sheets·Supabase 동기화 사이 표시
+  if (typeof showLoading === 'function') showLoading('표지를 저장하고 있어요 ✨');
+
+  // 낙관적 UI — base64로 즉시 표지 표시 (76차 답습), 백그라운드 GAS api
+  var prevCover = STATE.user.book_cover_url || '';
+  STATE.user.book_cover_url = b64;
+  if (Array.isArray(STATE.students)) {
+    for (var i = 0; i < STATE.students.length; i++) {
+      if (STATE.students[i] && STATE.students[i].student_uid === STATE.user.student_uid) {
+        STATE.students[i].book_cover_url = b64;
+        break;
+      }
+    }
+  }
+  if (STATE._htpCurrentWeek === 0 || typeof STATE._htpCurrentWeek === 'undefined') {
+    _renderHeartTalePage(0);
+  }
+
+  function rollback() {
+    STATE.user.book_cover_url = prevCover;
+    if (Array.isArray(STATE.students)) {
+      for (var k = 0; k < STATE.students.length; k++) {
+        if (STATE.students[k] && STATE.students[k].student_uid === STATE.user.student_uid) {
+          STATE.students[k].book_cover_url = prevCover;
+          break;
+        }
+      }
+    }
+    if (STATE._htpCurrentWeek === 0 || typeof STATE._htpCurrentWeek === 'undefined') {
+      _renderHeartTalePage(0);
+    }
+  }
+
+  api('saveBookCover', {
+    student_uid: STATE.user.student_uid,
+    image_b64: b64
+  }).then(function(res) {
+    if (typeof hideLoading === 'function') hideLoading();
+    if (res && res.status === 'OK' && res.image_url) {
+      STATE.user.book_cover_url = res.image_url;
       if (Array.isArray(STATE.students)) {
-        for (var i = 0; i < STATE.students.length; i++) {
-          if (STATE.students[i] && STATE.students[i].student_uid === STATE.user.student_uid) {
-            STATE.students[i].book_cover_url = b64;
+        for (var j = 0; j < STATE.students.length; j++) {
+          if (STATE.students[j] && STATE.students[j].student_uid === STATE.user.student_uid) {
+            STATE.students[j].book_cover_url = res.image_url;
             break;
           }
         }
       }
-      // 표지(week=0) 보고 있으면 즉시 다시 그리기
       if (STATE._htpCurrentWeek === 0 || typeof STATE._htpCurrentWeek === 'undefined') {
         _renderHeartTalePage(0);
       }
-      // 백그라운드 GAS — Storage upload + Sheets·Supabase 동기화 (saveBookCover 라우트)
-      api('saveBookCover', {
-        student_uid: STATE.user.student_uid,
-        image_b64: b64,
-        thumb_b64: thumbB64
-      }).then(function(res) {
-        if (res && res.status === 'OK' && res.image_url) {
-          // Storage URL로 swap — 다음 페이지 진입 시 가벼운 URL 사용 (b64 → http URL)
-          STATE.user.book_cover_url = res.image_url;
-          STATE.user.book_cover_thumb_url = res.thumb_url || '';
-          if (Array.isArray(STATE.students)) {
-            for (var j = 0; j < STATE.students.length; j++) {
-              if (STATE.students[j] && STATE.students[j].student_uid === STATE.user.student_uid) {
-                STATE.students[j].book_cover_url = res.image_url;
-                STATE.students[j].book_cover_thumb_url = res.thumb_url || '';
-                break;
-              }
-            }
-          }
-          if (STATE._htpCurrentWeek === 0 || typeof STATE._htpCurrentWeek === 'undefined') {
-            _renderHeartTalePage(0);
-          }
-          if (typeof toast === 'function') toast('표지가 만들어졌어요 ✨');
-        } else {
-          // 실패 — 낙관적 UI 롤백
-          STATE.user.book_cover_url = prevCover;
-          if (Array.isArray(STATE.students)) {
-            for (var k = 0; k < STATE.students.length; k++) {
-              if (STATE.students[k] && STATE.students[k].student_uid === STATE.user.student_uid) {
-                STATE.students[k].book_cover_url = prevCover;
-                break;
-              }
-            }
-          }
-          if (STATE._htpCurrentWeek === 0 || typeof STATE._htpCurrentWeek === 'undefined') {
-            _renderHeartTalePage(0);
-          }
-          if (typeof toast === 'function') toast('저장 실패 — 다시 시도해주세요');
-        }
-      }).catch(function(err) {
-        console.error('[HT COVER UPLOAD]', err);
-        STATE.user.book_cover_url = prevCover;
-        if (Array.isArray(STATE.students)) {
-          for (var m = 0; m < STATE.students.length; m++) {
-            if (STATE.students[m] && STATE.students[m].student_uid === STATE.user.student_uid) {
-              STATE.students[m].book_cover_url = prevCover;
-              break;
-            }
-          }
-        }
-        if (STATE._htpCurrentWeek === 0 || typeof STATE._htpCurrentWeek === 'undefined') {
-          _renderHeartTalePage(0);
-        }
-        if (typeof toast === 'function') toast('저장 실패 — 다시 시도해주세요');
-      });
-    });
+      if (typeof toast === 'function') toast('표지가 만들어졌어요 ✨');
+    } else {
+      var msg = (res && res.message) ? res.message : '저장 실패 — 다시 시도해주세요';
+      console.error('[HT COVER UPLOAD] api 응답:', res);
+      rollback();
+      if (typeof toast === 'function') toast(msg);
+    }
+  }).catch(function(err) {
+    if (typeof hideLoading === 'function') hideLoading();
+    console.error('[HT COVER UPLOAD] catch:', err);
+    rollback();
+    if (typeof toast === 'function') toast('저장 실패 — 다시 시도해주세요');
   });
 }
 
@@ -21509,6 +21509,7 @@ function _htpOnPhotoSelected(input) {
   if (!f.type || f.type.indexOf('image/') !== 0) { toast('사진 파일만 올릴 수 있어요'); input.value = ''; return; }
   // 1440px·q0.85 리사이즈 → crop 모달 열기 (자동 외곽선 검출 + 4 모서리 드래그)
   _htpResizeImage(f, 1440, 0.85, function(b64) {
+    STATE._htpCropMode = 'page';   // 90차 안전망 — 표지 cover 분기와 섞임 차단
     _htpOpenCropModal(b64);
   });
   input.value = '';  // 같은 파일 재선택 가능하게
@@ -21935,8 +21936,15 @@ function _htpCropConfirm() {
   try { b64 = out.toDataURL('image/jpeg', 0.85); }
   catch(e) { console.error('[HT CROP CONFIRM]', e); toast('자르기에 실패했어요'); return; }
 
-  _htpApplyCroppedPhoto(b64);
+  // 90차 변쌤 신고 fix — STATE._htpCropMode 분기 ('cover' = 표지 / 그 외 = 페이지)
+  var mode = STATE._htpCropMode || 'page';
   closeModal('modal-heart-tale-crop');
+  STATE._htpCropMode = null;   // 다음 진입 default 'page'로 reset
+  if (mode === 'cover') {
+    _htCoverApplyCropped(b64);
+  } else {
+    _htpApplyCroppedPhoto(b64);
+  }
 }
 
 // 실제 삭제 — 낙관적 UI (CLAUDE.md 5-1 답습)
@@ -23976,6 +23984,8 @@ async function renderTeacherTaleAlbum() {
     // 학급 진척 fetch (Supabase 직접) — 메모리 feedback_supabase_first.md 답습
     if (STATE.user && STATE.user.teacher_uid) {
       await _loadTeacherTaleProgress(STATE.user.teacher_uid);
+      // 90차 변쌤 명시 — 학생이 표지 업로드 시 교사 마음동화 탭 즉시 반영. STATE.students 캐시 그대로 두고 book_cover_url만 짧은 fetch (학급 N명, 컬럼 2개 — 100B 이내 경량)
+      await _refreshClassBookCovers(STATE.user.teacher_uid);
     }
     sec.innerHTML = _renderTaleAlbumHeader(stus) + _buildTeacherTaleGridHTML(stus);
     console.log('[TEACHER TALE painted]', { stusN: stus.length, progN: Object.keys(_teacherTaleProgress||{}).length });
@@ -24396,6 +24406,30 @@ async function renderEmotionAlbum() {
   }
   // 78차 fix: 폴링 제거 — 변쌤 명시 "신호 받았을 때만 새로고침". publication 정상이라 postgres_changes로 충분.
   //   기존 8초 폴링이 콘솔 폭주·자동 carousel 재빌드 부작용 유발 → realtime 신호만 의존
+}
+
+// 90차 변쌤 명시 — 교사 마음동화 탭 진입 시 학급 학생 book_cover_url만 짧은 fetch (즉시 반영)
+//   · STATE.students 자체는 그대로 두고 book_cover_url 컬럼만 갱신 (다른 캐시·페르소나·일상앨범 등 영향 X)
+//   · select 2컬럼 N명 — 가벼움 (학급 25명 가정 시 응답 1KB 이내)
+//   · 실패해도 기존 STATE.students 값 그대로 (UI 회귀 0)
+async function _refreshClassBookCovers(teacher_uid) {
+  if (!teacher_uid || !Array.isArray(STATE.students) || !STATE.students.length) return;
+  try {
+    var rows = await _sbFetch('students', {
+      teacher_uid: 'eq.' + teacher_uid,
+      select: 'student_uid,book_cover_url'
+    });
+    if (!Array.isArray(rows)) return;
+    var by = {};
+    rows.forEach(function(r){ if (r && r.student_uid) by[r.student_uid] = r.book_cover_url || ''; });
+    STATE.students.forEach(function(s){
+      if (s && s.student_uid && Object.prototype.hasOwnProperty.call(by, s.student_uid)) {
+        s.book_cover_url = by[s.student_uid];
+      }
+    });
+  } catch(e) {
+    console.error('[BOOK COVER refresh]', e && e.message ? e.message : e);
+  }
 }
 
 // 90차 — 감정앨범 sec 첫 자식으로 바코드 영역 보장 (이미 있으면 재사용 · _renderEmotionGrid 후에도 자리 유지)
