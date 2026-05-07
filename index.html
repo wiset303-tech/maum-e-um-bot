@@ -20881,6 +20881,31 @@ function _renderHeartTalePage(week_no) {
   STATE._htpCurrentWeek = week_no;
   _updateHeartTaleNav(week_no);
   _renderHeartTaleSpine();
+  // 91차 fix3: placeholder 박힌 row 자가 회복 — 첫 호출 generate 실패한 옛 row 진입 시 한 번 자동 retry
+  if (typeof _autoRetryBotLineIfStuck === 'function') _autoRetryBotLineIfStuck(week_no);
+}
+
+// 91차 fix3: 페이지 진입 시 봇 답변이 placeholder 상태면 한 번만 자동 재호출 (변쌤 신고 답습)
+//   "마음을 읽고 있어요..." / "마음을 다시 읽고 있어요..." 박힌 row만 회복. 본인 record 페이지 한정 (RLS 답습)
+//   STATE._htpRetryDone[week_no] 플래그로 한 번만 시도 (실패해도 무한 루프 X — 사용자가 ✨ 새 답변 직접 클릭 가능)
+function _autoRetryBotLineIfStuck(week_no) {
+  var pages = STATE._htpPages || {};
+  var row = pages[week_no];
+  if (!row || !row.recorded_at || !row.bot_line) return;
+  var line = String(row.bot_line);
+  if (line.indexOf('마음을 읽고 있어요') !== 0 && line.indexOf('마음을 다시 읽고 있어요') !== 0) return;
+  // 본인 record 페이지만 자동 retry (RLS 정책 답습 — 학부모/교사 view에서는 그 학생이 진입 시 회복)
+  if (typeof _htpIsMyRecordWeek !== 'function' || !_htpIsMyRecordWeek(week_no)) return;
+  STATE._htpRetryDone = STATE._htpRetryDone || {};
+  if (STATE._htpRetryDone[week_no]) return;
+  STATE._htpRetryDone[week_no] = true;
+  setTimeout(function(){
+    if (typeof _regenerateBotLine === 'function') {
+      _regenerateBotLine(week_no).catch(function(e){
+        console.error('[HT AUTO RETRY]', e && e.message || e);
+      });
+    }
+  }, 200);
 }
 
 // 91차 ⓐ: 마음 페이지 감정 키워드 카테고리 분류 헬퍼
@@ -20893,17 +20918,17 @@ function _categorizeEmoTags(emoTags) {
   var master = (typeof _emotionsMaster !== 'undefined' && _emotionsMaster) ? _emotionsMaster : [];
   for (var i = 0; i < emoTags.length; i++) {
     var w = emoTags[i];
-    var cat = STATE._emoCatCache[w];
-    if (!cat) {
-      var found = null;
-      for (var j = 0; j < master.length; j++) {
-        if (master[j].word === w) { found = master[j]; break; }
-      }
-      if (found && found.category) {
-        cat = found.category;
-        STATE._emoCatCache[w] = cat;
-      }
+    var cat = '';
+    // 91차 fix2: master 먼저 lookup (감정 고르기 풀과 일관성 보장 — 변쌤 신고 답습)
+    //   기존: STATE._emoCatCache 먼저 → emotion_word_categories와 emotions_master 값 다를 때 불일치
+    //   수정: master = SOT (학생이 선택 가능한 풀)와 카테고리 모달이 같은 분류
+    for (var j = 0; j < master.length; j++) {
+      if (master[j].word === w) { cat = master[j].category || ''; break; }
     }
+    // master에 없으면 (학생 직접 입력 감정) — cache lookup
+    if (!cat) cat = STATE._emoCatCache[w] || '';
+    // 일관성 — master 결과를 cache에 박아 다음 호출 빠름
+    if (cat) STATE._emoCatCache[w] = cat;
     if (cat === 'positive')      result.positive.push(w);
     else if (cat === 'neutral')  result.neutral.push(w);
     else if (cat === 'negative') result.negative.push(w);
