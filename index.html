@@ -3008,9 +3008,10 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   max-height:600px;
 }
 /* 89차 모바일 세로 잘림 차단 — min(절대값, vh)로 작은 폰에서 vh 자동 적용 */
-.sel-result-box.mode-chart{ max-height:min(600px, 88vh); }
-.sel-result-box.mode-compare{ max-height:min(680px, 92vh); }   /* 89차 변쌤 명시 (re-fix3) — 600→680 살짝 늘림 (R1 자기인식 잘림 + 종합 코멘트 영역 확보) */
-.sel-result-box.mode-report{ max-height:88vh; }
+/* 91차 fix14 (변쌤 명시 답습): 차트·비교 탭 overflow-y:hidden — 스크롤 거슬림 차단. 리포트만 스크롤 OK */
+.sel-result-box.mode-chart{ max-height:min(600px, 88vh); overflow-y:hidden; }
+.sel-result-box.mode-compare{ max-height:min(680px, 92vh); overflow-y:hidden; }
+.sel-result-box.mode-report{ max-height:88vh; overflow-y:auto; }
 /* chart·compare는 차트 영역 높이 컴팩트, report는 sel-report-v2-* 풀 사용 */
 .sel-result-box.mode-chart .sel-result-chart{
   min-height:300px; padding:6px 14px 4px;
@@ -6760,6 +6761,9 @@ function _uiConfirm(title, message, onOk, opts) {
     okBtn.style.color = '';
     if (!okBtn.classList.contains('btn-primary')) okBtn.classList.add('btn-primary');
   }
+  // 91차 fix14 (변쌤 명시 답습): confirm 버튼 둔탁한 세로 길이 1/4 축소 — padding 줄임
+  okBtn.style.padding = '9px 16px';
+  cancelBtn.style.padding = '9px 16px';
   okBtn.onclick = function() {
     closeModal('modal-confirm');
     if (typeof onOk === 'function') onOk();
@@ -9344,7 +9348,7 @@ function settingsHTML() {
     '<div class="card" style="margin-top:8px;background:#fff;border-left:6px solid transparent;background-image:linear-gradient(#fff,#fff),linear-gradient(180deg,var(--sel-r1),var(--sel-r2),var(--sel-r3),var(--sel-r4),var(--sel-r5),var(--sel-r6),var(--sel-r7));background-origin:border-box;background-clip:padding-box,border-box">' +
       '<div class="card-label" style="background:linear-gradient(90deg,var(--sel-r1),var(--sel-r2),var(--sel-r3),var(--sel-r4),var(--sel-r5),var(--sel-r6),var(--sel-r7));-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;letter-spacing:.3px">우리 반 마음이음 역량</div>' +
       '<div style="font-size:12px;color:var(--gray);margin-bottom:12px;line-height:1.55">7역량 28문항으로 학생 마음을 살펴봐요. 1-2학년은 교사 관찰형, 3-6학년은 학생 자가응답 어조 자동.</div>' +
-      '<button class="btn-primary" style="width:100%;font-size:13px;padding:11px 14px;border-radius:12px;border:none;color:#fff;background:linear-gradient(135deg,#7ed6c0,#5cc4ad);font-weight:700;cursor:pointer;letter-spacing:.3px;box-shadow:0 2px 8px rgba(126,214,192,0.28)" onclick="_openTeacherSelClassModal()">📊 모아보기</button>' +
+      '<button class="btn btn-secondary" style="width:100%;font-size:13px;padding:13px 18px" onclick="_openTeacherSelClassModal()">📊 모아보기</button>' +
     '</div>' +
     // 83차: 전담 교사 v1 — 담임이 같은 학교 교사에게 본인 학급 마음앨범 열람만 허용
     '<div class="card card-mint" style="margin-top:8px">' +
@@ -19734,12 +19738,14 @@ async function _openTeacherSelClassModal() {
     modal = document.createElement('div');
     modal.id = 'modal-sel-teacher-class';
     modal.className = 'modal-overlay hidden';
-    modal.style.zIndex = '3500';
+    // 91차 fix14: z-index 3500→3490 (결과 모달 modal-sel-result 3500이 위로 떠 학생 결과 보임)
+    modal.style.zIndex = '3490';
     modal.onclick = function(e){ if (e.target === modal) closeModal('modal-sel-teacher-class'); };
     document.body.appendChild(modal);
   }
   modal.innerHTML =
-    '<div class="modal-box" style="width:min(560px,94vw);padding:22px 20px 18px;border-radius:20px;max-height:88vh;overflow-y:auto">' +
+    // 91차 fix14: min-height + flex column으로 토글 시 크기 변동 차단 (변쌤 명시 답습)
+    '<div class="modal-box" style="width:min(560px,94vw);padding:22px 20px 18px;border-radius:20px;height:75vh;max-height:88vh;display:flex;flex-direction:column;overflow:hidden">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">' +
         '<div>' +
           '<div style="font-size:18px;font-weight:700;color:var(--navy);font-family:\'Black Han Sans\',sans-serif;letter-spacing:.5px">📋 학급 사회정서역량 진단</div>' +
@@ -19757,7 +19763,7 @@ async function _openTeacherSelClassModal() {
         '<button id="selClassModeStudent" onclick="_teacherSelSwitchMode(\'student\')" style="flex:1;padding:8px;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;border:1.5px solid var(--lgray);background:#fff;color:var(--gray)">👤 학생별</button>' +
         '<button id="selClassModeQuestion" onclick="_teacherSelSwitchMode(\'question\')" style="flex:1;padding:8px;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;border:1.5px solid var(--lgray);background:#fff;color:var(--gray)">📝 문항별</button>' +
       '</div>' +
-      '<div id="selClassBody" style="min-height:200px"></div>' +
+      '<div id="selClassBody" style="flex:1;min-height:200px;overflow-y:auto"></div>' +
     '</div>';
   modal.classList.remove('hidden');
   await _renderTeacherSelClassList();
@@ -20373,7 +20379,7 @@ var _SEL_R_META = [
     },
     teacher: {
       desc:'정서·충동 조절 — KICE 자기관리(시간·과제) 외 정서조절 영역 보완',
-      source:'마음이음 (CASEL self-management 답습)', sourceKey:'maum',
+      source:'마음이음 자체역량', sourceKey:'maum',
       keywords:['정서 조절','충동 통제','진정 기술'],
       tips:['호흡·STOP 기법 모델링','안전 공간 만들기','충동 직전 대안 행동 제시']
     }
@@ -20441,7 +20447,7 @@ var _SEL_R_META = [
     },
     teacher: {
       desc:'정신건강 리터러시 — 도움 요청·자기 인식·표현',
-      source:'마음이음 (한국형 SEL 6역량 / 최지욱 외 2021 답습)', sourceKey:'maum',
+      source:'마음이음 자체역량', sourceKey:'maum',
       keywords:['도움 요청','정신건강 인식','표현'],
       tips:['안전한 어른 카드','도움 요청 연습','위기 신호 학급 단위 인식']
     }
