@@ -19746,12 +19746,16 @@ async function _openTeacherSelClassModal() {
   modal.innerHTML =
     // 91차 fix14: min-height + flex column으로 토글 시 크기 변동 차단 (변쌤 명시 답습)
     '<div class="modal-box" style="width:min(560px,94vw);padding:22px 20px 18px;border-radius:20px;height:75vh;max-height:88vh;display:flex;flex-direction:column;overflow:hidden">' +
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">' +
-        '<div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:8px">' +
+        '<div style="flex:1;min-width:0">' +
           '<div style="font-size:18px;font-weight:700;color:var(--navy);font-family:\'Black Han Sans\',sans-serif;letter-spacing:.5px">📋 학급 사회정서역량 진단</div>' +
-          '<div style="font-size:11.5px;color:var(--gray);margin-top:2px">7역량 28문항 · 학생별 또는 문항별 일괄</div>' +
+          // 91차 fix15 (변쌤 명시 답습): 논문 근거 + 국가기초학력지원포털 하이퍼링크 — 회색글자 행 우측 자연 배치
+          '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;font-size:11.5px;color:var(--gray);margin-top:3px">' +
+            '<span>7역량 28문항 · 학생별/문항별 일괄</span>' +
+            '<a href="https://basics.go.kr" target="_blank" rel="noopener" style="color:var(--mint2);text-decoration:none;font-weight:600;font-size:11px">📚 KICE 사회정서역량 진단도구 ↗</a>' +
+          '</div>' +
         '</div>' +
-        '<button onclick="closeModal(\'modal-sel-teacher-class\')" style="font-size:22px;color:var(--gray);background:none;border:none;cursor:pointer;line-height:1">×</button>' +
+        '<button onclick="closeModal(\'modal-sel-teacher-class\')" style="font-size:22px;color:var(--gray);background:none;border:none;cursor:pointer;line-height:1;flex-shrink:0">×</button>' +
       '</div>' +
       // phase 토글 (1차 / 2차)
       '<div style="display:flex;gap:6px;margin-bottom:10px">' +
