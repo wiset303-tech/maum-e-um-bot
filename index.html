@@ -18800,8 +18800,8 @@ function _htHandleCoverFile(event) {
   });
 }
 
-// 90차 변쌤 명시 ② — 클라이언트 직접 Supabase Storage + _sbPatch (GAS 거치지 않음. 학생 앱 속도 우선)
-//   76차 broadcast 알림 답습 — 빠른 경로(0.5초). RLS 정책으로 heart-tale/cover_<uid>.jpg path 한정 안전
+// 90차 변쌤 명시 ① revert — saveAlbum·saveBookPage 답습. GAS 거침 (service key는 RLS 우회·안전·자료전 우선)
+//   클라이언트 직접 Supabase 전환은 RLS 정책 미스로 회귀 누적. 원래 잘 되던 GAS 패턴 답습
 async function _htCoverApplyCropped(b64) {
   if (!STATE.user || !STATE.user.student_uid) {
     if (typeof toast === 'function') toast('학생 정보가 없어요');
@@ -18837,32 +18837,40 @@ async function _htCoverApplyCropped(b64) {
     _renderHeartTalePage(0);
   }
 
-  try {
-    // 1) Storage upload 직접 (anon key + RLS 정책으로 path 한정 — heart-tale/cover_<uid>.jpg)
-    var imageUrl = await _sbStorageUploadDirect('album', 'heart-tale/cover_' + stuUid + '.jpg', b64, 'image/jpeg');
-    // 2) students.book_cover_url 직접 patch (anon UPDATE 권한 — 14729 line 답습)
-    await _sbPatch('students', { student_uid: 'eq.' + stuUid }, { book_cover_url: imageUrl });
-    // 3) cache-busting (같은 path 덮어쓰기라 모바일 브라우저 캐시 우회)
-    var bustedUrl = imageUrl + '?v=' + Date.now();
-    STATE.user.book_cover_url = bustedUrl;
-    if (Array.isArray(STATE.students)) {
-      for (var j = 0; j < STATE.students.length; j++) {
-        if (STATE.students[j] && STATE.students[j].student_uid === stuUid) {
-          STATE.students[j].book_cover_url = bustedUrl;
-          break;
+  // 백그라운드 GAS api — Storage upload + Sheets·Supabase 동기화 (saveBookCover 라우트, code.gs 측 service key)
+  api('saveBookCover', {
+    student_uid: stuUid,
+    image_b64: b64
+  }).then(function(res) {
+    if (typeof hideLoading === 'function') hideLoading();
+    var imageUrl = res && res.data && res.data.image_url;
+    console.log('[HT COVER api 응답]', { status: res && res.status, imageUrl: imageUrl });
+    if (res && res.status === 'ok' && imageUrl) {
+      // cache-busting (같은 path 덮어쓰기라 모바일 브라우저 캐시 우회)
+      var bustedUrl = imageUrl + (imageUrl.indexOf('?') > -1 ? '&' : '?') + 'v=' + Date.now();
+      STATE.user.book_cover_url = bustedUrl;
+      if (Array.isArray(STATE.students)) {
+        for (var j = 0; j < STATE.students.length; j++) {
+          if (STATE.students[j] && STATE.students[j].student_uid === stuUid) {
+            STATE.students[j].book_cover_url = bustedUrl;
+            break;
+          }
         }
       }
+      _renderHeartTalePage(0);
+      if (typeof toast === 'function') toast('표지가 만들어졌어요 ✨');
+    } else {
+      var msg = (res && res.message) ? res.message : '저장 실패 — 다시 시도해주세요';
+      console.error('[HT COVER api 응답 실패]', res);
+      rollback();
+      if (typeof toast === 'function') toast(msg);
     }
-    _renderHeartTalePage(0);
+  }).catch(function(err) {
     if (typeof hideLoading === 'function') hideLoading();
-    if (typeof toast === 'function') toast('표지가 만들어졌어요 ✨');
-    console.log('[HT COVER 직접]', { imageUrl: imageUrl });
-  } catch(e) {
-    if (typeof hideLoading === 'function') hideLoading();
-    console.error('[HT COVER 직접 실패]', e && e.message ? e.message : e);
+    console.error('[HT COVER api catch]', err);
     rollback();
     if (typeof toast === 'function') toast('저장 실패 — 다시 시도해주세요');
-  }
+  });
 }
 
 // 87차: 마음 파노라마 — 교사 broadcast 신호 전 클릭 시 안내 (변쌤 명시 "안내문구")
