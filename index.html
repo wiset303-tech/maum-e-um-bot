@@ -20890,15 +20890,29 @@ function _renderHeartTalePage(week_no) {
 //   신규: GAS 직접 호출 + 응답 도착 시 row.bot_line 한 번만 갱신 + _renderHeartTalePage 한 번만 호출 (깜빡 차단)
 //   본인 record 페이지 한정 (RLS) + retryDone 플래그로 한 번만 시도
 async function _autoRetryBotLineIfStuck(week_no) {
+  // 91차 fix4 진단 로그 — 변쌤 콘솔 캡처로 어디서 막히는지 정확 진단
   var pages = STATE._htpPages || {};
   var row = pages[week_no];
-  if (!row || !row.recorded_at || !row.bot_line) return;
+  if (!row || !row.recorded_at || !row.bot_line) {
+    console.log('[HT RETRY skip:no-data]', week_no, { hasRow:!!row, recorded_at:row&&row.recorded_at, bot_line:row&&(String(row.bot_line).slice(0,20)) });
+    return;
+  }
   var line = String(row.bot_line);
-  if (line.indexOf('마음을 읽고 있어요') !== 0 && line.indexOf('마음을 다시 읽고 있어요') !== 0) return;
-  if (typeof _htpIsMyRecordWeek !== 'function' || !_htpIsMyRecordWeek(week_no)) return;
+  var isStuck = line.indexOf('마음을 읽고 있어요') === 0 || line.indexOf('마음을 다시 읽고 있어요') === 0;
+  if (!isStuck) {
+    return;  // 정상 응답 박힌 row — 조용히 skip (변쌤 정책: 봇 응답 없을 때만 호출)
+  }
+  if (typeof _htpIsMyRecordWeek !== 'function' || !_htpIsMyRecordWeek(week_no)) {
+    console.log('[HT RETRY skip:not-my-week]', week_no, { mode:STATE._htpMode, seq:STATE._htpRecordSeq });
+    return;
+  }
   STATE._htpRetryDone = STATE._htpRetryDone || {};
-  if (STATE._htpRetryDone[week_no]) return;
+  if (STATE._htpRetryDone[week_no]) {
+    console.log('[HT RETRY skip:already-tried]', week_no);
+    return;
+  }
   STATE._htpRetryDone[week_no] = true;
+  console.log('[HT RETRY start]', week_no, { text:(row.student_text||'').slice(0,20) });
   try {
     var theme = (typeof _getHeartTaleTheme === 'function') ? _getHeartTaleTheme(week_no) : {};
     var res = await api('generate_book_bot_line', {
@@ -20907,17 +20921,24 @@ async function _autoRetryBotLineIfStuck(week_no) {
       mind_skill:   theme.mind_skill || '',
       emotion_tags: row.emotion_tags || ''
     });
-    if (!res || res.status !== 'ok' || !res.data || !res.data.bot_line) return;
+    console.log('[HT RETRY response]', res && res.status, res && res.data && (res.data.bot_line||'').slice(0,30));
+    if (!res || res.status !== 'ok' || !res.data || !res.data.bot_line) {
+      console.warn('[HT RETRY no-bot-line]', res);
+      return;
+    }
     var pg = STATE._htpPages && STATE._htpPages[week_no];
-    if (!pg) return;
+    if (!pg) { console.warn('[HT RETRY no-row-after-response]'); return; }
     pg.bot_line = res.data.bot_line;
     if (STATE._htpCurrentWeek === week_no) _renderHeartTalePage(week_no);
     if (pg.page_uid) {
       _sbPatch('weekly_book', { page_uid: 'eq.' + pg.page_uid }, { bot_line: res.data.bot_line })
-        .catch(function(e){ console.error('[HT AUTO RETRY PATCH]', e && e.message || e); });
+        .then(function(){ console.log('[HT RETRY patch ok]'); })
+        .catch(function(e){ console.error('[HT RETRY patch fail]', e && e.message || e); });
+    } else {
+      console.warn('[HT RETRY no-page-uid — Supabase patch skipped]');
     }
   } catch(e) {
-    console.error('[HT AUTO RETRY]', e && e.message || e);
+    console.error('[HT RETRY exception]', e && e.message || e);
   }
 }
 
