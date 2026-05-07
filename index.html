@@ -18666,8 +18666,13 @@ function _buildHeartTalePageRealHTML(week_no) {
       //   말풍선 가로 폭이 새 답변 버튼 자리만큼 늘어나 50자 두 줄 fit
       html += '<div style="display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0">';
       html += '<div class="heart-tale-bot-avatar" aria-hidden="true"></div>';
-      if (canRecord && !isThinking) {
-        html += '<button class="ht-bot-regen" onclick="_regenerateBotLine(' + week_no + ')" title="AI에게 새 응답 받기" style="font-size:9.5px;color:#5a8aa0;background:#f0f7ff;border:1px solid #b8d4e8;border-radius:8px;padding:2px 7px;cursor:pointer;white-space:nowrap">✨ 새 응답</button>';
+      // 91차 fix10 (변쌤 명시 답습): 새 응답 생성 중일 때 버튼 시각 disabled — 잘못 클릭 차단 + 사용자 인지 강화
+      if (canRecord) {
+        if (isThinking) {
+          html += '<button class="ht-bot-regen" disabled title="AI 응답 받는 중..." style="font-size:9.5px;color:#a89580;background:#f5f0e8;border:1px solid #e0d8c8;border-radius:8px;padding:2px 7px;cursor:not-allowed;white-space:nowrap;opacity:.7">⏳ 받는 중</button>';
+        } else {
+          html += '<button class="ht-bot-regen" onclick="_regenerateBotLine(' + week_no + ')" title="AI에게 새 응답 받기" style="font-size:9.5px;color:#5a8aa0;background:#f0f7ff;border:1px solid #b8d4e8;border-radius:8px;padding:2px 7px;cursor:pointer;white-space:nowrap">✨ 새 응답</button>';
+        }
       }
       html += '</div>';
       html += '<div class="heart-tale-bot-bubble"' + (isThinking ? ' style="opacity:.7;font-style:italic"' : '') + '>' + _escHtml(row.bot_line) + '</div>';
