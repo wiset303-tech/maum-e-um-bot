@@ -22182,7 +22182,31 @@ function _navHeartTalePage(dir, jumpTo) {
 //   학생: 자물쇠 게이트 (NFC=기록 모드 / "기록 없이 열람할게요" 링크=열람 모드)
 //   교사·학부모: 자물쇠 X, 진입 즉시 표지 (열람 모드 default)
 //   미리보기: 80차 그대로 (자물쇠 게이트 + 시뮬 버튼)
+// 90차 변쌤 명시 — 표지 이미지 prefetch (NFC 인증·"기록없이 열람" 누른 직후 빈 사각형 1초 차단)
+function _htPrefetchCover(stuUid) {
+  if (!stuUid) return;
+  var url = '';
+  if (STATE.user && STATE.user.student_uid === stuUid) {
+    url = STATE.user.book_cover_url || '';
+  }
+  if (!url && Array.isArray(STATE.students)) {
+    for (var i = 0; i < STATE.students.length; i++) {
+      if (STATE.students[i] && STATE.students[i].student_uid === stuUid) {
+        url = STATE.students[i].book_cover_url || '';
+        break;
+      }
+    }
+  }
+  if (url) {
+    var preImg = new Image();
+    preImg.src = url;   // 브라우저 백그라운드 캐시 — 책 펼침 시 이미 다운로드 끝
+  }
+}
+
 function openHeartTalePage(student_uid, week_no) {
+  // 90차 변쌤 명시 — 진입 즉시 표지 prefetch (NFC 게이트 통과 후 책 펼치는 텀에 백그라운드 다운로드 끝)
+  var _prefetchUid = student_uid || (STATE.user && STATE.user.student_uid);
+  _htPrefetchCover(_prefetchUid);
   // 미리보기 모드 (역할 무관) — 80차 그대로
   if (STATE.isPreview || !STATE.user) {
     var name = '나';
