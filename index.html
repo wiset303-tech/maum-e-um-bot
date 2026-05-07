@@ -15042,6 +15042,18 @@ var EMOTION_COLOR_MAP = {
   '화남'    :'#6A3DB5','화난'    :'#6A3DB5','짜증'    :'#6A3DB5',
   '억울함'  :'#6A3DB5','억울한'  :'#6A3DB5','두려움'  :'#6A3DB5',
   '무서움'  :'#6A3DB5',
+  // 90차 변쌤 명시 — 87차 EMOTIONS_MASTER 14개 보강 매칭 (E104~E117)
+  '당당한'  :'#E67E22','희망찬'  :'#E67E22','소중한'  :'#E67E22',  // R2 따뜻 긍정
+  '풍요로운':'#C9A227','안온한'  :'#C9A227','산뜻한'  :'#C9A227',  // R3 편안 긍정
+  '사뿐한'  :'#C9A227','그윽한'  :'#C9A227','시원한'  :'#C9A227',  // R3 편안 긍정
+  '뭉클한'  :'#E67E22',                                            // R2 (감사·감동 톤)
+  '아련한'  :'#1E6FB8',                                            // R5 (옅은 그리움·아쉬움)
+  '짠한'    :'#1A237E','애틋한'  :'#1A237E','절절한'  :'#1A237E',  // R6 (정·그리움 깊은)
+  // 90차 변쌤 명시 — 등교 시 첫 감정 micro 변형형 누락 매칭 (긍정·중립·부정 빠짐없이)
+  '기쁜'    :'#D9455F',                                            // R1 (기쁨 변형)
+  '속상한'  :'#1A237E','피곤해'  :'#1E6FB8','걱정돼'  :'#1E6FB8',  // R6/R5 (속상함·피곤한·걱정 변형)
+  '슬퍼'    :'#1A237E','외로워'  :'#1A237E','힘들어'  :'#1A237E',  // R6
+  '화나'    :'#6A3DB5','짜증나'  :'#6A3DB5','무서워'  :'#6A3DB5',  // R7
 };
 // 74차: macro fallback도 7역량 팔레트로 — positive→주황(R2), neutral→초록(R4), negative→남색(R6)
 var MACRO_COLOR_FB = { positive:'#E67E22', neutral:'#2E8B57', negative:'#1A237E' };
@@ -15128,10 +15140,12 @@ function attendMove(dir) {
 }
 
 
-function renderEmotionBarcode() {
-  var track = document.getElementById('barcodeTrack');
-  var nums  = document.getElementById('barcodeNums');
-  var tag   = document.getElementById('barcodeDateTag');
+// 90차 변쌤 명시 — 학생/교사 감정앨범 화면에서도 호출 가능하게 opts 인자 추가 (default = 출석 화면 — 기존 호출처 회귀 0)
+function renderEmotionBarcode(opts) {
+  opts = opts || {};
+  var track = document.getElementById(opts.trackId || 'barcodeTrack');
+  var nums  = document.getElementById(opts.numsId  || 'barcodeNums');
+  var tag   = document.getElementById(opts.tagId   || 'barcodeDateTag');
   if (!track) return;
 
   var students = (STATE.students || []).filter(function(s){ return s.active === 'Y'; });
@@ -24372,8 +24386,35 @@ async function renderEmotionAlbum() {
   _emotionAlbumLoaded = false;
   await Promise.all([_loadEmotionsMaster(), _loadEmotionAlbumCache()]);
   _renderEmotionGrid();
+  // 90차 변쌤 명시 — 감정앨범 상단 우리반 감정 바코드 (학생·교사 둘 다, 학생도 자기 자리 보임 → 빈 곳 채우고 싶은 욕구)
+  // 관리자 화면(adminAlbumList)에는 박지 않음 — 학교별 비교 그리드라 학급 바코드 의미 없음
+  if (STATE.role !== 'admin') {
+    _ensureEmoAlbumBarcode(sec);
+    if (typeof renderEmotionBarcode === 'function') {
+      renderEmotionBarcode({ trackId:'emoAlbumBarcodeTrack', numsId:'emoAlbumBarcodeNums', tagId:'emoAlbumBarcodeTag' });
+    }
+  }
   // 78차 fix: 폴링 제거 — 변쌤 명시 "신호 받았을 때만 새로고침". publication 정상이라 postgres_changes로 충분.
   //   기존 8초 폴링이 콘솔 폭주·자동 carousel 재빌드 부작용 유발 → realtime 신호만 의존
+}
+
+// 90차 — 감정앨범 sec 첫 자식으로 바코드 영역 보장 (이미 있으면 재사용 · _renderEmotionGrid 후에도 자리 유지)
+function _ensureEmoAlbumBarcode(sec) {
+  if (!sec) return null;
+  var existing = sec.querySelector('#emoAlbumBarcodeWrap');
+  if (existing) return existing;
+  var wrap = document.createElement('div');
+  wrap.id = 'emoAlbumBarcodeWrap';
+  wrap.style.cssText = 'padding:8px 4px 14px;margin-bottom:4px';
+  wrap.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
+      '<span style="font-size:12.5px;color:var(--navy);font-weight:700">📊 우리반 감정 바코드 <span style="font-size:10.5px;color:var(--gray);font-weight:500">· 오늘</span></span>' +
+      '<span id="emoAlbumBarcodeTag" style="font-size:10px;color:var(--lgray);font-weight:400"></span>' +
+    '</div>' +
+    '<div id="emoAlbumBarcodeTrack" style="display:flex;height:42px;border-radius:8px;overflow:hidden;gap:1px;background:#f0ede8"></div>' +
+    '<div id="emoAlbumBarcodeNums" style="display:flex;gap:1px;margin-top:3px"></div>';
+  sec.insertBefore(wrap, sec.firstChild);
+  return wrap;
 }
 
 // 78차: 감정앨범 폴링 fallback — realtime 누락 안전망 (publication 정상이면 잉여 — 변화 없으면 갱신 X)
