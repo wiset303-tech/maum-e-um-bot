@@ -2392,7 +2392,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
 /* 80차: 마음봇 말풍선 — 캐릭터 아바타 + bubble + 꼬리 */
 .heart-tale-bot-row{
   display:flex; align-items:flex-start; gap:7px;
-  margin-bottom:10px;
+  margin-bottom:2px;  /* 91차 fix9: 봇 row와 감정 키워드 칩 사이 여백 줄임 (10→2 — 변쌤 명시 답습) */
 }
 .heart-tale-bot-avatar{
   flex-shrink:0;
@@ -18679,7 +18679,7 @@ function _buildHeartTalePageRealHTML(week_no) {
       var EMO_CHIP_FIT = 4;
       var visibleTags = emoTags.slice(0, EMO_CHIP_FIT);
       var hiddenCount = emoTags.length - visibleTags.length;
-      html += '<div class="heart-tale-emo-chips" style="display:flex;flex-wrap:nowrap;gap:5px;overflow:hidden;padding:6px 4px 4px;align-items:center;justify-content:center">';
+      html += '<div class="heart-tale-emo-chips" style="display:flex;flex-wrap:nowrap;gap:5px;overflow:hidden;padding:0 4px 4px;align-items:center;justify-content:center">';
       for (var ei = 0; ei < visibleTags.length; ei++) {
         html += '<span class="ht-emo-chip" style="font-size:10.5px;color:#7a5a3c;background:#fff7e6;border:1px solid #f0d9a8;border-radius:10px;padding:2px 7px;letter-spacing:.1px;white-space:nowrap;word-break:keep-all;flex-shrink:0">' + _escHtml(visibleTags[ei]) + '</span>';
       }
@@ -22172,6 +22172,11 @@ async function _htpSaveRecord() {
   var isFirstBotLine = !(prevSnapshot && prevSnapshot.bot_line);
   var bot_line = isFirstBotLine ? '마음을 읽고 있어요... ✨' : prevSnapshot.bot_line;
 
+  // 91차 fix9: _htpSaveRecord가 generate를 직접 호출하므로 _autoRetryBotLineIfStuck 중복 호출 차단
+  //   (변쌤 신고 답습 — 콘솔에 [HT RETRY start] 떴다는 건 _renderHeartTalePage 호출 시 자동 retry 진행. 두 generate 충돌)
+  STATE._htpRetryDone = STATE._htpRetryDone || {};
+  STATE._htpRetryDone[week_no] = true;
+
   // ① 낙관적 캐시 갱신 — 임시 photo_url = base64 (또는 기존 유지) / recorded_at = 즉시
   var optimisticPhotoUrl = newPhotoB64 || (keepExisting ? STATE._htpRecordingExistingPhotoUrl : '');
   STATE._htpPages[week_no] = {
@@ -22238,6 +22243,16 @@ async function _htpSaveRecord() {
       recorded_at: saved.recorded_at || cur.recorded_at,
       recorded_by_nfc_uid: recordedByNfcUid
     };
+    // 91차 fix9 (변쌤 신고 답습): page_uid 박힌 후 cur.bot_line이 새 답변(placeholder X)이면 patch
+    //   첫 저장 시 generate가 page_uid 없을 때 응답 도착 → patch SKIP 회귀 차단
+    //   saveBookPage INSERT가 placeholder DB 박더라도 응답 후 patch로 새 답변 박음
+    var savedLine = cur.bot_line || bot_line;
+    var isStillPlaceholder = savedLine.indexOf('마음을 읽고 있어요') === 0 || savedLine.indexOf('마음을 다시 읽고 있어요') === 0;
+    if (saved.page_uid && !isStillPlaceholder) {
+      _sbPatch('weekly_book', { page_uid: 'eq.' + saved.page_uid }, { bot_line: savedLine })
+        .then(function(){ console.log('[HT SAVE BOT LINE PATCH ok]'); })
+        .catch(function(e){ console.error('[HT SAVE BOT LINE PATCH]', e && e.message || e); });
+    }
     // 91차 fix4 (변쌤 깜빡 신고): _renderHeartTalePage 통째 호출 X. photo_url DOM 부분 + spine만 재렌더
     //   낙관적 캐시 단계에서 student_text·title·emotion_tags 등은 이미 화면에 반영. swap 시점엔 photo_url(base64→Storage URL)만 변경
     //   preload 후 src 교체로 새 사진 다운로드 끝나야 swap → 깜빡 X
