@@ -18606,11 +18606,13 @@ function _buildHeartTalePageRealHTML(week_no) {
       html += '<div class="heart-tale-bot-row" style="display:flex;align-items:flex-start;gap:6px">';
       html += '<div class="heart-tale-bot-avatar" aria-hidden="true"></div>';
       html += '<div class="heart-tale-bot-bubble"' + (isThinking ? ' style="opacity:.7;font-style:italic"' : '') + '>' + _escHtml(row.bot_line) + '</div>';
-      // 91차 ⓑ: 본인 기록된 페이지에만 ✨ 새 답변 버튼 (재생성 — 학생/교사가 답변 마음에 안 들 때)
-      if (canRecord && !isThinking) {
-        html += '<button class="ht-bot-regen" onclick="_regenerateBotLine(' + week_no + ')" title="AI에게 새 답변 받기" style="font-size:10.5px;color:#5a8aa0;background:#f0f7ff;border:1px solid #b8d4e8;border-radius:10px;padding:3px 8px;cursor:pointer;flex-shrink:0;align-self:center;white-space:nowrap">✨ 새 답변</button>';
-      }
       html += '</div>';
+      // 91차 ⓑ fix — 새 답변 버튼을 말풍선 아래 우측에. 글자 한 포인트 작게(9.5px). 말풍선 가로 폭 ↑ → 50자 두 줄 fit
+      if (canRecord && !isThinking) {
+        html += '<div style="display:flex;justify-content:flex-end;padding:3px 4px 0">';
+        html += '<button class="ht-bot-regen" onclick="_regenerateBotLine(' + week_no + ')" title="AI에게 새 답변 받기" style="font-size:9.5px;color:#5a8aa0;background:#f0f7ff;border:1px solid #b8d4e8;border-radius:8px;padding:2px 8px;cursor:pointer;white-space:nowrap">✨ 새 답변</button>';
+        html += '</div>';
+      }
     }
     // 87차: 학생이 선택한 감정 칩 표시 (배지형 — 페이지 본문에는 read-only로)
     // 91차 변쌤 명시 — 90차 가로 스크롤 거슬림 fix. 한 줄 fit (4개) + 넘치면 「+N개」 더보기 → modal-ht-emo-categories
@@ -18618,7 +18620,7 @@ function _buildHeartTalePageRealHTML(week_no) {
       var EMO_CHIP_FIT = 4;
       var visibleTags = emoTags.slice(0, EMO_CHIP_FIT);
       var hiddenCount = emoTags.length - visibleTags.length;
-      html += '<div class="heart-tale-emo-chips" style="display:flex;flex-wrap:nowrap;gap:5px;overflow:hidden;padding:6px 4px 4px;align-items:center">';
+      html += '<div class="heart-tale-emo-chips" style="display:flex;flex-wrap:nowrap;gap:5px;overflow:hidden;padding:6px 4px 4px;align-items:center;justify-content:center">';
       for (var ei = 0; ei < visibleTags.length; ei++) {
         html += '<span class="ht-emo-chip" style="font-size:10.5px;color:#7a5a3c;background:#fff7e6;border:1px solid #f0d9a8;border-radius:10px;padding:2px 7px;letter-spacing:.1px;white-space:nowrap;word-break:keep-all;flex-shrink:0">' + _escHtml(visibleTags[ei]) + '</span>';
       }
@@ -20948,6 +20950,7 @@ function _openEmoCategoriesModal(week_no) {
     modal = document.createElement('div');
     modal.id = 'modal-ht-emo-categories';
     modal.className = 'modal-overlay hidden';
+    modal.style.zIndex = '3550';  // 91차 fix — 마음 페이지 책 모달(~3500) 위 + modal-confirm(3600) 아래
     modal.onclick = function(e){ if (e.target === modal) closeModal('modal-ht-emo-categories'); };
     document.body.appendChild(modal);
   }
