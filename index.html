@@ -18820,7 +18820,7 @@ async function _htCoverApplyCropped(b64) {
     if (typeof toast === 'function') toast('학생 정보가 없어요');
     return;
   }
-  if (typeof showLoading === 'function') showLoading('표지를 저장하고 있어요 ✨');
+  if (typeof showLoading === 'function') showLoading('표지를 저장하고 있어요 ✨\n(3~5초 걸려요)');
 
   // 낙관적 UI — base64로 즉시 표지 표시 (76차 답습)
   var stuUid = STATE.user.student_uid;
@@ -24492,7 +24492,8 @@ function _buildTeacherTaleGridHTML(stus) {
       : '<div class="tale-book-progress">📖 ' + prog.count + '주차 / ' + HEART_TALE_TOTAL_WEEKS + '주</div>';
 
     // 90차 변쌤 명시 — 학생 그림 표지 자연 반영 (book_cover_url 있으면 카드 배경)
-    var hasCover = !!(s.book_cover_url);
+    //   90차 변쌤 신고 fix2 — http URL만 has-cover 적용 (base64·빈 값·잘못된 URL 차단 — 어두운 회색 빈 카드 회귀 방지)
+    var hasCover = !!(s.book_cover_url) && /^https?:\/\//.test(s.book_cover_url);
     var coverStyle = hasCover ? ' style="background-image:url(\'' + _escHtml(s.book_cover_url) + '\')"' : '';
     var coverCls = 'tale-book-cover' + (hasCover ? ' has-cover' : '');
     html += '<div class="tale-book-item' + (isEmpty ? ' tale-empty' : '') + '" onclick="openHeartTalePage(\'' + safeUid + '\')">' +
@@ -25244,6 +25245,7 @@ async function submitEmotionAlbum() {
   }
   closeEmotionInputModal();
   toast('사진을 담는 중이에요 💗');
+  if (typeof showLoading === 'function') showLoading('사진을 담는 중이에요 💗\n(3~5초 걸려요)');   // 90차 변쌤 명시 — 5초 동안 안내 유지
 
   try {
     if (hasNewImage) {
@@ -25315,6 +25317,9 @@ async function submitEmotionAlbum() {
     toast('저장 중 오류가 났어요');
     _emotionAlbumLoaded = false;
     await renderEmotionAlbum();
+  } finally {
+    // 90차 변쌤 명시 — showLoading 박았으니 hideLoading 짝 보장 (CLAUDE.md §5-1 답습)
+    if (typeof hideLoading === 'function') hideLoading();
   }
 }
 
@@ -27580,7 +27585,7 @@ async function uploadAlbum() {
     var file = input.files[0];
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) { toast('10MB 이하 사진만 올릴 수 있어요'); return; }
-    showLoading('사진을 준비하는 중이에요 📸');
+    showLoading('사진을 준비하는 중이에요 📸\n(3~5초 걸려요)');
     var reader = new FileReader();
     reader.onload = function(ev) {
       var rawData = ev.target.result;
