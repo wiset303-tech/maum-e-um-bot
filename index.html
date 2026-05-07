@@ -13515,6 +13515,29 @@ function _onNewNotification(row) {
     STATE.selectedMicro = null;
     if (typeof updateEmotionSubmittedBanner === 'function') updateEmotionSubmittedBanner();
   }
+  // 90차 변쌤 명시 — 학생 표지 업데이트 → 교사 단말 즉시 새로고침 (76차 attendance broadcast 답습)
+  if (n.type === 'heart_tale_cover_update' && STATE.role === 'teacher') {
+    var bodyParts = String(n.body || '').split('|');
+    var stuUid = bodyParts[0] || n.related_uid || '';
+    var newUrl = bodyParts[1] || '';
+    if (stuUid && newUrl && Array.isArray(STATE.students)) {
+      var bustedUrl = newUrl + (newUrl.indexOf('?') > -1 ? '&' : '?') + 'v=' + Date.now();
+      for (var iCv = 0; iCv < STATE.students.length; iCv++) {
+        if (STATE.students[iCv] && STATE.students[iCv].student_uid === stuUid) {
+          STATE.students[iCv].book_cover_url = bustedUrl;
+          break;
+        }
+      }
+      // 마음동화 탭 보고 있으면 즉시 재렌더 (그리드 자체 그림 통째로 — feedback_realtime_render_inplace_pattern 참고하되 작은 그리드라 단순 호출 OK)
+      if (STATE._albumSubTab === 'tale' && typeof renderTeacherTaleAlbum === 'function') {
+        renderTeacherTaleAlbum();
+      }
+      // 표지 이미지 prefetch (다음 진입 즉시 표시)
+      try { var preImg = new Image(); preImg.src = bustedUrl; } catch(e) {}
+    }
+    return;   // 일반 toast skip — 교사 흐름 자연 (사일런트 갱신)
+  }
+
   // 82차 Phase 6: 마음동화 수업 알림 — 학생만 자동 진입·모드 전환 처리 (교사 본인 수신은 toast만)
   if (n.type === 'heart_tale_class_start' && STATE.role === 'student') {
     var sn1 = parseInt(n.body, 10) || 1;
@@ -18873,6 +18896,18 @@ async function _htCoverApplyCropped(b64) {
       }
       _renderHeartTalePage(0);
       if (typeof toast === 'function') toast('표지가 만들어졌어요 ✨');
+      // 90차 변쌤 명시 — 교사 단말 즉시 새로고침 신호 (76차 attendance broadcast 답습 — notifications row INSERT)
+      if (STATE.user.teacher_uid && typeof _sbInsert === 'function') {
+        var notifTs = (typeof _htNewKstTs === 'function') ? _htNewKstTs() : new Date().toISOString().slice(0,19);
+        var notifUid = (typeof _htNewUuid === 'function') ? _htNewUuid() : ('ntf_' + Date.now() + '_' + Math.random().toString(36).slice(2,8));
+        _sbInsert('notifications', {
+          notification_uid: notifUid, created_at: notifTs,
+          recipient_uid: STATE.user.teacher_uid, type: 'heart_tale_cover_update',
+          title: '🌈 마음동화 표지 업데이트',
+          body: stuUid + '|' + imageUrl,   // _onNewNotification에서 파싱 (student_uid|image_url)
+          sender_name: STATE.user.name || '', is_read: false, related_uid: stuUid
+        }).catch(function(){});   // 실패해도 본인 단말은 정상 (broadcast 누락만 silent)
+      }
     } else {
       var msg = (res && res.message) ? res.message : '저장 실패 — 다시 시도해주세요';
       console.error('[HT COVER api 응답 실패]', res);
