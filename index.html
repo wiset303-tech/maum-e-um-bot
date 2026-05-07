@@ -18602,17 +18602,28 @@ function _buildHeartTalePageRealHTML(week_no) {
       html += '<div class="heart-tale-handwritten">' + _escHtml(row.student_text) + '</div>';
     }
     if (row.bot_line) {
-      html += '<div class="heart-tale-bot-row">';
+      var isThinking = (row.bot_line.indexOf('마음을 읽고 있어요') === 0 || row.bot_line.indexOf('마음을 다시 읽고 있어요') === 0);
+      html += '<div class="heart-tale-bot-row" style="display:flex;align-items:flex-start;gap:6px">';
       html += '<div class="heart-tale-bot-avatar" aria-hidden="true"></div>';
-      html += '<div class="heart-tale-bot-bubble">' + _escHtml(row.bot_line) + '</div>';
+      html += '<div class="heart-tale-bot-bubble"' + (isThinking ? ' style="opacity:.7;font-style:italic"' : '') + '>' + _escHtml(row.bot_line) + '</div>';
+      // 91차 ⓑ: 본인 기록된 페이지에만 ✨ 새 답변 버튼 (재생성 — 학생/교사가 답변 마음에 안 들 때)
+      if (canRecord && !isThinking) {
+        html += '<button class="ht-bot-regen" onclick="_regenerateBotLine(' + week_no + ')" title="AI에게 새 답변 받기" style="font-size:10.5px;color:#5a8aa0;background:#f0f7ff;border:1px solid #b8d4e8;border-radius:10px;padding:3px 8px;cursor:pointer;flex-shrink:0;align-self:center;white-space:nowrap">✨ 새 답변</button>';
+      }
       html += '</div>';
     }
     // 87차: 학생이 선택한 감정 칩 표시 (배지형 — 페이지 본문에는 read-only로)
-    // 90차 변쌤 명시 A+C — 한 줄 가로 스크롤 (외톨이 차단·세 줄 이상 회귀 차단) + 칩 글자 한 단계 작게
+    // 91차 변쌤 명시 — 90차 가로 스크롤 거슬림 fix. 한 줄 fit (4개) + 넘치면 「+N개」 더보기 → modal-ht-emo-categories
     if (emoTags.length > 0) {
-      html += '<div class="heart-tale-emo-chips" style="display:flex;flex-wrap:nowrap;gap:5px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;padding:6px 4px 4px;align-items:center">';
-      for (var ei = 0; ei < emoTags.length; ei++) {
-        html += '<span class="ht-emo-chip" style="font-size:10.5px;color:#7a5a3c;background:#fff7e6;border:1px solid #f0d9a8;border-radius:10px;padding:2px 7px;letter-spacing:.1px;white-space:nowrap;word-break:keep-all;flex-shrink:0">' + _escHtml(emoTags[ei]) + '</span>';
+      var EMO_CHIP_FIT = 4;
+      var visibleTags = emoTags.slice(0, EMO_CHIP_FIT);
+      var hiddenCount = emoTags.length - visibleTags.length;
+      html += '<div class="heart-tale-emo-chips" style="display:flex;flex-wrap:nowrap;gap:5px;overflow:hidden;padding:6px 4px 4px;align-items:center">';
+      for (var ei = 0; ei < visibleTags.length; ei++) {
+        html += '<span class="ht-emo-chip" style="font-size:10.5px;color:#7a5a3c;background:#fff7e6;border:1px solid #f0d9a8;border-radius:10px;padding:2px 7px;letter-spacing:.1px;white-space:nowrap;word-break:keep-all;flex-shrink:0">' + _escHtml(visibleTags[ei]) + '</span>';
+      }
+      if (hiddenCount > 0) {
+        html += '<button class="ht-emo-more" onclick="_openEmoCategoriesModal(' + week_no + ')" style="font-size:10.5px;color:#5a8aa0;background:#f0f7ff;border:1px solid #b8d4e8;border-radius:10px;padding:2px 8px;letter-spacing:.1px;white-space:nowrap;flex-shrink:0;cursor:pointer">+' + hiddenCount + '개</button>';
       }
       html += '</div>';
     }
@@ -20867,6 +20878,160 @@ function _renderHeartTalePage(week_no) {
   _renderHeartTaleSpine();
 }
 
+// 91차 ⓐ: 마음 페이지 감정 키워드 카테고리 분류 헬퍼
+//   EMOTIONS_MASTER 14개 즉시 lookup (category 컬럼 = positive/neutral/negative)
+//   + STATE._emoCatCache (AI 분류 결과 메모리 캐시 — 시트 변경 X, 영구 저장 X. 새로고침 시 재분류 OK)
+//   + master에도 cache에도 없으면 unknown — 모달 진입 시 _aiClassifyUnknownEmoTags가 보강
+function _categorizeEmoTags(emoTags) {
+  var result = { positive: [], neutral: [], negative: [], unknown: [] };
+  STATE._emoCatCache = STATE._emoCatCache || {};
+  var master = (typeof _emotionsMaster !== 'undefined' && _emotionsMaster) ? _emotionsMaster : [];
+  for (var i = 0; i < emoTags.length; i++) {
+    var w = emoTags[i];
+    var cat = STATE._emoCatCache[w];
+    if (!cat) {
+      var found = null;
+      for (var j = 0; j < master.length; j++) {
+        if (master[j].word === w) { found = master[j]; break; }
+      }
+      if (found && found.category) {
+        cat = found.category;
+        STATE._emoCatCache[w] = cat;
+      }
+    }
+    if (cat === 'positive')      result.positive.push(w);
+    else if (cat === 'neutral')  result.neutral.push(w);
+    else if (cat === 'negative') result.negative.push(w);
+    else                          result.unknown.push(w);
+  }
+  return result;
+}
+
+// AI 분류 호출 (응답 2에서 GAS 라우트 classify_emotion_words 추가) — 미등록 감정만 일괄 호출 + 결과 캐시
+async function _aiClassifyUnknownEmoTags(words) {
+  if (!words || !words.length) return;
+  try {
+    var res = await api('classify_emotion_words', { words: words });
+    if (res && res.status === 'ok' && res.data && res.data.classifications) {
+      STATE._emoCatCache = STATE._emoCatCache || {};
+      Object.keys(res.data.classifications).forEach(function(w) {
+        STATE._emoCatCache[w] = res.data.classifications[w];
+      });
+    }
+  } catch(e) {
+    console.error('[EMO CLASSIFY]', e && e.message ? e.message : e);
+  }
+}
+
+// 91차 ⓐ: 마음 페이지 감정 키워드 카테고리 모달
+//   페이지 칩 컨테이너 「+N개」 버튼 클릭 시 열림. 긍정/중립/부정 3 섹션 + (분류 중...) 임시 섹션
+//   미등록 감정 있으면 AI 분류 호출 → 응답 후 모달 재렌더
+function _openEmoCategoriesModal(week_no) {
+  var pages = STATE._htpPages || {};
+  var row = pages[week_no];
+  if (!row || !row.emotion_tags) { toast('이 페이지에 감정 키워드가 없어요'); return; }
+  var emoTags = String(row.emotion_tags).split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+  if (!emoTags.length) { toast('이 페이지에 감정 키워드가 없어요'); return; }
+  // 91차 ⓐ: 캐시 비어있으면 lazy fetch (Supabase 직접) → 도착 시 자동 재렌더
+  if ((!STATE._emoCatCache || !Object.keys(STATE._emoCatCache).length) && typeof _loadEmoCategoriesCache === 'function') {
+    _loadEmoCategoriesCache().then(function(){
+      var modalEl = document.getElementById('modal-ht-emo-categories');
+      if (modalEl && !modalEl.classList.contains('hidden')) _openEmoCategoriesModal(week_no);
+    }).catch(function(){});
+  }
+
+  var theme = (typeof _getHeartTaleTheme === 'function') ? _getHeartTaleTheme(week_no) : {};
+  var cat = _categorizeEmoTags(emoTags);
+
+  var modal = document.getElementById('modal-ht-emo-categories');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-ht-emo-categories';
+    modal.className = 'modal-overlay hidden';
+    modal.onclick = function(e){ if (e.target === modal) closeModal('modal-ht-emo-categories'); };
+    document.body.appendChild(modal);
+  }
+
+  function _renderCatSection(title, emoji, color, bg, items) {
+    if (!items.length) return '';
+    var chips = items.map(function(w) {
+      return '<span style="font-size:13px;color:' + color + ';background:' + bg + ';border-radius:14px;padding:5px 12px;display:inline-block;margin:3px;letter-spacing:.2px;word-break:keep-all">' + _escHtml(w) + '</span>';
+    }).join('');
+    return '<div style="margin-bottom:14px">' +
+      '<div style="font-size:13.5px;color:var(--navy);font-weight:700;margin-bottom:6px">' + emoji + ' ' + title + ' <span style="font-size:11px;color:var(--gray);font-weight:500">' + items.length + '개</span></div>' +
+      '<div style="line-height:1.8">' + chips + '</div>' +
+    '</div>';
+  }
+
+  var bodyHtml = '';
+  bodyHtml += _renderCatSection('긍정 감정', '🌞', '#5a8e3c', '#eaf6e1', cat.positive);
+  bodyHtml += _renderCatSection('중립 감정', '🌥', '#8a8580', '#f0ede8', cat.neutral);
+  bodyHtml += _renderCatSection('부정 감정', '🌧', '#a85a5a', '#fce6e6', cat.negative);
+  if (cat.unknown.length > 0) {
+    bodyHtml += _renderCatSection('분류 중...', '🔄', '#a89580', '#f5f0e8', cat.unknown);
+  }
+  if (!bodyHtml) bodyHtml = '<div style="text-align:center;color:var(--gray);font-size:13px;padding:20px 0">감정 키워드가 없어요</div>';
+
+  modal.innerHTML =
+    '<div class="modal-box" style="width:min(440px,94vw);padding:24px 22px 18px;border-radius:20px;max-height:80vh;overflow-y:auto">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">' +
+        '<div>' +
+          '<div style="font-size:18px;font-weight:700;color:var(--navy);font-family:\'Black Han Sans\',sans-serif;letter-spacing:.5px">📋 ' + week_no + '주차 감정 키워드</div>' +
+          '<div style="font-size:11.5px;color:var(--gray);margin-top:2px">' + _escHtml(theme.title || '') + ' · 총 ' + emoTags.length + '개</div>' +
+        '</div>' +
+        '<button onclick="closeModal(\'modal-ht-emo-categories\')" style="font-size:22px;color:var(--gray);background:none;border:none;cursor:pointer;line-height:1">×</button>' +
+      '</div>' +
+      bodyHtml +
+    '</div>';
+  modal.classList.remove('hidden');
+
+  if (cat.unknown.length > 0) {
+    _aiClassifyUnknownEmoTags(cat.unknown).then(function(){
+      if (!modal.classList.contains('hidden')) _openEmoCategoriesModal(week_no);
+    }).catch(function(){});
+  }
+}
+
+// 91차 ⓑ: 마음 페이지 AI 봇 답변 재생성 (낙관적 UI + Supabase patch 직접)
+//   학생/교사가 ✨ 새 답변 클릭 → 즉시 placeholder + 백그라운드 GAS Gemini 호출
+//   응답 도착 시 STATE._htpPages 갱신 + 페이지 재렌더 + Supabase weekly_book.bot_line patch
+//   text-only로 보냄 (사진은 첫 저장 때만 multimodal — 재생성은 0.5~1초 빠른 답습)
+async function _regenerateBotLine(week_no) {
+  var pages = STATE._htpPages || {};
+  var row = pages[week_no];
+  if (!row || !row.recorded_at) { toast('이 페이지에 기록이 없어요'); return; }
+  var theme = (typeof _getHeartTaleTheme === 'function') ? _getHeartTaleTheme(week_no) : {};
+  var prevLine = row.bot_line || '';
+  row.bot_line = '마음을 다시 읽고 있어요... ✨';
+  if (STATE._htpCurrentWeek === week_no) _renderHeartTalePage(week_no);
+  try {
+    var res = await api('generate_book_bot_line', {
+      student_text: row.student_text || '',
+      theme_title:  theme.title || '',
+      mind_skill:   theme.mind_skill || '',
+      emotion_tags: row.emotion_tags || ''
+    });
+    if (res && res.status === 'ok' && res.data && res.data.bot_line) {
+      row.bot_line = res.data.bot_line;
+      if (STATE._htpCurrentWeek === week_no) _renderHeartTalePage(week_no);
+      if (row.page_uid) {
+        _sbPatch('weekly_book', { page_uid: 'eq.' + row.page_uid }, { bot_line: res.data.bot_line })
+          .catch(function(e){ console.error('[BOT LINE PATCH]', e && e.message || e); });
+      }
+      toast('새 답변이 도착했어요 ✨');
+    } else {
+      row.bot_line = prevLine;
+      if (STATE._htpCurrentWeek === week_no) _renderHeartTalePage(week_no);
+      toast('재생성 실패 — 다시 시도해주세요');
+    }
+  } catch(e) {
+    console.error('[REGEN BOT LINE]', e && e.message || e);
+    row.bot_line = prevLine;
+    if (STATE._htpCurrentWeek === week_no) _renderHeartTalePage(week_no);
+    toast('오류가 났어요');
+  }
+}
+
 // ───── 자물쇠 잠금해제 게이트 (NFC = 기록 권한 verify) ─────
 // 82차 정책: NFC 갖다 대면 → 기록 모드 (그 카드 담당 묶음만 기록·수정·삭제 가능)
 //             "기록 없이 열람할게요" 링크 → 열람 모드 (모든 페이지 열람만)
@@ -21806,7 +21971,8 @@ async function _htpSaveRecord() {
   }
 
   var word = _PV_HEART_TALE_WORDS[(week_no - 1) % _PV_HEART_TALE_WORDS.length];
-  var bot_line = _PV_HEART_TALE_BOT_LINES[Math.floor(Math.random() * _PV_HEART_TALE_BOT_LINES.length)];
+  // 91차 ⓑ: 낙관적 UI — 즉시 placeholder 표시. 백그라운드 generate_book_bot_line 응답 도착 시 swap
+  var bot_line = '마음을 읽고 있어요... ✨';
 
   // 캐시 이전 상태 스냅샷 (실패 시 롤백용)
   if (!STATE._htpPages) STATE._htpPages = {};
@@ -21873,7 +22039,7 @@ async function _htpSaveRecord() {
       photo_url: saved.photo_url || cur.photo_url || '',
       thumb_url: saved.thumb_url || cur.thumb_url || '',
       student_text: text,
-      bot_line: bot_line,
+      bot_line: cur.bot_line || bot_line,  // 91차 ⓑ: AI 답변이 먼저 도착했으면 그 답변 보존, 아니면 placeholder
       title: titleToSave,            // 87차: swap 시에도 학생 변경 제목 보존
       emotion_tags: emoTagsCsv,      // 87차: 감정 칩 csv 보존
       recorded_at: saved.recorded_at || cur.recorded_at,
@@ -21890,6 +22056,44 @@ async function _htpSaveRecord() {
     if (STATE._htpCurrentWeek === week_no) _renderHeartTalePage(week_no);
     toast('저장이 안 됐어요. 다시 시도해 주세요');
   });
+
+  // 91차 ⓑ: 백그라운드 AI 봇 답변 (낙관적 UI — save 응답과 병렬, 빠른 쪽이 placeholder swap)
+  //   text-only는 빠름(0.5~1초), 사진 multimodal은 1~2초. 응답 도착 시 STATE 갱신 + Supabase patch
+  api('generate_book_bot_line', {
+    student_text: text,
+    theme_title:  theme.title || '',
+    mind_skill:   theme.mind_skill || '',
+    emotion_tags: emoTagsCsv,
+    image_b64:    newPhotoB64 || ''
+  }).then(function(botRes) {
+    if (!botRes || botRes.status !== 'ok' || !botRes.data || !botRes.data.bot_line) return;
+    var newLine = botRes.data.bot_line;
+    var pg = STATE._htpPages && STATE._htpPages[week_no];
+    if (!pg) return;
+    pg.bot_line = newLine;
+    if (STATE._htpCurrentWeek === week_no) _renderHeartTalePage(week_no);
+    // page_uid 박혔으면 Supabase 직접 patch (RLS 81차 anon UPDATE 정책 답습)
+    if (pg.page_uid) {
+      _sbPatch('weekly_book', { page_uid: 'eq.' + pg.page_uid }, { bot_line: newLine })
+        .catch(function(e){ console.error('[HT BOT LINE PATCH]', e && e.message || e); });
+    }
+  }).catch(function(e){ console.error('[HT BOT LINE]', e && e.message || e); });
+
+  // 91차 ⓐ: 미등록 감정 백그라운드 분류 (낙관적 UI — emotion_word_categories에 영구 박힘)
+  //   학생 본인 페이지 칩은 즉시 보임. 카테고리 모달 진입 시 캐시 hit으로 즉시 분류
+  if (emoTagsArr && emoTagsArr.length) {
+    STATE._emoCatCache = STATE._emoCatCache || {};
+    var unknownEmoTags = emoTagsArr.filter(function(w){ return w && !STATE._emoCatCache[w]; });
+    if (unknownEmoTags.length) {
+      api('classify_emotion_words', { words: unknownEmoTags }).then(function(cRes){
+        if (cRes && cRes.status === 'ok' && cRes.data && cRes.data.classifications) {
+          Object.keys(cRes.data.classifications).forEach(function(w){
+            STATE._emoCatCache[w] = cRes.data.classifications[w];
+          });
+        }
+      }).catch(function(){});
+    }
+  }
 }
 
 // 삭제 확인 (UPDATE 빈값 — recorded_at NULL, photo·text 비우기, Drive 파일 trash, row 보존)
@@ -24098,6 +24302,20 @@ function _prefetchAlbumThumbs(rows) {
       }
     }
   }
+}
+
+// 91차 ⓐ: 감정 단어 카테고리 글로벌 사전 — Supabase 직접 1회 fetch (anon SELECT)
+//   학생·교사 부팅 시 호출 → STATE._emoCatCache 박힘 → 마음 페이지 모달 진입 시 즉시 분류
+async function _loadEmoCategoriesCache() {
+  try {
+    var rows = await _sbFetch('emotion_word_categories', { select: 'word,category' });
+    if (rows && rows.length) {
+      STATE._emoCatCache = STATE._emoCatCache || {};
+      rows.forEach(function(r) {
+        if (r && r.word && r.category) STATE._emoCatCache[r.word] = r.category;
+      });
+    }
+  } catch(e) { console.error('[EMO CAT CACHE]', e && e.message ? e.message : e); }
 }
 
 // 78차: emotions_master Supabase 1회 fetch + 캐시 (cold start 회피, GAS 우회)
