@@ -18820,7 +18820,8 @@ async function _htCoverApplyCropped(b64) {
     if (typeof toast === 'function') toast('학생 정보가 없어요');
     return;
   }
-  if (typeof showLoading === 'function') showLoading('표지를 저장하고 있어요 ✨\n(3~5초 걸려요)');
+  // 90차 변쌤 통찰 — 감정앨범 답습. spinner 빼고 toast + 낙관적 UI(base64 즉시 미리보기) + 백그라운드 GAS (사용자 체감 0초)
+  if (typeof toast === 'function') toast('표지를 만들고 있어요 ✨', 1800);
 
   // 낙관적 UI — base64로 즉시 표지 표시 (76차 답습)
   var stuUid = STATE.user.student_uid;
@@ -27585,7 +27586,8 @@ async function uploadAlbum() {
     var file = input.files[0];
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) { toast('10MB 이하 사진만 올릴 수 있어요'); return; }
-    showLoading('사진을 준비하는 중이에요 📸\n(3~5초 걸려요)');
+    // 90차 변쌤 명시 — 감정앨범 답습. spinner 빼고 toast (사용자 즉시 다음 흐름·5초 안내 불필요)
+    if (typeof toast === 'function') toast('사진을 준비하는 중이에요 📸', 1500);
     var reader = new FileReader();
     reader.onload = function(ev) {
       var rawData = ev.target.result;
