@@ -1985,10 +1985,13 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   border-radius:3px 12px 12px 3px;
   padding:14px 10px 10px 16px;
   box-shadow:0 2px 5px rgba(60,40,20,0.10), 0 8px 18px rgba(60,40,20,0.07);
-  min-height:128px;
+  /* 90차 변쌤 명시 — 모든 카드 1:1 정사각 통일 (has-cover 무관 — 표지 업로드 학생/미업로드 학생 동일 크기) */
+  aspect-ratio:1 / 1;
+  min-height:0;
   display:flex; flex-direction:column;
   position:relative;
   overflow:hidden;
+  box-sizing:border-box;
 }
 .tale-book-cover::before{
   /* 왼쪽 책등 음영 */
@@ -2035,17 +2038,10 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   background:linear-gradient(135deg, #f7f3eb 0%, #ede4d2 100%);
 }
 /* 90차 변쌤 명시 — 학생 그림 표지 자동 반영 (book_cover_url 박힌 학생만 has-cover 클래스) */
+/* 90차 변쌤 명시 (re-fix v4) — display:flex column 그대로 유지 (텍스트 위치 일반 카드와 통일). aspect-ratio·정사각은 .tale-book-cover 기본 클래스에 박힘 */
 .tale-book-cover.has-cover{
   background-size:cover;
   background-position:center;
-  /* 90차 변쌤 신고 fix v3 — flex column 자식 stack 높이가 aspect-ratio 우선 깨뜨림. display:block로 변경해 카드 height를 자식과 분리 (1:1 정사각 강제) */
-  display:block;
-  aspect-ratio:1 / 1;
-  width:100%;
-  min-height:0;
-  height:auto;
-  box-sizing:border-box;
-  overflow:hidden;       /* 자식 텍스트 넘쳐도 카드 1:1 유지 */
 }
 .tale-book-cover.has-cover::after{
   /* 페이지 모서리 효과 대신 다크 그라디언트 overlay (텍스트 가독성) */
@@ -24444,9 +24440,10 @@ function openAdminTaleClassDrill(teacher_uid) {
       var emptyCls = hasAny ? '' : ' class="tale-rainbow-empty"';
       rainbowHtml += '<span' + emptyCls + ' style="background:' + rainbowColors[c] + '"></span>';
     }
+    // 90차 변쌤 명시 — "아직 비어 있어요" 의미 모호. 진척 명확하게 (마음페이지 N쪽 / 비어 있어요)
     var progressLine = isEmpty
-      ? '<div class="tale-book-progress" style="color:var(--gray)">아직 비어 있어요</div>'
-      : '<div class="tale-book-progress">📖 ' + prog.count + '주차 / ' + HEART_TALE_TOTAL_WEEKS + '주</div>';
+      ? '<div class="tale-book-progress" style="color:var(--gray)">마음페이지 비어 있어요</div>'
+      : '<div class="tale-book-progress">📖 마음페이지 ' + prog.count + '쪽</div>';
     html += '<div class="tale-book-item' + (isEmpty ? ' tale-empty' : '') + '" style="cursor:default">' +
       '<div class="tale-book-cover">' +
         '<div class="tale-book-num">' + num + '번</div>' +
@@ -24556,9 +24553,10 @@ function _buildTeacherTaleGridHTML(stus) {
       rainbowHtml += '<span' + emptyCls + ' style="background:' + rainbowColors[c] + '"></span>';
     }
 
+    // 90차 변쌤 명시 — "아직 비어 있어요" 의미 모호. 진척 명확하게 (마음페이지 N쪽 / 비어 있어요)
     var progressLine = isEmpty
-      ? '<div class="tale-book-progress" style="color:var(--gray)">아직 비어 있어요</div>'
-      : '<div class="tale-book-progress">📖 ' + prog.count + '주차 / ' + HEART_TALE_TOTAL_WEEKS + '주</div>';
+      ? '<div class="tale-book-progress" style="color:var(--gray)">마음페이지 비어 있어요</div>'
+      : '<div class="tale-book-progress">📖 마음페이지 ' + prog.count + '쪽</div>';
 
     // 90차 변쌤 명시 — 학생 그림 표지 자연 반영 (book_cover_url 있으면 카드 배경)
     //   90차 변쌤 신고 fix2 — http URL만 has-cover 적용 (base64·빈 값·잘못된 URL 차단 — 어두운 회색 빈 카드 회귀 방지)
