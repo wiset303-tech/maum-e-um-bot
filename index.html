@@ -50,7 +50,7 @@
 }
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;overflow:hidden;background:var(--cream)}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--cream);overscroll-behavior:contain}   /* 90차 변쌤 신고 fix — pull-to-refresh 차단 (사진 자르기 등 모달에서 끌어오면 새로고침 회귀) */
 body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipulation}
 
 /* ── 유틸 ── */
@@ -1678,6 +1678,10 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   box-shadow:0 20px 60px rgba(0,0,0,0.3);
   animation:popIn .25s cubic-bezier(.2,.9,.3,1.2);
   position:relative;
+  /* 90차 변쌤 신고 fix — 세로 잘림 차단 (모바일 viewport 안에 들어가게) */
+  max-height:92vh;
+  overflow-y:auto;
+  overscroll-behavior:contain;
 }
 .ht-rec-title{
   font-size:16px; font-weight:700;
@@ -1827,6 +1831,24 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
   box-shadow:0 20px 60px rgba(0,0,0,0.3);
   animation:popIn .25s cubic-bezier(.2,.9,.3,1.2);
   position:relative;
+  /* 90차 변쌤 신고 fix — 저장/취소 버튼이 viewport 밖으로 잘리던 회귀 차단 */
+  max-height:92vh;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  display:flex;
+  flex-direction:column;
+}
+.ht-crop-modal-box .ht-crop-stage{
+  flex:1 1 auto;
+  min-height:0;   /* flex 안에서 크기 자동 조정 (사진 자르기 영역이 actions 영역 침범 안 하게) */
+}
+.ht-crop-modal-box .ht-crop-actions{
+  flex-shrink:0;   /* actions는 항상 보이게 */
+  position:sticky;
+  bottom:0;
+  background:#fff;
+  padding-top:8px;
+  z-index:2;
 }
 .ht-crop-title{
   font-size:16px; font-weight:700;
@@ -18639,7 +18661,7 @@ function _buildHeartTaleCoverHTML() {
   html += '<div class="heart-tale-cover-subtitle">한 주에 한 페이지<br>1년의 마음 이야기</div>';
   if (isSelf) {
     html += '<button type="button" class="heart-tale-cover-upload-btn" onclick="_htOpenCoverUpload()">';
-    html += bookCover ? '✏️ 표지 그림 변경' : '✏️ 그림으로 표지 만들기';
+    html += bookCover ? '✏️ 마음표지 변경' : '✏️ 나만의 마음표지 만들기';   // 90차 변쌤 명시
     html += '</button>';
   }
   html += '<div class="heart-tale-cover-hint">▶ 다음 페이지로 넘겨보세요</div>';
@@ -20763,13 +20785,15 @@ async function _handleHeartTaleNfc(uid) {
       // 책 페이지 수도 미리 캐싱 (페이지 묶음 판정에 필요) — 페이지 fetch는 openHeartTalePage에서 이미 호출됨
       try { await _htpFetchBookCount(myUid); } catch(e) {}
       if (errEl) errEl.textContent = '';
-      // 82차 Phase 6: 자물쇠 게이트면 unlock 흐름, 이미 unlock(view 모드)이면 record 전환만 + 현재 페이지 재렌더
+      // 82차 Phase 6: 자물쇠 게이트면 unlock 흐름(1100ms 애니), 이미 unlock(view 모드)이면 record 전환 즉시
+      // 90차 변쌤 신고 fix — 매칭 성공 시 hideLoading은 _unlockHeartTale 끝(페이지 그려진 후)에서 호출 / record 전환은 즉시
       if (STATE._htpLocked) {
-        _unlockHeartTale();
+        _unlockHeartTale();   // 함수 안에서 1100ms 후 페이지 렌더 + hideLoading
       } else {
         var w = STATE._htpCurrentWeek;
         if (w !== undefined && w !== null) _renderHeartTalePage(w);
         toast('🌈 마음동화 스티커 인식 — 이제 수정할 수 있어요');
+        if (typeof hideLoading === 'function') hideLoading();
       }
       return;
     }
@@ -20778,16 +20802,16 @@ async function _handleHeartTaleNfc(uid) {
     var myAttendUid = STATE.user.nfc_uid ? _normalizeNfc(STATE.user.nfc_uid) : '';
     if (myAttendUid && myAttendUid === normUid) {
       if (errEl) errEl.textContent = '이건 등교 카드예요 (🌈 마음동화 스티커가 따로 있어요)';
+      if (typeof hideLoading === 'function') hideLoading();
       return;
     }
 
     // ❌ 그 외
     if (errEl) errEl.textContent = '내 🌈 마음동화 스티커가 아니에요';
+    if (typeof hideLoading === 'function') hideLoading();
   } catch(e) {
     console.error('[HT NFC]', e && e.message ? e.message : e);
     if (errEl) errEl.textContent = '카드 확인이 잘 안돼요. 다시 시도해 주세요';
-  } finally {
-    // 90차 변쌤 신고 fix — NDEF_READER.onreading에서 showLoading 띄운 것 hideLoading 누락 → stuck. 항상 닫음
     if (typeof hideLoading === 'function') hideLoading();
   }
 }
@@ -21457,6 +21481,8 @@ if (typeof _escAttr !== 'function') {
 function _htpPickPhoto() {
   _confirmPhotoUploadConsent().then(function(ok){
     if (!ok) return;
+    // 90차 변쌤 신고 fix — 동의 후 OS 갤러리 호출 사이 2~3초 먹통 인상 차단 (시각 피드백)
+    if (typeof toast === 'function') toast('갤러리를 여는 중이에요... 📷', 1500);
     var input = document.getElementById('htRecPhotoInput');
     if (input) input.click();
   });
@@ -21940,13 +21966,20 @@ function _htpDeleteRecord(week_no) {
 function _unlockHeartTale() {
   var lockGate = document.querySelector('.heart-tale-lock-gate');
   var lock = document.getElementById('htpLock');
-  if (!lockGate || !lock) { STATE._htpLocked = false; _renderHeartTalePage(0); return; }
+  if (!lockGate || !lock) {
+    STATE._htpLocked = false;
+    _renderHeartTalePage(0);
+    if (typeof hideLoading === 'function') hideLoading();   // 90차 fix
+    return;
+  }
   lockGate.classList.add('unlocking');
   lock.classList.add('unlocking');
   setTimeout(function(){ lock.classList.add('unlocked'); }, 650);
   setTimeout(function(){
     STATE._htpLocked = false;
     _renderHeartTalePage(0);
+    // 90차 변쌤 신고 fix — 페이지 그려진 직후 스피너 off (이전엔 finally에서 즉시 off → 1100ms 빈 화면 텀)
+    if (typeof hideLoading === 'function') hideLoading();
   }, 1100);
 }
 
