@@ -5726,8 +5726,8 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       <button type="button" class="ht-emo-macro-tab" data-macro="custom" onclick="_htpEmoPickSwitchMacro('custom')"
         style="flex:1;padding:8px 4px;border-radius:10px;border:2px solid var(--lgray);background:#fff;font-size:13px;cursor:pointer;transition:all .15s">✏️<div style="font-size:10px;color:var(--gray);margin-top:2px">직접</div></button>
     </div>
-    <!-- 그리드 (긍정/중립/부정 선택 시 표시) -->
-    <div id="htRecEmoPickGrid" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:14px;min-height:60px"></div>
+    <!-- 그리드 (긍정/중립/부정 선택 시 표시) — 90차 변쌤 명시: gap 8px (좌우/위아래 여백) -->
+    <div id="htRecEmoPickGrid" style="display:flex;flex-wrap:wrap;gap:8px 8px;justify-content:center;margin-bottom:16px;min-height:60px;padding:4px 2px"></div>
     <!-- 직접 쓰기 영역 (custom 선택 시 표시) -->
     <div id="htRecEmoPickCustom" style="display:none;margin-bottom:14px">
       <div style="display:flex;gap:6px">
@@ -5738,7 +5738,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:var(--navy);touch-action:manipu
       </div>
       <div style="font-size:10.5px;color:var(--gray);margin-top:6px;text-align:center">12자 이내 한국어 권장</div>
     </div>
-    <button class="btn-primary" style="width:100%" onclick="closeModal('modal-heart-tale-emo-pick')">완료</button>
+    <div style="text-align:center"><button class="btn-primary" style="padding:9px 28px;font-size:13.5px" onclick="closeModal('modal-heart-tale-emo-pick')">완료</button></div>
   </div>
 </div>
 
@@ -21564,13 +21564,13 @@ function _htpRenderEmoChips() {
   for (var i = 0; i < tags.length; i++) {
     var t = tags[i];
     // 칩 클릭 시 토글(빼기) — 변쌤 명시 "다시 누르면 삭제"
-    html += '<span class="ht-rec-emo-chip" onclick="_htpToggleEmoChip(' + i + ')" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:12.5px;color:#7a5a3c;background:#fff7e6;border:1.5px solid #f0d9a8;border-radius:14px;padding:4px 11px 4px 12px;font-weight:600;letter-spacing:.2px;transition:all .15s">';
+    html += '<span class="ht-rec-emo-chip" onclick="_htpToggleEmoChip(' + i + ')" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:12.5px;color:#7a5a3c;background:#fff7e6;border:1.5px solid #f0d9a8;border-radius:14px;padding:4px 11px 4px 12px;font-weight:600;letter-spacing:.2px;transition:all .15s;white-space:nowrap;word-break:keep-all;flex-shrink:0">';
     html += _escHtml(t);
     html += '<span style="opacity:.55;font-size:14px;line-height:1">×</span>';
     html += '</span>';
   }
   // 「+」 더하기 버튼 (마지막 자리)
-  html += '<button type="button" onclick="_htpOpenEmoPickModal()" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:12.5px;color:#5a8a7a;background:#eef9f4;border:1.5px dashed #b6dfd0;border-radius:14px;padding:4px 11px;font-weight:700;letter-spacing:.2px;transition:all .15s">';
+  html += '<button type="button" onclick="_htpOpenEmoPickModal()" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:12.5px;color:#5a8a7a;background:#eef9f4;border:1.5px dashed #b6dfd0;border-radius:14px;padding:4px 11px;font-weight:700;letter-spacing:.2px;transition:all .15s;white-space:nowrap;word-break:keep-all;flex-shrink:0">';
   html += '<span style="font-size:14px;line-height:1">+</span> 더하기';
   html += '</button>';
   box.innerHTML = html;
@@ -21665,7 +21665,7 @@ function _htpEmoPickRender() {
       var bg = on ? '#7ed6c0' : '#fff7e6';
       var fg = on ? '#fff'    : '#7a5a3c';
       var bd = on ? '#5cc4ad' : '#f0d9a8';
-      html += '<button type="button" onclick="_htpPickEmoFromPool(\'' + _escAttr(w) + '\')" style="font-size:12.5px;color:' + fg + ';background:' + bg + ';border:1.5px solid ' + bd + ';border-radius:14px;padding:5px 11px;font-weight:600;cursor:pointer;letter-spacing:.2px">' + _escHtml(w) + '</button>';
+      html += '<button type="button" onclick="_htpPickEmoFromPool(\'' + _escAttr(w) + '\')" style="font-size:12.5px;color:' + fg + ';background:' + bg + ';border:1.5px solid ' + bd + ';border-radius:14px;padding:5px 11px;font-weight:600;cursor:pointer;letter-spacing:.2px;white-space:nowrap;word-break:keep-all">' + _escHtml(w) + '</button>';
     }
   }
   grid.innerHTML = html;
