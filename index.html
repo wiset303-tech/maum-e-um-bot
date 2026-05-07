@@ -19748,15 +19748,16 @@ async function _openTeacherSelClassModal() {
     '<div class="modal-box" style="width:min(560px,94vw);padding:22px 20px 18px;border-radius:20px;height:75vh;max-height:88vh;display:flex;flex-direction:column;overflow:hidden">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:8px">' +
         '<div style="flex:1;min-width:0">' +
-          '<div style="font-size:18px;font-weight:700;color:var(--navy);font-family:\'Black Han Sans\',sans-serif;letter-spacing:.5px">📋 학급 사회정서역량 진단</div>' +
-          // 91차 fix17 (변쌤 명시 답습): 부제 + 논문(2024 평가원) + 국가기초학력지원포털 두 링크 자연 배치
-          '<div style="font-size:11.5px;color:var(--gray);margin-top:3px;line-height:1.6">' +
-            '<div>7역량 28문항 · 학생별/문항별 일괄</div>' +
-            '<div style="display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:5px;align-items:center">' +
-              '<a href="https://www.ejce.org/archive/view_article?pid=jce-27-1-157" target="_blank" rel="noopener" title="(2024, 평가원) 초등학생의 사회정서역량 진단을 위한 교사용·부모용 측정도구 개발 및 타당화" style="color:var(--mint2);text-decoration:none;font-weight:600;font-size:10.5px;display:inline-flex;align-items:center;gap:3px">📄 사회정서역량 진단도구 (2024 평가원) ↗</a>' +
-              '<span style="color:var(--lgray);font-size:10px">·</span>' +
-              '<a href="https://basics.go.kr" target="_blank" rel="noopener" style="color:var(--mint2);text-decoration:none;font-weight:600;font-size:10.5px;display:inline-flex;align-items:center;gap:3px">🔗 국가기초학력지원포털 ↗</a>' +
-            '</div>' +
+          // 91차 fix18 (변쌤 명시 답습): 제목 + 부제 같은 행 (3행 → 2행 압축)
+          '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">' +
+            '<div style="font-size:18px;font-weight:700;color:var(--navy);font-family:\'Black Han Sans\',sans-serif;letter-spacing:.5px">📋 학급 사회정서역량 진단</div>' +
+            '<div style="font-size:11.5px;color:var(--gray)">7역량 28문항 · 학생별/문항별 일괄</div>' +
+          '</div>' +
+          // 2행: 논문 + 포털 링크
+          '<div style="display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:6px;align-items:center">' +
+            '<a href="https://www.ejce.org/archive/view_article?pid=jce-27-1-157" target="_blank" rel="noopener" title="(2024, 평가원) 초등학생의 사회정서역량 진단을 위한 교사용·부모용 측정도구 개발 및 타당화" style="color:var(--mint2);text-decoration:none;font-weight:600;font-size:10.5px;display:inline-flex;align-items:center;gap:3px">📄 사회정서역량 진단도구 (2024 평가원) ↗</a>' +
+            '<span style="color:var(--lgray);font-size:10px">·</span>' +
+            '<a href="https://basics.go.kr" target="_blank" rel="noopener" style="color:var(--mint2);text-decoration:none;font-weight:600;font-size:10.5px;display:inline-flex;align-items:center;gap:3px">🔗 국가기초학력지원포털 ↗</a>' +
           '</div>' +
         '</div>' +
         '<button onclick="closeModal(\'modal-sel-teacher-class\')" style="font-size:22px;color:var(--gray);background:none;border:none;cursor:pointer;line-height:1;flex-shrink:0">×</button>' +
@@ -19925,7 +19926,9 @@ async function _teacherSelStartForStudent(student_uid, student_name, grade) {
       toast('진단 시작이 안 됐어요: ' + (er.detail || er.code || ''));
       return;
     }
-    closeModal('modal-sel-teacher-class');
+    // 91차 fix18 (변쌤 명시 답습): 학급 모달 닫지 X (z-index 3490 → 응답 모달 3500이 위로 떠 덮음)
+    //   응답 모달 닫으면 학급 모달 자연스럽게 보임 — 교사 학급 진단 흐름 끊김 X
+    STATE._teacherSelInProgress = true;  // _selCloseAssess hook용 (q1 미응답 시 row 초기화)
     if (typeof _selOpenAssess === 'function') {
       _selOpenAssess({ assessment: res.assessment, gradeBand: gradeBand, studentName: student_name });
     }
@@ -19972,9 +19975,9 @@ async function _teacherSelHandleStudentClick(student_uid) {
     _teacherSelOpenResult(student_uid, s.name, _teacherSelClassPhase);
     return;
   }
-  // 진행 중 (자기) → 이어쓰기
+  // 진행 중 (자기) → 이어쓰기 (91차 fix18: 학급 모달 닫지 X — 응답 모달 z-index 3500이 위로 떠 덮음)
   if (row && row.status === 'in_progress' && row.responder_uid === myUid) {
-    closeModal('modal-sel-teacher-class');
+    STATE._teacherSelInProgress = true;  // _selCloseAssess hook용
     if (typeof _selOpenAssess === 'function') {
       _selOpenAssess({ assessment: row, gradeBand: row.grade_band || _selGradeBand(grade), studentName: s.name });
     }
@@ -20153,10 +20156,24 @@ function _selCloseAssess() {
   var st = STATE._selAssess;
   if (st && !st.isPreview && st.uid) {
     var partial = {};
+    var hasAny = false;
     for (var i = 1; i <= 28; i++) {
-      if (st.answers['q'+i]) partial['q'+i] = st.answers['q'+i];
+      if (st.answers['q'+i]) { partial['q'+i] = st.answers['q'+i]; hasAny = true; }
     }
-    if (Object.keys(partial).length) _selSaveProgress(st.uid, partial);
+    if (hasAny) {
+      _selSaveProgress(st.uid, partial);
+    } else if (STATE._teacherSelInProgress) {
+      // 91차 fix18 (변쌤 명시 답습): 교사 진단 q1 미응답 시 row 초기화 — '진행 중' 표시 X, 미실시 유지
+      try { _selResetAssessment(st.uid).catch(function(){}); } catch(e) {}
+    }
+  }
+  // 91차 fix18: 학급 모달 열려 있으면 응답 상태 뱃지 갱신 (교사 진단 흐름 끊김 X)
+  if (STATE._teacherSelInProgress) {
+    STATE._teacherSelInProgress = false;
+    var classModal = document.getElementById('modal-sel-teacher-class');
+    if (classModal && !classModal.classList.contains('hidden') && typeof _renderTeacherSelClassList === 'function') {
+      setTimeout(function(){ _renderTeacherSelClassList(); }, 300);  // row 초기화 patch 응답 후 갱신
+    }
   }
 }
 
