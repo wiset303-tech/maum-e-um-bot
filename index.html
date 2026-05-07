@@ -9327,13 +9327,7 @@ function settingsHTML() {
     // 85차: 「페르소나 대화 허용」 토글 카드 폐지. 학생이 마음봇 누적 5턴 채우면 그 학생 한정 자동 활성.
     // 옛 GAS 라우트 set_persona_mode/check_persona_mode는 다음 차수 정리 예정 (이번엔 호출만 중단).
 
-    // 83차: 전담 교사 v1 — 담임이 같은 학교 교사에게 본인 학급 마음앨범 열람만 허용
-    '<div class="card card-mint" style="margin-top:8px">' +
-      '<div class="card-label">🤝 내 학급 열람 허용 교사</div>' +
-      '<div style="font-size:12px;color:var(--gray);margin-bottom:10px;line-height:1.55">전담·동학년 선생님이 우리 반 마음앨범을 <b>열람만</b> 할 수 있도록 허용해요. 추가·수정·삭제·선물 등은 차단돼요.</div>' +
-      '<div id="viewGrantsCount" style="font-size:13px;color:var(--navy);margin-bottom:8px"></div>' +
-      '<button class="btn btn-secondary" style="width:100%;font-size:13px;padding:13px 18px" onclick="openViewGrantsModal()">👥 허용 교사 관리</button>' +
-    '</div>' +
+    // 91차 ③: 카드 순서 변경 (변쌤 명시 답습) — 알림 → 계정 → SEL → 열람 허용 교사
     '<div class="card card-peach" style="margin-top:8px">' +
       '<div class="card-label">계정 정보</div>' +
       '<div style="font-size:13px;color:var(--gray);line-height:1.8" id="teacherInfoBox"></div>' +
@@ -9351,6 +9345,13 @@ function settingsHTML() {
       '<div class="card-label">📋 사회정서역량 진단</div>' +
       '<div style="font-size:12px;color:var(--gray);margin-bottom:10px;line-height:1.55">우리 반 학생을 7역량 28문항으로 평가해요. 1-2학년은 교사 관찰형, 3-6학년은 학생 자가응답 어조 자동 분기.</div>' +
       '<button class="btn btn-secondary" style="width:100%;font-size:13px;padding:13px 18px" onclick="_openTeacherSelClassModal()">👥 학급 진단 시작</button>' +
+    '</div>' +
+    // 83차: 전담 교사 v1 — 담임이 같은 학교 교사에게 본인 학급 마음앨범 열람만 허용
+    '<div class="card card-mint" style="margin-top:8px">' +
+      '<div class="card-label">🤝 내 학급 열람 허용 교사</div>' +
+      '<div style="font-size:12px;color:var(--gray);margin-bottom:10px;line-height:1.55">전담·동학년 선생님이 우리 반 마음앨범을 <b>열람만</b> 할 수 있도록 허용해요. 추가·수정·삭제·선물 등은 차단돼요.</div>' +
+      '<div id="viewGrantsCount" style="font-size:13px;color:var(--navy);margin-bottom:8px"></div>' +
+      '<button class="btn btn-secondary" style="width:100%;font-size:13px;padding:13px 18px" onclick="openViewGrantsModal()">👥 허용 교사 관리</button>' +
     '</div>' +
     '<button class="btn btn-secondary" style="margin-top:8px" onclick="logout()">로그아웃</button>';
 }
@@ -19881,22 +19882,17 @@ async function _teacherSelStartForStudent(student_uid, student_name, grade) {
     if (!res.ok) {
       var er = res.error || {};
       if (er.code === 'ERR_LOCKED') {
+        // 91차 fix11: appConfirm은 위치 인자(title, message, opts) — 객체 첫 인자 호출 시 [object Object] 회귀 차단
         var byLabel = er.by_role === 'student' ? '학생' : er.by_role === 'parent' ? '학부모' : '다른 교사';
-        appConfirm({
-          title: '다른 분이 응답 중이에요',
-          message: byLabel + (er.by_name ? '(' + _escHtml(er.by_name) + ')' : '') + '이 이미 ' + (er.status === 'done' ? '완료' : '진행 중') + '이에요.<br>교사 응답으로 다시 시작할까요?<br><span style="font-size:11px;color:var(--gray)">(기존 응답은 사라집니다)</span>',
-          okText: '재시작', cancelText: '취소',
-          onOk: function(){ _teacherSelResetAndStart(student_uid, student_name, grade); }
-        });
+        var lockMsg = byLabel + (er.by_name ? '(' + _escHtml(er.by_name) + ')' : '') + '이 이미 ' + (er.status === 'done' ? '완료' : '진행 중') + '이에요.<br>교사 응답으로 다시 시작할까요?<br><span style="font-size:11px;color:var(--gray)">(기존 응답은 사라집니다)</span>';
+        var lockOk = await appConfirm('다른 분이 응답 중이에요', lockMsg, { okLabel:'재시작' });
+        if (lockOk) _teacherSelResetAndStart(student_uid, student_name, grade);
         return;
       }
       if (er.code === 'ERR_ALREADY_DONE') {
-        appConfirm({
-          title: '이미 완료된 진단',
-          message: _escHtml(student_name) + ' 학생의 ' + _teacherSelClassPhase + '차 진단이 완료됐어요.<br>다시 시작할까요?<br><span style="font-size:11px;color:var(--gray)">(기존 응답은 사라집니다)</span>',
-          okText: '재시작', cancelText: '취소',
-          onOk: function(){ _teacherSelResetAndStart(student_uid, student_name, grade); }
-        });
+        var doneMsg = _escHtml(student_name) + ' 학생의 ' + _teacherSelClassPhase + '차 진단이 완료됐어요.<br>다시 시작할까요?<br><span style="font-size:11px;color:var(--gray)">(기존 응답은 사라집니다)</span>';
+        var doneOk = await appConfirm('이미 완료된 진단', doneMsg, { okLabel:'재시작' });
+        if (doneOk) _teacherSelResetAndStart(student_uid, student_name, grade);
         return;
       }
       toast('진단 시작이 안 됐어요: ' + (er.detail || er.code || ''));
@@ -22060,10 +22056,10 @@ function _renderTaleAlbumHeader(stus) {
   html += '<div class="ht-class-bar ht-pano-bar" style="background:linear-gradient(135deg,#faf5ff,#eff6ff);border-color:#ddd6fe">';
   if (panoActive) {
     html += '<button class="ht-class-btn" onclick="_endHeartPanorama()" style="width:100%;background:linear-gradient(135deg,#a78bfa,#60a5fa);color:#fff;border:none;padding:11px 14px;border-radius:11px;font-weight:700;font-size:14px;cursor:pointer;letter-spacing:.3px">⏹ 마음 파노라마 종료</button>';
-    html += '<div style="margin-top:6px;font-size:11px;color:#6d5fa5;text-align:center;line-height:1.5;word-break:keep-all">파노라마 진행 중 — 학생들이 마지막 표지에서 펼쳐볼 수 있어요</div>';
+    html += '<div class="ht-class-sub" style="color:#6d5fa5">파노라마 진행 중<br>학생들이 마지막 표지에서 펼쳐볼 수 있어요</div>';
   } else {
     html += '<button class="ht-class-btn" onclick="_startHeartPanorama()" style="width:100%;background:linear-gradient(135deg,#fbcfe8,#c7d2fe);color:#5b3990;border:none;padding:11px 14px;border-radius:11px;font-weight:700;font-size:14px;cursor:pointer;letter-spacing:.3px">🎞️ 마음 파노라마 시작</button>';
-    html += '<div style="margin-top:6px;font-size:11px;color:#7a6da5;text-align:center;line-height:1.5;word-break:keep-all">시작하면 학생들이 마지막 표지에서<br>1년의 마음을 펼쳐볼 수 있어요 ✨</div>';
+    html += '<div class="ht-class-sub" style="color:#7a6da5">시작하면 학생들이 마지막 표지에서<br>1년의 마음을 펼쳐볼 수 있어요 ✨</div>';
   }
   html += '</div>';
   html += '</div>';
