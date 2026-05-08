@@ -9034,6 +9034,9 @@ async function onLoginSuccess(data) {
         .catch(function(e){ console.error('[SB CHAT HIST PRELOAD]', e && e.message ? e.message : e); }),
       // 91차 ⓒ: 마음동화 수업 active 상태 동기화 (broadcast 못 받았어도 새로고침 시 하이라이팅 복구 — 87차 파노라마 패턴 답습)
       (typeof _syncHeartTaleClassHighlightForStudent === 'function' ? _syncHeartTaleClassHighlightForStudent() : Promise.resolve()).catch(function(){}),
+      // 92차: SEL N차 시작 신호 active phase 동기화 (broadcast 못 받았어도 새로고침 시 STATE._selCurrentPhase 복구)
+      //   _refreshSelSettingsCard가 _selFetchStatus 후 자동 호출되므로 여기서 추가 호출 X (중복 방지)
+      (typeof _syncSelCurrentPhaseForStudent === 'function' ? _syncSelCurrentPhaseForStudent() : Promise.resolve()).catch(function(){}),
       // 91차 ②: 학급 학생 오늘 감정 일괄 동기화 (변쌤 신고 답습 — 감정바코드 담임과 일치)
       //   STATE.studentEmotions 채움 → 감정앨범 탭 진입 시 무지개 바코드 정상 표시
       (typeof _syncStudentClassEmotions === 'function' ? _syncStudentClassEmotions() : Promise.resolve()).catch(function(){}),
@@ -12823,8 +12826,9 @@ async function loadNotifications() {
 function _filterStaleAppUpdateNotifs() {
   // 91차 ⓒ: 마음동화 수업 시작/종료는 신호 전용 — 알림 목록·헤더 카운트에서 차단 (변쌤 명시 답습)
   //   loadNotifications 시점에 DB에서 받아도 자동 제거. _addNotificationFromRow에서도 unshift 차단.
+  // 92차: SEL N차 시작 신호도 동일 — 신호 전용, 학생 단말 _refreshSelSettingsCard로 카드 펄스만
   _notifications = _notifications.filter(function(n){
-    return n.type !== 'heart_tale_class_start' && n.type !== 'heart_tale_class_end';
+    return n.type !== 'heart_tale_class_start' && n.type !== 'heart_tale_class_end' && n.type !== 'sel_class_start';
   });
   var loadAt = STATE.pageLoadAt || 0;
   var killed = [];
@@ -13538,7 +13542,11 @@ function startStudentEmotionRealtime() {
         score: row.emotion_score
       };
       // 감정앨범 상단 우리반 바코드 재렌더 (90차 답습 — 학생도 자기 자리 보임)
+      // 92차 fix (변쌤 91차 ② 검증 잔존 답습): 학생 home 화면 바코드(barcodeTrack default)도 동시 갱신
+      //   회귀: broadcast 받아 STATE.studentEmotions 갱신은 되지만, home 화면 바코드는 친구 감정 변동에도 plain 유지였음
+      //   fix: 두 영역 모두 갱신 (default = home / opts = 감정앨범 탭)
       if (typeof renderEmotionBarcode === 'function') {
+        try { renderEmotionBarcode(); } catch(e) {}  // 학생 home: barcodeTrack/barcodeNums/barcodeDateTag (default)
         try { renderEmotionBarcode({ trackId:'emoAlbumBarcodeTrack', numsId:'emoAlbumBarcodeNums', tagId:'emoAlbumBarcodeTag' }); } catch(e) {}
       }
     };
@@ -13650,8 +13658,10 @@ function _onNewNotification(row) {
   };
   // 91차 ⓒ: 마음동화 수업 시작/종료는 신호 전용 (알림 목록 X·헤더 카운트 X — 변쌤 명시 답습)
   //   broadcast row는 _fetchHeartTaleClassActive로 active 산출만. 사용자에게 알림 표시 X
+  // 92차: SEL N차 시작 신호도 동일 — 학생 단말 _refreshSelSettingsCard로 카드 펄스만
   var isHtClassSignal = (n.type === 'heart_tale_class_start' || n.type === 'heart_tale_class_end');
-  if (!isHtClassSignal) _notifications.unshift(n);
+  var isSelClassSignal = (n.type === 'sel_class_start');
+  if (!isHtClassSignal && !isSelClassSignal) _notifications.unshift(n);
   // 73차: app_update는 최신 1개만 살림 — 새 거 도착 시 기존 unread 자동 read 처리 (중복 방지)
   if (n.type === 'app_update') {
     var killed = [];
@@ -13695,6 +13705,16 @@ function _onNewNotification(row) {
     var sn2 = parseInt(n.body, 10) || 1;
     if (typeof _onHeartTaleClassEndReceived === 'function') _onHeartTaleClassEndReceived(sn2);
     return;
+  }
+  // 92차: SEL N차 검사 시작 신호 — 학생 단말 STATE._selCurrentPhase 박음 + SEL 카드 펄스 (마음동화 답습)
+  if (n.type === 'sel_class_start' && STATE.role === 'student') {
+    var selPhase = parseInt(n.body, 10) || 1;
+    if (typeof _onSelClassPhaseStartReceived === 'function') _onSelClassPhaseStartReceived(selPhase);
+    return;
+  }
+  // 92차: 교사 본인은 toast 또는 silent (학급 모달에서 직접 발사한 거라 본인은 알림 의미 X)
+  if (n.type === 'sel_class_start' && STATE.role === 'teacher') {
+    return;  // 본인이 발사한 신호 자체 reflect — 별도 처리 X
   }
   // 82차 Phase 6: 교사 본인은 차시 active 상태 갱신 + 마음앨범 탭 보고 있으면 헤더 재렌더
   if ((n.type === 'heart_tale_class_start' || n.type === 'heart_tale_class_end') && STATE.role === 'teacher') {
@@ -19367,6 +19387,96 @@ async function _selFetchStatus(student_uid) {
   }
 }
 
+// ════════════════════════════════════════════════════════════════
+// 92차: SEL 학급 phase 시작 신호 시스템 (마음동화 수업 시작 broadcast 답습)
+// ════════════════════════════════════════════════════════════════
+//   교사가 학급 모달 → "N차 진단 시작하기" 버튼 클릭 → broadcast 발사
+//   학생 단말: STATE._selCurrentPhase=N + SEL 카드 pulse 활성화 + sub 텍스트 갱신
+//   학생이 카드 클릭 → intro → 진단 시작 (phase=N 자동)
+//   알림 목록·헤더 카운트에서 제외 (변쌤 명시 — 신호 전용, 마음동화 패턴 답습)
+// ════════════════════════════════════════════════════════════════
+
+// 활성 phase fetch — 가장 최근 sel_class_start 알림 1건으로 산출
+async function _fetchSelCurrentPhaseActive(recipient_uid) {
+  if (!recipient_uid) return null;
+  try {
+    var rows = await _sbFetch('notifications', {
+      recipient_uid: 'eq.' + recipient_uid,
+      type: 'eq.sel_class_start',
+      order: 'created_at.desc',
+      limit: '1'
+    });
+    if (!rows || !rows.length) return null;
+    var phase = parseInt(rows[0].body, 10) || 1;
+    return { phase: phase, started_at: rows[0].created_at };
+  } catch(e) {
+    console.error('[SEL CURRENT PHASE FETCH]', e && e.message ? e.message : e);
+    return null;
+  }
+}
+
+// 학생 부팅·재로그인 시 active phase 동기화 (마음동화 _syncHeartTaleClassHighlightForStudent 답습)
+async function _syncSelCurrentPhaseForStudent() {
+  if (!STATE.user || !STATE.user.student_uid) return;
+  if (STATE.role !== 'student') return;
+  try {
+    var active = await _fetchSelCurrentPhaseActive(STATE.user.student_uid);
+    if (active && active.phase) {
+      STATE._selCurrentPhase = active.phase;
+    }
+    // _refreshSelSettingsCard는 _selFetchStatus 끝난 후 호출되므로 여기서 추가 호출 X (중복 방지)
+  } catch(e) {
+    console.error('[SEL CURRENT PHASE SYNC]', e && e.message ? e.message : e);
+  }
+}
+
+// 교사 측: N차 검사 시작 신호 broadcast (학급 학생 + 교사 본인)
+//   마음동화 _startHeartTaleClass 답습 — 클라이언트 직접 _sbInsert (메모리 feedback_supabase_first 답습)
+async function _startSelClassPhase(phase) {
+  if (!STATE.user || !STATE.user.teacher_uid) { toast('교사 정보가 없어요'); return false; }
+  phase = parseInt(phase, 10) || 1;
+  if (phase < 1 || phase > 2) { toast('phase 값이 잘못됐어요'); return false; }
+
+  showLoading(phase + '차 검사 시작 신호 보내는 중이에요 📋');
+  try {
+    var students = STATE.students || [];
+    var actives = students.filter(function(s){ return s && s.active !== 'N'; });
+    var teacher_uid = STATE.user.teacher_uid;
+
+    var recipients = actives.map(function(s){ return s.student_uid; });
+    recipients.push(teacher_uid);  // 교사 본인도 수신 (다른 화면에서도 인지)
+
+    var ts = _htNewKstTs();
+    var inserts = recipients.map(function(uid) {
+      return _sbInsert('notifications', {
+        notification_uid: _htNewUuid(), created_at: ts,
+        recipient_uid: uid, type: 'sel_class_start',
+        title: '📋 ' + phase + '차 마음이음 역량검사가 시작됐어요',
+        body: String(phase),  // body=phase 번호 (학생 단말이 STATE._selCurrentPhase 산출)
+        sender_name: '', is_read: false, related_uid: teacher_uid
+      });
+    });
+    await Promise.all(inserts);
+    try { AUDIO.sfx('save'); } catch(e) {}
+    return true;
+  } catch(e) {
+    console.error('[SEL CLASS START]', e && e.message ? e.message : e);
+    toast('신호 보내기가 안 됐어요 — 다시 시도해 주세요');
+    return false;
+  } finally {
+    hideLoading();
+  }
+}
+
+// 학생 측: SEL 시작 신호 알림 도착 시 — STATE._selCurrentPhase 박음 + 카드 펄스 갱신
+function _onSelClassPhaseStartReceived(phase) {
+  if (!STATE.user || !STATE.user.student_uid) return;
+  if (STATE.role !== 'student') return;
+  STATE._selCurrentPhase = parseInt(phase, 10) || 1;
+  // 카드 갱신 — _refreshSelSettingsCard가 STATE._selCurrentPhase 분기 처리
+  if (typeof _refreshSelSettingsCard === 'function') _refreshSelSettingsCard();
+}
+
 // 설정 모달 열 때 학생 SEL 카드 보임 + 미수행 펄스 갱신
 function _refreshSelSettingsCard() {
   var wrap = document.getElementById('set-student-sel-wrap');
@@ -19388,6 +19498,18 @@ function _refreshSelSettingsCard() {
     return;
   }
   var st = STATE._selStatus || { has_record:false, status:null, skipped:false };
+  // 92차 (변쌤 명시 답습): STATE._selCurrentPhase 박혀있으면 그 phase 기준 분기
+  //   교사 N차 시작 신호 broadcast 수신 시 STATE._selCurrentPhase=N 박힘
+  //   STATE._selStatus는 가장 최근 created_at 1행이라 다른 phase done 상태로 보일 수 있음
+  //   현재 phase row가 없거나(st.phase !== currentPhase) status !== 'done'이면 펄스 ON
+  var currentPhase = STATE._selCurrentPhase;
+  if (currentPhase && st.has_record && st.phase !== currentPhase) {
+    // 다른 phase row만 있음 → 현재 phase는 아직 미수행
+    if (card)  card.classList.add('pulse');
+    if (badge) badge.classList.remove('hidden');
+    if (sub)   sub.textContent = currentPhase + '차 검사가 시작됐어요 — 우리 마음 빛깔을 다시 살펴봐요';
+    return;
+  }
   // 88차: status enum 분기 (variants: in_progress / done / cancelled / skipped / null)
   //   완료(status==='done')만 펄스 OFF + 무지개 알람 뱃지 hidden
   //   나머지(미수행·진행 중·skipped·cancelled) → 펄스 ON + 무지개 알람 뱃지 표시
@@ -19395,7 +19517,7 @@ function _refreshSelSettingsCard() {
   if (done) {
     if (card)  card.classList.remove('pulse');
     if (badge) badge.classList.add('hidden');
-    if (sub)   sub.textContent = '검사 완료 — 다시 살펴볼 수 있어요';
+    if (sub)   sub.textContent = (st.phase ? (st.phase + '차 ') : '') + '검사 완료 — 다시 살펴볼 수 있어요';
   } else if (st.status === 'in_progress') {
     if (card)  card.classList.add('pulse');
     if (badge) badge.classList.remove('hidden');
@@ -19448,9 +19570,13 @@ async function _selStartNow() {
   }
   if (typeof showLoading === 'function') showLoading('잠시만요...');
   try {
+    // 92차 (변쌤 명시 답습): STATE._selCurrentPhase 박혀있으면 그 phase로 진단 시작 (교사 신호 답습)
+    //   기존 phase=1 하드코드 — 교사가 N차 시작 신호 broadcast 하면 학생 단말 STATE._selCurrentPhase=N 박힘
+    //   _onSelClassPhaseStartReceived가 박음 + _syncSelCurrentPhaseForStudent가 부팅 동기화
+    var stuPhase = STATE._selCurrentPhase || 1;
     var res = await _selStartAssessment({
       student_uid: STATE.user.student_uid,
-      phase: 1,  // Phase 6 auto_activate 도입 전 임시
+      phase: stuPhase,
       responder_role: 'student',
       responder_uid: STATE.user.student_uid,
       responder_name: STATE.user.name || '',
@@ -19468,8 +19594,9 @@ async function _selStartNow() {
         toast('이번 검사는 이미 완료했어요 — 결과를 보여드릴게요');
         // Phase 4-A: 0.8초 후 결과 모달 자동 진입
         var doneStuUid = STATE.user && STATE.user.student_uid;
+        var donePhase = stuPhase;
         setTimeout(function() {
-          if (doneStuUid) _selOpenResult({ student_uid:doneStuUid, phase:1 });
+          if (doneStuUid) _selOpenResult({ student_uid:doneStuUid, phase:donePhase });
         }, 800);
       } else {
         toast('잠시 후 다시 시도해 주세요');
@@ -19490,20 +19617,22 @@ async function _selSkipNow() {
   closeModal('modal-sel-intro');
   if (!STATE.user || !STATE.user.student_uid) return;
   var ts = _htNewKstTs();
+  // 92차 (변쌤 명시 답습): 교사 신호 phase 답습. 신호 없으면 default phase=1
+  var skipPhase = STATE._selCurrentPhase || 1;
   if (STATE.isPreview) {
     // 미리보기 — 메모리만 갱신 (DB 안 건드림)
-    STATE._selStatus = { has_record:true, status:'skipped', skipped:true, created_at:ts, phase:1 };
+    STATE._selStatus = { has_record:true, status:'skipped', skipped:true, created_at:ts, phase:skipPhase };
     _refreshSelSettingsCard();
     return;
   }
   try {
     var uid = 'sel_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     // 88차: 새 스키마 — phase int, status enum, skipped 컬럼 폐기 → status:'skipped'
-    // phase: 1로 하드코드 (Phase 6 auto_activate 도입 전 임시 — Settings sel_current_phase 미구현)
+    // 92차: 교사 N차 시작 신호 broadcast 답습 — STATE._selCurrentPhase 박혀있으면 그 phase로 skip
     await _sbInsert('sel_assessment', {
       uid: uid,
       student_uid: STATE.user.student_uid,
-      phase: 1,
+      phase: skipPhase,
       grade_band: _selGradeBand(STATE.user.grade),
       school_year: parseInt(STATE.user.grade, 10) || null,
       responder_role: 'student',
@@ -19513,7 +19642,7 @@ async function _selSkipNow() {
       created_at: ts,
       updated_at: ts
     });
-    STATE._selStatus = { has_record:true, status:'skipped', skipped:true, created_at:ts, phase:1 };
+    STATE._selStatus = { has_record:true, status:'skipped', skipped:true, created_at:ts, phase:skipPhase };
     _refreshSelSettingsCard();
     toast('나중에 다시 안내해 드릴게요 — 설정에서 언제든 살펴볼 수 있어요');
   } catch(e) {
@@ -19861,7 +19990,22 @@ function _selStatusBadge(row, myUid) {
 
 function _renderTeacherSelStudentMode(body, students, rowsByStu) {
   var myUid = STATE.user.teacher_uid;
-  var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">';
+  // 92차 (변쌤 명시 답습): N차 검사 시작 신호 큰 버튼 — done·in_progress·skipped row 0개일 때만 노출
+  //   "💡 카드를 눌러 진단을…" 안내 문구 위에 위치 — 진단 결과 없을 때 카드 안내가 어색하다는 변쌤 명시
+  //   클릭 시 _startSelClassPhase(N) → 학급 학생 + 교사 본인 broadcast → 학생 단말 SEL 카드 펄스
+  var existingCount = 0;
+  students.forEach(function(s){ if (rowsByStu[s.student_uid]) existingCount++; });
+  var phase = _teacherSelClassPhase;
+  var startBtnHtml = '';
+  if (existingCount === 0) {
+    startBtnHtml =
+      '<div style="margin-bottom:14px;padding:18px 16px;border-radius:14px;background:linear-gradient(135deg,#eaf6f0,#f0f7fc);border:1.5px dashed #7ed6c0;text-align:center">' +
+        '<div style="font-size:13px;color:var(--navy);font-weight:700;margin-bottom:4px">📋 ' + phase + '차 진단을 아직 시작하지 않았어요</div>' +
+        '<div style="font-size:11.5px;color:var(--gray);margin-bottom:12px;line-height:1.6">버튼을 누르면 우리 반 학생들의 단말에 ' + phase + '차 검사 시작 신호가 가요</div>' +
+        '<button onclick="_teacherSelStartClassPhaseClick(' + phase + ')" style="padding:10px 22px;border-radius:12px;background:linear-gradient(135deg,#7ed6c0,#5fbfa6);color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;box-shadow:0 3px 10px rgba(126,214,192,.3)">📣 ' + phase + '차 진단 시작하기</button>' +
+      '</div>';
+  }
+  var html = startBtnHtml + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">';
   students.forEach(function(s){
     var row = rowsByStu[s.student_uid];
     var badge = _selStatusBadge(row, myUid);
@@ -19882,6 +20026,21 @@ function _renderTeacherSelStudentMode(body, students, rowsByStu) {
   html += '</div>';
   html += '<div style="margin-top:12px;font-size:11px;color:var(--gray);line-height:1.6;padding:8px 10px;background:#fafafa;border-radius:8px">💡 카드를 눌러 진단을 시작/이어쓰기/결과 보기 해요. 점점점(⋯) 메뉴로 결과 보기·초기화 가능.</div>';
   body.innerHTML = html;
+}
+
+// 92차 (변쌤 명시 답습): N차 진단 시작하기 버튼 클릭 — broadcast 발사 + 학급 모달 갱신
+async function _teacherSelStartClassPhaseClick(phase) {
+  if (typeof appConfirm !== 'function') return;
+  var msg = phase + '차 마음이음 역량검사 시작 신호를\n우리 반 학생들에게 보낼까요?\n\n학생 단말의 마음이음 역량검사 카드가\n활성화돼서 검사를 시작할 수 있어요.';
+  var ok = await appConfirm('📣 ' + phase + '차 진단 시작', msg, { okLabel:'시작' });
+  if (!ok) return;
+  if (typeof _startSelClassPhase !== 'function') { toast('함수가 없어요'); return; }
+  var sent = await _startSelClassPhase(phase);
+  if (sent) {
+    toast(phase + '차 진단 시작 신호를 보냈어요 📣');
+    // 학급 모달 갱신 (badge·card 상태 즉시 반영 위해)
+    if (typeof _renderTeacherSelClassList === 'function') _renderTeacherSelClassList();
+  }
 }
 
 function _renderTeacherSelQuestionMode(body, students, rowsByStu) {
