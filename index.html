@@ -21441,12 +21441,14 @@ async function _autoRetryBotLineIfStuck(week_no) {
   // 91차 fix4 진단 로그 — 변쌤 콘솔 캡처로 어디서 막히는지 정확 진단
   var pages = STATE._htpPages || {};
   var row = pages[week_no];
-  if (!row || !row.recorded_at || !row.bot_line) {
-    console.log('[HT RETRY skip:no-data]', week_no, { hasRow:!!row, recorded_at:row&&row.recorded_at, bot_line:row&&(String(row.bot_line).slice(0,20)) });
+  if (!row || !row.recorded_at) {
+    console.log('[HT RETRY skip:no-data]', week_no, { hasRow:!!row, recorded_at:row&&row.recorded_at });
     return;
   }
-  var line = String(row.bot_line);
-  var isStuck = line.indexOf('마음을 읽고 있어요') === 0 || line.indexOf('마음을 다시 읽고 있어요') === 0;
+  // 92차 fix (변쌤 진단 SQL ③ 답습): 빈 bot_line도 회복 대상
+  //   91차는 placeholder만 회복 — GAS INSERT placeholder 차단 fix(92차)로 DB에 빈 string으로 박히는 케이스 신규 발생 → 빈 string도 stuck 취급
+  var line = String(row.bot_line || '');
+  var isStuck = !line || line.indexOf('마음을 읽고 있어요') === 0 || line.indexOf('마음을 다시 읽고 있어요') === 0;
   if (!isStuck) {
     return;  // 정상 응답 박힌 row — 조용히 skip (변쌤 정책: 봇 응답 없을 때만 호출)
   }
@@ -21463,13 +21465,17 @@ async function _autoRetryBotLineIfStuck(week_no) {
     console.log('[HT RETRY skip:regen-in-flight]', week_no);
     return;
   }
+  // 92차 fix (변쌤 진단 SQL ③ 답습): retryDone 시간 기반 — 60초 지나면 재시도 (영구 봉쇄 차단)
+  //   기존 boolean 가드는 한 번 실패하면 같은 단말 새로고침해도 영구 skip → stuck row 자가 회복 봉쇄
+  //   변경: 마지막 시도 ts 박음. 60초 안엔 skip, 그 후엔 재시도 (Gemini cold start 또는 일시 network 회복 보장)
   STATE._htpRetryDone = STATE._htpRetryDone || {};
-  if (STATE._htpRetryDone[week_no]) {
-    console.log('[HT RETRY skip:already-tried]', week_no);
+  var lastTs = STATE._htpRetryDone[week_no];
+  if (lastTs && (Date.now() - lastTs < 60000)) {
+    console.log('[HT RETRY skip:cooldown]', week_no, { since: Date.now() - lastTs });
     return;
   }
-  STATE._htpRetryDone[week_no] = true;
-  console.log('[HT RETRY start]', week_no, { text:(row.student_text||'').slice(0,20) });
+  STATE._htpRetryDone[week_no] = Date.now();
+  console.log('[HT RETRY start]', week_no, { text:(row.student_text||'').slice(0,20), prevLine: line.slice(0,15) });
   try {
     var theme = (typeof _getHeartTaleTheme === 'function') ? _getHeartTaleTheme(week_no) : {};
     var res = await api('generate_book_bot_line', {
@@ -22674,8 +22680,9 @@ async function _htpSaveRecord() {
 
   // 91차 fix9: _htpSaveRecord가 generate를 직접 호출하므로 _autoRetryBotLineIfStuck 중복 호출 차단
   //   (변쌤 신고 답습 — 콘솔에 [HT RETRY start] 떴다는 건 _renderHeartTalePage 호출 시 자동 retry 진행. 두 generate 충돌)
+  // 92차 fix: boolean → ts 변경 (_autoRetryBotLineIfStuck 시간 기반 가드 일관성). 60초 안엔 retry skip, 그 후엔 재시도 허용
   STATE._htpRetryDone = STATE._htpRetryDone || {};
-  STATE._htpRetryDone[week_no] = true;
+  STATE._htpRetryDone[week_no] = Date.now();
 
   // ① 낙관적 캐시 갱신 — 임시 photo_url = base64 (또는 기존 유지) / recorded_at = 즉시
   var optimisticPhotoUrl = newPhotoB64 || (keepExisting ? STATE._htpRecordingExistingPhotoUrl : '');
