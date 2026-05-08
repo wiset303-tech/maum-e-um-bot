@@ -20050,15 +20050,16 @@ async function _teacherSelStartClassPhaseClick(phase) {
 }
 
 // 92차 (변쌤 명시 답습): 문항별 모드 실제 구현 — KICE 권고 학급 일관성 확보
-//   28문항 카드 grid. 각 카드 = 영역 색 dot + 학급 평균 + 5점 척도 분포 막대 + 미응답 수
-//   분산 큰 문항(학급 일관성 낮음) 시각적 발견. 영역 평균은 통계 탭과 정합.
+//   28문항 카드 grid. 카드 = 영역 색 dot + Q번호 + 학급 평균 + 질문 앞부분 + 5점 척도 분포 막대 + 미응답 수
+//   분산 큰 문항(학급 일관성 낮음) 시각적 발견. 카드 클릭 시 세부 모달
+//   grade_band 분기 — 학급은 보통 한 학년이라 첫 학생 row의 grade_band 기준
 async function _renderTeacherSelQuestionMode(body, students, rowsByStu) {
   body.innerHTML = '<div style="text-align:center;color:var(--gray);font-size:12px;padding:30px 0">불러오는 중...</div>';
 
   var stuUids = students.map(function(s){ return s.student_uid; });
   if (!stuUids.length) { body.innerHTML = '<div style="text-align:center;color:var(--gray);font-size:13px;padding:30px 0">학생이 없어요</div>'; return; }
 
-  // 28문항 응답 일괄 fetch (Supabase 직접)
+  // 28문항 응답 일괄 fetch (Supabase 직접) — grade_band 포함 (질문 텍스트 분기용)
   var qCols = [];
   for (var qi = 1; qi <= 28; qi++) qCols.push('q' + qi);
   var rows = [];
@@ -20067,7 +20068,7 @@ async function _renderTeacherSelQuestionMode(body, students, rowsByStu) {
       student_uid: 'in.(' + stuUids.join(',') + ')',
       phase: 'eq.' + _teacherSelClassPhase,
       status: 'in.(in_progress,done)',  // skipped·cancelled 제외
-      select: 'student_uid,status,' + qCols.join(',')
+      select: 'student_uid,status,grade_band,' + qCols.join(',')
     }) || [];
   } catch(e) {
     console.error('[SEL Q-MODE FETCH]', e && e.message || e);
@@ -20078,6 +20079,12 @@ async function _renderTeacherSelQuestionMode(body, students, rowsByStu) {
     body.innerHTML = '<div style="text-align:center;color:var(--gray);font-size:13px;padding:30px 0;line-height:1.7">아직 ' + _teacherSelClassPhase + '차 진단 응답이 없어요.<br>학생별 탭에서 「📣 ' + _teacherSelClassPhase + '차 진단 시작하기」 버튼을 눌러 시작해주세요.</div>';
     return;
   }
+
+  // grade_band 결정 — 첫 row 기준 (학급 = 한 학년 가정)
+  var classGradeBand = (rows[0] && rows[0].grade_band) || 'elem_high';
+  var qTexts = (classGradeBand === 'elem_low')
+    ? (typeof _SEL_QUESTIONS_ELEM_LOW !== 'undefined' ? _SEL_QUESTIONS_ELEM_LOW : [])
+    : (typeof _SEL_QUESTIONS_STUDENT_HIGH !== 'undefined' ? _SEL_QUESTIONS_STUDENT_HIGH : []);
 
   // R1~R7 영역 색 (--sel-r1~r7 CSS 변수 답습)
   var docStyle = getComputedStyle(document.documentElement);
@@ -20108,9 +20115,17 @@ async function _renderTeacherSelQuestionMode(body, students, rowsByStu) {
     var variance = cnt > 0 ? (sqSum / cnt) : 0;
     stats.push({
       q: q, rIdx: rIdx, rColor: rColors[rIdx], rLabel: rLabels[rIdx],
-      avg: avg, cnt: cnt, missing: dist[0], dist: dist, variance: variance
+      avg: avg, cnt: cnt, missing: dist[0], dist: dist, variance: variance,
+      qText: qTexts[q - 1] || ''
     });
   }
+
+  // 캐시 — 세부 모달이 stats + classGradeBand 답습 위해
+  STATE._teacherSelQModeStats = stats;
+  STATE._teacherSelQModeGradeBand = classGradeBand;
+  STATE._teacherSelQModeRows = rows;
+  STATE._teacherSelQModeStudentMap = {};
+  students.forEach(function(s){ STATE._teacherSelQModeStudentMap[s.student_uid] = s; });
 
   // 분산 max로 일관성 낮은 문항 표시 위해 임계
   var maxVar = 0;
@@ -20125,21 +20140,25 @@ async function _renderTeacherSelQuestionMode(body, students, rowsByStu) {
       '<span style="color:var(--gray)">⚠️ 빨강 테두리 = 학급 일관성 낮음 (분산 큼)</span>' +
     '</div>';
 
-  // 28문항 카드 grid
+  // 28문항 카드 grid — 카드 클릭 가능 (cursor:pointer + onclick)
   html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">';
   stats.forEach(function(s) {
     var lowConsistency = s.cnt > 0 && s.variance >= lowConsistencyThreshold && maxVar > 0.3;
     var border = lowConsistency ? '1.5px solid #d9455f' : '1.5px solid var(--lgray)';
     var bg = lowConsistency ? '#fff8f8' : '#fff';
+    // 질문 앞부분 — 한 줄 ellipsis로 카드 사이즈 보존
+    var qPreview = _escHtml(s.qText);
     html +=
-      '<div style="padding:9px 10px;border-radius:10px;border:' + border + ';background:' + bg + '">' +
+      '<div onclick="_openSelQuestionDetail(' + s.q + ')" style="padding:9px 10px;border-radius:10px;border:' + border + ';background:' + bg + ';cursor:pointer;transition:transform .15s,box-shadow .15s" onmouseover="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 3px 10px rgba(0,0,0,.06)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'\'">' +
         // 1행: R 영역 dot + Q번호 + 평균
-        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">' +
+        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">' +
           '<div style="width:8px;height:8px;border-radius:50%;background:' + s.rColor + ';flex-shrink:0"></div>' +
           '<div style="font-size:11.5px;font-weight:700;color:var(--navy)">Q' + s.q + '</div>' +
           '<div style="margin-left:auto;font-size:13px;font-weight:700;color:' + s.rColor + '">' + (s.cnt > 0 ? s.avg.toFixed(2) : '—') + '</div>' +
         '</div>' +
-        // 2행: 5점 분포 막대 (1~5)
+        // 2행: 질문 앞부분 (한 줄 ellipsis)
+        '<div style="font-size:10.5px;color:var(--gray);line-height:1.4;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + qPreview + '">' + qPreview + '</div>' +
+        // 3행: 5점 분포 막대 (1~5)
         '<div style="display:flex;gap:1px;height:16px;border-radius:3px;overflow:hidden;background:#f0ede8;margin-bottom:4px">' +
           (function(){
             var bars = '';
@@ -20154,7 +20173,7 @@ async function _renderTeacherSelQuestionMode(body, students, rowsByStu) {
             return bars;
           })() +
         '</div>' +
-        // 3행: 응답 수 + 미응답
+        // 4행: R 영역명 + 응답 수 + 미응답
         '<div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--gray)">' +
           '<span>R' + (s.rIdx + 1) + ' ' + _escHtml(s.rLabel) + '</span>' +
           '<span>' + s.cnt + '응답' + (s.missing > 0 ? ' · ' + s.missing + '미응답' : '') + '</span>' +
@@ -20162,16 +20181,147 @@ async function _renderTeacherSelQuestionMode(body, students, rowsByStu) {
       '</div>';
   });
   html += '</div>';
-  html += '<div style="margin-top:12px;font-size:11px;color:var(--gray);line-height:1.6;padding:8px 10px;background:#fafafa;border-radius:8px">💡 분포 막대는 1점(빨강)~5점(초록) 학생 응답 비율. 빨강 테두리 문항은 학생들 답이 많이 갈렸어요 — 후속 지도 점검 추천.</div>';
+  html += '<div style="margin-top:12px;font-size:11px;color:var(--gray);line-height:1.6;padding:8px 10px;background:#fafafa;border-radius:8px">💡 분포 막대는 1점(빨강)~5점(초록) 학생 응답 비율. 빨강 테두리 문항은 학생들 답이 많이 갈렸어요. 카드를 누르면 세부 응답 분포·학생별 응답을 볼 수 있어요.</div>';
   body.innerHTML = html;
 }
 
-// 92차 (변쌤 명시 답습): 통계 모드 — 1차·2차 paired t-test 사전·사후 비교
-//   학급 단위 7역량별 평균·SD·t값·p값·Cohen's d. 1차·2차 둘 다 done인 학생만 paired
-//   1차만 또는 2차만 있는 학생은 통계에서 제외 (paired sample)
-//   통계 함수: _ttestPaired (직접 구현 — 외부 라이브러리 없음)
+// 92차 (변쌤 명시 답습): 문항별 카드 클릭 시 세부 모달 — 학급 응답 분포 + 5점 척도별 학생 명단 + 핵심 통계
+//   z-index 3550 (학급 모달 3490 위 + modal-confirm 3600 아래)
+function _openSelQuestionDetail(qNum) {
+  var stats = STATE._teacherSelQModeStats || [];
+  var s = stats[qNum - 1];
+  if (!s) { toast('문항 데이터가 없어요'); return; }
+  var rows = STATE._teacherSelQModeRows || [];
+  var stuMap = STATE._teacherSelQModeStudentMap || {};
+
+  // 5점 척도별 학생 명단 (번호순 정렬)
+  var studentsByScore = [[], [], [], [], [], []];  // index 0=미응답, 1~5
+  rows.forEach(function(r) {
+    var v = parseInt(r['q' + qNum], 10);
+    var idx = (v >= 1 && v <= 5) ? v : 0;
+    var stu = stuMap[r.student_uid];
+    if (stu) studentsByScore[idx].push(stu);
+  });
+  studentsByScore.forEach(function(arr){ arr.sort(function(a,b){ return (parseInt(a.num)||0) - (parseInt(b.num)||0); }); });
+
+  // 통계 — 표준편차 + 중앙값
+  var sd = s.cnt > 0 ? Math.sqrt(s.variance) : 0;
+  var sortedScores = [];
+  rows.forEach(function(r) {
+    var v = parseInt(r['q' + qNum], 10);
+    if (v >= 1 && v <= 5) sortedScores.push(v);
+  });
+  sortedScores.sort(function(a,b){ return a - b; });
+  var median = 0;
+  if (sortedScores.length > 0) {
+    var mid = Math.floor(sortedScores.length / 2);
+    median = sortedScores.length % 2 === 0
+      ? (sortedScores[mid - 1] + sortedScores[mid]) / 2
+      : sortedScores[mid];
+  }
+
+  // 모달 생성·갱신
+  var modal = document.getElementById('modal-sel-question-detail');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-sel-question-detail';
+    modal.className = 'modal-overlay hidden';
+    modal.style.zIndex = '3550';
+    modal.onclick = function(e){ if (e.target === modal) closeModal('modal-sel-question-detail'); };
+    document.body.appendChild(modal);
+  }
+
+  // 5점 척도 라벨·색
+  var scaleColors = ['#d9455f', '#e67e22', '#e8c547', '#9bc53d', '#5fbf5a'];
+  var scaleLabels = ['1 전혀 그렇지 않다', '2 그렇지 않다', '3 보통이다', '4 그렇다', '5 매우 그렇다'];
+
+  var bodyHtml = '';
+  // 헤더 영역 + 핵심 통계 표
+  bodyHtml +=
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+      '<div style="width:10px;height:10px;border-radius:50%;background:' + s.rColor + '"></div>' +
+      '<div style="font-size:11.5px;font-weight:700;color:' + s.rColor + '">R' + (s.rIdx + 1) + ' ' + _escHtml(s.rLabel) + '</div>' +
+      '<div style="margin-left:auto;font-size:11px;color:var(--gray)">' + _teacherSelClassPhase + '차 · ' + s.cnt + '응답' + (s.missing > 0 ? ' · ' + s.missing + '미응답' : '') + '</div>' +
+    '</div>' +
+    '<div style="font-size:14px;font-weight:700;color:var(--navy);line-height:1.5;margin-bottom:14px;padding:10px 12px;background:#fafafa;border-radius:8px;border-left:3px solid ' + s.rColor + '">' +
+      'Q' + qNum + '. ' + _escHtml(s.qText) +
+    '</div>';
+
+  // 핵심 통계 표 — 평균(M) · 표준편차(SD) · 중앙값
+  bodyHtml +=
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px">' +
+      '<div style="padding:8px;border-radius:8px;background:#fff;border:1px solid var(--lgray);text-align:center">' +
+        '<div style="font-size:10px;color:var(--gray);margin-bottom:2px">평균 (M)</div>' +
+        '<div style="font-size:16px;font-weight:700;color:' + s.rColor + '">' + (s.cnt > 0 ? s.avg.toFixed(2) : '—') + '</div>' +
+      '</div>' +
+      '<div style="padding:8px;border-radius:8px;background:#fff;border:1px solid var(--lgray);text-align:center">' +
+        '<div style="font-size:10px;color:var(--gray);margin-bottom:2px">표준편차 (SD)</div>' +
+        '<div style="font-size:16px;font-weight:700;color:var(--navy)">' + (s.cnt > 0 ? sd.toFixed(2) : '—') + '</div>' +
+      '</div>' +
+      '<div style="padding:8px;border-radius:8px;background:#fff;border:1px solid var(--lgray);text-align:center">' +
+        '<div style="font-size:10px;color:var(--gray);margin-bottom:2px">중앙값</div>' +
+        '<div style="font-size:16px;font-weight:700;color:var(--navy)">' + (s.cnt > 0 ? median.toFixed(1) : '—') + '</div>' +
+      '</div>' +
+    '</div>';
+
+  // 5점 척도별 분포 — 가로 막대 + 학생 명단
+  bodyHtml += '<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">📊 5점 척도별 응답 분포</div>';
+  bodyHtml += '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">';
+  for (var v = 5; v >= 1; v--) {
+    var cnt = s.dist[v];
+    var pct = s.cnt > 0 ? (cnt / s.cnt * 100) : 0;
+    var stuList = studentsByScore[v];
+    var stuNamesHtml = stuList.map(function(stu){
+      return '<span style="display:inline-block;padding:2px 7px;border-radius:8px;background:' + scaleColors[v-1] + '22;color:var(--navy);font-size:10.5px;margin:1px">' + (stu.num||'?') + '번 ' + _escHtml(stu.name) + '</span>';
+    }).join('');
+    bodyHtml +=
+      '<div style="padding:8px 10px;border-radius:8px;background:#fff;border:1px solid var(--lgray)">' +
+        // 라벨 행
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">' +
+          '<div style="width:8px;height:8px;border-radius:50%;background:' + scaleColors[v-1] + ';flex-shrink:0"></div>' +
+          '<div style="font-size:11.5px;font-weight:700;color:var(--navy)">' + scaleLabels[v-1] + '</div>' +
+          '<div style="margin-left:auto;font-size:11px;color:var(--gray);font-weight:600">' + cnt + '명 · ' + pct.toFixed(0) + '%</div>' +
+        '</div>' +
+        // 막대
+        '<div style="height:10px;background:#f0ede8;border-radius:3px;overflow:hidden;margin-bottom:' + (cnt > 0 ? '6px' : '0') + '">' +
+          (cnt > 0 ? '<div style="width:' + pct.toFixed(1) + '%;height:100%;background:' + scaleColors[v-1] + ';transition:width .4s ease"></div>' : '') +
+        '</div>' +
+        // 학생 명단
+        (cnt > 0 ? '<div style="line-height:1.7">' + stuNamesHtml + '</div>' : '') +
+      '</div>';
+  }
+  bodyHtml += '</div>';
+
+  // 미응답 학생 명단 (있을 때만)
+  if (s.missing > 0) {
+    var missStu = studentsByScore[0];
+    var missHtml = missStu.map(function(stu){
+      return '<span style="display:inline-block;padding:2px 7px;border-radius:8px;background:#f0ede8;color:var(--gray);font-size:10.5px;margin:1px">' + (stu.num||'?') + '번 ' + _escHtml(stu.name) + '</span>';
+    }).join('');
+    bodyHtml +=
+      '<div style="padding:10px 12px;border-radius:8px;background:#fafafa;margin-bottom:10px">' +
+        '<div style="font-size:11.5px;color:var(--gray);font-weight:700;margin-bottom:6px">⏸ 미응답 학생 (' + s.missing + '명)</div>' +
+        '<div style="line-height:1.7">' + missHtml + '</div>' +
+      '</div>';
+  }
+
+  modal.innerHTML =
+    '<div class="modal-box" style="width:min(560px,94vw);max-height:88vh;padding:22px 20px 18px;border-radius:20px;overflow-y:auto">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">' +
+        '<div style="font-size:16px;font-weight:700;color:var(--navy);font-family:\'Black Han Sans\',sans-serif;letter-spacing:.5px">📝 문항 세부 분석</div>' +
+        '<button onclick="closeModal(\'modal-sel-question-detail\')" style="font-size:22px;color:var(--gray);background:none;border:none;cursor:pointer;line-height:1">×</button>' +
+      '</div>' +
+      bodyHtml +
+    '</div>';
+  modal.classList.remove('hidden');
+}
+
+// 92차 (변쌤 명시 답습 — 한국 교육·심리학 논문 정식 용어): 통계 모드
+//   사전(1차)·사후(2차) 대응표본 t-검정 (paired-samples t-test)
+//   학급 단위 7역량별 평균(M)·표준편차(SD)·t값·자유도(df)·유의확률(p)·효과크기(Cohen's d)
+//   1차·2차 모두 완료한 학생만 대응표본에 포함
 async function _renderTeacherSelStatsMode(body, students) {
-  body.innerHTML = '<div style="text-align:center;color:var(--gray);font-size:12px;padding:30px 0">사전·사후 비교 통계 산출 중이에요 📊</div>';
+  body.innerHTML = '<div style="text-align:center;color:var(--gray);font-size:12px;padding:30px 0">사전·사후 대응표본 t-검정 산출 중이에요 📊</div>';
 
   var stuUids = students.map(function(s){ return s.student_uid; });
   if (!stuUids.length) { body.innerHTML = '<div style="text-align:center;color:var(--gray);font-size:13px;padding:30px 0">학생이 없어요</div>'; return; }
@@ -20198,7 +20348,7 @@ async function _renderTeacherSelStatsMode(body, students) {
     byStu[r.student_uid][r.phase] = r;
   });
 
-  // paired — 1차·2차 둘 다 done인 학생만
+  // 대응표본 — 1차·2차 모두 done인 학생만
   var paired = [];
   Object.keys(byStu).forEach(function(uid) {
     if (byStu[uid][1] && byStu[uid][2]) paired.push({ uid:uid, p1:byStu[uid][1], p2:byStu[uid][2] });
@@ -20207,15 +20357,15 @@ async function _renderTeacherSelStatsMode(body, students) {
   var phase1Cnt = Object.keys(byStu).filter(function(uid){ return byStu[uid][1]; }).length;
   var phase2Cnt = Object.keys(byStu).filter(function(uid){ return byStu[uid][2]; }).length;
 
-  // 헤더 — paired sample 안내
+  // 헤더 — 학술 정통 표기
   var html =
     '<div style="margin-bottom:12px;padding:12px 14px;border-radius:10px;background:linear-gradient(135deg,#eaf6f0,#f0f7fc);border:1px solid #d8e9e0">' +
-      '<div style="font-size:13px;color:var(--navy);font-weight:700;margin-bottom:4px">📊 사전·사후 paired t-test</div>' +
-      '<div style="font-size:11px;color:var(--gray);line-height:1.6">1차 ' + phase1Cnt + '명 · 2차 ' + phase2Cnt + '명 · 둘 다 완료 ' + paired.length + '명 (paired)</div>' +
+      '<div style="font-size:13px;color:var(--navy);font-weight:700;margin-bottom:4px">📊 사전·사후 대응표본 t-검정</div>' +
+      '<div style="font-size:11px;color:var(--gray);line-height:1.6">사전(1차) ' + phase1Cnt + '명 · 사후(2차) ' + phase2Cnt + '명 · 대응표본 N = ' + paired.length + '</div>' +
     '</div>';
 
   if (paired.length < 2) {
-    html += '<div style="text-align:center;color:var(--gray);font-size:13px;padding:30px 0;line-height:1.7">paired 분석을 위해 1차·2차 둘 다 완료한 학생이<br><strong>2명 이상</strong> 필요해요.<br>현재 ' + paired.length + '명입니다.</div>';
+    html += '<div style="text-align:center;color:var(--gray);font-size:13px;padding:30px 0;line-height:1.7">대응표본 t-검정을 위해 1차·2차 모두 완료한 학생이<br><strong>2명 이상</strong> 필요해요.<br>현재 N = ' + paired.length + '입니다.</div>';
     body.innerHTML = html;
     return;
   }
@@ -20226,7 +20376,7 @@ async function _renderTeacherSelStatsMode(body, students) {
   for (var ri = 1; ri <= 7; ri++) rColors.push(docStyle.getPropertyValue('--sel-r' + ri).trim() || '#ccc');
   var rLabels = (typeof _SEL_R_LABELS_ARR !== 'undefined') ? _SEL_R_LABELS_ARR : ['','','','','','',''];
 
-  // 7역량별 + total paired t-test 계산
+  // 7역량별 + 총점 대응표본 t-검정 산출
   var rows2 = [];
   ['r1','r2','r3','r4','r5','r6','r7','total'].forEach(function(key, kIdx) {
     var pre = [], post = [];
@@ -20243,17 +20393,18 @@ async function _renderTeacherSelStatsMode(body, students) {
                  maxScore: kIdx < 7 ? 20 : 140 });
   });
 
-  // 카드 grid — 영역별 통계
+  // 카드 grid — 영역별 통계 (학술 정통 표기)
   html += '<div style="display:grid;grid-template-columns:1fr;gap:8px">';
   rows2.forEach(function(r) {
     var t = r.t;
-    var diff = t.meanDiff;  // post - pre
+    var diff = t.meanDiff;  // 사후(post) - 사전(pre)
     var direction = diff > 0 ? '↑' : (diff < 0 ? '↓' : '');
     var directionColor = diff > 0 ? '#5fbf5a' : (diff < 0 ? '#d9455f' : 'var(--gray)');
-    // 효과 크기 라벨 (Cohen 1988: 0.2 small, 0.5 medium, 0.8 large)
+    // 효과크기 라벨 — Cohen(1988) 기준: .20 작음 / .50 중간 / .80 큼
     var dAbs = Math.abs(t.cohenD);
-    var effLabel = dAbs >= 0.8 ? '큰 변화' : (dAbs >= 0.5 ? '중간 변화' : (dAbs >= 0.2 ? '작은 변화' : '미미'));
-    var sigLabel = t.pValue < 0.001 ? '*** (p<.001)' : (t.pValue < 0.01 ? '** (p<.01)' : (t.pValue < 0.05 ? '* (p<.05)' : 'n.s.'));
+    var effLabel = dAbs >= 0.8 ? '큰 효과' : (dAbs >= 0.5 ? '중간 효과' : (dAbs >= 0.2 ? '작은 효과' : '미미한 효과'));
+    // 유의 표기 — APA 표준
+    var sigLabel = t.pValue < 0.001 ? '*** p < .001' : (t.pValue < 0.01 ? '** p < .01' : (t.pValue < 0.05 ? '* p < .05' : '유의하지 않음 (n.s.)'));
     var sigColor = t.pValue < 0.05 ? '#5fbf5a' : 'var(--gray)';
 
     html +=
@@ -20268,24 +20419,25 @@ async function _renderTeacherSelStatsMode(body, students) {
             '<div style="font-size:10px;color:var(--gray)">/ ' + r.maxScore + '점 만점</div>' +
           '</div>' +
         '</div>' +
-        // 통계 표 — 평균·SD·t값·p값·Cohen's d
+        // 통계 표 — 사전 평균(M) / 사후 평균(M) / t값 / 유의확률(p) / 효과크기(Cohen's d)
         '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;font-size:10.5px;text-align:center;padding-top:8px;border-top:1px dashed var(--lgray)">' +
-          '<div><div style="color:var(--gray);margin-bottom:2px">1차 평균</div><div style="font-weight:700;color:var(--navy)">' + t.preMean.toFixed(2) + '</div><div style="color:var(--gray);font-size:9px">SD ' + t.preSD.toFixed(2) + '</div></div>' +
-          '<div><div style="color:var(--gray);margin-bottom:2px">2차 평균</div><div style="font-weight:700;color:var(--navy)">' + t.postMean.toFixed(2) + '</div><div style="color:var(--gray);font-size:9px">SD ' + t.postSD.toFixed(2) + '</div></div>' +
-          '<div><div style="color:var(--gray);margin-bottom:2px">t값</div><div style="font-weight:700;color:var(--navy)">' + t.tStat.toFixed(2) + '</div><div style="color:var(--gray);font-size:9px">df ' + t.df + '</div></div>' +
-          '<div><div style="color:var(--gray);margin-bottom:2px">p값</div><div style="font-weight:700;color:' + sigColor + '">' + (t.pValue < 0.001 ? '<.001' : t.pValue.toFixed(3)) + '</div></div>' +
-          '<div><div style="color:var(--gray);margin-bottom:2px">Cohen\'s d</div><div style="font-weight:700;color:var(--navy)">' + t.cohenD.toFixed(2) + '</div></div>' +
+          '<div><div style="color:var(--gray);margin-bottom:2px">사전 (M)</div><div style="font-weight:700;color:var(--navy)">' + t.preMean.toFixed(2) + '</div><div style="color:var(--gray);font-size:9px">SD ' + t.preSD.toFixed(2) + '</div></div>' +
+          '<div><div style="color:var(--gray);margin-bottom:2px">사후 (M)</div><div style="font-weight:700;color:var(--navy)">' + t.postMean.toFixed(2) + '</div><div style="color:var(--gray);font-size:9px">SD ' + t.postSD.toFixed(2) + '</div></div>' +
+          '<div><div style="color:var(--gray);margin-bottom:2px">t값</div><div style="font-weight:700;color:var(--navy)">' + t.tStat.toFixed(2) + '</div><div style="color:var(--gray);font-size:9px">df = ' + t.df + '</div></div>' +
+          '<div><div style="color:var(--gray);margin-bottom:2px">유의확률 (p)</div><div style="font-weight:700;color:' + sigColor + '">' + (t.pValue < 0.001 ? '< .001' : t.pValue.toFixed(3)) + '</div></div>' +
+          '<div><div style="color:var(--gray);margin-bottom:2px">효과크기 (d)</div><div style="font-weight:700;color:var(--navy)">' + t.cohenD.toFixed(2) + '</div></div>' +
         '</div>' +
       '</div>';
   });
   html += '</div>';
 
-  // 안내
+  // 학술 안내 — 한국 교육·심리학 논문 정식 표기
   html +=
     '<div style="margin-top:14px;padding:10px 12px;border-radius:8px;background:#fafafa;font-size:10.5px;color:var(--gray);line-height:1.7">' +
-      '💡 <strong>해석</strong>: ↑ 상승 / ↓ 하락. p < .05면 통계적 유의 변화. ' +
-      'Cohen\'s d ≥ 0.5 중간 변화 / ≥ 0.8 큰 변화. ' +
-      'paired t-test는 1차·2차 둘 다 응답한 학생만 분석.' +
+      '💡 <strong>해석 안내</strong><br>' +
+      '· <strong>유의확률 (p)</strong>: p < .05이면 사전·사후 평균 차이가 통계적으로 유의함<br>' +
+      '· <strong>효과크기 (Cohen\'s d)</strong>: .20 작은 효과 / .50 중간 효과 / .80 큰 효과 (Cohen, 1988)<br>' +
+      '· <strong>대응표본 t-검정</strong>: 사전·사후 모두 응답한 학생만 분석에 포함됨' +
     '</div>';
 
   body.innerHTML = html;
