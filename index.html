@@ -19896,10 +19896,11 @@ async function _openTeacherSelClassModal() {
         '<button id="selClassPhase1" onclick="_teacherSelSwitchPhase(1)" style="flex:1;padding:8px;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;border:1.5px solid var(--lgray);background:#fff;color:var(--gray)">📅 1차</button>' +
         '<button id="selClassPhase2" onclick="_teacherSelSwitchPhase(2)" style="flex:1;padding:8px;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;border:1.5px solid var(--lgray);background:#fff;color:var(--gray)">📅 2차</button>' +
       '</div>' +
-      // 모드 토글 (학생별 / 문항별 — KICE 권고)
+      // 모드 토글 (학생별 / 문항별 / 통계 — KICE 권고 + 92차 사전·사후 비교)
       '<div style="display:flex;gap:6px;margin-bottom:14px">' +
         '<button id="selClassModeStudent" onclick="_teacherSelSwitchMode(\'student\')" style="flex:1;padding:8px;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;border:1.5px solid var(--lgray);background:#fff;color:var(--gray)">👤 학생별</button>' +
         '<button id="selClassModeQuestion" onclick="_teacherSelSwitchMode(\'question\')" style="flex:1;padding:8px;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;border:1.5px solid var(--lgray);background:#fff;color:var(--gray)">📝 문항별</button>' +
+        '<button id="selClassModeStats" onclick="_teacherSelSwitchMode(\'stats\')" style="flex:1;padding:8px;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;border:1.5px solid var(--lgray);background:#fff;color:var(--gray)">📊 통계</button>' +
       '</div>' +
       '<div id="selClassBody" style="flex:1;min-height:200px;overflow-y:auto"></div>' +
     '</div>';
@@ -19933,10 +19934,11 @@ async function _renderTeacherSelClassList() {
     el.style.color = on ? '#fff' : 'var(--gray)';
     el.style.borderColor = on ? '#7ed6c0' : 'var(--lgray)';
   });
-  ['selClassModeStudent','selClassModeQuestion'].forEach(function(id, i){
+  // 92차: 'stats' 모드 추가 — 사전·사후 paired t-test
+  ['selClassModeStudent','selClassModeQuestion','selClassModeStats'].forEach(function(id, i){
     var el = document.getElementById(id);
     if (!el) return;
-    var modeKey = i === 0 ? 'student' : 'question';
+    var modeKey = i === 0 ? 'student' : (i === 1 ? 'question' : 'stats');
     var on = modeKey === _teacherSelClassMode;
     el.style.background = on ? '#5a8aa0' : '#fff';
     el.style.color = on ? '#fff' : 'var(--gray)';
@@ -19968,8 +19970,12 @@ async function _renderTeacherSelClassList() {
 
   if (_teacherSelClassMode === 'student') {
     _renderTeacherSelStudentMode(body, students, rowsByStu);
-  } else {
+  } else if (_teacherSelClassMode === 'question') {
+    // 92차: 문항별 모드는 28문항 응답 데이터 추가 fetch 필요 (Q1~Q28 + r1_score~r7_score)
     _renderTeacherSelQuestionMode(body, students, rowsByStu);
+  } else if (_teacherSelClassMode === 'stats') {
+    // 92차: 통계 모드 — 1차·2차 paired t-test (사전·사후 비교)
+    _renderTeacherSelStatsMode(body, students);
   }
 }
 
@@ -20043,9 +20049,346 @@ async function _teacherSelStartClassPhaseClick(phase) {
   }
 }
 
-function _renderTeacherSelQuestionMode(body, students, rowsByStu) {
-  // Step B 다음 차수에 정밀 구현 — KICE 권고 학급 일관성 확보
-  body.innerHTML = '<div style="text-align:center;color:var(--gray);font-size:13px;padding:30px 0;line-height:1.7">📝 문항별 모드는 다음 업데이트에 추가됩니다.<br>지금은 학생별 모드로 진행해주세요.</div>';
+// 92차 (변쌤 명시 답습): 문항별 모드 실제 구현 — KICE 권고 학급 일관성 확보
+//   28문항 카드 grid. 각 카드 = 영역 색 dot + 학급 평균 + 5점 척도 분포 막대 + 미응답 수
+//   분산 큰 문항(학급 일관성 낮음) 시각적 발견. 영역 평균은 통계 탭과 정합.
+async function _renderTeacherSelQuestionMode(body, students, rowsByStu) {
+  body.innerHTML = '<div style="text-align:center;color:var(--gray);font-size:12px;padding:30px 0">불러오는 중...</div>';
+
+  var stuUids = students.map(function(s){ return s.student_uid; });
+  if (!stuUids.length) { body.innerHTML = '<div style="text-align:center;color:var(--gray);font-size:13px;padding:30px 0">학생이 없어요</div>'; return; }
+
+  // 28문항 응답 일괄 fetch (Supabase 직접)
+  var qCols = [];
+  for (var qi = 1; qi <= 28; qi++) qCols.push('q' + qi);
+  var rows = [];
+  try {
+    rows = await _sbFetch('sel_assessment', {
+      student_uid: 'in.(' + stuUids.join(',') + ')',
+      phase: 'eq.' + _teacherSelClassPhase,
+      status: 'in.(in_progress,done)',  // skipped·cancelled 제외
+      select: 'student_uid,status,' + qCols.join(',')
+    }) || [];
+  } catch(e) {
+    console.error('[SEL Q-MODE FETCH]', e && e.message || e);
+    body.innerHTML = '<div style="text-align:center;color:var(--gray);font-size:13px;padding:30px 0">데이터를 불러오지 못했어요</div>';
+    return;
+  }
+  if (!rows.length) {
+    body.innerHTML = '<div style="text-align:center;color:var(--gray);font-size:13px;padding:30px 0;line-height:1.7">아직 ' + _teacherSelClassPhase + '차 진단 응답이 없어요.<br>학생별 탭에서 「📣 ' + _teacherSelClassPhase + '차 진단 시작하기」 버튼을 눌러 시작해주세요.</div>';
+    return;
+  }
+
+  // R1~R7 영역 색 (--sel-r1~r7 CSS 변수 답습)
+  var docStyle = getComputedStyle(document.documentElement);
+  var rColors = [];
+  for (var ri = 1; ri <= 7; ri++) rColors.push(docStyle.getPropertyValue('--sel-r' + ri).trim() || '#ccc');
+  var rLabels = (typeof _SEL_R_LABELS_ARR !== 'undefined') ? _SEL_R_LABELS_ARR : ['','','','','','',''];
+
+  // 28문항 통계 산출 — 평균·분포·미응답·R 영역
+  var stats = [];
+  for (var q = 1; q <= 28; q++) {
+    var rIdx = Math.floor((q - 1) / 4);  // 0~6 → R1~R7
+    var dist = [0, 0, 0, 0, 0, 0];  // index 0=미응답, 1~5=점수
+    var sum = 0, cnt = 0;
+    rows.forEach(function(r) {
+      var v = parseInt(r['q' + q], 10);
+      if (v >= 1 && v <= 5) { dist[v]++; sum += v; cnt++; }
+      else dist[0]++;
+    });
+    var avg = cnt > 0 ? (sum / cnt) : 0;
+    // 분산 — 학급 일관성 평가 (작을수록 일관성 높음)
+    var sqSum = 0;
+    if (cnt > 0) {
+      rows.forEach(function(r) {
+        var v = parseInt(r['q' + q], 10);
+        if (v >= 1 && v <= 5) { var d = v - avg; sqSum += d * d; }
+      });
+    }
+    var variance = cnt > 0 ? (sqSum / cnt) : 0;
+    stats.push({
+      q: q, rIdx: rIdx, rColor: rColors[rIdx], rLabel: rLabels[rIdx],
+      avg: avg, cnt: cnt, missing: dist[0], dist: dist, variance: variance
+    });
+  }
+
+  // 분산 max로 일관성 낮은 문항 표시 위해 임계
+  var maxVar = 0;
+  stats.forEach(function(s){ if (s.variance > maxVar) maxVar = s.variance; });
+  var lowConsistencyThreshold = maxVar * 0.7;
+
+  // 헤더 — 학급 응답 수·미응답 수 + 일관성 안내
+  var totalResponses = rows.length;
+  var html =
+    '<div style="margin-bottom:10px;padding:10px 12px;border-radius:10px;background:#fafafa;display:flex;justify-content:space-between;align-items:center;font-size:11.5px">' +
+      '<span style="color:var(--navy);font-weight:700">📝 ' + _teacherSelClassPhase + '차 · 응답 학생 ' + totalResponses + '명</span>' +
+      '<span style="color:var(--gray)">⚠️ 빨강 테두리 = 학급 일관성 낮음 (분산 큼)</span>' +
+    '</div>';
+
+  // 28문항 카드 grid
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">';
+  stats.forEach(function(s) {
+    var lowConsistency = s.cnt > 0 && s.variance >= lowConsistencyThreshold && maxVar > 0.3;
+    var border = lowConsistency ? '1.5px solid #d9455f' : '1.5px solid var(--lgray)';
+    var bg = lowConsistency ? '#fff8f8' : '#fff';
+    html +=
+      '<div style="padding:9px 10px;border-radius:10px;border:' + border + ';background:' + bg + '">' +
+        // 1행: R 영역 dot + Q번호 + 평균
+        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">' +
+          '<div style="width:8px;height:8px;border-radius:50%;background:' + s.rColor + ';flex-shrink:0"></div>' +
+          '<div style="font-size:11.5px;font-weight:700;color:var(--navy)">Q' + s.q + '</div>' +
+          '<div style="margin-left:auto;font-size:13px;font-weight:700;color:' + s.rColor + '">' + (s.cnt > 0 ? s.avg.toFixed(2) : '—') + '</div>' +
+        '</div>' +
+        // 2행: 5점 분포 막대 (1~5)
+        '<div style="display:flex;gap:1px;height:16px;border-radius:3px;overflow:hidden;background:#f0ede8;margin-bottom:4px">' +
+          (function(){
+            var bars = '';
+            // 5점 척도 색: 1=빨강, 2=주황, 3=노랑, 4=연두, 5=초록
+            var scaleColors = ['#d9455f', '#e67e22', '#e8c547', '#9bc53d', '#5fbf5a'];
+            for (var v = 1; v <= 5; v++) {
+              var pct = s.cnt > 0 ? (s.dist[v] / s.cnt * 100) : 0;
+              if (pct > 0) {
+                bars += '<div title="' + v + '점: ' + s.dist[v] + '명" style="width:' + pct.toFixed(1) + '%;background:' + scaleColors[v-1] + '"></div>';
+              }
+            }
+            return bars;
+          })() +
+        '</div>' +
+        // 3행: 응답 수 + 미응답
+        '<div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--gray)">' +
+          '<span>R' + (s.rIdx + 1) + ' ' + _escHtml(s.rLabel) + '</span>' +
+          '<span>' + s.cnt + '응답' + (s.missing > 0 ? ' · ' + s.missing + '미응답' : '') + '</span>' +
+        '</div>' +
+      '</div>';
+  });
+  html += '</div>';
+  html += '<div style="margin-top:12px;font-size:11px;color:var(--gray);line-height:1.6;padding:8px 10px;background:#fafafa;border-radius:8px">💡 분포 막대는 1점(빨강)~5점(초록) 학생 응답 비율. 빨강 테두리 문항은 학생들 답이 많이 갈렸어요 — 후속 지도 점검 추천.</div>';
+  body.innerHTML = html;
+}
+
+// 92차 (변쌤 명시 답습): 통계 모드 — 1차·2차 paired t-test 사전·사후 비교
+//   학급 단위 7역량별 평균·SD·t값·p값·Cohen's d. 1차·2차 둘 다 done인 학생만 paired
+//   1차만 또는 2차만 있는 학생은 통계에서 제외 (paired sample)
+//   통계 함수: _ttestPaired (직접 구현 — 외부 라이브러리 없음)
+async function _renderTeacherSelStatsMode(body, students) {
+  body.innerHTML = '<div style="text-align:center;color:var(--gray);font-size:12px;padding:30px 0">사전·사후 비교 통계 산출 중이에요 📊</div>';
+
+  var stuUids = students.map(function(s){ return s.student_uid; });
+  if (!stuUids.length) { body.innerHTML = '<div style="text-align:center;color:var(--gray);font-size:13px;padding:30px 0">학생이 없어요</div>'; return; }
+
+  // 1차·2차 done row 일괄 fetch — 7역량 점수
+  var rows = [];
+  try {
+    rows = await _sbFetch('sel_assessment', {
+      student_uid: 'in.(' + stuUids.join(',') + ')',
+      status: 'eq.done',
+      select: 'student_uid,phase,r1_score,r2_score,r3_score,r4_score,r5_score,r6_score,r7_score,total_score,completed_at'
+    }) || [];
+  } catch(e) {
+    console.error('[SEL STATS FETCH]', e && e.message || e);
+    body.innerHTML = '<div style="text-align:center;color:var(--gray);font-size:13px;padding:30px 0">데이터를 불러오지 못했어요</div>';
+    return;
+  }
+
+  // 학생별 phase별 정리
+  var byStu = {};
+  rows.forEach(function(r) {
+    if (!r || !r.student_uid) return;
+    byStu[r.student_uid] = byStu[r.student_uid] || {};
+    byStu[r.student_uid][r.phase] = r;
+  });
+
+  // paired — 1차·2차 둘 다 done인 학생만
+  var paired = [];
+  Object.keys(byStu).forEach(function(uid) {
+    if (byStu[uid][1] && byStu[uid][2]) paired.push({ uid:uid, p1:byStu[uid][1], p2:byStu[uid][2] });
+  });
+
+  var phase1Cnt = Object.keys(byStu).filter(function(uid){ return byStu[uid][1]; }).length;
+  var phase2Cnt = Object.keys(byStu).filter(function(uid){ return byStu[uid][2]; }).length;
+
+  // 헤더 — paired sample 안내
+  var html =
+    '<div style="margin-bottom:12px;padding:12px 14px;border-radius:10px;background:linear-gradient(135deg,#eaf6f0,#f0f7fc);border:1px solid #d8e9e0">' +
+      '<div style="font-size:13px;color:var(--navy);font-weight:700;margin-bottom:4px">📊 사전·사후 paired t-test</div>' +
+      '<div style="font-size:11px;color:var(--gray);line-height:1.6">1차 ' + phase1Cnt + '명 · 2차 ' + phase2Cnt + '명 · 둘 다 완료 ' + paired.length + '명 (paired)</div>' +
+    '</div>';
+
+  if (paired.length < 2) {
+    html += '<div style="text-align:center;color:var(--gray);font-size:13px;padding:30px 0;line-height:1.7">paired 분석을 위해 1차·2차 둘 다 완료한 학생이<br><strong>2명 이상</strong> 필요해요.<br>현재 ' + paired.length + '명입니다.</div>';
+    body.innerHTML = html;
+    return;
+  }
+
+  // R1~R7 영역 정보
+  var docStyle = getComputedStyle(document.documentElement);
+  var rColors = [];
+  for (var ri = 1; ri <= 7; ri++) rColors.push(docStyle.getPropertyValue('--sel-r' + ri).trim() || '#ccc');
+  var rLabels = (typeof _SEL_R_LABELS_ARR !== 'undefined') ? _SEL_R_LABELS_ARR : ['','','','','','',''];
+
+  // 7역량별 + total paired t-test 계산
+  var rows2 = [];
+  ['r1','r2','r3','r4','r5','r6','r7','total'].forEach(function(key, kIdx) {
+    var pre = [], post = [];
+    paired.forEach(function(p) {
+      var v1 = parseFloat(p.p1[key + '_score']);
+      var v2 = parseFloat(p.p2[key + '_score']);
+      if (!isNaN(v1) && !isNaN(v2)) { pre.push(v1); post.push(v2); }
+    });
+    if (pre.length < 2) return;
+    var t = _ttestPaired(pre, post);
+    rows2.push({ key:key, kIdx:kIdx, t:t, pre:pre, post:post,
+                 color: kIdx < 7 ? rColors[kIdx] : '#5a8aa0',
+                 label: kIdx < 7 ? ('R' + (kIdx+1) + ' ' + rLabels[kIdx]) : '총점',
+                 maxScore: kIdx < 7 ? 20 : 140 });
+  });
+
+  // 카드 grid — 영역별 통계
+  html += '<div style="display:grid;grid-template-columns:1fr;gap:8px">';
+  rows2.forEach(function(r) {
+    var t = r.t;
+    var diff = t.meanDiff;  // post - pre
+    var direction = diff > 0 ? '↑' : (diff < 0 ? '↓' : '');
+    var directionColor = diff > 0 ? '#5fbf5a' : (diff < 0 ? '#d9455f' : 'var(--gray)');
+    // 효과 크기 라벨 (Cohen 1988: 0.2 small, 0.5 medium, 0.8 large)
+    var dAbs = Math.abs(t.cohenD);
+    var effLabel = dAbs >= 0.8 ? '큰 변화' : (dAbs >= 0.5 ? '중간 변화' : (dAbs >= 0.2 ? '작은 변화' : '미미'));
+    var sigLabel = t.pValue < 0.001 ? '*** (p<.001)' : (t.pValue < 0.01 ? '** (p<.01)' : (t.pValue < 0.05 ? '* (p<.05)' : 'n.s.'));
+    var sigColor = t.pValue < 0.05 ? '#5fbf5a' : 'var(--gray)';
+
+    html +=
+      '<div style="padding:12px 14px;border-radius:12px;border:1.5px solid var(--lgray);background:#fff;border-left:4px solid ' + r.color + '">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:10px">' +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:2px">' + _escHtml(r.label) + '</div>' +
+            '<div style="font-size:10.5px;color:' + sigColor + ';font-weight:700">' + sigLabel + ' · ' + effLabel + '</div>' +
+          '</div>' +
+          '<div style="text-align:right">' +
+            '<div style="font-size:18px;font-weight:700;color:' + directionColor + '">' + direction + ' ' + Math.abs(diff).toFixed(2) + '</div>' +
+            '<div style="font-size:10px;color:var(--gray)">/ ' + r.maxScore + '점 만점</div>' +
+          '</div>' +
+        '</div>' +
+        // 통계 표 — 평균·SD·t값·p값·Cohen's d
+        '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;font-size:10.5px;text-align:center;padding-top:8px;border-top:1px dashed var(--lgray)">' +
+          '<div><div style="color:var(--gray);margin-bottom:2px">1차 평균</div><div style="font-weight:700;color:var(--navy)">' + t.preMean.toFixed(2) + '</div><div style="color:var(--gray);font-size:9px">SD ' + t.preSD.toFixed(2) + '</div></div>' +
+          '<div><div style="color:var(--gray);margin-bottom:2px">2차 평균</div><div style="font-weight:700;color:var(--navy)">' + t.postMean.toFixed(2) + '</div><div style="color:var(--gray);font-size:9px">SD ' + t.postSD.toFixed(2) + '</div></div>' +
+          '<div><div style="color:var(--gray);margin-bottom:2px">t값</div><div style="font-weight:700;color:var(--navy)">' + t.tStat.toFixed(2) + '</div><div style="color:var(--gray);font-size:9px">df ' + t.df + '</div></div>' +
+          '<div><div style="color:var(--gray);margin-bottom:2px">p값</div><div style="font-weight:700;color:' + sigColor + '">' + (t.pValue < 0.001 ? '<.001' : t.pValue.toFixed(3)) + '</div></div>' +
+          '<div><div style="color:var(--gray);margin-bottom:2px">Cohen\'s d</div><div style="font-weight:700;color:var(--navy)">' + t.cohenD.toFixed(2) + '</div></div>' +
+        '</div>' +
+      '</div>';
+  });
+  html += '</div>';
+
+  // 안내
+  html +=
+    '<div style="margin-top:14px;padding:10px 12px;border-radius:8px;background:#fafafa;font-size:10.5px;color:var(--gray);line-height:1.7">' +
+      '💡 <strong>해석</strong>: ↑ 상승 / ↓ 하락. p < .05면 통계적 유의 변화. ' +
+      'Cohen\'s d ≥ 0.5 중간 변화 / ≥ 0.8 큰 변화. ' +
+      'paired t-test는 1차·2차 둘 다 응답한 학생만 분석.' +
+    '</div>';
+
+  body.innerHTML = html;
+}
+
+// 92차: paired t-test 직접 구현 (외부 라이브러리 없음)
+//   pre·post 같은 길이 배열. df = n-1.
+//   p값은 t분포 CDF — Abramowitz & Stegun 26.7.8 근사 (df 2~∞ 정확도 높음)
+function _ttestPaired(pre, post) {
+  var n = pre.length;
+  if (n < 2) return null;
+  var diffs = [], sumD = 0;
+  for (var i = 0; i < n; i++) { var d = post[i] - pre[i]; diffs.push(d); sumD += d; }
+  var meanD = sumD / n;
+  // pre·post 평균·SD
+  var sumPre = 0, sumPost = 0;
+  for (var j = 0; j < n; j++) { sumPre += pre[j]; sumPost += post[j]; }
+  var preMean = sumPre / n, postMean = sumPost / n;
+  var sqPre = 0, sqPost = 0, sqD = 0;
+  for (var k = 0; k < n; k++) {
+    sqPre += (pre[k] - preMean) * (pre[k] - preMean);
+    sqPost += (post[k] - postMean) * (post[k] - postMean);
+    sqD += (diffs[k] - meanD) * (diffs[k] - meanD);
+  }
+  var preSD = Math.sqrt(sqPre / (n - 1));
+  var postSD = Math.sqrt(sqPost / (n - 1));
+  var sdD = Math.sqrt(sqD / (n - 1));
+  var seD = sdD / Math.sqrt(n);
+  var tStat = seD > 0 ? (meanD / seD) : 0;
+  var df = n - 1;
+  // Cohen's d (paired) = mean(diff) / SD(diff)
+  var cohenD = sdD > 0 ? (meanD / sdD) : 0;
+  // 양측 p값 — t분포 cdf 근사
+  var pValue = _tDistTwoSidedP(Math.abs(tStat), df);
+  return {
+    n:n, meanDiff:meanD, preMean:preMean, postMean:postMean,
+    preSD:preSD, postSD:postSD, sdDiff:sdD,
+    tStat:tStat, df:df, pValue:pValue, cohenD:cohenD
+  };
+}
+
+// t분포 양측 p값 — Abramowitz & Stegun 근사 (df ≥ 2에서 0.01 이하 오차)
+//   Hill's approximation (1970) — JS 통계 라이브러리들도 동일 공식 사용
+function _tDistTwoSidedP(absT, df) {
+  if (absT === 0) return 1.0;
+  if (df < 1) return 1.0;
+  // Hill's algorithm 396 — t에서 p (양측)
+  var x = df / (df + absT * absT);
+  var p = _incompleteBeta(x, df / 2, 0.5);
+  return Math.max(0, Math.min(1, p));
+}
+
+// 불완전 베타 함수 — 연분수 근사 (Numerical Recipes)
+function _incompleteBeta(x, a, b) {
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  var lbeta = _logGamma(a) + _logGamma(b) - _logGamma(a + b);
+  var bt = Math.exp(-lbeta + a * Math.log(x) + b * Math.log(1 - x));
+  if (x < (a + 1) / (a + b + 2)) {
+    return bt * _betacf(x, a, b) / a;
+  } else {
+    return 1 - bt * _betacf(1 - x, b, a) / b;
+  }
+}
+
+function _betacf(x, a, b) {
+  var maxIter = 100, eps = 3e-7;
+  var qab = a + b, qap = a + 1, qam = a - 1;
+  var c = 1, d = 1 - qab * x / qap;
+  if (Math.abs(d) < 1e-30) d = 1e-30;
+  d = 1 / d;
+  var h = d;
+  for (var m = 1; m <= maxIter; m++) {
+    var m2 = 2 * m;
+    var aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+    d = 1 + aa * d;
+    if (Math.abs(d) < 1e-30) d = 1e-30;
+    c = 1 + aa / c;
+    if (Math.abs(c) < 1e-30) c = 1e-30;
+    d = 1 / d;
+    h *= d * c;
+    aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+    d = 1 + aa * d;
+    if (Math.abs(d) < 1e-30) d = 1e-30;
+    c = 1 + aa / c;
+    if (Math.abs(c) < 1e-30) c = 1e-30;
+    d = 1 / d;
+    var del = d * c;
+    h *= del;
+    if (Math.abs(del - 1) < eps) break;
+  }
+  return h;
+}
+
+// 로그 감마 — Lanczos 근사 (Numerical Recipes)
+function _logGamma(x) {
+  var coef = [76.18009172947146, -86.50532032941677, 24.01409824083091,
+              -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+  var ser = 1.000000000190015;
+  var xx = x, y = x, tmp = x + 5.5;
+  tmp -= (xx + 0.5) * Math.log(tmp);
+  for (var j = 0; j < 6; j++) { y++; ser += coef[j] / y; }
+  return -tmp + Math.log(2.5066282746310005 * ser / xx);
 }
 
 async function _teacherSelStartForStudent(student_uid, student_name, grade) {
